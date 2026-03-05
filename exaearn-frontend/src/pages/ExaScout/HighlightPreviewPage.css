@@ -1,0 +1,95 @@
+.highlight-preview-page .hp-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 30% 8%, rgba(0, 0, 0, 0.95), transparent 72%);
+}
+
+.highlight-preview-page .hp-orb {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  filter: blur(52px);
+  opacity: 0.22;
+}
+
+.highlight-preview-page .hp-orb-a {
+  top: -55px;
+  right: 9%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.6), transparent 68%);
+  animation: hpFloat 12s ease-in-out infinite;
+}
+
+.highlight-preview-page .hp-orb-b {
+  bottom: -70px;
+  left: -60px;
+  background: radial-gradient(circle, rgba(248, 248, 248, 0.24), transparent 72%);
+  animation: hpFloat 14s ease-in-out infinite reverse;
+}
+
+.highlight-preview-page .hp-action,
+.highlight-preview-page .hp-action-full {
+  border: 1px solid rgba(248, 248, 248, 0.22);
+  border-radius: 0.65rem;
+  background: rgba(248, 248, 248, 0.04);
+  color: #f8f8f8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.45rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.highlight-preview-page .hp-action:hover,
+.highlight-preview-page .hp-action-full:hover {
+  border-color: rgba(212, 175, 55, 0.7);
+  transform: translateY(-1px);
+}
+
+.highlight-preview-page .hp-action-full {
+  justify-content: center;
+  width: 100%;
+}
+
+.highlight-preview-page .hp-chip {
+  border: 1px solid rgba(248, 248, 248, 0.12);
+  border-radius: 0.65rem;
+  background: rgba(248, 248, 248, 0.03);
+  padding: 0.5rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.highlight-preview-page .hp-chain-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(130deg, rgba(248, 248, 248, 0.03), rgba(248, 248, 248, 0.01)),
+    radial-gradient(circle at 20% 20%, rgba(212, 175, 55, 0.16), transparent 45%);
+}
+
+.highlight-preview-page .hp-chain-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.45;
+}
+
+@keyframes hpFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
+  }
+}

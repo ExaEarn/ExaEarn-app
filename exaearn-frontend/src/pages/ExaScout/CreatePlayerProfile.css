@@ -1,0 +1,92 @@
+.create-player-page .cpp-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 30% 10%, rgba(0, 0, 0, 0.95), transparent 72%);
+}
+
+.create-player-page .cpp-orb {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  filter: blur(50px);
+  opacity: 0.22;
+}
+
+.create-player-page .cpp-orb-a {
+  top: -55px;
+  right: 8%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.62), transparent 68%);
+  animation: cppFloat 12s ease-in-out infinite;
+}
+
+.create-player-page .cpp-orb-b {
+  bottom: -70px;
+  left: -60px;
+  background: radial-gradient(circle, rgba(248, 248, 248, 0.24), transparent 72%);
+  animation: cppFloat 14s ease-in-out infinite reverse;
+}
+
+.create-player-page .cpp-input {
+  margin-top: 0.45rem;
+  width: 100%;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(248, 248, 248, 0.18);
+  background: rgba(248, 248, 248, 0.03);
+  color: #f8f8f8;
+  padding: 0.62rem 0.75rem;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.create-player-page .cpp-input:focus {
+  border-color: rgba(212, 175, 55, 0.85);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.create-player-page .cpp-slider {
+  accent-color: #d4af37;
+}
+
+.create-player-page .cpp-dropzone {
+  border: 1px dashed rgba(212, 175, 55, 0.5);
+  border-radius: 0.85rem;
+  background: rgba(248, 248, 248, 0.03);
+  padding: 0.75rem;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.create-player-page .cpp-dropzone:hover {
+  border-color: rgba(212, 175, 55, 0.95);
+  transform: translateY(-1px);
+}
+
+.create-player-page .cpp-chain-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(130deg, rgba(248, 248, 248, 0.03), rgba(248, 248, 248, 0.01)),
+    radial-gradient(circle at 20% 20%, rgba(212, 175, 55, 0.16), transparent 45%);
+}
+
+.create-player-page .cpp-chain-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.45;
+}
+
+@keyframes cppFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
+  }
+}

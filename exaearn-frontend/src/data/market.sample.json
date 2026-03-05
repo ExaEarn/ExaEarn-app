@@ -1,0 +1,12 @@
+[
+  { "pair": "USDC/USDT", "last": 1.0, "fiat": 1.0, "change24h": -0.01, "volume": "1.84B", "leverage": "10x", "favorite": false },
+  { "pair": "BTC/USDT", "last": 68054.45, "fiat": 68054.45, "change24h": -1.54, "volume": "1.70B", "favorite": true },
+  { "pair": "ETH/USDT", "last": 1967.82, "fiat": 1967.82, "change24h": -3.3, "volume": "973.49M", "favorite": false },
+  { "pair": "XRP/USDT", "last": 1.3572, "fiat": 1.3572, "change24h": -2.6, "volume": "181.08M", "favorite": false },
+  { "pair": "SOL/USDT", "last": 154.27, "fiat": 154.27, "change24h": 4.18, "volume": "642.25M", "leverage": "5x", "favorite": false },
+  { "pair": "BNB/USDT", "last": 522.88, "fiat": 522.88, "change24h": 1.12, "volume": "488.60M", "favorite": false },
+  { "pair": "DOGE/USDT", "last": 0.2142, "fiat": 0.2142, "change24h": 3.48, "volume": "355.91M", "favorite": false },
+  { "pair": "ADA/USDT", "last": 0.6548, "fiat": 0.6548, "change24h": -0.88, "volume": "291.14M", "favorite": false },
+  { "pair": "AVAX/USDT", "last": 37.92, "fiat": 37.92, "change24h": 2.14, "volume": "265.77M", "favorite": false },
+  { "pair": "TON/USDT", "last": 6.44, "fiat": 6.44, "change24h": -1.05, "volume": "188.03M", "favorite": false }
+]

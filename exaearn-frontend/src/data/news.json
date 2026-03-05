@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "title": "ExaEarn Introduces Cross-Ecosystem Rewards Hub",
+    "category": "Ecosystem News",
+    "date": "2026-02-20",
+    "summary": "A unified rewards layer now connects ExaToken incentives across campaigns, NFT activity, and giftcard operations.",
+    "image": "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80",
+    "featured": true
+  },
+  {
+    "id": 2,
+    "title": "ExaEarn and NovaPay Announce Settlement Collaboration",
+    "category": "Partnership News",
+    "date": "2026-02-14",
+    "summary": "The partnership expands secure merchant settlement pathways for marketplace and campaign transactions.",
+    "image": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1200&q=80",
+    "featured": true
+  },
+  {
+    "id": 3,
+    "title": "Community Booster Campaign Surpasses Participation Target",
+    "category": "Campaign Updates",
+    "date": "2026-02-09",
+    "summary": "Participation exceeded 18,000 verified actions, unlocking additional reward multipliers for active users.",
+    "image": "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
+    "featured": false
+  },
+  {
+    "id": 4,
+    "title": "Security Review Window Scheduled for Marketplace Expansion",
+    "category": "Announcements",
+    "date": "2026-02-03",
+    "summary": "A protocol-level review period is planned before next-phase NFT listing and treasury routing updates.",
+    "image": "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=1200&q=80",
+    "featured": false
+  },
+  {
+    "id": 5,
+    "title": "Referral Wave 3 Campaign Opens With New Reward Milestones",
+    "category": "Campaign Updates",
+    "date": "2026-01-30",
+    "summary": "Wave 3 introduces progressive tier milestones and improved campaign performance tracking for ambassadors.",
+    "image": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80",
+    "featured": false
+  },
+  {
+    "id": 6,
+    "title": "ExaEarn Governance Briefing Released for Q2",
+    "category": "Announcements",
+    "date": "2026-01-22",
+    "summary": "The latest governance note outlines product priorities, incentive tuning, and treasury transparency goals.",
+    "image": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+    "featured": true
+  },
+  {
+    "id": 7,
+    "title": "Creator Program Adds New NFT Utility Tracks",
+    "category": "Ecosystem News",
+    "date": "2026-01-18",
+    "summary": "New utility tracks enable creators to connect NFT ownership with campaign access and ecosystem perks.",
+    "image": "https://images.unsplash.com/photo-1642104704074-907c0698f7bd?auto=format&fit=crop&w=1200&q=80",
+    "featured": false
+  },
+  {
+    "id": 8,
+    "title": "Payment Infrastructure Partner Onboards Regional Rails",
+    "category": "Partnership News",
+    "date": "2026-01-11",
+    "summary": "Regional rails integration improves checkout reliability for digital goods and value exchange services.",
+    "image": "https://images.unsplash.com/photo-1589758438368-0ad531db3366?auto=format&fit=crop&w=1200&q=80",
+    "featured": false
+  }
+]

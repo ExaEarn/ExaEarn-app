@@ -1,0 +1,142 @@
+.subscription-page .chain-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(212, 175, 55, 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 30% 12%, rgba(0, 0, 0, 0.95), transparent 72%);
+}
+
+.subscription-page .gold-particle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.88), rgba(212, 175, 55, 0));
+  filter: blur(0.8px);
+  animation: floatUp 9s linear infinite;
+}
+
+.subscription-page .p1 {
+  left: 10%;
+  bottom: -10px;
+}
+
+.subscription-page .p2 {
+  left: 60%;
+  bottom: -18px;
+  animation-delay: 1.8s;
+}
+
+.subscription-page .p3 {
+  left: 85%;
+  bottom: -26px;
+  animation-delay: 3.2s;
+}
+
+.subscription-page .eth-motion {
+  position: relative;
+  min-height: 170px;
+  overflow: hidden;
+}
+
+.subscription-page .node {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #d4af37;
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.55);
+  animation: pulse 2.6s ease-in-out infinite;
+}
+
+.subscription-page .n1 {
+  top: 14%;
+  left: 15%;
+}
+
+.subscription-page .n2 {
+  top: 30%;
+  right: 20%;
+  animation-delay: 0.5s;
+}
+
+.subscription-page .n3 {
+  bottom: 18%;
+  right: 30%;
+  animation-delay: 1s;
+}
+
+.subscription-page .n4 {
+  bottom: 24%;
+  left: 24%;
+  animation-delay: 1.5s;
+}
+
+.subscription-page .link {
+  position: absolute;
+  height: 1px;
+  transform-origin: left center;
+  background: linear-gradient(to right, rgba(212, 175, 55, 0.7), rgba(248, 248, 248, 0.08));
+}
+
+.subscription-page .l1 {
+  top: 18%;
+  left: 17%;
+  width: 56%;
+}
+
+.subscription-page .l2 {
+  top: 32%;
+  right: 24%;
+  width: 28%;
+  transform: rotate(57deg);
+}
+
+.subscription-page .l3 {
+  bottom: 25%;
+  left: 25%;
+  width: 40%;
+}
+
+.subscription-page .timeline-link {
+  position: absolute;
+  top: 50%;
+  right: -13px;
+  width: 26px;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(to right, rgba(212, 175, 55, 0.88), rgba(212, 175, 55, 0.2));
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-540px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  .subscription-page .timeline-link {
+    display: none;
+  }
+}

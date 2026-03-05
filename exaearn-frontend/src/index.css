@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap");
+
+:root {
+  font-family: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #f5f0ff;
+  background-color: #080612;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  background: #080612;
+  color: #f5f0ff;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+html[data-theme="light"] body {
+  background: #f4f6fb;
+  color: #111827;
+}
+
+html[data-theme="light"] #root {
+  color: #111827;
+}
+
+/* Broad utility overrides so existing dark-tailwind views render in light mode. */
+html[data-theme="light"] [class*="text-violet-"],
+html[data-theme="light"] [class*="text-gray-"],
+html[data-theme="light"] [class*="text-white"],
+html[data-theme="light"] [class*="text-auric-"],
+html[data-theme="light"] [class*="text-cosmic-"] {
+  color: #1f2937 !important;
+}
+
+html[data-theme="light"] [class*="bg-cosmic-"],
+html[data-theme="light"] [class*="bg-[#140c24]"],
+html[data-theme="light"] [class*="bg-[#120b22]"],
+html[data-theme="light"] [class*="bg-[#140a24]"],
+html[data-theme="light"] [class*="from-cosmic-"],
+html[data-theme="light"] [class*="via-cosmic-"],
+html[data-theme="light"] [class*="to-cosmic-"],
+html[data-theme="light"] [class*="from-[#07050f]"],
+html[data-theme="light"] [class*="via-[#130a23]"],
+html[data-theme="light"] [class*="to-[#1d1134]"] {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+html[data-theme="light"] [class*="border-violet-"],
+html[data-theme="light"] [class*="border-cosmic-"] {
+  border-color: rgba(148, 163, 184, 0.35) !important;
+}

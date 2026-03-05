@@ -1,0 +1,70 @@
+.token-bg {
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(131, 86, 255, 0.24), transparent 45%),
+    radial-gradient(ellipse at 88% 0%, rgba(240, 190, 86, 0.2), transparent 38%),
+    radial-gradient(circle at 48% 100%, rgba(168, 115, 255, 0.2), transparent 52%),
+    linear-gradient(180deg, #07050f 0%, #0e0a1b 48%, #110b20 100%);
+}
+
+.token-shell {
+  background: linear-gradient(160deg, rgba(18, 13, 34, 0.86), rgba(10, 8, 20, 0.82));
+  border: 1px solid rgba(163, 119, 255, 0.26);
+  box-shadow:
+    0 0 35px rgba(127, 70, 212, 0.24),
+    0 28px 56px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.token-card {
+  background: linear-gradient(160deg, rgba(28, 19, 53, 0.84), rgba(13, 10, 25, 0.84));
+  border: 1px solid rgba(244, 207, 126, 0.26);
+  box-shadow:
+    0 0 28px rgba(127, 70, 212, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.token-metallic {
+  background: linear-gradient(180deg, #eef1f8 0%, #c5ceda 28%, #8e9aab 52%, #dbe1ec 78%, #9ca7b8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 20px rgba(188, 201, 224, 0.22);
+  margin-left: 0.15em;
+}
+
+.token-coin {
+  background:
+    radial-gradient(circle at 35% 22%, rgba(253, 234, 185, 0.6), transparent 33%),
+    linear-gradient(160deg, rgba(249, 226, 173, 0.25), rgba(141, 91, 255, 0.22));
+}
+
+.token-logo {
+  filter: drop-shadow(0 0 12px rgba(244, 207, 126, 0.45)) drop-shadow(0 0 20px rgba(127, 70, 212, 0.35));
+}
+
+.token-roadmap-btn {
+  box-shadow:
+    0 0 24px rgba(244, 207, 126, 0.28),
+    0 0 38px rgba(127, 70, 212, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.token-roadmap-btn:hover {
+  box-shadow:
+    0 0 30px rgba(244, 207, 126, 0.4),
+    0 0 46px rgba(127, 70, 212, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.token-social-btn {
+  box-shadow: 0 0 20px rgba(127, 70, 212, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.token-community-cta {
+  box-shadow: 0 0 24px rgba(244, 207, 126, 0.36), 0 0 30px rgba(127, 70, 212, 0.2);
+}
+
+.allocation-fill {
+  box-shadow: 0 0 14px rgba(244, 207, 126, 0.22), 0 0 20px rgba(127, 70, 212, 0.2);
+  transition: width 300ms ease;
+}

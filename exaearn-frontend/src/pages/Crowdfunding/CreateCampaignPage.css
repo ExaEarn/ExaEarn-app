@@ -1,0 +1,97 @@
+.create-campaign-page .cc-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 30% 8%, rgba(0, 0, 0, 0.95), transparent 72%);
+}
+
+.create-campaign-page .cc-node {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  filter: blur(50px);
+  opacity: 0.22;
+}
+
+.create-campaign-page .cc-node-a {
+  top: -50px;
+  right: 8%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.6), transparent 68%);
+  animation: ccFloat 12s ease-in-out infinite;
+}
+
+.create-campaign-page .cc-node-b {
+  top: 34%;
+  left: -80px;
+  background: radial-gradient(circle, rgba(248, 248, 248, 0.25), transparent 70%);
+  animation: ccFloat 14s ease-in-out infinite reverse;
+}
+
+.create-campaign-page .cc-node-c {
+  bottom: -70px;
+  right: 20%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.45), transparent 68%);
+  animation: ccFloat 16s ease-in-out infinite;
+}
+
+.create-campaign-page .cc-input {
+  margin-top: 0.45rem;
+  width: 100%;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(248, 248, 248, 0.18);
+  background: rgba(248, 248, 248, 0.03);
+  color: #f8f8f8;
+  padding: 0.62rem 0.75rem;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.create-campaign-page .cc-input:focus {
+  border-color: rgba(212, 175, 55, 0.85);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.22);
+}
+
+.create-campaign-page .cc-dropzone {
+  border: 1px dashed rgba(212, 175, 55, 0.48);
+  border-radius: 0.85rem;
+  background: rgba(248, 248, 248, 0.03);
+  padding: 0.85rem;
+  transition: border-color 0.25s ease, transform 0.2s ease;
+}
+
+.create-campaign-page .cc-dropzone:hover {
+  border-color: rgba(212, 175, 55, 0.92);
+  transform: translateY(-1px);
+}
+
+.create-campaign-page .cc-connector {
+  position: absolute;
+  top: 17px;
+  right: -16px;
+  width: 28px;
+  height: 2px;
+  background: rgba(248, 248, 248, 0.2);
+}
+
+.create-campaign-page .cc-connector.active {
+  background: linear-gradient(to right, rgba(212, 175, 55, 0.95), rgba(212, 175, 55, 0.28));
+}
+
+@keyframes ccFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -16px, 0);
+  }
+}
+
+@media (max-width: 767px) {
+  .create-campaign-page .cc-connector {
+    display: none;
+  }
+}

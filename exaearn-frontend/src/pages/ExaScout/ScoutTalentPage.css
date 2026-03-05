@@ -1,0 +1,186 @@
+.scout-talent-page .st-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 30% 8%, rgba(0, 0, 0, 0.95), transparent 72%);
+}
+
+.scout-talent-page .st-orb {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  border-radius: 999px;
+  filter: blur(52px);
+  opacity: 0.22;
+}
+
+.scout-talent-page .st-orb-a {
+  top: -60px;
+  right: 9%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.6), transparent 68%);
+  animation: stFloat 12s ease-in-out infinite;
+}
+
+.scout-talent-page .st-orb-b {
+  bottom: -70px;
+  left: -60px;
+  background: radial-gradient(circle, rgba(248, 248, 248, 0.23), transparent 72%);
+  animation: stFloat 14s ease-in-out infinite reverse;
+}
+
+.scout-talent-page .st-input {
+  margin-top: 0.45rem;
+  width: 100%;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(248, 248, 248, 0.18);
+  background: rgba(248, 248, 248, 0.03);
+  color: #f8f8f8;
+  padding: 0.62rem 0.75rem;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.scout-talent-page .st-input:focus {
+  border-color: rgba(212, 175, 55, 0.85);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.scout-talent-page .st-slider {
+  accent-color: #d4af37;
+}
+
+.scout-talent-page .st-check {
+  accent-color: #d4af37;
+}
+
+.scout-talent-page .st-player-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.scout-talent-page .st-mini-btn {
+  border: 1px solid rgba(248, 248, 248, 0.2);
+  border-radius: 0.55rem;
+  background: rgba(248, 248, 248, 0.04);
+  color: #f8f8f8;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.35rem 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.scout-talent-page .st-chart {
+  border: 1px solid rgba(248, 248, 248, 0.12);
+  border-radius: 0.7rem;
+  height: 128px;
+  background: rgba(248, 248, 248, 0.02);
+  position: relative;
+  overflow: hidden;
+}
+
+.scout-talent-page .st-chart-line {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 20%;
+  height: 2px;
+  background: linear-gradient(to right, #d4af37 0%, #f0d375 45%, #d4af37 100%);
+  transform: rotate(-7deg);
+}
+
+.scout-talent-page .st-radar {
+  border: 1px solid rgba(248, 248, 248, 0.12);
+  border-radius: 0.7rem;
+  height: 128px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.18), transparent 60%),
+    linear-gradient(160deg, rgba(248, 248, 248, 0.02), rgba(248, 248, 248, 0.01));
+}
+
+.scout-talent-page .st-action-btn {
+  border: 1px solid rgba(248, 248, 248, 0.2);
+  border-radius: 0.65rem;
+  background: rgba(248, 248, 248, 0.04);
+  color: #f8f8f8;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.55rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.scout-talent-page .st-map {
+  min-height: 160px;
+  position: relative;
+  background:
+    radial-gradient(circle at 40% 40%, rgba(212, 175, 55, 0.12), transparent 55%),
+    linear-gradient(145deg, rgba(248, 248, 248, 0.02), rgba(248, 248, 248, 0.01));
+}
+
+.scout-talent-page .st-pin {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d4af37;
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.6);
+  animation: stPulse 2.8s ease-in-out infinite;
+}
+
+.scout-talent-page .pin-a {
+  top: 26%;
+  left: 24%;
+}
+.scout-talent-page .pin-b {
+  top: 42%;
+  left: 56%;
+  animation-delay: 0.6s;
+}
+.scout-talent-page .pin-c {
+  bottom: 28%;
+  right: 24%;
+  animation-delay: 1.2s;
+}
+.scout-talent-page .pin-d {
+  bottom: 20%;
+  left: 42%;
+  animation-delay: 1.8s;
+}
+
+.scout-talent-page .st-trust,
+.scout-talent-page .st-signal {
+  border: 1px solid rgba(248, 248, 248, 0.12);
+  border-radius: 0.7rem;
+  background: rgba(248, 248, 248, 0.03);
+  padding: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+@keyframes stFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
+  }
+}
+
+@keyframes stPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
+}
