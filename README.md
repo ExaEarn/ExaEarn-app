@@ -27,7 +27,7 @@ To close the Utility Gap in Web3 by connecting blockchain technology to real-wor
 
 ### 🎨 Frontend
 - React (UI Framework)
-- TypeScript (Application Logic & Type Safety)
+- JavaScript/TypeScript (Application Logic & Type Safety)
 - Tailwind CSS (Modern UI Styling)
 - Vite / Webpack (Build Tooling)
 - Axios (API Communication)
@@ -49,7 +49,7 @@ To close the Utility Gap in Web3 by connecting blockchain technology to real-wor
 - Cloud Storage (AWS S3 / Cloudflare R2)
 
 ### 🔗 Blockchain & Web3
-- Solidity (Smart Contracts - EVM)
+- Solidity (Smart Contracts - Base)
 - Hardhat (Contract Development & Testing)
 - Ethers.js (Blockchain Interaction)
 - XRP Ledger SDK (XRP Integration)
