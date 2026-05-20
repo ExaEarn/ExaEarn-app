@@ -9,7 +9,9 @@ const App = lazy(() => import("./App.jsx"));
 const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || "placeholder-client-id";
-const isAdminRoute = window.location.pathname.startsWith("/admin");
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const adminPath = `${basePath}/admin`;
+const isAdminRoute = window.location.pathname.startsWith(adminPath) || window.location.pathname.startsWith("/admin");
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -17,7 +19,7 @@ createRoot(document.getElementById("root")).render(
       <ThemeProvider>
         <AuthProvider>
           <Suspense fallback={null}>
-            {isAdminRoute ? <AdminApp /> : <App />}
+            {isAdminRoute ? <AdminApp basename={adminPath} /> : <App />}
           </Suspense>
         </AuthProvider>
       </ThemeProvider>
