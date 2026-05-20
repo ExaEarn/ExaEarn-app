@@ -112,8 +112,15 @@ Deploy `exaearn-frontend` to Vercel, Netlify, or a static host.
 
 Required frontend environment:
 - `VITE_API_URL=https://api.example.com`
+- `VITE_ADMIN_API_URL=https://api.example.com` if admin calls should use a different base than `VITE_API_URL`
 - `VITE_NODE_SERVICE_URL=https://node.example.com`
+- `VITE_BASE_PATH=./` for portable static hosting, or `/repo-name/` for GitHub Pages project sites
 - optional `VITE_GOOGLE_CLIENT_ID`
+
+Runtime fallback:
+- `exaearn-frontend/public/env.js` is copied into the built site as `/env.js`.
+- Set `window.__EXAEARN_CONFIG__.API_URL` to the deployed Laravel backend URL if the host does not inject `VITE_API_URL` during build.
+- Static hosts such as GitHub Pages cannot run Laravel API routes. Login and account creation require a deployed Laravel backend plus `FRONTEND_URL`/CORS configured on that backend.
 
 Before launch:
 - run `npm run build`

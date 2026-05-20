@@ -1,37 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useWebSocketConnection } from "../services/webSocketService";
+import { getApiBaseUrl } from "../config/apiConfig";
 
 const AuthContext = createContext(null);
 const AUTH_USER_KEY = "exaearn_auth_user";
 const AUTH_TOKEN_KEY = "exaearn_auth_token";
-const LOCAL_USERS_KEY = "exaearn_local_users";
 const API_UNREACHABLE_MESSAGE = "Unable to reach the API. Check that the backend is running.";
-
-function readJson(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function createLocalUser({ name, email }) {
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  return {
-    id: `local-${Date.now()}`,
-    name: name?.trim() || normalizedEmail.split("@")[0] || "ExaEarn User",
-    email: normalizedEmail,
-    picture: "",
-    unique_user_id: `EXA-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
-    isLocalDemoUser: true,
-  };
-}
-
-function isApiUnreachable(error) {
-  return error?.message === API_UNREACHABLE_MESSAGE || error?.message === "API URL is not configured.";
-}
+const API_NOT_CONFIGURED_MESSAGE = "API URL is not configured. Set VITE_API_URL or /env.js to your deployed Laravel backend URL.";
 
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -47,7 +23,7 @@ function AuthProvider({ children }) {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
-  const apiBaseUrl = import.meta.env.VITE_API_URL?.trim() || "";
+  const apiBaseUrl = getApiBaseUrl();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
   const isGoogleConfigured = Boolean(googleClientId);
@@ -83,7 +59,10 @@ function AuthProvider({ children }) {
     async (path, options = {}) => {
       const normalizedBase = apiBaseUrl.endsWith("/") ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
       const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-      const requestUrl = normalizedBase ? `${normalizedBase}${normalizedPath}` : normalizedPath;
+      if (!normalizedBase) {
+        throw new Error(API_NOT_CONFIGURED_MESSAGE);
+      }
+      const requestUrl = `${normalizedBase}${normalizedPath}`;
 
       const { headers: optionHeaders, ...restOptions } = options || {};
 
@@ -241,21 +220,6 @@ function AuthProvider({ children }) {
 
         return { success: true };
       } catch (error) {
-        if (import.meta.env.DEV && isApiUnreachable(error)) {
-          const normalizedEmail = String(email || "").trim().toLowerCase();
-          const localUsers = readJson(LOCAL_USERS_KEY, []);
-          const localAccount = localUsers.find((account) => account.email === normalizedEmail);
-
-          if (!localAccount || localAccount.password !== password) {
-            setAuthError("Local account not found. Create one first, or start the backend API.");
-            return { success: false };
-          }
-
-          setUser(localAccount.user);
-          setToken(`local-dev-${localAccount.user.id}`);
-          return { success: true, local: true };
-        }
-
         setAuthError(error.message || "Login failed.");
         return { success: false };
       } finally {
@@ -292,21 +256,6 @@ function AuthProvider({ children }) {
           message: payload.message || "",
         };
       } catch (error) {
-        if (import.meta.env.DEV && isApiUnreachable(error)) {
-          const normalizedEmail = String(email || "").trim().toLowerCase();
-          const localUsers = readJson(LOCAL_USERS_KEY, []);
-          const accountExists = localUsers.some((account) => account.email === normalizedEmail);
-          const message = accountExists
-            ? "A local demo account already exists for this email. Login with it instead."
-            : "Account details accepted for local demo onboarding.";
-
-          if (accountExists) {
-            setAuthError(message);
-          }
-
-          return { success: !accountExists, exists: accountExists, message, local: true };
-        }
-
         const accountExists = error.code === "ACCOUNT_EXISTS" || error.status === 409;
         const message = error.message || "Unable to verify account.";
         setAuthError(message);
@@ -349,31 +298,6 @@ function AuthProvider({ children }) {
 
         return { success: true };
       } catch (error) {
-        if (import.meta.env.DEV && isApiUnreachable(error)) {
-          const normalizedEmail = String(email || "").trim().toLowerCase();
-          const localUsers = readJson(LOCAL_USERS_KEY, []);
-
-          if (localUsers.some((account) => account.email === normalizedEmail)) {
-            setAuthError("A local demo account already exists for this email. Login with it instead.");
-            return { success: false };
-          }
-
-          const localUser = createLocalUser({ name, email: normalizedEmail });
-          const nextUsers = [
-            ...localUsers,
-            {
-              email: normalizedEmail,
-              password,
-              user: localUser,
-            },
-          ];
-
-          localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(nextUsers));
-          setUser(localUser);
-          setToken(`local-dev-${localUser.id}`);
-          return { success: true, local: true };
-        }
-
         setAuthError(error.message || "Registration failed.");
         return { success: false };
       } finally {

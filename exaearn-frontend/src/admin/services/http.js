@@ -1,7 +1,10 @@
 import axios from "axios";
+import { getAdminApiBaseUrl } from "../../config/apiConfig";
 
-const rawApiBaseUrl = import.meta.env.VITE_ADMIN_API_URL?.trim() || import.meta.env.VITE_API_URL?.trim() || "http://127.0.0.1:8000";
-const apiBaseUrl = rawApiBaseUrl.replace(/\/+$/, "");
+const apiBaseUrl = getAdminApiBaseUrl();
+if (!apiBaseUrl) {
+  throw new Error("Admin API URL is not configured. Set VITE_ADMIN_API_URL, VITE_API_URL, or /env.js.");
+}
 const baseURL = apiBaseUrl.includes("/api/admin")
   ? apiBaseUrl
   : apiBaseUrl.endsWith("/api")
