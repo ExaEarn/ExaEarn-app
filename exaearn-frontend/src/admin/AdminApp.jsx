@@ -15,10 +15,10 @@ function AdminBootstrap() {
   return <AdminRoutes />;
 }
 
-export default function AdminApp({ basename = "/admin" }) {
+export default function AdminApp() {
   return (
     <AdminAuthProvider>
-      <BrowserRouter basename={basename}>
+      <BrowserRouter basename="/admin">
         <AdminBootstrap />
       </BrowserRouter>
     </AdminAuthProvider>
