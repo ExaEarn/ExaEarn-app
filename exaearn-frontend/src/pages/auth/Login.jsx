@@ -6,10 +6,21 @@ import { useAuth } from "../../context/AuthContext";
 function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [loginMessage, setLoginMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const hasHandledGoogleSuccess = useRef(false);
-  const { user, isGoogleAuthLoading, googleAuthError, isGoogleConfigured, startGoogleLogin } = useAuth();
+  const {
+    user,
+    login,
+    authLoading,
+    authError,
+    isGoogleAuthLoading,
+    googleAuthError,
+    isGoogleConfigured,
+    startGoogleLogin,
+  } = useAuth();
 
   useEffect(() => {
     if (!user || hasHandledGoogleSuccess.current) {
@@ -22,9 +33,16 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
     }
   }, [user, onSuccess]);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (onSuccess) {
+    setLoginMessage("");
+
+    const result = await login({
+      email,
+      password,
+    });
+
+    if (result.success && onSuccess) {
       onSuccess();
     }
   };
@@ -96,11 +114,14 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
 
             <button
               type="submit"
-              className="w-full rounded-2xl border border-auric-300/70 bg-gradient-to-r from-violet-500/90 via-fuchsia-500/80 to-auric-400 px-4 py-3 text-sm font-semibold text-white shadow-button-glow transition-all duration-300 hover:scale-[1.01]"
+              disabled={authLoading}
+              className="w-full rounded-2xl border border-auric-300/70 bg-gradient-to-r from-violet-500/90 via-fuchsia-500/80 to-auric-400 px-4 py-3 text-sm font-semibold text-white shadow-button-glow transition-all duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
             >
               Login
             </button>
           </form>
+          {loginMessage ? <p className="mt-3 text-xs text-violet-100/70">{loginMessage}</p> : null}
+          {authError ? <p className="mt-2 text-xs text-rose-300">{authError}</p> : null}
 
           <div className="my-5 flex items-center gap-3 text-xs text-violet-100/50">
             <div className="h-px flex-1 bg-violet-300/20" />

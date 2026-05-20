@@ -11,6 +11,8 @@ import {
   Wallet,
 } from "lucide-react";
 import Image from "../../assets/Image";
+import { useAuth } from "../../context/AuthContext";
+import { applyAsFarmer, fetchAgriProjects } from "../../services/agriApi";
 import "./SubscriptionPage.css";
 
 const plans = [
@@ -101,9 +103,50 @@ function Counter({ target, suffix }) {
 }
 
 function SubscriptionPage({ onBack }) {
+  const { apiBaseUrl, token, user } = useAuth();
   const [selectedPlanId, setSelectedPlanId] = useState("growth");
   const [amount, setAmount] = useState(100000);
   const [walletConnected, setWalletConnected] = useState(false);
+  const [activeProjectCount, setActiveProjectCount] = useState(0);
+  const [application, setApplication] = useState({
+    name: "",
+    location: "",
+    experienceYears: 3,
+    bio: "",
+    hasTractor: false,
+    hasIrrigation: false,
+  });
+  const [applicationState, setApplicationState] = useState({ submitting: false, error: "", success: "" });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProjects = async () => {
+      try {
+        const payload = await fetchAgriProjects({
+          apiBaseUrl,
+          token,
+          params: { per_page: 50 },
+        });
+        if (!active) {
+          return;
+        }
+
+        const list = Array.isArray(payload?.data?.data) ? payload.data.data : [];
+        setActiveProjectCount(list.length);
+      } catch {
+        if (active) {
+          setActiveProjectCount(0);
+        }
+      }
+    };
+
+    loadProjects();
+
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl, token]);
 
   const selectedPlan = useMemo(
     () => plans.find((plan) => plan.id === selectedPlanId) || plans[1],
@@ -128,6 +171,38 @@ function SubscriptionPage({ onBack }) {
   }, [amount, selectedPlan]);
 
   const scrollPlans = () => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" });
+
+  const handleFarmerApplication = async () => {
+    try {
+      setApplicationState({ submitting: true, error: "", success: "" });
+      await applyAsFarmer({
+        apiBaseUrl,
+        token,
+        payload: {
+          name: application.name || user?.name || "",
+          location: application.location,
+          experience_years: Number(application.experienceYears || 0),
+          bio: application.bio,
+          equipment_details: {
+            tractor: application.hasTractor,
+            irrigation: application.hasIrrigation,
+          },
+        },
+      });
+
+      setApplicationState({
+        submitting: false,
+        error: "",
+        success: "Farmer onboarding request submitted for admin review.",
+      });
+    } catch (error) {
+      setApplicationState({
+        submitting: false,
+        error: error.message || "Unable to submit farmer application.",
+        success: "",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen text-[#F8F8F8] exa-bg app-shell subscription-page">
@@ -168,6 +243,7 @@ function SubscriptionPage({ onBack }) {
               <p className="mt-4 max-w-2xl text-sm text-[#F8F8F8]/85 sm:text-base">
                 Join verified agricultural projects. Earn structured returns. Empower farmers. Agriculture meets Web3 finance.
               </p>
+              <p className="mt-3 text-xs text-[#F8F8F8]/70">{activeProjectCount} live projects are currently listed in the Agri marketplace.</p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   type="button"
@@ -319,6 +395,87 @@ function SubscriptionPage({ onBack }) {
                 <span className="link l2" />
                 <span className="link l3" />
               </div>
+            </div>
+          </section>
+
+          <section className="mt-8 rounded-2xl border border-[#D4AF37]/25 bg-[#0B0B0B]/70 p-5">
+            <h2 className="font-['Sora'] text-2xl font-semibold">Farmer Onboarding</h2>
+            <p className="mt-2 text-sm text-[#F8F8F8]/75">
+              Apply as a verified farmer to access leased farm capital and publish production updates.
+            </p>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <label className="block text-sm text-[#F8F8F8]/85">
+                Full Name
+                <input
+                  type="text"
+                  value={application.name}
+                  onChange={(event) => setApplication((current) => ({ ...current, name: event.target.value }))}
+                  className="mt-2 w-full rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] px-3 py-2 outline-none focus:border-[#D4AF37]"
+                />
+              </label>
+              <label className="block text-sm text-[#F8F8F8]/85">
+                Farm Location
+                <input
+                  type="text"
+                  value={application.location}
+                  onChange={(event) => setApplication((current) => ({ ...current, location: event.target.value }))}
+                  className="mt-2 w-full rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] px-3 py-2 outline-none focus:border-[#D4AF37]"
+                />
+              </label>
+              <label className="block text-sm text-[#F8F8F8]/85">
+                Experience Years
+                <input
+                  type="number"
+                  min={0}
+                  value={application.experienceYears}
+                  onChange={(event) => setApplication((current) => ({ ...current, experienceYears: event.target.value }))}
+                  className="mt-2 w-full rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] px-3 py-2 outline-none focus:border-[#D4AF37]"
+                />
+              </label>
+              <label className="block text-sm text-[#F8F8F8]/85">
+                Equipment Summary
+                <div className="mt-2 grid gap-2 rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] p-3">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={application.hasTractor}
+                      onChange={(event) => setApplication((current) => ({ ...current, hasTractor: event.target.checked }))}
+                    />
+                    Tractor access
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={application.hasIrrigation}
+                      onChange={(event) =>
+                        setApplication((current) => ({ ...current, hasIrrigation: event.target.checked }))
+                      }
+                    />
+                    Irrigation support
+                  </label>
+                </div>
+              </label>
+              <label className="block text-sm text-[#F8F8F8]/85 lg:col-span-2">
+                Farming Bio
+                <textarea
+                  rows={4}
+                  value={application.bio}
+                  onChange={(event) => setApplication((current) => ({ ...current, bio: event.target.value }))}
+                  className="mt-2 w-full rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] px-3 py-2 outline-none focus:border-[#D4AF37]"
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleFarmerApplication}
+                disabled={applicationState.submitting}
+                className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#bc8e1f] px-5 py-3 text-sm font-semibold text-[#0B0B0B] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {applicationState.submitting ? "Submitting..." : "Apply as Farmer"}
+              </button>
+              {applicationState.success ? <p className="text-sm text-emerald-300">{applicationState.success}</p> : null}
+              {applicationState.error ? <p className="text-sm text-rose-300">{applicationState.error}</p> : null}
             </div>
           </section>
 

@@ -11,7 +11,7 @@ import {
 
 const methods = [
   { id: "card", icon: "💳", title: "Debit / Credit Card", desc: "Visa, MasterCard, Verve", kind: "fiat" },
-  { id: "bank", icon: "🏦", title: "Bank Transfer", desc: "Local and international rails", kind: "fiat" },
+  { id: "bank", icon: "🏦", title: "Virtual Account", desc: "Dedicated NGN account for deposits", kind: "fiat" },
   { id: "exa", icon: "🪙", title: "EXA Token", desc: "Use EXA for platform payments", kind: "crypto", recommended: true },
   { id: "usdt", icon: "🌍", title: "USDT", desc: "TRC20 / ERC20 settlement", kind: "crypto" },
   { id: "wallet", icon: "🔗", title: "Crypto Wallet Connect", desc: "WalletConnect / MetaMask", kind: "crypto" },
@@ -82,28 +82,28 @@ function PaymentMethodsPage({ onBack }) {
         className="sticky top-0 z-30 border-b border-[#D4AF37]/25 bg-cosmic-900/88 backdrop-blur"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-3 sm:px-6">
+        <div className="w-full max-w-3xl px-4 pt-3 pb-3 mx-auto sm:px-6">
           <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={onBack}
               className="rounded-xl border border-violet-300/25 bg-cosmic-800/70 p-2 text-violet-100 shadow-[0_0_14px_rgba(212,175,55,0.25)]"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="text-center">
               <h1 className="text-lg font-semibold text-violet-50">Payment Method</h1>
               <span className="mx-auto mt-1 block h-px w-16 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
             </div>
             <span className="rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/12 p-2 text-[#F5D76E]">
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck className="w-4 h-4" />
             </span>
           </div>
         </div>
       </header>
 
       <section
-        className="relative mx-auto w-full max-w-3xl space-y-4 px-4 pb-28 pt-4 sm:px-6"
+        className="relative w-full max-w-3xl px-4 pt-4 mx-auto space-y-4 pb-28 sm:px-6"
         style={{ paddingBottom: "calc(96px + env(safe-area-inset-bottom))" }}
       >
         <article className="rounded-2xl border border-[#D4AF37]/30 bg-cosmic-900/70 p-4 shadow-cosmic-card">
@@ -118,14 +118,14 @@ function PaymentMethodsPage({ onBack }) {
               </p>
             </div>
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#F5D76E]/50 bg-[#D4AF37]/20 text-[#F5D76E]">
-              <Check className="h-4 w-4" />
+              <Check className="w-4 h-4" />
             </span>
           </div>
         </article>
 
-        <article className="rounded-2xl border border-violet-300/20 bg-cosmic-900/70 p-4 shadow-cosmic-card">
+        <article className="p-4 border rounded-2xl border-violet-300/20 bg-cosmic-900/70 shadow-cosmic-card">
           <h2 className="mb-3 text-sm font-semibold text-violet-50">Payment Methods</h2>
-          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+          <div className="pr-1 space-y-2 overflow-y-auto max-h-72">
             {methods.map((item) => {
               const active = selectedMethod === item.id;
               const cryptoStyle = item.kind === "crypto";
@@ -169,20 +169,20 @@ function PaymentMethodsPage({ onBack }) {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-violet-300/20 bg-cosmic-900/70 p-4">
+        <article className="p-4 border rounded-2xl border-violet-300/20 bg-cosmic-900/70">
           <button
             type="button"
             onClick={() => setShowAddCardModal(true)}
             className="flex w-full items-center gap-3 rounded-xl border border-[#D4AF37]/30 bg-cosmic-800/65 px-3 py-3 text-left transition hover:border-[#D4AF37]/55"
           >
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D4AF37]/45 bg-[#D4AF37]/12 text-[#F5D76E]">
-              <Plus className="h-4 w-4" />
+              <Plus className="w-4 h-4" />
             </span>
             <span className="text-sm font-medium text-violet-100">Add New Payment Method</span>
           </button>
         </article>
 
-        <article className="rounded-2xl border border-violet-300/20 bg-cosmic-900/70 p-4">
+        <article className="p-4 border rounded-2xl border-violet-300/20 bg-cosmic-900/70">
           <p className="flex items-start gap-2 text-sm text-violet-100">
             <ShieldCheck className="mt-0.5 h-4 w-4 text-[#F5D76E]" />
             Secured by Blockchain & Bank-Grade Encryption
@@ -191,10 +191,10 @@ function PaymentMethodsPage({ onBack }) {
       </section>
 
       <section
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-violet-300/20 bg-cosmic-900/90 p-3 backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-40 p-3 border-t border-violet-300/20 bg-cosmic-900/90 backdrop-blur"
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
       >
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="w-full max-w-3xl mx-auto">
           <button
             type="button"
             onClick={saveMethod}
@@ -210,11 +210,11 @@ function PaymentMethodsPage({ onBack }) {
       {showAddCardModal ? (
         <div className="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center">
           <button type="button" className="absolute inset-0" onClick={() => setShowAddCardModal(false)} />
-          <div className="relative w-full rounded-t-2xl border border-violet-300/20 bg-cosmic-900 p-4 sm:max-w-sm sm:rounded-2xl">
-            <div className="mb-3 flex items-center justify-between">
+          <div className="relative w-full p-4 border rounded-t-2xl border-violet-300/20 bg-cosmic-900 sm:max-w-sm sm:rounded-2xl">
+            <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-semibold text-violet-50">Add Card</h3>
               <button type="button" onClick={() => setShowAddCardModal(false)} className="text-violet-100/70">
-                <X className="h-4 w-4" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="space-y-3">
@@ -256,7 +256,7 @@ function PaymentMethodsPage({ onBack }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-violet-100/65">{label}</span>
+      <span className="block mb-1 text-xs text-violet-100/65">{label}</span>
       {children}
     </label>
   );
@@ -266,3 +266,4 @@ const inputCls =
   "h-10 w-full rounded-xl border border-violet-300/20 bg-cosmic-800 px-3 text-sm text-violet-100 outline-none focus:border-[#D4AF37]/70";
 
 export default PaymentMethodsPage;
+

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, Filter, Search, Sparkles } from "lucide-react";
-import { campaignData } from "./campaignData";
+import { ArrowLeft, Search, Sparkles, Wallet, RefreshCw } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useWeb3Wallet } from "../../hooks/useWeb3Wallet";
+import { useCrowdfunding } from "../../hooks/useCrowdfunding";
 
-const categories = ["All", "Technology", "Agriculture", "Education", "Health", "Web3", "AI", "Fintech"];
-
-const campaigns = campaignData;
+const categories = ["All", "Technology", "Agriculture", "Education", "Health", "Web3", "AI", "Fintech", "General"];
 
 function formatNaira(amount) {
   return new Intl.NumberFormat("en-NG", {
@@ -18,20 +18,34 @@ function percent(raised, target) {
   return Math.min((raised / target) * 100, 100);
 }
 
+function humanStatus(status) {
+  return String(status || "active").replace(/^./, (char) => char.toUpperCase());
+}
+
 function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampaign }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [query, setQuery] = useState("");
+  const { apiBaseUrl, token } = useAuth();
+  const wallet = useWeb3Wallet();
+  const { campaigns, loading, error, refresh, txState, dataSource } = useCrowdfunding({ apiBaseUrl, token, wallet });
 
-  const featuredCampaign = campaigns[0];
+  const featuredCampaign = campaigns[0] || null;
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((campaign) => {
-      const categoryMatch = activeCategory === "All" || campaign.category === activeCategory;
+      const categoryMatch = activeCategory === "All" || (campaign.category || "General") === activeCategory;
       const q = query.trim().toLowerCase();
-      const queryMatch = !q || campaign.title.toLowerCase().includes(q) || campaign.description.toLowerCase().includes(q);
+      const queryMatch =
+        !q ||
+        String(campaign.title || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(campaign.description || "")
+          .toLowerCase()
+          .includes(q);
       return categoryMatch && queryMatch;
     });
-  }, [activeCategory, query]);
+  }, [activeCategory, campaigns, query]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#050509] via-[#140822] to-[#1c0d32] px-4 py-8 text-violet-50 sm:px-6 sm:py-10">
@@ -53,15 +67,41 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
                 </button>
               ) : null}
               <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-white sm:text-4xl">Crowdfunding</h1>
-              <p className="mt-1 text-sm text-violet-100/70">Support ideas, fund innovation, empower communities</p>
+              <p className="mt-1 text-sm text-violet-100/70">Escrow-backed campaigns with contributor governance</p>
             </div>
-            <button
-              type="button"
-              onClick={onCreateCampaign}
-              className="h-10 rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 px-4 text-sm font-bold text-black shadow-[0_0_22px_rgba(245,158,11,0.35)] transition hover:brightness-105 active:scale-[0.99]"
-            >
-              Create Campaign
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={refresh}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-300/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-100"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => wallet.connectMetaMask()}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-300/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-100"
+              >
+                <Wallet className="h-3.5 w-3.5" />
+                {wallet.isConnected ? wallet.shortAddress : "Connect Wallet"}
+              </button>
+              <button
+                type="button"
+                onClick={onCreateCampaign}
+                className="h-10 rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 px-4 text-sm font-bold text-black shadow-[0_0_22px_rgba(245,158,11,0.35)] transition hover:brightness-105 active:scale-[0.99]"
+              >
+                Create Campaign
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-violet-300/20 bg-violet-500/10 px-2 py-1 text-violet-100/80">Data: {dataSource}</span>
+            {loading ? <span className="text-violet-100/75">Syncing campaigns...</span> : null}
+            {error ? <span className="text-amber-200">{error}</span> : null}
+            {txState.status !== "idle" ? (
+              <span className="text-emerald-200">Tx: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</span>
+            ) : null}
           </div>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -74,14 +114,14 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
                 className="w-full rounded-xl border border-violet-300/20 bg-[#0f091a] py-2.5 pl-10 pr-3 text-sm text-white outline-none transition focus:border-amber-300/65"
               />
             </div>
-            <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-violet-300/25 bg-violet-500/10 px-4 text-sm font-semibold text-violet-100 transition hover:border-amber-300/60 hover:text-amber-200">
-              <Filter className="h-4 w-4" />
-              Filter
-            </button>
+            <div className="inline-flex h-10 items-center justify-center rounded-xl border border-violet-300/25 bg-violet-500/10 px-4 text-xs font-semibold text-violet-100">
+              Lifecycle statuses: active / funded / failed / completed / frozen
+            </div>
           </div>
         </header>
 
-        <section className="mt-5 rounded-2xl border border-violet-300/15 bg-gradient-to-br from-[#22133b] via-[#1b112f] to-[#2d1f1a] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.35)] sm:p-6">
+        {featuredCampaign ? (
+          <section className="mt-5 rounded-2xl border border-violet-300/15 bg-gradient-to-br from-[#22133b] via-[#1b112f] to-[#2d1f1a] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.35)] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">
               <p className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-300/12 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
@@ -90,6 +130,7 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
               </p>
               <h2 className="mt-2 font-['Sora'] text-2xl font-semibold text-white">{featuredCampaign.title}</h2>
               <p className="mt-2 text-sm text-violet-100/75">{featuredCampaign.description}</p>
+              <p className="mt-2 text-xs text-violet-100/75">Status: {humanStatus(featuredCampaign.status)}</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -112,16 +153,17 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs">
               <span className="text-violet-100/70">{formatNaira(featuredCampaign.raised)} raised</span>
-              <span className="text-violet-100/70">Target: {formatNaira(featuredCampaign.target)}</span>
+              <span className="text-violet-100/70">Target: {formatNaira(featuredCampaign.goal_amount || featuredCampaign.target || 0)}</span>
             </div>
             <div className="mt-1.5 h-2.5 w-full rounded-full bg-violet-950/65">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 transition-all duration-500"
-                style={{ width: `${percent(featuredCampaign.raised, featuredCampaign.target)}%` }}
+                style={{ width: `${percent(featuredCampaign.raised_amount || featuredCampaign.raised || 0, featuredCampaign.goal_amount || featuredCampaign.target || 1)}%` }}
               />
             </div>
           </div>
-        </section>
+          </section>
+        ) : null}
 
         <section className="mt-5 rounded-2xl border border-violet-300/15 bg-[#140c24]/80 p-3">
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -151,25 +193,25 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
                     <p className="mt-1 text-sm text-violet-100/70">{campaign.description}</p>
                   </div>
                   <span className="rounded-full border border-violet-300/25 bg-violet-500/12 px-2.5 py-1 text-xs font-semibold text-violet-100">
-                    {campaign.category}
+                    {campaign.category || "General"}
                   </span>
                 </div>
 
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-violet-100/70">{formatNaira(campaign.raised)} raised</span>
-                    <span className="text-violet-100/70">Target: {formatNaira(campaign.target)}</span>
+                    <span className="text-violet-100/70">{formatNaira(campaign.raised_amount || campaign.raised || 0)} raised</span>
+                    <span className="text-violet-100/70">Target: {formatNaira(campaign.goal_amount || campaign.target || 0)}</span>
                   </div>
                   <div className="mt-1.5 h-2.5 w-full rounded-full bg-violet-950/65">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 transition-all duration-500"
-                      style={{ width: `${percent(campaign.raised, campaign.target)}%` }}
+                      style={{ width: `${percent(campaign.raised_amount || campaign.raised || 0, campaign.goal_amount || campaign.target || 1)}%` }}
                     />
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-2">
-                  <span className="text-xs text-violet-100/65">{campaign.daysRemaining} days remaining</span>
+                  <span className="text-xs text-violet-100/65">{humanStatus(campaign.status)}</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -213,4 +255,3 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
 }
 
 export default Crowdfunding;
-

@@ -1,0 +1,90 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'chain' => env('NFT_CHAIN', 'base'),
+    'contract_enabled' => filter_var(env('NFT_CONTRACT_ENABLED', true), FILTER_VALIDATE_BOOL),
+    'phase' => env('NFT_PHASE', 'phase_1'),
+    'marketplace_fee_bps' => (int) env('NFT_MARKETPLACE_FEE_BPS', 250),
+    'withdrawal_fee_bps' => (int) env('NFT_WITHDRAWAL_FEE_BPS', 120),
+    'swap_fee_bps' => (int) env('NFT_SWAP_FEE_BPS', 60),
+    'agri_profit_share_bps' => (int) env('NFT_AGRI_PROFIT_SHARE_BPS', 1500),
+    'staking_commission_bps' => (int) env('NFT_STAKING_COMMISSION_BPS', 1200),
+    'credit_interest_bps' => (int) env('NFT_CREDIT_INTEREST_BPS', 1800),
+    'credit_liquidation_penalty_bps' => (int) env('NFT_CREDIT_LIQUIDATION_PENALTY_BPS', 700),
+    'fiat_spread_bps' => (int) env('NFT_FIAT_SPREAD_BPS', 90),
+    'event_sync_enabled' => filter_var(env('NFT_EVENT_SYNC_ENABLED', true), FILTER_VALIDATE_BOOL),
+    'utilities' => [
+        'yield_passport' => [
+            'phase' => 'phase_2',
+            'mint_fee_exa' => env('NFT_YIELD_PASSPORT_MINT_FEE_EXA', '150'),
+            'upgrade_fee_exa' => env('NFT_YIELD_PASSPORT_UPGRADE_FEE_EXA', '60'),
+            'subscription_fee_exa' => env('NFT_YIELD_PASSPORT_SUBSCRIPTION_FEE_EXA', '35'),
+            'base_benefits' => ['analytics', 'earnings history', 'behavior scoring'],
+        ],
+        'fiat_bridge' => [
+            'phase' => 'phase_2',
+            'mint_fee_exa' => env('NFT_FIAT_BRIDGE_MINT_FEE_EXA', '100'),
+            'upgrade_fee_exa' => env('NFT_FIAT_BRIDGE_UPGRADE_FEE_EXA', '45'),
+            'subscription_fee_exa' => env('NFT_FIAT_BRIDGE_SUBSCRIPTION_FEE_EXA', '25'),
+            'base_benefits' => ['withdrawals', 'conversion routing', 'limit unlocks'],
+        ],
+        'agrishare' => [
+            'phase' => 'phase_3',
+            'mint_fee_exa' => env('NFT_AGRISHARE_MINT_FEE_EXA', '250'),
+            'upgrade_fee_exa' => env('NFT_AGRISHARE_UPGRADE_FEE_EXA', '80'),
+            'subscription_fee_exa' => env('NFT_AGRISHARE_SUBSCRIPTION_FEE_EXA', '0'),
+            'base_benefits' => ['rwa ownership', 'yield tracking', 'profit rights'],
+        ],
+        'credit_line' => [
+            'phase' => 'phase_3',
+            'mint_fee_exa' => env('NFT_CREDIT_LINE_MINT_FEE_EXA', '180'),
+            'upgrade_fee_exa' => env('NFT_CREDIT_LINE_UPGRADE_FEE_EXA', '75'),
+            'subscription_fee_exa' => env('NFT_CREDIT_LINE_SUBSCRIPTION_FEE_EXA', '20'),
+            'base_benefits' => ['borrowing power', 'credit scoring', 'collateral routing'],
+        ],
+        'staking' => [
+            'phase' => 'phase_1',
+            'mint_fee_exa' => env('NFT_STAKING_MINT_FEE_EXA', '75'),
+            'upgrade_fee_exa' => env('NFT_STAKING_UPGRADE_FEE_EXA', '30'),
+            'subscription_fee_exa' => env('NFT_STAKING_SUBSCRIPTION_FEE_EXA', '0'),
+            'base_benefits' => ['yield position', 'reward claims', 'compounding visibility'],
+        ],
+        'boost' => [
+            'phase' => 'phase_1',
+            'mint_fee_exa' => env('NFT_BOOST_MINT_FEE_EXA', '90'),
+            'upgrade_fee_exa' => env('NFT_BOOST_UPGRADE_FEE_EXA', '45'),
+            'subscription_fee_exa' => env('NFT_BOOST_SUBSCRIPTION_FEE_EXA', '0'),
+            'base_benefits' => ['reward boosts', 'priority access', 'performance multipliers'],
+        ],
+        'fee' => [
+            'phase' => 'phase_1',
+            'mint_fee_exa' => env('NFT_FEE_MINT_FEE_EXA', '65'),
+            'upgrade_fee_exa' => env('NFT_FEE_UPGRADE_FEE_EXA', '35'),
+            'subscription_fee_exa' => env('NFT_FEE_SUBSCRIPTION_FEE_EXA', '0'),
+            'base_benefits' => ['fee discounts', 'volume rebates', 'settlement priority'],
+        ],
+        'trust' => [
+            'phase' => 'phase_2',
+            'mint_fee_exa' => env('NFT_TRUST_MINT_FEE_EXA', '55'),
+            'upgrade_fee_exa' => env('NFT_TRUST_UPGRADE_FEE_EXA', '30'),
+            'subscription_fee_exa' => env('NFT_TRUST_SUBSCRIPTION_FEE_EXA', '0'),
+            'base_benefits' => ['reputation lift', 'counterparty confidence', 'faster approvals'],
+        ],
+        'access' => [
+            'phase' => 'phase_2',
+            'mint_fee_exa' => env('NFT_ACCESS_MINT_FEE_EXA', '70'),
+            'upgrade_fee_exa' => env('NFT_ACCESS_UPGRADE_FEE_EXA', '25'),
+            'subscription_fee_exa' => env('NFT_ACCESS_SUBSCRIPTION_FEE_EXA', '30'),
+            'base_benefits' => ['premium dashboards', 'gated tools', 'AI insight access'],
+        ],
+        'ai_portfolio' => [
+            'phase' => 'phase_3',
+            'mint_fee_exa' => env('NFT_AI_PORTFOLIO_MINT_FEE_EXA', '120'),
+            'upgrade_fee_exa' => env('NFT_AI_PORTFOLIO_UPGRADE_FEE_EXA', '55'),
+            'subscription_fee_exa' => env('NFT_AI_PORTFOLIO_SUBSCRIPTION_FEE_EXA', '40'),
+            'base_benefits' => ['AI reports', 'portfolio diagnostics', 'premium intelligence'],
+        ],
+    ],
+];

@@ -4,12 +4,15 @@ import {
   Bot,
   Building2,
   CircleHelp,
+  Coins,
   CreditCard,
   FlaskConical,
   Gift,
   GraduationCap,
   HandHeart,
   HeartPulse,
+  Headphones,
+  ReceiptText,
   Search,
   Sparkles,
   Trophy,
@@ -20,7 +23,11 @@ const moreItems = [
   { id: "exabank", label: "ExaBank", icon: Building2 },
   { id: "exalife", label: "ExaLife", icon: HeartPulse },
   { id: "exacard", label: "ExaCard", icon: CreditCard },
-  { id: "exaai", label: "ExaAI", icon: Bot, badge: "NEW" },
+  { id: "exaai", label: "ExaAI", icon: Bot, badge: "NEW", action: "aiAssistant" },
+  { id: "token", label: "Token", icon: Coins, action: "token" },
+  { id: "transactions", label: "Transactions", icon: ReceiptText, action: "transactions" },
+  { id: "sports", label: "Sports Talent Pool", icon: Trophy, action: "sports" },
+  { id: "support", label: "Customer Support", icon: Headphones, action: "helpSupport" },
   { id: "foundation", label: "ExaEarn Foundation", icon: HandHeart },
   { id: "exapay", label: "ExaPay", icon: Wallet },
   { id: "exalabs", label: "ExaLabs", icon: FlaskConical },
@@ -32,7 +39,16 @@ const moreItems = [
   { id: "certificate", label: "Certificate", icon: Award },
 ];
 
-function MorePage({ onBack, onOpenRewards, onOpenReferral, onOpenHelpSupport }) {
+function MorePage({
+  onBack,
+  onOpenRewards,
+  onOpenReferral,
+  onOpenHelpSupport,
+  onOpenAiAssistant,
+  onOpenToken,
+  onOpenTransactions,
+  onOpenSports,
+}) {
   const handleOpenItem = (item) => {
     if (item.action === "rewards") {
       onOpenRewards?.();
@@ -42,6 +58,18 @@ function MorePage({ onBack, onOpenRewards, onOpenReferral, onOpenHelpSupport }) 
     }
     if (item.action === "helpSupport") {
       onOpenHelpSupport?.();
+    }
+    if (item.action === "aiAssistant") {
+      onOpenAiAssistant?.();
+    }
+    if (item.action === "token") {
+      onOpenToken?.();
+    }
+    if (item.action === "transactions") {
+      onOpenTransactions?.();
+    }
+    if (item.action === "sports") {
+      onOpenSports?.();
     }
   };
 
@@ -72,7 +100,7 @@ function MorePage({ onBack, onOpenRewards, onOpenReferral, onOpenHelpSupport }) 
           <h2 className="mt-1 text-lg font-semibold text-[#F8F1DE]">Access all ExaEarn products and utilities</h2>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5">
           {moreItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -80,10 +108,10 @@ function MorePage({ onBack, onOpenRewards, onOpenReferral, onOpenHelpSupport }) 
                 key={item.id}
                 type="button"
                 onClick={() => handleOpenItem(item)}
-                className="relative rounded-2xl border border-[#D4AF37]/20 bg-[#111827] p-3 text-center transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/55 hover:shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
+                className="relative min-h-[104px] rounded-2xl border border-[#D4AF37]/20 bg-[#111827] p-2.5 text-center transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/55 hover:shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
               >
                 {item.badge ? <Badge type={item.badge} /> : null}
-                <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#D4AF37]/25 bg-[#0F172A] text-[#D4AF37]">
+                <span className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4AF37]/25 bg-[#0F172A] text-[#D4AF37]">
                   <Icon className="h-5 w-5" />
                 </span>
                 <p className="mt-2 text-[11px] font-semibold leading-tight text-[#E8EAF0]">{item.label}</p>
@@ -113,3 +141,4 @@ function Badge({ type }) {
 }
 
 export default MorePage;
+

@@ -9,7 +9,9 @@ import {
   SendHorizontal,
   Settings2,
   Wallet,
+  ArrowRightLeft,
 } from "lucide-react";
+import TransferModal from "../../components/TransferModal";
 
 const holdings = [
   {
@@ -66,6 +68,33 @@ function ActionButton({ icon: Icon, label, onClick }) {
 function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw }) {
   const [showBalance, setShowBalance] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+
+  const handleTransfer = async (transferData) => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/wallet/internal-transfer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(transferData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Transfer failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Transfer successful:", result);
+      setIsTransferModalOpen(false);
+      // Optionally refresh balances or show success message
+    } catch (error) {
+      console.error("Transfer error:", error);
+      // Show error message to user
+    }
+  };
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#050509] via-[#140822] to-[#1c0d32] px-4 py-8 text-violet-50 sm:px-6 sm:py-10">
@@ -116,6 +145,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
           <ActionButton icon={Plus} label="Add Funds" onClick={onOpenAddFunds} />
           <ActionButton icon={SendHorizontal} label="Send" onClick={onOpenSend} />
           <ActionButton icon={Repeat2} label="Swap" onClick={onOpenSwap} />
+          <ActionButton icon={ArrowRightLeft} label="Transfer" onClick={() => setIsTransferModalOpen(true)} />
           <ActionButton icon={ArrowUpFromLine} label="Withdraw" onClick={onOpenWithdraw} />
         </section>
 
@@ -190,6 +220,12 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
           Your assets are securely managed within the ExaEarn ecosystem.
         </p>
       </section>
+
+      <TransferModal 
+        isOpen={isTransferModalOpen} 
+        onClose={() => setIsTransferModalOpen(false)} 
+        onTransfer={handleTransfer} 
+      />
     </main>
   );
 }

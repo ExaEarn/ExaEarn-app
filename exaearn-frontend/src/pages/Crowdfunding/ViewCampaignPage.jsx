@@ -18,6 +18,9 @@ import {
   Wallet,
 } from "lucide-react";
 import Image from "../../assets/Image";
+import { useAuth } from "../../context/AuthContext";
+import { useWeb3Wallet } from "../../hooks/useWeb3Wallet";
+import { useCrowdfunding } from "../../hooks/useCrowdfunding";
 import { campaignData } from "./campaignData";
 import "./ViewCampaignPage.css";
 
@@ -55,11 +58,27 @@ const locationById = {
 };
 
 function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
-  const campaign = useMemo(
-    () => campaignData.find((item) => item.id === campaignId) || campaignData[0],
-    [campaignId],
-  );
-  const [walletConnected, setWalletConnected] = useState(false);
+  const { apiBaseUrl, token } = useAuth();
+  const wallet = useWeb3Wallet();
+  const { byId, txState, createRequestFlow, voteRequestFlow, finalizeRequestFlow, refundFlow } = useCrowdfunding({ apiBaseUrl, token, wallet });
+  const campaign = useMemo(() => {
+    const fallback = campaignData.find((item) => item.id === campaignId) || campaignData[0];
+    const live = byId[campaignId];
+    if (!live) return fallback;
+
+    return {
+      ...fallback,
+      ...live,
+      raised: Number(live.raised_amount ?? fallback.raised),
+      target: Number(live.goal_amount ?? fallback.target),
+      rewardTiers: fallback.rewardTiers,
+      story: fallback.story,
+      activity: fallback.activity,
+      metrics: fallback.metrics,
+      spending_requests: Array.isArray(live.spending_requests) ? live.spending_requests : [],
+    };
+  }, [byId, campaignId]);
+
   const [selectedTierId, setSelectedTierId] = useState(campaign.rewardTiers[0]?.id);
   const [activeMedia, setActiveMedia] = useState(0);
   const [comment, setComment] = useState("");
@@ -67,11 +86,11 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
     "Impressive roadmap and strong execution milestones.",
     "Can you publish monthly fund utilization snapshots?",
   ]);
-
-  useEffect(() => {
-    setSelectedTierId(campaign.rewardTiers[0]?.id);
-    setActiveMedia(0);
-  }, [campaign]);
+  const [requestTitle, setRequestTitle] = useState("");
+  const [requestDescription, setRequestDescription] = useState("");
+  const [requestAmount, setRequestAmount] = useState(0);
+  const [vendorWallet, setVendorWallet] = useState("");
+  const [governanceError, setGovernanceError] = useState("");
 
   const media = useMemo(
     () => [
@@ -83,6 +102,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
   );
 
   const selectedTier = campaign.rewardTiers.find((tier) => tier.id === selectedTierId) || campaign.rewardTiers[0];
+  const visibleMedia = media[Math.min(activeMedia, Math.max(media.length - 1, 0))] || media[0];
   const progress = Math.min((campaign.raised / campaign.target) * 100, 100);
   const status = campaign.daysRemaining > 0 ? (progress >= 100 ? "Funded" : "Active") : "Closed";
 
@@ -144,13 +164,13 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               ) : null}
               <button
                 type="button"
-                onClick={() => setWalletConnected((v) => !v)}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37] bg-[#D4AF37]/15 px-3 py-2 text-xs font-semibold text-[#D4AF37]"
-              >
-                <Wallet className="h-4 w-4" />
-                {walletConnected ? "Wallet Connected" : "Connect Wallet"}
-              </button>
-            </div>
+                  onClick={() => wallet.connectMetaMask()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37] bg-[#D4AF37]/15 px-3 py-2 text-xs font-semibold text-[#D4AF37]"
+                >
+                  <Wallet className="h-4 w-4" />
+                  {wallet.isConnected ? wallet.shortAddress : "Connect Wallet"}
+                </button>
+              </div>
 
             <div className="mt-4 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="relative overflow-hidden rounded-2xl border border-[#D4AF37]/35">
@@ -234,7 +254,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               <h2 className="font-['Sora'] text-xl font-semibold">Campaign Media</h2>
               <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="relative overflow-hidden rounded-xl border border-[#D4AF37]/35">
-                  <img src={media[activeMedia].image} alt={media[activeMedia].label} className="h-56 w-full object-cover transition duration-300 hover:scale-[1.03]" />
+                  <img src={visibleMedia.image} alt={visibleMedia.label} className="h-56 w-full object-cover transition duration-300 hover:scale-[1.03]" />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/35">
                     <PlayCircle className="h-14 w-14 text-[#D4AF37]" />
                   </div>
@@ -345,6 +365,89 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                 <p className="vc-trust"><CircleCheckBig className="mb-2 h-4 w-4 text-[#D4AF37]" />KYC Approved</p>
                 <p className="vc-trust"><Flag className="mb-2 h-4 w-4 text-[#D4AF37]" />Risk Disclosure Available</p>
               </div>
+            </article>
+
+            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+              <h2 className="font-['Sora'] text-xl font-semibold">Spending Governance</h2>
+              <p className="mt-2 text-xs text-[#F8F8F8]/72">Create requests as manager, vote as contributor, finalize after majority approval.</p>
+
+              <div className="mt-4 grid gap-3 rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 md:grid-cols-2">
+                <input value={requestTitle} onChange={(event) => setRequestTitle(event.target.value)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Request title" />
+                <input value={vendorWallet} onChange={(event) => setVendorWallet(event.target.value)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Vendor wallet 0x..." />
+                <input type="number" value={requestAmount} onChange={(event) => setRequestAmount(Number(event.target.value) || 0)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Amount" />
+                <input value={requestDescription} onChange={(event) => setRequestDescription(event.target.value)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Short description" />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setGovernanceError("");
+                    try {
+                      await createRequestFlow({
+                        campaignId: campaign.id,
+                        title: requestTitle,
+                        description: requestDescription,
+                        amount: requestAmount,
+                        vendorWallet,
+                      });
+                    } catch (error) {
+                      setGovernanceError(error?.message || "Unable to create request.");
+                    }
+                  }}
+                  className="rounded-lg border border-[#D4AF37] bg-[#D4AF37]/15 px-3 py-2 text-xs font-semibold text-[#D4AF37]"
+                >
+                  Create Spending Request
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {(campaign.spending_requests || []).length ? (
+                  campaign.spending_requests.map((request, index) => (
+                    <div key={request.id || `request-${index}`} className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs">
+                      <p className="font-semibold text-[#D4AF37]">{request.title || `Request #${index + 1}`}</p>
+                      <p className="mt-1 text-[#F8F8F8]/80">{request.description || "No description"}</p>
+                      <p className="mt-1 text-[#F8F8F8]/72">Amount: {formatNaira(Number(request.amount || 0))} · Approvals: {request.approval_count || 0}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => voteRequestFlow({ requestId: request.id, vote: true }).catch((error) => setGovernanceError(error?.message || "Vote failed."))}
+                          className="rounded-lg border border-emerald-400/60 px-3 py-1 text-[11px] text-emerald-300"
+                        >
+                          Vote Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => voteRequestFlow({ requestId: request.id, vote: false }).catch((error) => setGovernanceError(error?.message || "Vote failed."))}
+                          className="rounded-lg border border-rose-400/60 px-3 py-1 text-[11px] text-rose-300"
+                        >
+                          Vote Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => finalizeRequestFlow({ requestId: request.id }).catch((error) => setGovernanceError(error?.message || "Finalize failed."))}
+                          className="rounded-lg border border-[#D4AF37]/65 px-3 py-1 text-[11px] text-[#D4AF37]"
+                        >
+                          Finalize & Pay Vendor
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-[#F8F8F8]/70">No on-chain spending requests yet.</p>
+                )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => refundFlow({ campaignId: campaign.id }).catch((error) => setGovernanceError(error?.message || "Refund failed."))}
+                  className="rounded-lg border border-[#F8F8F8]/30 px-3 py-2 text-xs text-[#F8F8F8]/85"
+                >
+                  Trigger Refund (if eligible)
+                </button>
+              </div>
+
+              {wallet.error ? <p className="mt-2 text-xs text-rose-300">{wallet.error}</p> : null}
+              {governanceError ? <p className="mt-2 text-xs text-rose-300">{governanceError}</p> : null}
+              {txState.status !== "idle" ? <p className="mt-2 text-xs text-[#F8F8F8]/70">Transaction: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</p> : null}
             </article>
 
             <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">

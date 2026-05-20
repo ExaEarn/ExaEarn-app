@@ -23,7 +23,7 @@ function Campaigns({ onBack }) {
         <div className="p-4 shadow-xl glass-card rounded-3xl sm:p-5">
           <header className="flex flex-wrap items-center justify-between gap-3 mb-5 campaign-card">
             <div>
-              <h1 className="font-['Sora'] text-3xl font-semibold text-violet-50 sm:text-4xl">Run Campaigns & News</h1>
+              <h1 className="font-['Sora'] text-3xl font-semibold text-violet-50 sm:text-4xl">Live Updates</h1>
               <p className="mt-2 text-sm text-violet-100/75 sm:text-base">Stay updated with ecosystem milestones, partnerships, and campaign performance.</p>
             </div>
             {onBack ? (

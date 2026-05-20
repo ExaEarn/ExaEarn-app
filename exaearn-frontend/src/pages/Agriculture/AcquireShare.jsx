@@ -13,54 +13,9 @@ import {
   Wallet,
 } from "lucide-react";
 import Image from "../../assets/Image";
+import { useAuth } from "../../context/AuthContext";
+import { fetchAgriProject, fetchAgriProjects, investInAgriProject } from "../../services/agriApi";
 import "./AcquireShare.css";
-
-const projects = [
-  {
-    id: "palm-enugu",
-    name: "ExaPalm Oil Project - Enugu",
-    crop: "Palm Oil",
-    roiMin: 18,
-    roiMax: 25,
-    durationMonths: 12,
-    sharePriceNgn: 50000,
-    sharePriceUsd: 50,
-    funding: 72,
-  },
-  {
-    id: "cassava-oyo",
-    name: "ExaCassava Cooperative - Oyo",
-    crop: "Cassava",
-    roiMin: 16,
-    roiMax: 22,
-    durationMonths: 6,
-    sharePriceNgn: 45000,
-    sharePriceUsd: 45,
-    funding: 63,
-  },
-  {
-    id: "maize-kaduna",
-    name: "ExaMaize Cluster - Kaduna",
-    crop: "Maize",
-    roiMin: 15,
-    roiMax: 21,
-    durationMonths: 6,
-    sharePriceNgn: 40000,
-    sharePriceUsd: 40,
-    funding: 81,
-  },
-  {
-    id: "rice-kebbi",
-    name: "ExaRice Growth Pool - Kebbi",
-    crop: "Rice",
-    roiMin: 19,
-    roiMax: 24,
-    durationMonths: 12,
-    sharePriceNgn: 55000,
-    sharePriceUsd: 55,
-    funding: 58,
-  },
-];
 
 const transparencyItems = [
   {
@@ -85,13 +40,6 @@ const transparencyItems = [
   },
 ];
 
-const impactStats = [
-  { label: "Farmers Supported", value: 18420, suffix: "+" },
-  { label: "Acres Cultivated", value: 92750, suffix: " ac" },
-  { label: "Foreign Investors", value: 1320, suffix: "+" },
-  { label: "Jobs Created", value: 4870, suffix: "+" },
-];
-
 const steps = ["Create Account", "Verify Identity", "Select Farm Project", "Acquire Shares", "Track & Earn"];
 
 function addMonths(date, months) {
@@ -105,66 +53,191 @@ function formatCurrency(value, currency = "NGN") {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(Number(value || 0));
 }
 
-function ImpactCounter({ target, suffix }) {
-  const [value, setValue] = useState(0);
+function mapProject(project) {
+  const projectNode = project?.project || project;
+  const fundingTarget = Number(project?.funding?.target || projectNode?.investment_target || 0);
+  const raised = Number(project?.funding?.raised || 0);
+  const totalShares = Number(projectNode?.share?.total_shares || project?.funding?.total_shares || 0);
+  const sharesAvailable = Number(projectNode?.share?.shares_available || project?.funding?.shares_available || 0);
 
-  useEffect(() => {
-    let start;
-    let raf;
-    const duration = 1200;
+  return {
+    id: String(projectNode.id),
+    name: projectNode.project_name,
+    crop: projectNode.crop_type,
+    roiMin: 12,
+    roiMax: 22,
+    durationMonths: Number(projectNode.duration || 0),
+    sharePriceNgn: Number(projectNode?.share?.price_per_share || 0),
+    sharePriceUsd: Number(projectNode?.share?.price_per_share || 0),
+    funding: fundingTarget > 0 ? Math.min(100, Math.round((raised / fundingTarget) * 100)) : 0,
+    location: projectNode.location,
+    expectedYield: Number(projectNode.expected_yield || 0),
+    expectedHarvestDate: projectNode.expected_harvest_date || null,
+    totalShares,
+    sharesAvailable,
+    progress: Array.isArray(project?.progress) ? project.progress : [],
+  };
+}
 
-    const tick = (time) => {
-      if (!start) start = time;
-      const progress = Math.min((time - start) / duration, 1);
-      setValue(Math.floor(target * progress));
-      if (progress < 1) {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target]);
-
+function ImpactCounter({ value, suffix }) {
   return (
     <p className="mt-2 text-3xl font-semibold text-[#D4AF37] sm:text-4xl">
-      {value.toLocaleString()}
+      {Number(value || 0).toLocaleString()}
       {suffix}
     </p>
   );
 }
 
-function AcquireShare({ onBack }) {
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
+function AcquireShare({ onBack, initialProjectId = null }) {
+  const { apiBaseUrl, token, user } = useAuth();
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId ? String(initialProjectId) : "");
   const [shareCount, setShareCount] = useState(5);
   const [walletConnected, setWalletConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProjects = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage("");
+        const payload = await fetchAgriProjects({
+          apiBaseUrl,
+          token,
+          params: { per_page: 20 },
+        });
+        const list = Array.isArray(payload?.data?.data) ? payload.data.data : [];
+        const normalized = list.map(mapProject);
+
+        if (!active) {
+          return;
+        }
+
+        setProjects(normalized);
+        setSelectedProjectId((current) => current || (normalized[0]?.id ?? ""));
+      } catch (error) {
+        if (active) {
+          setErrorMessage(error.message || "Unable to load agricultural projects.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProjects();
+
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl, token]);
+
+  useEffect(() => {
+    if (!selectedProjectId) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const loadProject = async () => {
+      try {
+        const payload = await fetchAgriProject({
+          apiBaseUrl,
+          token,
+          projectId: selectedProjectId,
+        });
+
+        if (!active) {
+          return;
+        }
+
+        const normalized = mapProject(payload?.data || {});
+        setProjects((current) => {
+          const hasProject = current.some((project) => project.id === normalized.id);
+          if (!hasProject) {
+            return [normalized, ...current];
+          }
+
+          return current.map((project) => (project.id === normalized.id ? normalized : project));
+        });
+      } catch {
+        // Keep the list data if dashboard refresh fails.
+      }
+    };
+
+    loadProject();
+
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl, selectedProjectId, token]);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) || projects[0],
-    [selectedProjectId],
+    [projects, selectedProjectId],
   );
 
   const projection = useMemo(() => {
+    if (!selectedProject) {
+      return {
+        investmentNgn: 0,
+        grossReturn: 0,
+        profit: 0,
+        maturityDate: "N/A",
+      };
+    }
+
     const investmentNgn = selectedProject.sharePriceNgn * shareCount;
     const roiMid = (selectedProject.roiMin + selectedProject.roiMax) / 2;
     const grossReturn = investmentNgn * (1 + roiMid / 100);
     const profit = grossReturn - investmentNgn;
-    const maturityDate = addMonths(new Date(), selectedProject.durationMonths);
+    const maturityDate = selectedProject.expectedHarvestDate
+      ? new Date(selectedProject.expectedHarvestDate).toLocaleDateString("en-NG", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : addMonths(new Date(), selectedProject.durationMonths).toLocaleDateString("en-NG", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
 
     return {
       investmentNgn,
       grossReturn,
       profit,
-      maturityDate: maturityDate.toLocaleDateString("en-NG", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
+      maturityDate,
     };
   }, [selectedProject, shareCount]);
+
+  const impactStats = useMemo(() => {
+    const projectCount = projects.length;
+    const activeProjects = projects.filter((project) => project.funding > 0).length;
+    const totalShares = projects.reduce((sum, project) => sum + Number(project.totalShares || 0), 0);
+    const soldShares = projects.reduce(
+      (sum, project) => sum + Math.max(0, Number(project.totalShares || 0) - Number(project.sharesAvailable || 0)),
+      0,
+    );
+
+    return [
+      { label: "Live Farm Projects", value: projectCount, suffix: "" },
+      { label: "Active Funding Pools", value: activeProjects, suffix: "" },
+      { label: "Tokenized Shares", value: totalShares, suffix: "" },
+      { label: "Sold Shares", value: soldShares, suffix: "" },
+    ];
+  }, [projects]);
+
+  const latestProgress = selectedProject?.progress?.slice(0, 3) || [];
 
   const scrollToProjects = () => {
     const element = document.getElementById("active-farms");
@@ -177,6 +250,44 @@ function AcquireShare({ onBack }) {
     const element = document.getElementById("investment-calculator");
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handleAcquireShares = async () => {
+    if (!selectedProject?.id) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+      setStatusMessage("");
+
+      await investInAgriProject({
+        apiBaseUrl,
+        token,
+        projectId: selectedProject.id,
+        sharesOwned: shareCount,
+        metadata: {
+          source: "acquire-share-page",
+          wallet_connected: walletConnected,
+          investor_email: user?.email || null,
+        },
+      });
+
+      setStatusMessage(`Purchased ${shareCount} shares in ${selectedProject.name}.`);
+
+      const payload = await fetchAgriProject({
+        apiBaseUrl,
+        token,
+        projectId: selectedProject.id,
+      });
+      const normalized = mapProject(payload?.data || {});
+      setProjects((current) => current.map((project) => (project.id === normalized.id ? normalized : project)));
+    } catch (error) {
+      setErrorMessage(error.message || "Unable to complete share purchase.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -223,6 +334,9 @@ function AcquireShare({ onBack }) {
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#F8F8F8]/85 sm:text-base">
                   Acquire fractional shares in verified agricultural projects across Africa. Track growth. Monitor
                   harvest cycles. Earn transparently.
+                </p>
+                <p className="mt-3 text-xs text-[#F8F8F8]/70">
+                  {loading ? "Loading live project catalog..." : `${projects.length} projects synced from the Agri API.`}
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button
@@ -280,6 +394,12 @@ function AcquireShare({ onBack }) {
                         {formatCurrency(project.sharePriceNgn)} or ${project.sharePriceUsd}
                       </p>
                     </div>
+                    <div className="col-span-2 rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.04] p-3">
+                      <p className="text-[#F8F8F8]/65">Location / Yield</p>
+                      <p className="mt-1 font-semibold text-[#F8F8F8]">
+                        {project.location} • {project.expectedYield.toLocaleString()} expected yield
+                      </p>
+                    </div>
                   </div>
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-xs">
@@ -306,6 +426,10 @@ function AcquireShare({ onBack }) {
                 </article>
               ))}
             </div>
+            {loading ? <p className="mt-4 text-sm text-[#F8F8F8]/70">Loading active farm projects...</p> : null}
+            {!loading && !projects.length ? (
+              <p className="mt-4 text-sm text-[#F8F8F8]/70">No tokenized farm projects are available yet.</p>
+            ) : null}
           </section>
 
           <section
@@ -337,11 +461,16 @@ function AcquireShare({ onBack }) {
                   <input
                     type="number"
                     min={1}
+                    max={Math.max(1, selectedProject?.sharesAvailable || 1)}
                     value={shareCount}
                     onChange={(event) => setShareCount(Math.max(1, Number(event.target.value) || 1))}
                     className="mt-2 w-full rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] px-3 py-2 text-sm text-[#F8F8F8] outline-none transition-all focus:border-[#D4AF37]"
                   />
                 </label>
+                <div className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs text-[#F8F8F8]/75">
+                  Shares available: {Number(selectedProject?.sharesAvailable || 0).toLocaleString()} /{" "}
+                  {Number(selectedProject?.totalShares || 0).toLocaleString()}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3 rounded-xl border border-[#D4AF37]/25 bg-[#0B0B0B]/60 p-4">
                 <div className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
@@ -364,6 +493,38 @@ function AcquireShare({ onBack }) {
                   </p>
                 </div>
               </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleAcquireShares}
+                disabled={isSubmitting || loading || !selectedProject?.id}
+                className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] to-[#f2d67a] px-4 py-3 text-sm font-semibold text-[#0B0B0B] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Processing..." : "Confirm Share Purchase"}
+              </button>
+              {statusMessage ? <p className="text-sm text-emerald-300">{statusMessage}</p> : null}
+              {errorMessage ? <p className="text-sm text-rose-300">{errorMessage}</p> : null}
+            </div>
+          </section>
+
+          <section className="mb-8 rounded-2xl border border-[#D4AF37]/20 bg-[#0B0B0B]/65 p-5">
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[#F8F8F8]">Live Farm Progress</h2>
+            <div className="mt-4 grid gap-3">
+              {latestProgress.length ? (
+                latestProgress.map((entry) => (
+                  <article key={entry.id} className="rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.03] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold capitalize text-[#D4AF37]">{entry.growth_stage}</p>
+                      <p className="text-xs text-[#F8F8F8]/60">{new Date(entry.recorded_at).toLocaleDateString("en-NG")}</p>
+                    </div>
+                    <p className="mt-2 text-sm text-[#F8F8F8]/80">{entry.update_description}</p>
+                    <p className="mt-2 text-xs text-[#F8F8F8]/60">Verification: {entry.verification_status}</p>
+                  </article>
+                ))
+              ) : (
+                <p className="text-sm text-[#F8F8F8]/70">No farm progress reports have been published for this project yet.</p>
+              )}
             </div>
           </section>
 
@@ -389,7 +550,7 @@ function AcquireShare({ onBack }) {
               {impactStats.map((stat) => (
                 <article key={stat.label} className="rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.03] p-4">
                   <p className="text-xs uppercase tracking-[0.14em] text-[#F8F8F8]/65">{stat.label}</p>
-                  <ImpactCounter target={stat.value} suffix={stat.suffix} />
+                  <ImpactCounter value={stat.value} suffix={stat.suffix} />
                 </article>
               ))}
             </div>

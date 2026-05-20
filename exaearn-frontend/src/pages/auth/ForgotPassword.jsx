@@ -1,12 +1,20 @@
 import { useState } from "react";
 import { Mail } from "lucide-react";
 import Image from "../../assets/Image";
+import { useAuth } from "../../context/AuthContext";
 
 function ForgotPassword({ onLogin }) {
   const [email, setEmail] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const { forgotPassword, authLoading, authError } = useAuth();
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setStatusMessage("");
+    const result = await forgotPassword(email);
+    if (result.success) {
+      setStatusMessage("Reset link sent. Check your email.");
+    }
   };
 
   return (
@@ -42,11 +50,14 @@ function ForgotPassword({ onLogin }) {
 
             <button
               type="submit"
+              disabled={authLoading}
               className="w-full rounded-2xl border border-auric-300/80 bg-gradient-to-r from-violet-500/90 via-fuchsia-500/85 to-auric-400 px-4 py-3 text-sm font-semibold text-white shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(212,175,55,0.5)]"
             >
-              Send Reset Link
+              {authLoading ? "Sending..." : "Send Reset Link"}
             </button>
           </form>
+          {statusMessage ? <p className="mt-3 text-xs text-emerald-300">{statusMessage}</p> : null}
+          {authError ? <p className="mt-2 text-xs text-rose-300">{authError}</p> : null}
 
           <button
             type="button"

@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Bell,
   CircleHelp,
+  FileText,
   Lock,
   LogOut,
   ShieldCheck,
@@ -13,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 
-function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerification, onOpenReferral, onOpenNotifications, onOpenHelpSupport, onOpenAbout, onOpenChangePassword, onOpenLoginDevices }) {
+function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerification, onOpenReferral, onOpenNotifications, onOpenHelpSupport, onOpenAbout, onOpenChangePassword, onOpenLoginDevices, onOpenActivityLogs }) {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
 
   const displayName = user?.name?.trim() || "ExaEarn User";
@@ -118,6 +119,8 @@ function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerificatio
             <h2 className="font-['Sora'] text-sm font-semibold uppercase tracking-[0.12em] text-violet-100/70">Security</h2>
             <div className="mt-4 space-y-3">
               <SecurityRow icon={Lock} label="Change Password" onClick={onOpenChangePassword} />
+              <SecurityRow icon={Smartphone} label="Login Devices" onClick={onOpenLoginDevices} />
+              <SecurityRow icon={FileText} label="Activity Log" onClick={onOpenActivityLogs} />
               <button
                 type="button"
                 onClick={() => setTwoFactorEnabled((prev) => !prev)}
@@ -141,7 +144,6 @@ function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerificatio
                   />
                 </span>
               </button>
-              <SecurityRow icon={Smartphone} label="Login Devices" onClick={onOpenLoginDevices} />
             </div>
             <p className="mt-4 rounded-xl border border-auric-300/30 bg-auric-300/10 px-3 py-2 text-xs text-auric-200">
               Your account security is protected within the ExaEarn ecosystem.

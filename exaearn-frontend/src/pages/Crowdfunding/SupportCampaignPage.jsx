@@ -13,6 +13,9 @@ import {
   Wallet,
 } from "lucide-react";
 import Image from "../../assets/Image";
+import { useAuth } from "../../context/AuthContext";
+import { useWeb3Wallet } from "../../hooks/useWeb3Wallet";
+import { useCrowdfunding } from "../../hooks/useCrowdfunding";
 import { campaignData } from "./campaignData";
 import "./SupportCampaignPage.css";
 
@@ -63,10 +66,26 @@ function Counter({ value }) {
 }
 
 function SupportCampaignPage({ onBack, campaignId }) {
-  const campaign = useMemo(
-    () => campaignData.find((item) => item.id === campaignId) || campaignData[0],
-    [campaignId],
-  );
+  const { apiBaseUrl, token } = useAuth();
+  const wallet = useWeb3Wallet();
+  const { byId, contributeFlow, txState } = useCrowdfunding({ apiBaseUrl, token, wallet });
+  const campaign = useMemo(() => {
+    const fallback = campaignData.find((item) => item.id === campaignId) || campaignData[0];
+    const live = byId[campaignId];
+
+    if (!live) return fallback;
+
+    return {
+      ...fallback,
+      ...live,
+      raised: Number(live.raised_amount ?? fallback.raised),
+      target: Number(live.goal_amount ?? fallback.target),
+      rewardTiers: fallback.rewardTiers,
+      story: fallback.story,
+      activity: fallback.activity,
+      metrics: fallback.metrics,
+    };
+  }, [byId, campaignId]);
 
   const [currency, setCurrency] = useState("NGN");
   const [amount, setAmount] = useState(campaign.rewardTiers[0]?.amount || 10000);
@@ -119,6 +138,19 @@ function SupportCampaignPage({ onBack, campaignId }) {
     if (!trimmed) return;
     setComments((current) => [trimmed, ...current]);
     setComment("");
+  };
+
+  const submitContribution = async () => {
+    if (!wallet.isConnected) {
+      await wallet.connectMetaMask();
+      return;
+    }
+
+    await contributeFlow({
+      campaignId: campaign.id,
+      amount,
+      currency,
+    });
   };
 
   return (
@@ -180,7 +212,11 @@ function SupportCampaignPage({ onBack, campaignId }) {
                     <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#f0d375] to-[#D4AF37]" style={{ width: `${progress}%` }} />
                   </div>
                   <div className="mt-4 flex flex-wrap gap-3">
-                    <button className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_22px_rgba(212,175,55,0.4)]">
+                    <button
+                      type="button"
+                      onClick={submitContribution}
+                      className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_22px_rgba(212,175,55,0.4)]"
+                    >
                       Support This Campaign
                     </button>
                     <button className="inline-flex items-center gap-2 rounded-xl border border-[#F8F8F8]/45 bg-[#F8F8F8]/8 px-4 py-2 text-sm font-semibold text-[#F8F8F8]">
@@ -346,11 +382,17 @@ function SupportCampaignPage({ onBack, campaignId }) {
                   </div>
                   <button
                     disabled={paymentMethod === "Card Payment" && !isCardPaymentValid}
+                    type="button"
+                    onClick={submitContribution}
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_22px_rgba(212,175,55,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Wallet className="h-4 w-4" />
                     Confirm Support
                   </button>
+                  {wallet.error ? <p className="text-xs text-rose-300">{wallet.error}</p> : null}
+                  {txState.status !== "idle" ? (
+                    <p className="text-xs text-[#F8F8F8]/75">Transaction: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</p>
+                  ) : null}
                 </div>
               </article>
 

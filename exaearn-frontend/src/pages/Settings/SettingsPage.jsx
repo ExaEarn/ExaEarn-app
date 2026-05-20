@@ -7,6 +7,7 @@ import {
   Clock3,
   Coins,
   CreditCard,
+  FileSearch,
   Fingerprint,
   Globe,
   Landmark,
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 
-function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods }) {
+function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods, onOpenActivityLogs }) {
   const { theme, setTheme } = useTheme();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -93,6 +94,7 @@ function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, 
     { icon: ShieldCheck, title: "Security Center" },
     { icon: Lock, title: "Change Password" },
     { icon: Smartphone, title: "Device Management" },
+    { icon: FileSearch, title: "Activity Log", action: onOpenActivityLogs },
     { icon: Globe, title: "Anti-Phishing Code" },
   ];
 
@@ -162,6 +164,7 @@ function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, 
                 icon={item.icon}
                 title={item.title}
                 securityAccent
+                onClick={item.action}
               />
             ))}
             <ToggleRow

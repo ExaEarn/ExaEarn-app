@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'permissions' => [
+        'users.view',
+        'users.edit',
+        'wallet.view',
+        'wallet.adjust',
+        'trade.manage',
+        'reward.manage',
+        'staking.manage',
+        'nft.manage',
+        'agri.manage',
+        'sports.manage',
+        'edtech.manage',
+        'crowdfunding.manage',
+        'lottery.manage',
+        'giftcard.manage',
+        'campaign.manage',
+        'treasury.manage',
+        'logs.view',
+        'settings.manage',
+        'admins.manage',
+        'roles.manage',
+        'notifications.send',
+        'security.manage',
+    ],
+
+    'role_permissions' => [
+        'super_admin' => ['*'],
+        'admin' => [
+            'users.view',
+            'users.edit',
+            'wallet.view',
+            'wallet.adjust',
+            'trade.manage',
+            'reward.manage',
+            'staking.manage',
+            'nft.manage',
+            'agri.manage',
+            'sports.manage',
+            'edtech.manage',
+            'crowdfunding.manage',
+            'lottery.manage',
+            'giftcard.manage',
+            'campaign.manage',
+            'treasury.manage',
+            'logs.view',
+            'settings.manage',
+            'notifications.send',
+            'security.manage',
+        ],
+        'moderator' => [
+            'users.view',
+            'giftcard.manage',
+            'campaign.manage',
+            'sports.manage',
+            'logs.view',
+            'notifications.send',
+        ],
+        'support' => [
+            'users.view',
+            'wallet.view',
+            'logs.view',
+            'notifications.send',
+        ],
+    ],
+
+    'default_super_admin' => [
+        'name' => env('ADMIN_SUPER_NAME', 'ExaEarn Super Admin'),
+        'email' => env('ADMIN_SUPER_EMAIL', 'admin@exaearn.local'),
+        'password' => env('ADMIN_SUPER_PASSWORD', 'ChangeMe123!'),
+    ],
+];

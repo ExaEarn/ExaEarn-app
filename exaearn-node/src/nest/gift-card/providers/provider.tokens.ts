@@ -1,0 +1,1 @@
+export const GIFT_CARD_PROVIDERS = Symbol('GIFT_CARD_PROVIDERS');

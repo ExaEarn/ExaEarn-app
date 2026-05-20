@@ -1,0 +1,32 @@
+import { DashboardPage } from "../pages/DashboardPage";
+import { ModulePage } from "../pages/ModulePage";
+
+export const routeRegistry = {
+  "/admin": { key: "dashboard", element: DashboardPage },
+  "/admin/dashboard": { key: "dashboard", element: DashboardPage },
+  "/admin/users": { key: "users", element: ModulePage },
+  "/admin/wallets": { key: "wallets", element: ModulePage },
+  "/admin/transactions": { key: "transactions", element: ModulePage },
+  "/admin/trading": { key: "trading", element: ModulePage },
+  "/admin/p2p": { key: "p2p", element: ModulePage },
+  "/admin/staking": { key: "staking", element: ModulePage },
+  "/admin/rewards": { key: "rewards", element: ModulePage },
+  "/admin/nft": { key: "nft", element: ModulePage },
+  "/admin/agritech": { key: "agritech", element: ModulePage },
+  "/admin/sports": { key: "sports", element: ModulePage },
+  "/admin/edtech": { key: "edtech", element: ModulePage },
+  "/admin/crowdfunding": { key: "crowdfunding", element: ModulePage },
+  "/admin/lottery": { key: "lottery", element: ModulePage },
+  "/admin/giftcard": { key: "giftcard", element: ModulePage },
+  "/admin/campaigns": { key: "campaigns", element: ModulePage },
+  "/admin/kyc": { key: "kyc", element: ModulePage },
+  "/admin/treasury": { key: "treasury", element: ModulePage },
+  "/admin/notifications": { key: "notifications", element: ModulePage },
+  "/admin/logs": { key: "logs", element: ModulePage },
+  "/admin/security": { key: "security", element: ModulePage },
+  "/admin/admins": { key: "admins", element: ModulePage },
+  "/admin/roles": { key: "roles", element: ModulePage },
+  "/admin/permissions": { key: "permissions", element: ModulePage },
+  "/admin/settings": { key: "settings", element: ModulePage },
+  "/admin/system-monitor": { key: "system-monitor", element: ModulePage },
+};

@@ -1,0 +1,83 @@
+<?php
+
+return [
+    'token' => env('REWARD_TOKEN', 'EXAPOINT'),
+    'secret' => env('REWARD_ENGINE_SECRET'),
+    'claim_cooldown_seconds' => (int) env('REWARD_CLAIM_COOLDOWN_SECONDS', 30),
+    'max_rewards_per_hour' => (int) env('REWARD_MAX_PER_HOUR', 20),
+    'require_email_verification' => env('REWARD_REQUIRE_EMAIL_VERIFICATION', true),
+    'require_kyc_for_high_risk' => env('REWARD_REQUIRE_KYC_FOR_HIGH_RISK', false),
+    'high_risk_activities' => ['sports_competition', 'sports_sponsorship_milestone', 'sports_community_vote', 'game_reward', 'agriculture_reward'],
+    'activities' => [
+        'trade_volume' => [
+            'reward_rate' => env('REWARD_RATE_TRADE_VOLUME', '0.001'),
+            'daily_limit' => env('REWARD_LIMIT_TRADE_VOLUME', '250'),
+            'min_activity_value' => env('REWARD_MIN_TRADE_VOLUME', '10'),
+            'status' => 'active',
+            'mode' => 'formula',
+        ],
+        'referral_activity' => [
+            'reward_rate' => env('REWARD_RATE_REFERRAL', '1'),
+            'daily_limit' => env('REWARD_LIMIT_REFERRAL', '500'),
+            'min_activity_value' => '1',
+            'status' => 'active',
+            'mode' => 'formula',
+        ],
+        'staking_participation' => [
+            'reward_rate' => env('REWARD_RATE_STAKING', '0.01'),
+            'daily_limit' => env('REWARD_LIMIT_STAKING', '100'),
+            'min_activity_value' => env('REWARD_MIN_STAKING', '1'),
+            'status' => 'active',
+            'mode' => 'formula',
+        ],
+        'education_completion' => [
+            'reward_rate' => env('REWARD_RATE_EDUCATION', '10'),
+            'daily_limit' => env('REWARD_LIMIT_EDUCATION', '50'),
+            'min_activity_value' => '1',
+            'status' => 'active',
+            'mode' => 'fixed',
+        ],
+        'sports_competition' => [
+            'reward_rate' => env('REWARD_RATE_SPORTS', '25'),
+            'daily_limit' => env('REWARD_LIMIT_SPORTS', '100'),
+            'min_activity_value' => '1',
+            'status' => 'active',
+            'mode' => 'fixed',
+        ],
+        'sports_sponsorship_milestone' => [
+            'reward_rate' => env('REWARD_RATE_SPORTS_SPONSORSHIP', '15'),
+            'daily_limit' => env('REWARD_LIMIT_SPORTS_SPONSORSHIP', '100'),
+            'min_activity_value' => '1',
+            'status' => 'active',
+            'mode' => 'fixed',
+        ],
+        'sports_community_vote' => [
+            'reward_rate' => env('REWARD_RATE_SPORTS_VOTE', '5'),
+            'daily_limit' => env('REWARD_LIMIT_SPORTS_VOTE', '50'),
+            'min_activity_value' => '1',
+            'status' => 'active',
+            'mode' => 'fixed',
+        ],
+        'game_reward' => [
+            'reward_rate' => env('REWARD_RATE_GAME', '2'),
+            'daily_limit' => env('REWARD_LIMIT_GAME', '25'),
+            'min_activity_value' => '1',
+            'status' => 'active',
+            'mode' => 'formula',
+        ],
+        'agriculture_reward' => [
+            'reward_rate' => env('REWARD_RATE_AGRICULTURE', '0.005'),
+            'daily_limit' => env('REWARD_LIMIT_AGRICULTURE', '100'),
+            'min_activity_value' => '10',
+            'status' => 'active',
+            'mode' => 'formula',
+        ],
+        'daily_check_in' => [
+            'reward_rate' => env('REWARD_RATE_DAILY_CHECK_IN', '1'),
+            'daily_limit' => env('REWARD_LIMIT_DAILY_CHECK_IN', '1'),
+            'min_activity_value' => '1',
+            'status' => 'active',
+            'mode' => 'fixed',
+        ],
+    ],
+];

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 import {
   ArrowLeft,
   BadgeInfo,
@@ -19,7 +20,7 @@ const assets = [
 ];
 
 const networks = ["TRC20", "ERC20", "BEP20"];
-const fiatPayoutMethods = ["Bank Account", "Mobile Money"];
+const fiatPayoutMethods = ["Bank Account", "Bank Wire", "Mobile Money"];
 const mobileMoneyProviders = ["MTN MoMo", "Airtel Money", "M-Pesa", "Vodafone Cash"];
 const mobileCountryCodes = ["+234", "+233", "+254", "+1", "+44"];
 
@@ -58,11 +59,17 @@ function Withdraw({ onBack }) {
   const [internalAmount, setInternalAmount] = useState("");
   const [fiatAmount, setFiatAmount] = useState("");
   const [fiatPayoutMethod, setFiatPayoutMethod] = useState("Bank Account");
-  const [bankName, setBankName] = useState("");
+  const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [swiftCode, setSwiftCode] = useState("");
   const [mobileProvider, setMobileProvider] = useState("MTN MoMo");
   const [mobileNumber, setMobileNumber] = useState("");
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { request } = useAuth();
 
   const selectedAsset = assets.find((item) => item.symbol === asset) || assets[0];
   const numericAmount = Number.parseFloat(amount || "0");
@@ -76,47 +83,87 @@ function Withdraw({ onBack }) {
     if (network === "BEP20") return 1.2;
     return 0.8;
   }, [network]);
+
+  const handleSubmit = async () => {
+    setFormError("");
+    setFormSuccess("");
+    setSubmitting(true);
+
+    if (selectedMethod === "fiat" && fiatPayoutMethod === "Mobile Money") {
+      setFormError("Mobile money withdrawals are not supported yet. Please choose Bank Account or Bank Wire.");
+      setSubmitting(false);
+      return;
+    }
+
+    const payload = {
+      currency: selectedMethod === "fiat" ? "USD" : asset,
+      amount: selectedMethod === "fiat" ? fiatAmount : amount,
+      destination_type: selectedMethod === "crypto" ? "crypto" : "bank",
+      address: selectedMethod === "crypto" ? address : undefined,
+      network: selectedMethod === "crypto" ? network : undefined,
+      bank_code: selectedMethod === "fiat" ? bankCode : undefined,
+      account_number: selectedMethod === "fiat" ? accountNumber : undefined,
+      account_name: selectedMethod === "fiat" ? accountName : undefined,
+      swift_code: selectedMethod === "fiat" ? swiftCode : undefined,
+      two_factor_code: twoFaCode || undefined,
+    };
+
+    try {
+      const response = await request("/api/withdrawals/initiate", {
+        method: "POST",
+        body: payload,
+      });
+
+      setFormSuccess(response.message || "Withdrawal request submitted.");
+      setAmount("");
+      setFiatAmount("");
+      setAddress("");
+      setAccountNumber("");
+      setAccountName("");
+      setBankCode("");
+      setTwoFaCode("");
+    } catch (error) {
+      setFormError(error.message || "Unable to submit withdrawal request.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
   const youReceive = Math.max(validAmount - networkFee, 0);
   const internalFee = 0;
   const internalYouReceive = Math.max(validInternalAmount - internalFee, 0);
-  const fiatFee = fiatPayoutMethod === "Bank Account" ? 1.5 : 1;
+  const fiatFee = fiatPayoutMethod === "Bank Wire" ? 3.0 : 1.5;
   const fiatYouReceive = Math.max(validFiatAmount - fiatFee, 0);
-  const internalRecipientIsValid = useMemo(() => {
-    if (internalRecipientType === "email") return Boolean(internalEmail.trim());
-    if (internalRecipientType === "mobile") return Boolean(internalMobileCode.trim()) && Boolean(internalMobile.trim());
-    return Boolean(internalUid.trim());
-  }, [internalEmail, internalMobile, internalMobileCode, internalRecipientType, internalUid]);
   const canSubmit = useMemo(() => {
     if (selectedMethod === "crypto") {
-      return Boolean(address.trim()) && validAmount > 0;
+      return Boolean(address.trim()) && validAmount > 0 && Boolean(twoFaCode.trim());
     }
     if (selectedMethod === "internal") {
-      return internalRecipientIsValid && validInternalAmount > 0;
+      return false;
     }
     if (selectedMethod === "fiat") {
-      if (fiatPayoutMethod === "Bank Account") {
-        return Boolean(bankName.trim()) && Boolean(accountNumber.trim()) && Boolean(accountName.trim()) && validFiatAmount > 0;
+      if (fiatPayoutMethod === "Mobile Money") {
+        return false;
       }
-      return Boolean(mobileProvider.trim()) && Boolean(mobileNumber.trim()) && validFiatAmount > 0;
+      if (fiatPayoutMethod === "Bank Wire") {
+        return Boolean(bankCode.trim()) && Boolean(accountNumber.trim()) && Boolean(accountName.trim()) && Boolean(swiftCode.trim()) && validFiatAmount > 0 && Boolean(twoFaCode.trim());
+      }
+      return Boolean(bankCode.trim()) && Boolean(accountNumber.trim()) && Boolean(accountName.trim()) && validFiatAmount > 0 && Boolean(twoFaCode.trim());
     }
     return false;
   }, [
     accountName,
     accountNumber,
     address,
-    bankName,
+    bankCode,
     fiatPayoutMethod,
-    internalRecipientIsValid,
-    mobileNumber,
-    mobileProvider,
     selectedMethod,
+    twoFaCode,
     validAmount,
     validFiatAmount,
-    validInternalAmount,
   ]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#060708] via-[#0c0d11] to-[#15100a] px-4 pb-28 pt-7 text-neutral-100 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-linear-to-br from-[#060708] via-[#0c0d11] to-[#15100a] px-4 pb-28 pt-7 text-neutral-100 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-4xl">
         <header className="mb-6">
           <div className="flex items-start justify-between gap-4">
@@ -153,7 +200,7 @@ function Withdraw({ onBack }) {
             </div>
             <div className="rounded-xl border border-[#d1ab55]/25 bg-black/30 px-3 py-2">
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neutral-800 to-neutral-950 text-[10px] font-bold text-[#f2d27f] ring-1 ring-[#d1ab55]/30">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-neutral-800 to-neutral-950 text-[10px] font-bold text-[#f2d27f] ring-1 ring-[#d1ab55]/30">
                   {selectedAsset.icon}
                 </span>
                 <div>
@@ -243,6 +290,17 @@ function Withdraw({ onBack }) {
                   Max
                 </button>
               </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="mb-2 block text-xs text-neutral-500">2FA Code</label>
+              <input
+                value={twoFaCode}
+                onChange={(event) => setTwoFaCode(event.target.value)}
+                placeholder="Enter 6-digit 2FA code"
+                maxLength={6}
+                className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
+              />
             </div>
 
             <div className="mt-4 rounded-xl border border-neutral-800 bg-black/30 p-3 text-xs">
@@ -377,14 +435,16 @@ function Withdraw({ onBack }) {
               </label>
             </div>
 
-            {fiatPayoutMethod === "Bank Account" ? (
+            {fiatPayoutMethod !== "Mobile Money" ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="block sm:col-span-2">
-                  <span className="mb-2 block text-xs text-neutral-500">Bank Name</span>
+                  <span className="mb-2 block text-xs text-neutral-500">
+                    {fiatPayoutMethod === "Bank Wire" ? "Wire Bank Code" : "Bank Code"}
+                  </span>
                   <input
-                    value={bankName}
-                    onChange={(event) => setBankName(event.target.value)}
-                    placeholder="Enter bank name"
+                    value={bankCode}
+                    onChange={(event) => setBankCode(event.target.value)}
+                    placeholder={fiatPayoutMethod === "Bank Wire" ? "Enter wire bank code" : "Enter bank code"}
                     className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
                   />
                 </label>
@@ -406,6 +466,17 @@ function Withdraw({ onBack }) {
                     className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
                   />
                 </label>
+                {fiatPayoutMethod === "Bank Wire" && (
+                  <label className="block">
+                    <span className="mb-2 block text-xs text-neutral-500">SWIFT / BIC Code</span>
+                    <input
+                      value={swiftCode}
+                      onChange={(event) => setSwiftCode(event.target.value)}
+                      placeholder="Enter SWIFT code"
+                      className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
+                    />
+                  </label>
+                )}
               </div>
             ) : (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -430,10 +501,31 @@ function Withdraw({ onBack }) {
                 Bank & Mobile Money Payout
               </p>
             </div>
+
+            <div className="mt-4">
+              <label className="block text-xs text-neutral-500">2FA Code</label>
+              <input
+                value={twoFaCode}
+                onChange={(event) => setTwoFaCode(event.target.value)}
+                placeholder="Enter 6-digit 2FA code"
+                maxLength={6}
+                className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
+              />
+            </div>
           </section>
         ) : null}
 
         <section className="mt-5 space-y-3">
+          {formError ? (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-100">
+              {formError}
+            </div>
+          ) : null}
+          {formSuccess ? (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+              {formSuccess}
+            </div>
+          ) : null}
           <div className="rounded-xl border border-amber-300/30 bg-amber-400/10 p-3 text-xs text-amber-100">
             Ensure the network matches the destination address. Incorrect transfers may result in permanent loss.
           </div>
@@ -448,10 +540,11 @@ function Withdraw({ onBack }) {
         <div className="mt-5 hidden gap-3 sm:grid sm:grid-cols-2">
           <button
             type="button"
-            disabled={!canSubmit}
-            className="rounded-xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1b1509] shadow-[0_0_25px_rgba(209,171,85,.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45"
+            onClick={handleSubmit}
+            disabled={!canSubmit || submitting}
+            className="rounded-xl bg-linear-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1b1509] shadow-[0_0_25px_rgba(209,171,85,.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45"
           >
-            Withdraw Now
+            {submitting ? "Processing…" : "Withdraw Now"}
           </button>
           <button
             type="button"
@@ -466,7 +559,7 @@ function Withdraw({ onBack }) {
         <button
           type="button"
           disabled={!canSubmit}
-          className="w-full rounded-xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1b1509] shadow-[0_0_25px_rgba(209,171,85,.35)] transition disabled:cursor-not-allowed disabled:opacity-45"
+          className="w-full rounded-xl bg-linear-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1b1509] shadow-[0_0_25px_rgba(209,171,85,.35)] transition disabled:cursor-not-allowed disabled:opacity-45"
         >
           Withdraw Now
         </button>

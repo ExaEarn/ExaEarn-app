@@ -70,6 +70,70 @@ web_modules/
 .env.*
 !.env.example
 
+# Sensitive environment files in nested apps
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependency directories
+/node_modules
+/vendor
+**/node_modules/
+**/vendor/
+
+# Runtime secrets, local databases, logs, and generated caches
+/storage/*.key
+/storage/logs
+**/storage/*.key
+**/storage/logs/
+bootstrap/cache/*.php
+**/bootstrap/cache/*.php
+*.sqlite
+**/*.sqlite
+*.db
+**/*.db
+*.log
+**/*.log
+.postgres-data/
+**/.postgres-data/
+
+# Local tool caches
+.publish/
+.embedded-git-backups/
+.composer-cache/
+.composer-home/
+.npm-cache/
+**/.npm-cache/
+php.ini
+**/php.ini
+php_modules.txt
+phpunit_out.txt
+patch.txt
+output.txt
+test_output.txt
+**/output.txt
+**/test_output.txt
+*.dll
+backend-*.log
+frontend-*.log
+
+# Generated blockchain/build artifacts
+artifacts/
+cache/
+**/artifacts/
+**/cache/
+**/dist/
+**/build/
+
+# Private key and wallet material
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+wallet.json
+**/wallet.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
@@ -137,3 +201,5 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+/generated/prisma

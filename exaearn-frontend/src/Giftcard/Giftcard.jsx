@@ -12,19 +12,15 @@ import {
   ShoppingBag,
   Smartphone,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { submitGiftcardSell } from "../services/giftcardApi";
+import { formatLockTime, formatNaira, useGiftcardLiveRate } from "../hooks/useGiftcardLiveRate";
 import InputField from "./InputField";
 import ProviderBadge from "./ProviderBadge";
 import SummaryPanel from "./SummaryPanel";
 import "./Giftcard.css";
 
 const providerOptions = ["Amazon", "Steam", "iTunes", "Google Play"];
-
-const providerRates = {
-  Amazon: 0.95,
-  Steam: 0.92,
-  iTunes: 0.9,
-  "Google Play": 0.91,
-};
 
 const supportedProviders = [
   { name: "Amazon", icon: <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" /> },
@@ -34,18 +30,36 @@ const supportedProviders = [
 ];
 
 function Giftcard({ onBack }) {
+  const { apiBaseUrl, token } = useAuth();
   const [code, setCode] = useState("");
   const [provider, setProvider] = useState(providerOptions[0]);
   const [amount, setAmount] = useState("100");
   const [currency, setCurrency] = useState("USD");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState({ code: false, amount: false });
+  const [statusMessage, setStatusMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [confirmationLock, setConfirmationLock] = useState(null);
 
   const parsedAmount = Number(amount);
   const amountValue = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : 0;
-  const rate = providerRates[provider] ?? 0.9;
-  const fee = amountValue * 0.02;
-  const receivable = Math.max(amountValue * rate - fee, 0);
+  const {
+    rate,
+    loading: loadingRate,
+    error: rateError,
+    lockRate,
+    rateLock,
+    secondsRemaining,
+    isLocked,
+  } = useGiftcardLiveRate({
+    apiBaseUrl,
+    token,
+    brand: provider,
+    value: amountValue,
+    transactionType: "sell",
+  });
+  const fee = 0;
+  const receivable = rate?.payout ?? 0;
 
   const errors = useMemo(
     () => ({
@@ -57,17 +71,64 @@ function Giftcard({ onBack }) {
 
   const hasError = Boolean(errors.code || errors.amount);
 
-  const handleSubmit = async () => {
+  const handleOpenConfirmation = async () => {
     setTouched({ code: true, amount: true });
     if (hasError || isSubmitting) {
       return;
     }
 
+    try {
+      setErrorMessage("");
+      const lock = await lockRate();
+      setConfirmationLock(lock);
+    } catch (error) {
+      setErrorMessage(error.message || "Unable to lock this rate. Please refresh pricing.");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!confirmationLock || !isLocked) {
+      setErrorMessage("Rate expired. Please refresh pricing before submission.");
+      setConfirmationLock(null);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setStatusMessage("");
+      setErrorMessage("");
+      const payload = await submitGiftcardSell({
+        apiBaseUrl,
+        token,
+        payload: {
+          card_type: provider,
+          provider: provider === "Google Play" ? "google_play" : provider.toLowerCase(),
+          amount: amountValue,
+          currency,
+          card_code: code.trim(),
+          source_mode: "manual_upload",
+          payment_method: "wallet_credit",
+          rate_lock_id: confirmationLock.lock_id,
+          locked_buy_rate: confirmationLock.rates?.buy_rate,
+          device_id: window.navigator.userAgent,
+          geo_location: Intl.DateTimeFormat().resolvedOptions().locale || "unknown",
+          is_vpn: false,
+        },
+      });
+
+      setStatusMessage(payload?.message || "Giftcard submitted for fraud analysis.");
+      setCode("");
+      setConfirmationLock(null);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitSafe = async () => {
+    try {
+      await handleSubmit();
+    } catch (error) {
+      setErrorMessage(error.message || "Unable to submit giftcard.");
     }
   };
 
@@ -171,31 +232,41 @@ function Giftcard({ onBack }) {
             <div className="mt-6 rounded-xl border border-emerald-300/20 bg-emerald-500/5 p-4">
               <p className="flex items-start gap-2 text-sm text-emerald-100/85">
                 <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-300" aria-hidden="true" />
-                Transactions are securely processed end-to-end with encrypted transfer channels.
+                Live pricing is refreshed automatically and locked before submission.
               </p>
               <p className="mt-2 flex items-start gap-2 text-sm text-emerald-100/85">
                 <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-300" aria-hidden="true" />
-                Giftcard details are used only for conversion and are never stored after completion.
+                Giftcard details are encrypted before submission and never exposed in raw form.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={handleOpenConfirmation}
               disabled={hasError || isSubmitting}
               className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-auric-300/80 bg-gradient-to-r from-auric-300 via-auric-400 to-auric-500 px-4 py-3 text-lg font-semibold text-cosmic-900 transition-all duration-300 hover:scale-[1.01] hover:shadow-button-glow active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
             >
               <Gift className="h-5 w-5" aria-hidden="true" />
-              {isSubmitting ? "Processing..." : "Convert / Redeem Giftcard"}
+              {isSubmitting ? "Processing..." : loadingRate ? "Fetching best rate..." : "Convert / Redeem Giftcard"}
             </button>
+            {rateLock && isLocked ? (
+              <p className="mt-3 text-sm text-auric-300">Rate locked for {formatLockTime(secondsRemaining)}</p>
+            ) : null}
+            {rateError ? <p className="mt-3 text-sm text-rose-300">{rateError}</p> : null}
+            {statusMessage ? <p className="mt-3 text-sm text-emerald-300">{statusMessage}</p> : null}
+            {errorMessage ? <p className="mt-3 text-sm text-rose-300">{errorMessage}</p> : null}
           </article>
 
           <SummaryPanel
             amount={amountValue}
             fee={fee}
             receivable={receivable}
-            rateText={`1 ${currency} = ${rate.toFixed(2)} EXA`}
+            rateText={rate ? `${formatNaira(rate.buy_rate)}/$ (live)` : "-"}
             currency={currency}
+            demandLevel={rate?.demand_level}
+            inventoryStatus={rate?.inventory_status}
+            marketFeedback={rate?.market_feedback}
+            loading={loadingRate}
           />
         </section>
 
@@ -208,6 +279,33 @@ function Giftcard({ onBack }) {
             ))}
           </div>
         </section>
+        {confirmationLock ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+            <div className="gift-card w-full max-w-md rounded-2xl p-6">
+              <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Confirm Locked Rate</h2>
+              <div className="mt-4 space-y-3 text-sm text-violet-100/85">
+                <p>Brand: {confirmationLock.brand_label}</p>
+                <p>Value: ${Number(confirmationLock.card_value).toFixed(2)}</p>
+                <p>Rate Used: {formatNaira(confirmationLock.rates?.buy_rate)}/$</p>
+                <p>You Receive: {formatNaira(confirmationLock.rates?.payout)}</p>
+                <p className="text-auric-300">Rate locked for {formatLockTime(secondsRemaining)}</p>
+              </div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button type="button" className="btn-outline rounded-xl px-4 py-3" onClick={() => setConfirmationLock(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-xl border border-auric-300/80 bg-auric-400 px-4 py-3 font-semibold text-cosmic-900 disabled:opacity-60"
+                  disabled={!isLocked || isSubmitting}
+                  onClick={handleSubmitSafe}
+                >
+                  {isSubmitting ? "Submitting..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     </main>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 import {
   Bell,
   CandlestickChart,
@@ -13,7 +14,7 @@ import {
 const topTabs = ["USDT-M", "COIN-M", "Options", "Smart Money"];
 const usdtContracts = ["XRPUSDT Perp", "BTCUSDT Perp", "ETHUSDT Perp", "SOLUSDT Perp"];
 const coinMContracts = ["BTCUSD Perp", "ETHUSD Perp", "BNBUSD Perp", "XRPUSD Perp"];
-const orderTypes = ["Market", "Limit", "Stop"];
+const orderTypes = ["Market", "Limit"];
 const timeframes = ["1m", "5m", "1h", "1D"];
 const percentSteps = [25, 50, 75, 100];
 
@@ -46,11 +47,61 @@ function Futures({ onBack, onOpenOptions, onOpenSmart }) {
   const [showChart, setShowChart] = useState(true);
   const [chartFrame, setChartFrame] = useState("5m");
 
+  const [orderError, setOrderError] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const availableBalance = 3280.32;
   const [bookTick, setBookTick] = useState(0);
 
   const selectedPair = activeTab === "COIN-M" ? selectedCoinMContract : selectedUsdtContract;
   const contracts = activeTab === "COIN-M" ? coinMContracts : usdtContracts;
+  const { request } = useAuth();
+
+  const handlePlaceOrder = async () => {
+    setOrderError("");
+    setOrderSuccess(null);
+
+    if (!amount || Number(amount) <= 0) {
+      setOrderError("Enter a valid quantity before placing an order.");
+      return;
+    }
+
+    if (orderType === "Limit" && (!priceInput || Number(priceInput) <= 0)) {
+      setOrderError("Enter a valid limit price before placing a limit order.");
+      return;
+    }
+
+    const symbol = selectedPair.split(" ")[0] || "";
+    const payload = {
+      symbol,
+      type: orderType.toLowerCase(),
+      side: side === "buy" ? "long" : "short",
+      quantity: amount,
+      leverage,
+    };
+
+    if (orderType === "Limit") {
+      payload.price = priceInput;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await request("/api/futures/orders", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setOrderSuccess(response.message || "Order submitted successfully.");
+      setAmount("");
+      setSelectedPct(0);
+    } catch (error) {
+      setOrderError(error?.message || "Unable to submit futures order.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -450,13 +501,27 @@ function Futures({ onBack, onOpenOptions, onOpenSmart }) {
 
       <div className="fixed inset-x-0 bottom-0 border-t border-white/10 bg-[#0B0F1A]/95 p-3 backdrop-blur">
         <div className="mx-auto w-full max-w-md sm:max-w-2xl lg:max-w-5xl">
+          {orderError ? (
+            <p className="mb-2 rounded-xl border border-[#ff5b6b]/30 bg-[#2e131a] px-3 py-2 text-sm text-[#ff9aa8]">
+              {orderError}
+            </p>
+          ) : null}
+          {orderSuccess ? (
+            <p className="mb-2 rounded-xl border border-[#34d98f]/30 bg-[#102617] px-3 py-2 text-sm text-[#8ce89a]">
+              {orderSuccess}
+            </p>
+          ) : null}
           <button
             type="button"
+            onClick={handlePlaceOrder}
+            disabled={isSubmitting}
             className={`w-full rounded-xl py-3 text-sm font-semibold shadow-[0_0_24px_rgba(255,185,0,0.25)] transition active:scale-[0.99] ${
-              side === "buy" ? "bg-gradient-to-r from-[#18c06c] to-[#34d98f] text-[#0B0F1A]" : "bg-gradient-to-r from-[#b43d48] to-[#ff5b6b] text-white"
-            }`}
+              side === "buy"
+                ? "bg-gradient-to-r from-[#18c06c] to-[#34d98f] text-[#0B0F1A]"
+                : "bg-gradient-to-r from-[#b43d48] to-[#ff5b6b] text-white"
+            } ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}
           >
-            {side === "buy" ? "Open Long Position" : "Open Short Position"}
+            {isSubmitting ? "Submitting..." : side === "buy" ? "Open Long Position" : "Open Short Position"}
           </button>
           <button type="button" onClick={onBack} className="mt-2 w-full rounded-lg border border-white/15 bg-[#111827] py-2 text-xs text-[#9CA3AF]">
             Back to Home

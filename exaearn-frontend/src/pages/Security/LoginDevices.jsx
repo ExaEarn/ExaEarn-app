@@ -55,7 +55,7 @@ const activitySeed = [
   { id: "act-3", event: "Suspicious login flagged", device: "Ubuntu - Firefox", time: "Mar 4, 2026 17:42" },
 ];
 
-function LoginDevices({ onBack }) {
+function LoginDevices({ onBack, onOpenActivityLogs }) {
   const [devices, setDevices] = useState(initialOtherDevices);
   const [activityLog, setActivityLog] = useState(activitySeed);
   const [confirm, setConfirm] = useState(null);
@@ -204,7 +204,7 @@ function LoginDevices({ onBack }) {
               </div>
             ))}
           </div>
-          <button type="button" className="mt-3 rounded-lg border border-white/15 bg-[#111827] px-3 py-1.5 text-xs text-[#D7DDEA]">
+          <button type="button" onClick={onOpenActivityLogs} className="mt-3 rounded-lg border border-white/15 bg-[#111827] px-3 py-1.5 text-xs text-[#D7DDEA]">
             View Full Security Activity Log
           </button>
         </article>

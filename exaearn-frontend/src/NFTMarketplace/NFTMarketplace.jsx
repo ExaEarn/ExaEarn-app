@@ -1,253 +1,253 @@
-import { useMemo, useState } from "react";
-import { Activity, ArrowLeft, Lock, ShieldCheck, Store } from "lucide-react";
-import FilterBar from "./FilterBar";
-import ListingModal from "./ListingModal";
-import NFTCard from "./NFTCard";
-import PurchaseModal from "./PurchaseModal";
-import Tabs from "./Tabs";
-import "./NFTMarketplace.css";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, BarChart3, CreditCard, LandPlot, ShieldCheck, Sparkles, TrendingUp, WalletCards } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { buyNftListing, createNftAuction, createNftListing, fetchMyNfts, fetchNftCollections, fetchNftDashboard, fetchNftMarketplace, mintFinancialNft, subscribeToFinancialNft, upgradeFinancialNft } from "../services/nftApi";
 
-const tabs = [
-  { id: "explore", label: "Explore" },
-  { id: "myNfts", label: "My NFTs" },
-  { id: "listed", label: "Listed for Sale" },
-  { id: "activity", label: "Activity" },
+const utilityCatalog = [
+  { id: "staking", label: "Staking NFT", phase: "Phase 1", revenue: "Entry fee + staking commission" },
+  { id: "boost", label: "Boost NFT", phase: "Phase 1", revenue: "Tier sales + upgrades" },
+  { id: "fee", label: "Fee NFT", phase: "Phase 1", revenue: "Paid fee reduction at volume" },
+  { id: "fiat_bridge", label: "Fiat Bridge NFT", phase: "Phase 2", revenue: "Withdrawal fees + spread" },
+  { id: "yield_passport", label: "Yield Passport NFT", phase: "Phase 2", revenue: "Mint + subscription + upgrades" },
+  { id: "access", label: "Access NFT", phase: "Phase 2", revenue: "Recurring premium access" },
+  { id: "agrishare", label: "AgriShare NFT", phase: "Phase 3", revenue: "Profit share + resale fees" },
+  { id: "credit_line", label: "Credit Line NFT", phase: "Phase 3", revenue: "Interest + penalties" },
+  { id: "ai_portfolio", label: "AI Portfolio NFT", phase: "Phase 3", revenue: "Subscription + analytics upgrades" },
 ];
 
-const nftDataset = [
-  {
-    id: "nft-1",
-    name: "Nebula Crown",
-    collection: "Exa Genesis",
-    category: "Art",
-    priceEth: 0.82,
-    owner: "0x4a...0c51",
-    creator: "0x11...ab2",
-    image: "https://images.unsplash.com/photo-1634973357973-f2ed2657db3c?auto=format&fit=crop&w=900&q=80",
-    listed: true,
-    popularScore: 94,
-    createdAt: "2026-01-21",
-  },
-  {
-    id: "nft-2",
-    name: "Arc Pulse Avatar",
-    collection: "Pulse",
-    category: "Gaming",
-    priceEth: 0.38,
-    owner: "0x98...a07",
-    creator: "0x13...bc3",
-    image: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=900&q=80",
-    listed: true,
-    popularScore: 77,
-    createdAt: "2026-02-05",
-  },
-  {
-    id: "nft-3",
-    name: "Signal Loop",
-    collection: "Sonic Chain",
-    category: "Music",
-    priceEth: 1.46,
-    owner: "0x4a...0c51",
-    creator: "0x07...f90",
-    image: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=900&q=80",
-    listed: false,
-    popularScore: 70,
-    createdAt: "2025-12-14",
-  },
-  {
-    id: "nft-4",
-    name: "Node Access Pass",
-    collection: "Protocol Keys",
-    category: "Utility",
-    priceEth: 0.24,
-    owner: "0x4a...0c51",
-    creator: "0x31...d13",
-    image: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92eee?auto=format&fit=crop&w=900&q=80",
-    listed: false,
-    popularScore: 62,
-    createdAt: "2026-02-09",
-  },
-  {
-    id: "nft-5",
-    name: "Aurum Relic",
-    collection: "Vault",
-    category: "Collectible",
-    priceEth: 2.3,
-    owner: "0x59...be1",
-    creator: "0x31...d13",
-    image: "https://images.unsplash.com/photo-1642104704074-907c0698f7bd?auto=format&fit=crop&w=900&q=80",
-    listed: true,
-    popularScore: 89,
-    createdAt: "2026-01-30",
-  },
-  {
-    id: "nft-6",
-    name: "Orbit Fragment",
-    collection: "Exa Genesis",
-    category: "Art",
-    priceEth: 0.55,
-    owner: "0x82...cc2",
-    creator: "0x11...ab2",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=900&q=80",
-    listed: true,
-    popularScore: 81,
-    createdAt: "2026-02-12",
-  },
-];
+const fmt = (value, digits = 2) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: digits });
 
-const activityFeed = [
-  { id: "ac-1", type: "Purchase", item: "Nebula Crown", amount: "0.82 ETH", date: "2026-02-20" },
-  { id: "ac-2", type: "Listing", item: "Aurum Relic", amount: "2.30 ETH", date: "2026-02-18" },
-  { id: "ac-3", type: "Sale", item: "Orbit Fragment", amount: "0.55 ETH", date: "2026-02-15" },
-];
-
-function NFTMarketplace({ onBack }) {
-  const [activeTab, setActiveTab] = useState("explore");
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-  const [priceCap, setPriceCap] = useState("All");
-  const [sortBy, setSortBy] = useState("Newest");
-  const [selectedForPurchase, setSelectedForPurchase] = useState(null);
-  const [selectedForListing, setSelectedForListing] = useState(null);
-
-  const filteredExplore = useMemo(() => {
-    const maxPrice =
-      priceCap === "<= 0.50 ETH"
-        ? 0.5
-        : priceCap === "<= 1.00 ETH"
-          ? 1
-          : priceCap === "<= 2.00 ETH"
-            ? 2
-            : priceCap === "<= 5.00 ETH"
-              ? 5
-              : Infinity;
-
-    const filtered = nftDataset.filter((item) => {
-      const q = search.toLowerCase();
-      const matchedSearch = !q || item.name.toLowerCase().includes(q) || item.collection.toLowerCase().includes(q) || item.creator.toLowerCase().includes(q);
-      const matchedCategory = category === "All" || item.category === category;
-      const matchedPrice = item.priceEth <= maxPrice;
-      return matchedSearch && matchedCategory && matchedPrice;
-    });
-
-    return filtered.sort((a, b) => {
-      if (sortBy === "Price: Low to High") return a.priceEth - b.priceEth;
-      if (sortBy === "Price: High to Low") return b.priceEth - a.priceEth;
-      if (sortBy === "Popular") return b.popularScore - a.popularScore;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  }, [search, category, priceCap, sortBy]);
-
-  const myNfts = nftDataset.filter((item) => item.owner === "0x4a...0c51");
-  const listed = nftDataset.filter((item) => item.listed);
-
+function Section({ title, subtitle, children, action }) {
   return (
-    <main className="nft-bg min-h-screen px-4 py-10 sm:px-6 sm:py-12">
-      <section className="nft-shell mx-auto w-full max-w-7xl rounded-[2rem] p-5 sm:p-8 lg:p-10">
-        <header className="nft-card rounded-3xl p-6 sm:p-8">
-          {onBack ? (
-            <div className="mb-4 flex justify-start">
-              <button type="button" onClick={onBack} className="btn-outline inline-flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                Back
-              </button>
-            </div>
-          ) : null}
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-3xl">
-              <h1 className="font-['Sora'] text-4xl font-semibold tracking-tight text-violet-50 sm:text-5xl">NFT Marketplace</h1>
-              <p className="mt-3 text-sm leading-relaxed text-violet-100/75 sm:text-base">
-                Discover, buy, and sell digital assets within the ExaEarn ecosystem.
-              </p>
-            </div>
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-auric-400/60 bg-cosmic-900/70 text-auric-300 shadow-button-glow">
-              <Store className="h-7 w-7" aria-hidden="true" />
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-2 rounded-xl border border-emerald-300/20 bg-emerald-500/5 p-4 sm:grid-cols-2">
-            <p className="flex items-center gap-2 text-sm text-emerald-100/85">
-              <ShieldCheck className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-              Secure marketplace transactions with protected settlement flows.
-            </p>
-            <p className="flex items-center gap-2 text-sm text-emerald-100/85">
-              <Lock className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-              Ownership verified on-chain and listings tracked transparently.
-            </p>
-          </div>
-        </header>
-
-        <div className="mt-6">
-          <Tabs items={tabs} activeTab={activeTab} onChange={setActiveTab} />
+    <section className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur sm:p-6">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-['Sora'] text-xl font-semibold text-white">{title}</h2>
+          {subtitle ? <p className="mt-1 text-sm text-white/55">{subtitle}</p> : null}
         </div>
-
-        {activeTab === "explore" ? (
-          <>
-            <div className="mt-6">
-              <FilterBar
-                search={search}
-                onSearch={setSearch}
-                category={category}
-                onCategory={setCategory}
-                priceCap={priceCap}
-                onPriceCap={setPriceCap}
-                sortBy={sortBy}
-                onSortBy={setSortBy}
-              />
-            </div>
-            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredExplore.map((item) => (
-                <NFTCard key={item.id} item={item} actionLabel="Buy NFT" onAction={setSelectedForPurchase} />
-              ))}
-            </section>
-          </>
-        ) : null}
-
-        {activeTab === "myNfts" ? (
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {myNfts.length ? (
-              myNfts.map((item) => (
-                <NFTCard key={item.id} item={item} actionLabel="List NFT" onAction={setSelectedForListing} showOwner />
-              ))
-            ) : (
-              <div className="nft-card col-span-full rounded-2xl p-8 text-center text-violet-100/70">No NFTs owned yet.</div>
-            )}
-          </section>
-        ) : null}
-
-        {activeTab === "listed" ? (
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {listed.map((item) => (
-              <NFTCard key={item.id} item={item} actionLabel="Buy NFT" onAction={setSelectedForPurchase} showOwner />
-            ))}
-          </section>
-        ) : null}
-
-        {activeTab === "activity" ? (
-          <section className="mt-6 nft-card rounded-2xl p-5 sm:p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <Activity className="h-5 w-5 text-auric-300" aria-hidden="true" />
-              <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Marketplace Activity</h2>
-            </div>
-            <div className="space-y-3">
-              {activityFeed.map((item) => (
-                <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-300/20 bg-cosmic-900/55 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-semibold text-violet-50">{item.type} - {item.item}</p>
-                    <p className="text-xs text-violet-100/65">{item.date}</p>
-                  </div>
-                  <p className="text-sm font-semibold text-auric-300">{item.amount}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </section>
-
-      {selectedForPurchase ? <PurchaseModal item={selectedForPurchase} onClose={() => setSelectedForPurchase(null)} /> : null}
-      {selectedForListing ? <ListingModal item={selectedForListing} onClose={() => setSelectedForListing(null)} /> : null}
-    </main>
+        {action}
+      </div>
+      {children}
+    </section>
   );
 }
 
-export default NFTMarketplace;
+export default function NFTMarketplace({ onBack }) {
+  const { token } = useAuth();
+  const apiBaseUrl = import.meta.env.VITE_API_URL?.trim() || "";
+  const [walletAddress, setWalletAddress] = useState("");
+  const [mintForm, setMintForm] = useState({ utility_type: "staking", name: "", tier: "standard" });
+  const [marketFilter, setMarketFilter] = useState({ utility_type: "all", phase: "all" });
+  const [dashboard, setDashboard] = useState(null);
+  const [marketplace, setMarketplace] = useState([]);
+  const [myAssets, setMyAssets] = useState([]);
+  const [collections, setCollections] = useState([]);
+  const [state, setState] = useState({ loading: true, busy: false, message: "", error: "" });
+
+  const setNotice = (message, error = "") => setState((current) => ({ ...current, message: error ? "" : message, error }));
+
+  const loadData = useCallback(async (filters = marketFilter) => {
+    setState((current) => ({ ...current, loading: true }));
+    try {
+      const [dash, market, mine, cols] = await Promise.all([
+        fetchNftDashboard({ apiBaseUrl, token }),
+        fetchNftMarketplace({ apiBaseUrl, token, params: filters }),
+        fetchMyNfts({ apiBaseUrl, token }),
+        fetchNftCollections({ apiBaseUrl, token }),
+      ]);
+      setDashboard(dash.data || null);
+      setMarketplace(market.data || []);
+      setMyAssets(mine.data || []);
+      setCollections(cols.data || []);
+      setNotice("");
+    } catch (error) {
+      setNotice("", error.message || "Unable to load NFT data.");
+    } finally {
+      setState((current) => ({ ...current, loading: false }));
+    }
+  }, [apiBaseUrl, marketFilter, token]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const utilities = useMemo(() => collections.length ? collections.map((item) => ({ id: item.utility_type, label: item.name, phase: item.metadata?.phase || "Live", revenue: `${item.royalty_percentage / 100}% royalty` })) : utilityCatalog, [collections]);
+  const summary = dashboard?.summary || {};
+  const prompts = dashboard?.upgrade_prompts || [];
+
+  const requireWallet = () => {
+    if (!walletAddress) {
+      setNotice("", "Enter a wallet address before running NFT financial actions.");
+      return false;
+    }
+    return true;
+  };
+
+  const runAction = async (action, successMessage) => {
+    setState((current) => ({ ...current, busy: true }));
+    try {
+      await action();
+      setNotice(successMessage);
+      await loadData();
+    } catch (error) {
+      setNotice("", error.message || "NFT action failed.");
+    } finally {
+      setState((current) => ({ ...current, busy: false }));
+    }
+  };
+
+  const onMint = async (event) => {
+    event.preventDefault();
+    if (!requireWallet()) return;
+    await runAction(() => mintFinancialNft({ apiBaseUrl, token, payload: { utility_type: mintForm.utility_type, name: mintForm.name, wallet_address: walletAddress, tier: mintForm.tier } }), "Financial NFT minted.");
+    setMintForm((current) => ({ ...current, name: "" }));
+  };
+
+  const onUpgrade = async (asset) => {
+    if (!requireWallet()) return;
+    const nextTier = asset.tier === "standard" ? "pro" : "institutional";
+    await runAction(() => upgradeFinancialNft({ apiBaseUrl, token, nftId: asset.id, payload: { wallet_address: walletAddress, target_tier: nextTier, target_level: Number(asset.level || 1) + 1 } }), `${asset.name} upgraded.`);
+  };
+
+  const onSubscribe = async (asset) => {
+    if (!requireWallet()) return;
+    await runAction(() => subscribeToFinancialNft({ apiBaseUrl, token, nftId: asset.id, payload: { wallet_address: walletAddress, plan: asset.tier === "institutional" ? "institutional" : "pro", duration_days: 30 } }), `${asset.name} subscription activated.`);
+  };
+
+  const onList = async (asset) => {
+    if (!requireWallet()) return;
+    const price = window.prompt(`Listing price in EXA for ${asset.name}`, asset.current_value_exa || "100");
+    if (!price) return;
+    await runAction(() => createNftListing({ apiBaseUrl, token, nftId: asset.id, payload: { wallet_address: walletAddress, price_exa: price } }), `${asset.name} listed.`);
+  };
+
+  const onAuction = async (asset) => {
+    if (!requireWallet()) return;
+    const startingPrice = window.prompt(`Auction start price in EXA for ${asset.name}`, asset.current_value_exa || "100");
+    if (!startingPrice) return;
+    await runAction(() => createNftAuction({ apiBaseUrl, token, nftId: asset.id, payload: { wallet_address: walletAddress, starting_price_exa: startingPrice, reserve_price_exa: startingPrice, ends_at: new Date(Date.now() + 86400000).toISOString() } }), `${asset.name} auction created.`);
+  };
+
+  const onBuy = async (asset) => {
+    if (!requireWallet()) return;
+    if (!asset.listing?.id) return setNotice("", "This NFT does not have an active listing.");
+    await runAction(() => buyNftListing({ apiBaseUrl, token, listingId: asset.listing.id, payload: { wallet_address: walletAddress, buyer_wallet: walletAddress } }), `${asset.name} purchased.`);
+  };
+
+  return (
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.16),_transparent_24%),linear-gradient(180deg,#06040a_0%,#100916_45%,#08050d_100%)] px-4 py-8 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="rounded-[2rem] border border-white/10 bg-white/5 p-6 sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="max-w-3xl">
+              {onBack ? <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-white/80"><ArrowLeft className="h-4 w-4" />Back</button> : null}
+              <p className="text-xs uppercase tracking-[0.35em] text-emerald-300">ExaEarn Financial NFT Engine</p>
+              <h1 className="mt-3 font-['Sora'] text-4xl font-semibold tracking-tight text-white sm:text-5xl">High-utility NFTs designed to generate revenue, access, and token demand.</h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/60">Minting, upgrades, subscriptions, secondary trading, fiat access, staking positions, agricultural exposure, and credit logic all flow through NFTs that function like financial products, not collectibles.</p>
+            </div>
+            <div className="w-full max-w-md rounded-3xl border border-emerald-300/20 bg-emerald-400/8 p-4">
+              <label className="block text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/80">Wallet Address</label>
+              <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="0x..." className="mt-3 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30" />
+              <p className="mt-2 text-xs text-white/45">Required for minting, upgrades, subscriptions, listings, and purchases.</p>
+            </div>
+          </div>
+          {state.message ? <div className="mt-5 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{state.message}</div> : null}
+          {state.error ? <div className="mt-5 rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{state.error}</div> : null}
+        </header>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {[
+            { label: "Assets", value: `${fmt(summary.total_assets_exa)} EXA`, tone: "bg-emerald-400/15 text-emerald-200", icon: WalletCards },
+            { label: "Earnings", value: `${fmt(summary.earnings_generated_exa)} EXA`, tone: "bg-sky-400/15 text-sky-200", icon: TrendingUp },
+            { label: "Fees Captured", value: `${fmt(summary.platform_fees_paid_exa)} EXA`, tone: "bg-amber-400/15 text-amber-200", icon: BarChart3 },
+            { label: "Positions", value: String(summary.active_positions || 0), tone: "bg-fuchsia-400/15 text-fuchsia-200", icon: Sparkles },
+            { label: "Listings", value: String(summary.active_listings || 0), tone: "bg-violet-400/15 text-violet-200", icon: ShieldCheck },
+          ].map((metric) => { const IconComponent = metric.icon; return (
+            <div key={metric.label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${metric.tone}`}><IconComponent className="h-5 w-5" /></div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/45">{metric.label}</p>
+                  <p className="mt-1 text-xl font-semibold text-white">{metric.value}</p>
+                </div>
+              </div>
+            </div>
+          ); })}
+        </section>
+
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <Section title="Revenue Utilities" subtitle="Each NFT answers the same question: how does it generate revenue?">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {utilities.map((item) => <div key={item.id} className="rounded-2xl border border-white/10 bg-black/20 p-4"><p className="text-xs uppercase tracking-[0.24em] text-emerald-300">{item.phase}</p><h3 className="mt-2 text-lg font-semibold text-white">{item.label}</h3><p className="mt-3 text-sm text-white/60">Revenue engine: {item.revenue}</p></div>)}
+            </div>
+          </Section>
+
+          <Section title="Mint Revenue NFT" subtitle="Use paid mints to start the utility and fee loop immediately">
+            <form className="space-y-4" onSubmit={onMint}>
+              <select value={mintForm.utility_type} onChange={(event) => setMintForm((current) => ({ ...current, utility_type: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none">{utilityCatalog.map((item) => <option key={item.id} value={item.id} className="bg-[#0f0a16]">{item.label}</option>)}</select>
+              <input value={mintForm.name} onChange={(event) => setMintForm((current) => ({ ...current, name: event.target.value }))} placeholder="Exa Pro Yield Passport" className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30" />
+              <select value={mintForm.tier} onChange={(event) => setMintForm((current) => ({ ...current, tier: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none"><option value="standard" className="bg-[#0f0a16]">Standard</option><option value="pro" className="bg-[#0f0a16]">Pro</option><option value="institutional" className="bg-[#0f0a16]">Institutional</option></select>
+              <button type="submit" disabled={state.busy || state.loading} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 disabled:opacity-60"><Sparkles className="h-4 w-4" />{state.busy ? "Processing..." : "Mint financial NFT"}</button>
+            </form>
+          </Section>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+          <Section title="Upgrade Prompts" subtitle="Built to nudge users toward higher-value tiers and subscriptions">
+            <div className="space-y-3">
+              {prompts.length ? prompts.map((prompt) => <div key={prompt} className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">{prompt}</div>) : <p className="text-sm text-white/60">Your current NFT stack already covers the highest-value prompts.</p>}
+            </div>
+          </Section>
+
+          <Section title="Earn, Fiat, RWA, Credit" subtitle="Utility sections exposed through financial NFT ownership">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="mb-3 flex items-center gap-2 text-emerald-200"><TrendingUp className="h-4 w-4" />Earn</div>{(dashboard?.earn?.active_positions || []).slice(0, 3).map((item) => <p key={item.nft_id} className="text-sm text-white/70">NFT #{item.nft_id}: {fmt(item.staked_amount_exa)} EXA staked</p>)}{!(dashboard?.earn?.active_positions || []).length ? <p className="text-sm text-white/60">No active staking positions yet.</p> : null}</div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="mb-3 flex items-center gap-2 text-sky-200"><CreditCard className="h-4 w-4" />Fiat Bridge</div>{(dashboard?.fiat_bridge?.profiles || []).slice(0, 3).map((item) => <p key={item.nft_id} className="text-sm text-white/70">NFT #{item.nft_id}: ${fmt(item.daily_limit_usd)} daily limit</p>)}{!(dashboard?.fiat_bridge?.profiles || []).length ? <p className="text-sm text-white/60">No fiat bridge access yet.</p> : null}</div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="mb-3 flex items-center gap-2 text-amber-200"><LandPlot className="h-4 w-4" />RWA</div>{(dashboard?.rwa_panel?.assets || []).slice(0, 3).map((item) => <p key={item.id} className="text-sm text-white/70">{item.name}: {fmt(item.current_value_exa)} EXA</p>)}{!(dashboard?.rwa_panel?.assets || []).length ? <p className="text-sm text-white/60">No AgriShare positions yet.</p> : null}</div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="mb-3 flex items-center gap-2 text-fuchsia-200"><ShieldCheck className="h-4 w-4" />AI + Credit</div><p className="text-sm text-white/70">Premium AI access: {dashboard?.ai_insights?.premium_access ? "Enabled" : "Locked"}</p><p className="text-sm text-white/70">Reports available: {dashboard?.ai_insights?.reports_available || 0}</p>{(dashboard?.credit_panel?.credit_lines || []).slice(0, 2).map((item) => <p key={item.nft_id} className="text-sm text-white/70">NFT #{item.nft_id}: {fmt(item.available_credit_exa)} EXA credit</p>)}</div>
+            </div>
+          </Section>
+        </div>
+
+        <Section title="My Financial NFTs" subtitle="Upgrade, subscribe, list, or auction owned utility positions" action={<span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/60">{myAssets.length} owned</span>}>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {myAssets.map((asset) => (
+              <div key={asset.id} className="rounded-3xl border border-white/10 bg-black/20 p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">{asset.utility_type.replaceAll("_", " ")}</p>
+                <h3 className="mt-2 text-lg font-semibold text-white">{asset.name}</h3>
+                <div className="mt-4 space-y-2 text-sm text-white/65">
+                  <p>Tier: <span className="text-white">{asset.tier}</span> - Level {asset.level}</p>
+                  <p>Value: <span className="text-white">{fmt(asset.current_value_exa)} EXA</span></p>
+                  <p>Generated: <span className="text-white">{fmt(asset.earnings_generated_exa)} EXA</span></p>
+                </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => onUpgrade(asset)} className="rounded-full border border-white/12 px-3 py-2 text-xs text-white/80">Upgrade</button>
+                  <button type="button" onClick={() => onSubscribe(asset)} className="rounded-full border border-emerald-300/25 px-3 py-2 text-xs text-emerald-100">Subscribe</button>
+                  <button type="button" onClick={() => onList(asset)} className="rounded-full border border-amber-300/25 px-3 py-2 text-xs text-amber-100">List</button>
+                  <button type="button" onClick={() => onAuction(asset)} className="rounded-full border border-sky-300/25 px-3 py-2 text-xs text-sky-100">Auction</button>
+                </div>
+              </div>
+            ))}
+            {!myAssets.length ? <p className="text-sm text-white/60">No financial NFTs minted yet. Start with Staking, Boost, or Fee NFTs for the fastest revenue path.</p> : null}
+          </div>
+        </Section>
+
+        <Section title="Marketplace" subtitle="Secondary trading captures fees, upgrades demand, and royalty-style value" action={<div className="flex gap-2"><select value={marketFilter.utility_type} onChange={(event) => { const next = { ...marketFilter, utility_type: event.target.value }; setMarketFilter(next); loadData(next); }} className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/80"><option value="all">All utilities</option>{utilityCatalog.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><select value={marketFilter.phase} onChange={(event) => { const next = { ...marketFilter, phase: event.target.value }; setMarketFilter(next); loadData(next); }} className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/80"><option value="all">All phases</option><option value="phase_1">Phase 1</option><option value="phase_2">Phase 2</option><option value="phase_3">Phase 3</option></select></div>}>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {marketplace.map((asset) => (
+              <div key={asset.id} className="rounded-3xl border border-white/10 bg-black/20 p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-amber-300">{asset.utility_type.replaceAll("_", " ")}</p>
+                <h3 className="mt-2 text-lg font-semibold text-white">{asset.name}</h3>
+                <div className="mt-4 space-y-2 text-sm text-white/65">
+                  <p>Utility: {(asset.benefits || []).slice(0, 2).join(" - ") || "Revenue-position NFT"}</p>
+                  <p>Value: <span className="text-white">{fmt(asset.current_value_exa)} EXA</span></p>
+                  <p>Generated: <span className="text-white">{fmt(asset.earnings_generated_exa)} EXA</span></p>
+                  <p>Listing: <span className="text-white">{asset.listing ? `${fmt(asset.listing.price_exa)} EXA` : "Not live"}</span></p>
+                </div>
+                <button type="button" disabled={!asset.listing?.id || state.busy} onClick={() => onBuy(asset)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 font-semibold text-slate-950 disabled:opacity-50"><WalletCards className="h-4 w-4" />{asset.listing?.id ? "Buy financial NFT" : "Listing unavailable"}</button>
+              </div>
+            ))}
+          </div>
+        </Section>
+      </div>
+    </main>
+  );
+}

@@ -26,7 +26,7 @@ function LandCard({ parcel, onAcquireShare }) {
       </div>
       <button
         type="button"
-        onClick={onAcquireShare}
+        onClick={() => onAcquireShare?.(parcel.id)}
         className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-auric-300/60 bg-gradient-to-r from-auric-300 via-auric-400 to-auric-500 px-3 py-2 text-xs font-semibold text-cosmic-900 transition-all duration-300 hover:scale-[1.01] hover:shadow-button-glow"
       >
         Acquire Share

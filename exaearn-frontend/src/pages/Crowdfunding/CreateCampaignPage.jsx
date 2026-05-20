@@ -12,6 +12,9 @@ import {
   Wallet,
 } from "lucide-react";
 import Image from "../../assets/Image";
+import { useAuth } from "../../context/AuthContext";
+import { useWeb3Wallet } from "../../hooks/useWeb3Wallet";
+import { useCrowdfunding } from "../../hooks/useCrowdfunding";
 import "./CreateCampaignPage.css";
 
 const steps = [
@@ -39,6 +42,9 @@ function clamp(value, min, max) {
 }
 
 function CreateCampaignPage({ onBack }) {
+  const { apiBaseUrl, token } = useAuth();
+  const wallet = useWeb3Wallet();
+  const { createCampaignFlow, txState } = useCrowdfunding({ apiBaseUrl, token, wallet, poll: false });
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState(categories[0]);
@@ -59,6 +65,7 @@ function CreateCampaignPage({ onBack }) {
   const [bankDetails, setBankDetails] = useState("");
   const [smartContractEnabled, setSmartContractEnabled] = useState(true);
   const [published, setPublished] = useState(false);
+  const [publishError, setPublishError] = useState("");
   const [rewards, setRewards] = useState([
     { amount: 10000, description: "Early Supporter Badge" },
     { amount: 50000, description: "Product Early Access" },
@@ -82,6 +89,39 @@ function CreateCampaignPage({ onBack }) {
 
   const updateReward = (index, field, value) => {
     setRewards((current) => current.map((reward, idx) => (idx === index ? { ...reward, [field]: value } : reward)));
+  };
+
+  const publishCampaign = async () => {
+    setPublishError("");
+    try {
+      if (!wallet.isConnected) {
+        await wallet.connectMetaMask();
+      }
+
+      await createCampaignFlow({
+        title,
+        category,
+        description,
+        goal_amount: fundingGoal,
+        minimum_contribution: minimumContribution,
+        deadline_days: durationDays,
+        funding_type: fundingType,
+        story,
+        problem,
+        solution,
+        market_opportunity: marketOpportunity,
+        roadmap,
+        rewards,
+        payout_wallet: walletAddress,
+        payout_bank_details: bankDetails,
+        smart_contract_enabled: smartContractEnabled,
+      });
+
+      setPublished(true);
+    } catch (error) {
+      setPublishError(error?.message || "Failed to publish campaign.");
+      setPublished(false);
+    }
   };
 
   return (
@@ -385,7 +425,7 @@ function CreateCampaignPage({ onBack }) {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setPublished(true)}
+                    onClick={publishCampaign}
                     className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B]"
                   >
                     Publish Campaign
@@ -393,6 +433,12 @@ function CreateCampaignPage({ onBack }) {
                 )}
               </div>
               {published ? <p className="mt-3 text-sm text-[#D4AF37]">Campaign draft published successfully.</p> : null}
+              {publishError ? <p className="mt-3 text-sm text-rose-300">{publishError}</p> : null}
+              {txState.status !== "idle" ? (
+                <p className="mt-2 text-xs text-[#F8F8F8]/75">
+                  Transaction status: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}
+                </p>
+              ) : null}
             </div>
 
             <aside className="space-y-4">
@@ -427,8 +473,9 @@ function CreateCampaignPage({ onBack }) {
 
               <article className="rounded-2xl border border-[#D4AF37]/25 bg-[#0B0B0B]/62 p-4">
                 <p className="text-sm font-semibold text-[#D4AF37]">Why Launch on ExaEarn?</p>
-                <div className="mt-3 grid gap-2 text-sm">
-                  <p className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-[#D4AF37]" /> Global Investor Access</p>
+            <div className="mt-3 grid gap-2 text-sm">
+              <p className="inline-flex items-center gap-2"><Wallet className="h-4 w-4 text-[#D4AF37]" /> Wallet: {wallet.isConnected ? wallet.shortAddress : "Not connected"}</p>
+              <p className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-[#D4AF37]" /> Global Investor Access</p>
                   <p className="inline-flex items-center gap-2"><Blocks className="h-4 w-4 text-[#D4AF37]" /> Web3 Smart Contract Integration</p>
                   <p className="inline-flex items-center gap-2"><FileCheck2 className="h-4 w-4 text-[#D4AF37]" /> Transparent Fund Tracking</p>
                   <p className="inline-flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /> Community Governance</p>

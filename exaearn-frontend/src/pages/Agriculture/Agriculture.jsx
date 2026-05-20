@@ -1,42 +1,10 @@
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, LandPlot } from "lucide-react";
 import LandCard from "./components/LandCard";
 import LeasePanel from "./components/LeasePanel";
 import logo from "../../assets/images/exaearn-logo.png";
-
-const parcelData = [
-  {
-    id: "parcel-1",
-    name: "Green Valley Farm",
-    size: "10 Acres",
-    location: "California",
-    availability: 65,
-    theme: "emerald",
-  },
-  {
-    id: "parcel-2",
-    name: "Sunrise Field",
-    size: "8 Acres",
-    location: "Texas",
-    availability: 40,
-    theme: "gold",
-  },
-  {
-    id: "parcel-3",
-    name: "Harvest Plains",
-    size: "15 Acres",
-    location: "Iowa",
-    availability: 75,
-    theme: "violet",
-  },
-  {
-    id: "parcel-4",
-    name: "Cedar Ridge",
-    size: "12 Acres",
-    location: "Colorado",
-    availability: 55,
-    theme: "emerald",
-  },
-];
+import { useAuth } from "../../context/AuthContext";
+import { fetchAgriProjects } from "../../services/agriApi";
 
 const feeCards = [
   {
@@ -57,6 +25,66 @@ const feeCards = [
 ];
 
 function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
+  const { apiBaseUrl, token } = useAuth();
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProjects = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const payload = await fetchAgriProjects({
+          apiBaseUrl,
+          token,
+          params: { per_page: 6 },
+        });
+        if (!active) {
+          return;
+        }
+
+        const nextProjects = Array.isArray(payload?.data?.data) ? payload.data.data : [];
+        setProjects(nextProjects);
+      } catch (nextError) {
+        if (active) {
+          setError(nextError.message || "Unable to load agricultural projects.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProjects();
+
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl, token]);
+
+  const parcelData = useMemo(() => {
+    const themes = ["emerald", "gold", "violet"];
+
+    return projects.map((project, index) => {
+      const totalShares = Number(project?.share?.total_shares || 0);
+      const sharesAvailable = Number(project?.share?.shares_available || 0);
+      const fundedPercent = totalShares > 0 ? Math.round(((totalShares - sharesAvailable) / totalShares) * 100) : 0;
+
+      return {
+        id: project.id,
+        name: project.project_name,
+        size: `${project.farm_size} ${project.farm_size_unit || "acres"}`,
+        location: project.location,
+        availability: Math.max(0, Math.min(100, 100 - fundedPercent)),
+        theme: themes[index % themes.length],
+      };
+    });
+  }, [projects]);
+
   return (
     <div className="min-h-screen text-white exa-bg app-shell">
       <div className="container w-full max-w-sm px-3 pt-4 pb-6 mx-auto sm:max-w-lg sm:px-4 sm:pt-6 md:max-w-2xl lg:max-w-5xl xl:max-w-6xl">
@@ -92,6 +120,9 @@ function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
                   </h1>
                   <p className="mt-3 text-sm leading-relaxed text-violet-100/75 sm:text-base">
                     Secure blockchain land registry and subscription investment for agriculture.
+                  </p>
+                  <p className="mt-2 text-xs text-violet-100/65">
+                    {loading ? "Loading live projects..." : `${projects.length} live projects available for funding.`}
                   </p>
                   <button
                     type="button"
@@ -131,6 +162,11 @@ function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
                 <LandCard key={parcel.id} parcel={parcel} onAcquireShare={onOpenAcquireShare} />
               ))}
             </div>
+            {loading ? <p className="mt-3 text-xs text-violet-100/65">Fetching tokenized farm inventory...</p> : null}
+            {!loading && error ? <p className="mt-3 text-xs text-rose-300">{error}</p> : null}
+            {!loading && !error && parcelData.length === 0 ? (
+              <p className="mt-3 text-xs text-violet-100/65">No farm projects have been published yet.</p>
+            ) : null}
           </section>
 
           <section className="mt-6">

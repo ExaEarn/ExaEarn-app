@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -12,6 +12,8 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { fetchUserTransactions } from "../../services/transactionApi";
 
 const filterTabs = ["All", "Deposits", "Withdrawals", "Rewards", "P2P"];
 
@@ -21,7 +23,7 @@ const transactionsSeed = [
     type: "Deposit",
     asset: "USDT",
     amount: "+2,400.00",
-    amountFiat: "₦3,940,000",
+    amountFiat: "NGN 3,940,000",
     status: "Completed",
     date: "Feb 24, 2026",
     time: "08:14 PM",
@@ -35,7 +37,7 @@ const transactionsSeed = [
     type: "Withdrawal",
     asset: "XRP",
     amount: "-1,250.00",
-    amountFiat: "₦1,710,200",
+    amountFiat: "NGN 1,710,200",
     status: "Pending",
     date: "Feb 24, 2026",
     time: "03:52 PM",
@@ -49,7 +51,7 @@ const transactionsSeed = [
     type: "Reward",
     asset: "ExaToken",
     amount: "+540.00",
-    amountFiat: "₦420,100",
+    amountFiat: "NGN 420,100",
     status: "Completed",
     date: "Feb 23, 2026",
     time: "10:19 AM",
@@ -63,7 +65,7 @@ const transactionsSeed = [
     type: "P2P",
     asset: "BTC",
     amount: "+0.0184",
-    amountFiat: "₦3,100,000",
+    amountFiat: "NGN 3,100,000",
     status: "Failed",
     date: "Feb 22, 2026",
     time: "05:47 PM",
@@ -77,7 +79,7 @@ const transactionsSeed = [
     type: "Withdrawal",
     asset: "ETH",
     amount: "-0.920",
-    amountFiat: "₦7,202,000",
+    amountFiat: "NGN 7,202,000",
     status: "Completed",
     date: "Feb 22, 2026",
     time: "11:12 AM",
@@ -108,32 +110,140 @@ function StatusDot({ status }) {
   return <XCircle className="h-3.5 w-3.5 text-rose-300" />;
 }
 
+function humanType(type) {
+  const mapping = {
+    deposit: "Deposit",
+    withdrawal: "Withdrawal",
+    internal_transfer: "P2P",
+    trade: "Trade",
+    staking_lock: "Staking",
+    staking_reward: "Reward",
+    nft_purchase: "NFT",
+    lottery_bet: "Lottery",
+    lottery_reward: "Reward",
+    referral_reward: "Reward",
+    platform_reward: "Reward",
+  };
+
+  return mapping[type] || "Activity";
+}
+
+function humanStatus(status) {
+  if (!status) return "Pending";
+  const normalized = String(status).toLowerCase();
+  if (normalized === "completed") return "Completed";
+  if (normalized === "failed") return "Failed";
+  if (normalized === "cancelled") return "Failed";
+  if (normalized === "processing") return "Pending";
+  return "Pending";
+}
+
+function formatDateTime(value) {
+  if (!value) return { date: "--", time: "--" };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { date: "--", time: "--" };
+  }
+  return {
+    date: date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
+    time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+  };
+}
+
+function mapApiTransaction(tx, userId) {
+  const { date, time } = formatDateTime(tx.created_at || tx.updated_at);
+  const type = humanType(tx.type);
+  const status = humanStatus(tx.status);
+  const amountValue = Number(tx.amount || 0);
+  const isCredit = ["Deposit", "Reward"].includes(type);
+  const amountPrefix = isCredit ? "+" : "-";
+  const amount = `${amountPrefix}${Math.abs(amountValue).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}`;
+
+  return {
+    id: tx.transaction_id || String(tx.id || ""),
+    type,
+    asset: tx.currency || "EXA",
+    amount,
+    amountFiat: "NGN --",
+    status,
+    date,
+    time,
+    network: tx.metadata?.network || "Base",
+    confirmations: tx.metadata?.confirmations || "--",
+    fee: tx.fee ? `${tx.fee} ${tx.currency}` : `0.00 ${tx.currency || "EXA"}`,
+    ref: tx.reference || "--",
+    txHash: tx.tx_hash || "",
+    raw: tx,
+  };
+}
+
 function Transactions({ onBack }) {
+  const { apiBaseUrl, token, user } = useAuth();
+  const userId = user?.id ?? user?.user_id ?? null;
   const [activeTab, setActiveTab] = useState("All");
   const [query, setQuery] = useState("");
+  const [transactions, setTransactions] = useState(transactionsSeed);
   const [selectedTx, setSelectedTx] = useState(transactionsSeed[0]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTransactions() {
+      if (!apiBaseUrl || !userId) {
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      try {
+        const payload = await fetchUserTransactions({ apiBaseUrl, token, userId, perPage: 50 });
+        const rows = payload?.data?.data ?? payload?.data ?? [];
+        const mapped = rows.map((tx) => mapApiTransaction(tx, userId));
+        if (isMounted && mapped.length) {
+          setTransactions(mapped);
+          setSelectedTx(mapped[0]);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err?.message || "Unable to load transactions.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadTransactions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBaseUrl, token, userId]);
 
   const filteredTransactions = useMemo(() => {
-    return transactionsSeed.filter((tx) => {
+    return transactions.filter((tx) => {
       const tabMatch = activeTab === "All" || tx.type === activeTab.slice(0, -1) || tx.type === activeTab;
       const q = query.trim().toLowerCase();
       const queryMatch = !q || tx.id.toLowerCase().includes(q) || tx.asset.toLowerCase().includes(q) || tx.ref.toLowerCase().includes(q);
       return tabMatch && queryMatch;
     });
-  }, [activeTab, query]);
+  }, [activeTab, query, transactions]);
 
   const stats = useMemo(() => {
-    const deposits = transactionsSeed.filter((tx) => tx.type === "Deposit" && tx.status !== "Failed").length;
-    const withdrawals = transactionsSeed.filter((tx) => tx.type === "Withdrawal" && tx.status !== "Failed").length;
-    const rewards = transactionsSeed.filter((tx) => tx.type === "Reward").length;
-    const pending = transactionsSeed.filter((tx) => tx.status === "Pending").length;
+    const deposits = transactions.filter((tx) => tx.type === "Deposit" && tx.status !== "Failed").length;
+    const withdrawals = transactions.filter((tx) => tx.type === "Withdrawal" && tx.status !== "Failed").length;
+    const rewards = transactions.filter((tx) => tx.type === "Reward").length;
+    const pending = transactions.filter((tx) => tx.status === "Pending").length;
     return [
       { label: "Total Deposits", value: deposits, tone: "from-emerald-400/20 to-emerald-300/5" },
       { label: "Total Withdrawals", value: withdrawals, tone: "from-rose-400/20 to-rose-300/5" },
       { label: "Rewards Earned", value: rewards, tone: "from-amber-400/20 to-amber-300/5" },
       { label: "Pending Transactions", value: pending, tone: "from-violet-400/20 to-violet-300/5" },
     ];
-  }, []);
+  }, [transactions]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#050509] via-[#140822] to-[#1c0d32] px-4 py-8 text-violet-50 sm:px-6 sm:py-10">
@@ -182,6 +292,11 @@ function Transactions({ onBack }) {
         </section>
 
         <section className="mt-5 rounded-2xl border border-violet-300/15 bg-[#140c24]/80 p-3">
+          {error ? (
+            <div className="mb-3 rounded-xl border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+              {error}
+            </div>
+          ) : null}
           <div className="flex gap-2 overflow-x-auto pb-1">
             {filterTabs.map((tab) => (
               <button
@@ -207,7 +322,13 @@ function Transactions({ onBack }) {
 
         <section className="mt-5 grid gap-4 xl:grid-cols-[1.55fr_1fr]">
           <div className="space-y-3">
-            {filteredTransactions.length ? (
+            {loading ? (
+              <div className="rounded-2xl border border-violet-300/15 bg-[#120b20]/85 p-12 text-center">
+                <Shuffle className="mx-auto h-10 w-10 text-violet-200/65" />
+                <p className="mt-3 text-base font-semibold text-violet-50">Loading Transactions</p>
+                <p className="mt-1 text-sm text-violet-100/65">Fetching latest ledger activity...</p>
+              </div>
+            ) : filteredTransactions.length ? (
               filteredTransactions.map((tx) => {
                 const config = typeConfig(tx.type);
                 const TypeIcon = config.icon;

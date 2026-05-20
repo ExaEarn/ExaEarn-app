@@ -1,0 +1,10 @@
+{
+  "name": "ExaEarnFinancialNFT",
+  "addressEnv": "FINANCIAL_NFT_CONTRACT_ADDRESS",
+  "abi": [
+    "function mintFinancialNft(address to,string utilityType,string tier,string metadataURI,uint256 mintFee) returns (uint256)",
+    "function ownerOf(uint256 tokenId) view returns (address)",
+    "function tokenURI(uint256 tokenId) view returns (string)",
+    "event NFTMinted(uint256 indexed tokenId,address indexed owner,string utilityType,string tier,string metadataURI,uint256 mintFee)"
+  ]
+}
