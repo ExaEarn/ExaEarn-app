@@ -93,7 +93,7 @@ function toggleValue(values, id) {
   return values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
 }
 
-function Register({ onLogin }) {
+function Register({ onLogin, onSuccess }) {
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -159,7 +159,14 @@ function Register({ onLogin }) {
       return;
     }
 
-    const result = await checkAccountAvailability({ email });
+    const result = await checkAccountAvailability({
+      name: fullName,
+      email,
+      password,
+      passwordConfirmation: confirmPassword,
+      referralCode,
+      validateCredentials: true,
+    });
     if (!result.success || result.exists) {
       return;
     }
@@ -177,8 +184,8 @@ function Register({ onLogin }) {
       referralCode,
     });
 
-    if (result.success && onLogin) {
-      onLogin();
+    if (result.success && onSuccess) {
+      onSuccess();
     }
   };
 

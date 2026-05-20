@@ -528,7 +528,17 @@ export default function App() {
 
   if (!isAuthenticated) {
     if (authPage === "register") {
-      return <Register onLogin={() => setAuthPage("login")} />;
+      return (
+        <Register
+          onLogin={() => setAuthPage("login")}
+          onSuccess={() => {
+            setShowSplash(true);
+            setTimeout(() => {
+              setShowSplash(false);
+            }, 900);
+          }}
+        />
+      );
     }
     if (authPage === "forgotPassword") {
       return <ForgotPassword onLogin={() => setAuthPage("login")} />;

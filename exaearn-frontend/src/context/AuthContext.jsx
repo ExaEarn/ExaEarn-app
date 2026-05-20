@@ -83,9 +83,7 @@ function AuthProvider({ children }) {
     async (path, options = {}) => {
       const normalizedBase = apiBaseUrl.endsWith("/") ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
       const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-      if (!normalizedBase) {
-        throw new Error("API URL is not configured.");
-      }
+      const requestUrl = normalizedBase ? `${normalizedBase}${normalizedPath}` : normalizedPath;
 
       const { headers: optionHeaders, ...restOptions } = options || {};
 
@@ -103,7 +101,7 @@ function AuthProvider({ children }) {
 
       let response;
       try {
-        response = await fetch(`${normalizedBase}${normalizedPath}`, {
+        response = await fetch(requestUrl, {
           ...restOptions,
           headers,
           credentials: 'include', // Include cookies for Sanctum session auth
@@ -121,7 +119,11 @@ function AuthProvider({ children }) {
 
       if (!response.ok || payload?.status === "error") {
         const message = payload?.message || `Request failed (${response.status})`;
-        throw new Error(message);
+        const error = new Error(message);
+        error.status = response.status;
+        error.code = payload?.code || "";
+        error.payload = payload;
+        throw error;
       }
 
       return payload;
@@ -264,13 +266,24 @@ function AuthProvider({ children }) {
   );
 
   const checkAccountAvailability = useCallback(
-    async ({ email }) => {
+    async ({ name, email, password, passwordConfirmation, referralCode, validateCredentials = false }) => {
       setAuthError("");
       setAuthLoading(true);
       try {
         const payload = await request("/api/account/check", {
           method: "POST",
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({
+            email,
+            ...(validateCredentials
+              ? {
+                  validate_credentials: true,
+                  name,
+                  password,
+                  password_confirmation: passwordConfirmation,
+                  referral_code: referralCode || undefined,
+                }
+              : {}),
+          }),
         });
 
         return {
@@ -279,8 +292,25 @@ function AuthProvider({ children }) {
           message: payload.message || "",
         };
       } catch (error) {
-        setAuthError(error.message || "Unable to verify account.");
-        return { success: false, exists: true, message: error.message || "Unable to verify account." };
+        if (import.meta.env.DEV && isApiUnreachable(error)) {
+          const normalizedEmail = String(email || "").trim().toLowerCase();
+          const localUsers = readJson(LOCAL_USERS_KEY, []);
+          const accountExists = localUsers.some((account) => account.email === normalizedEmail);
+          const message = accountExists
+            ? "A local demo account already exists for this email. Login with it instead."
+            : "Account details accepted for local demo onboarding.";
+
+          if (accountExists) {
+            setAuthError(message);
+          }
+
+          return { success: !accountExists, exists: accountExists, message, local: true };
+        }
+
+        const accountExists = error.code === "ACCOUNT_EXISTS" || error.status === 409;
+        const message = error.message || "Unable to verify account.";
+        setAuthError(message);
+        return { success: false, exists: accountExists, message, code: error.code || "" };
       } finally {
         setAuthLoading(false);
       }

@@ -104,11 +104,12 @@ class AuthController extends Controller
 
     public function checkAccount(Request $request)
     {
-        $validated = $request->validate([
+        $validatedEmail = $request->validate([
             'email' => ['required', 'email', 'max:255'],
         ]);
 
-        $exists = User::where('email', strtolower(trim((string) $validated['email'])))->exists();
+        $email = strtolower(trim((string) $validatedEmail['email']));
+        $exists = User::where('email', $email)->exists();
 
         if ($exists) {
             return response()->json([
@@ -117,6 +118,28 @@ class AuthController extends Controller
                 'message' => 'Account already exists. Please login.',
                 'code' => 'ACCOUNT_EXISTS',
             ], 409);
+        }
+
+        if ($request->boolean('validate_credentials')) {
+            $passwordRegex = (string) config('security.auth.strong_password_regex', '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{10,}$/');
+
+            $request->merge(['email' => $email]);
+            $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'email', 'max:255'],
+                'password' => ['required', 'string', 'min:10', 'regex:' . $passwordRegex, 'confirmed'],
+                'referral_code' => ['nullable', 'string', 'max:32'],
+            ]);
+
+            $referralCode = strtoupper(trim((string) $request->input('referral_code', '')));
+            if ($referralCode !== '' && !User::where('referral_code', $referralCode)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'exists' => false,
+                    'message' => 'Referral code is invalid.',
+                    'code' => 'INVALID_REFERRAL_CODE',
+                ], 422);
+            }
         }
 
         return response()->json([
