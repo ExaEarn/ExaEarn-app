@@ -10,7 +10,7 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
   const [loginMessage, setLoginMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
-  const hasHandledGoogleSuccess = useRef(false);
+  const googleLoginStarted = useRef(false);
   const {
     user,
     login,
@@ -23,11 +23,11 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
   } = useAuth();
 
   useEffect(() => {
-    if (!user || hasHandledGoogleSuccess.current) {
+    if (!user || !googleLoginStarted.current) {
       return;
     }
 
-    hasHandledGoogleSuccess.current = true;
+    googleLoginStarted.current = false;
     if (onSuccess) {
       onSuccess();
     }
@@ -132,7 +132,10 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
           <div className="space-y-3">
             <button
               type="button"
-              onClick={startGoogleLogin}
+              onClick={() => {
+                googleLoginStarted.current = true;
+                startGoogleLogin();
+              }}
               disabled={isGoogleAuthLoading}
               className="w-full rounded-2xl border border-violet-300/30 bg-cosmic-900/70 px-4 py-3 text-sm font-semibold text-violet-100/80 transition-all duration-300 hover:-translate-y-0.5 hover:border-auric-300/60 hover:text-auric-200"
             >

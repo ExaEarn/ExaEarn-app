@@ -130,14 +130,19 @@ function AuthProvider({ children }) {
   );
 
   const fetchMe = useCallback(async () => {
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
     try {
       const payload = await request("/api/user", { method: "GET" });
       setUser(payload.user ?? payload.data?.user ?? null);
     } catch {
-      const cachedUser = readJson(AUTH_USER_KEY, null);
-      setUser(cachedUser);
+      setUser(null);
+      setToken("");
     }
-  }, [request]);
+  }, [request, token]);
 
   useEffect(() => {
     // Hydrate user session when the app boots.
