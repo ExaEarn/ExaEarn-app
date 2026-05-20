@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "build": "npm --prefix exaearn-frontend run build",
+    "frontend:install": "npm --prefix exaearn-frontend ci",
+    "frontend:build": "npm --prefix exaearn-frontend run build"
+  },
   "devDependencies": {
     "prisma": "^7.8.0"
   },
