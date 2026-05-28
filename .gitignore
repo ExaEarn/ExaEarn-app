@@ -98,6 +98,8 @@ bootstrap/cache/*.php
 **/.postgres-data/
 
 # Local tool caches
+.expo/
+.pnpm-store/
 .publish/
 .embedded-git-backups/
 .composer-cache/

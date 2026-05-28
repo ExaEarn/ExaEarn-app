@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "ExaEarn",
+    "slug": "exaearn-mobile",
+    "scheme": "exaearn",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#07050f"
+      },
+      "edgeToEdgeEnabled": true
+    }
+  }
+}

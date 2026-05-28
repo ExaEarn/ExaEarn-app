@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@exaearn/ui": ["packages/ui/src/index.ts"],
+      "@exaearn/types": ["packages/types/src/index.ts"],
+      "@exaearn/config": ["packages/config/src/index.ts"],
+      "@web/*": ["apps/web/src/*"],
+      "@admin/*": ["apps/admin/src/*"],
+      "@website/*": ["apps/website/src/*"],
+      "@web3/*": ["web3/*"]
+    }
+  }
+}

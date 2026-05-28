@@ -1,13 +1,37 @@
 {
+  "name": "exaearn",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "workspaces": [
+    "apps/*",
+    "backend/services/*",
+    "packages/*",
+    "blockchain"
+  ],
   "scripts": {
-    "build": "npm --prefix exaearn-frontend run build",
-    "frontend:install": "npm --prefix exaearn-frontend ci",
-    "frontend:build": "npm --prefix exaearn-frontend run build"
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "web:dev": "pnpm --filter @exaearn/web dev",
+    "web:build": "pnpm --filter @exaearn/web build",
+    "admin:dev": "pnpm --filter @exaearn/admin dev",
+    "admin:build": "pnpm --filter @exaearn/admin build",
+    "website:dev": "pnpm --filter @exaearn/website dev",
+    "website:build": "pnpm --filter @exaearn/website build",
+    "mobile:dev": "pnpm --filter @exaearn/mobile dev",
+    "mobile:android": "pnpm --filter @exaearn/mobile android",
+    "mobile:ios": "pnpm --filter @exaearn/mobile ios",
+    "backend:api": "php backend/api-gateway/artisan serve",
+    "legacy:web:build": "npm --prefix apps/web run build"
   },
   "devDependencies": {
-    "prisma": "^7.8.0"
+    "prisma": "^7.8.0",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0"
+    "@prisma/client": "^7.8.0",
+    "react-native-worklets": "0.2.0"
   }
 }
