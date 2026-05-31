@@ -3,7 +3,7 @@ function optionalModule(moduleName, installHint = null) {
     return require(moduleName);
   } catch (error) {
     if (error.code === 'MODULE_NOT_FOUND') {
-      const hint = installHint || `npm install ${moduleName}`;
+      const hint = installHint || `pnpm add ${moduleName}`;
       throw new Error(`Missing dependency "${moduleName}". Install it before enabling this network: ${hint}`);
     }
 

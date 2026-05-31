@@ -63,10 +63,10 @@ class HdWalletService {
   }
 
   deriveBitcoinAddress({ userId, currency, network }) {
-    const bip39 = optionalModule('bip39', 'npm install bip39');
-    const bip32Factory = optionalModule('bip32', 'npm install bip32 tiny-secp256k1');
-    const ecc = optionalModule('tiny-secp256k1', 'npm install tiny-secp256k1');
-    const bitcoin = optionalModule('bitcoinjs-lib', 'npm install bitcoinjs-lib');
+    const bip39 = optionalModule('bip39', 'pnpm add bip39');
+    const bip32Factory = optionalModule('bip32', 'pnpm add bip32 tiny-secp256k1');
+    const ecc = optionalModule('tiny-secp256k1', 'pnpm add tiny-secp256k1');
+    const bitcoin = optionalModule('bitcoinjs-lib', 'pnpm add bitcoinjs-lib');
     const bip32 = bip32Factory.BIP32Factory ? bip32Factory.BIP32Factory(ecc) : bip32Factory.default(ecc);
 
     const index = this.getAddressIndex({ userId, currency, network });
@@ -136,7 +136,7 @@ class HdWalletService {
   }
 
   deriveTronAddress({ userId, currency, network }) {
-    const TronWebModule = optionalModule('tronweb', 'npm install tronweb');
+    const TronWebModule = optionalModule('tronweb', 'pnpm add tronweb');
     const index = this.getAddressIndex({ userId, currency, network });
     const derivationPath = this.getBip44Path({ network, index });
     const wallet = ethers.HDNodeWallet.fromPhrase(
@@ -165,9 +165,9 @@ class HdWalletService {
   }
 
   deriveSolanaAddress({ userId, currency, network }) {
-    const bip39 = optionalModule('bip39', 'npm install bip39');
-    const { derivePath } = optionalModule('ed25519-hd-key', 'npm install ed25519-hd-key');
-    const { Keypair } = optionalModule('@solana/web3.js', 'npm install @solana/web3.js');
+    const bip39 = optionalModule('bip39', 'pnpm add bip39');
+    const { derivePath } = optionalModule('ed25519-hd-key', 'pnpm add ed25519-hd-key');
+    const { Keypair } = optionalModule('@solana/web3.js', 'pnpm add @solana/web3.js');
 
     const index = this.getAddressIndex({ userId, currency, network });
     const derivationPath = this.getBip44Path({ network, index });
@@ -194,10 +194,10 @@ class HdWalletService {
   }
 
   deriveTonAddress({ userId, currency, network }) {
-    const bip39 = optionalModule('bip39', 'npm install bip39');
-    const { derivePath } = optionalModule('ed25519-hd-key', 'npm install ed25519-hd-key');
-    const nacl = optionalModule('tweetnacl', 'npm install tweetnacl');
-    const ton = optionalModule('@ton/ton', 'npm install @ton/ton @ton/crypto');
+    const bip39 = optionalModule('bip39', 'pnpm add bip39');
+    const { derivePath } = optionalModule('ed25519-hd-key', 'pnpm add ed25519-hd-key');
+    const nacl = optionalModule('tweetnacl', 'pnpm add tweetnacl');
+    const ton = optionalModule('@ton/ton', 'pnpm add @ton/ton @ton/crypto');
 
     const index = this.getAddressIndex({ userId, currency, network });
     const derivationPath = this.getBip44Path({ network, index });

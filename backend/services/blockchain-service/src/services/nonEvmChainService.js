@@ -116,7 +116,7 @@ class NonEvmChainService {
 
   async getXrplClient() {
     if (!this._xrplClient) {
-      const xrpl = optionalModule('xrpl', 'npm install xrpl');
+      const xrpl = optionalModule('xrpl', 'pnpm add xrpl');
       this._xrplClient = new xrpl.Client(config.xrpl.wssUrl || config.xrpl.rpcUrl);
       await this._xrplClient.connect();
       logger.info('XRPL client connected');
@@ -146,7 +146,7 @@ class NonEvmChainService {
   }
 
   async broadcastXrplWithdrawal(toAddress, amount) {
-    const xrpl = optionalModule('xrpl', 'npm install xrpl');
+    const xrpl = optionalModule('xrpl', 'pnpm add xrpl');
     if (!config.xrpl.hotWallet.secret) {
       throw new Error('XRPL_HOT_WALLET_SECRET not configured');
     }
@@ -246,7 +246,7 @@ class NonEvmChainService {
 
   getTronWeb() {
     if (!this._tronWeb) {
-      const TronWebModule = optionalModule('tronweb', 'npm install tronweb');
+      const TronWebModule = optionalModule('tronweb', 'pnpm add tronweb');
       const TronWeb = TronWebModule.TronWeb || TronWebModule.default || TronWebModule;
       this._tronWeb = new TronWeb({
         fullHost: config.tron.fullHost,
@@ -300,7 +300,7 @@ class NonEvmChainService {
 
   getSolanaConnection() {
     if (!this._solanaConnection) {
-      const solana = optionalModule('@solana/web3.js', 'npm install @solana/web3.js');
+      const solana = optionalModule('@solana/web3.js', 'pnpm add @solana/web3.js');
       this._solanaConnection = new solana.Connection(config.solana.rpcUrl, 'confirmed');
       logger.info('Solana connection initialized');
     }
@@ -309,7 +309,7 @@ class NonEvmChainService {
   }
 
   getSolanaKeypair() {
-    const solana = optionalModule('@solana/web3.js', 'npm install @solana/web3.js');
+    const solana = optionalModule('@solana/web3.js', 'pnpm add @solana/web3.js');
     if (!config.solana.hotWallet.secretKey) {
       throw new Error('SOLANA_HOT_WALLET_SECRET_KEY not configured');
     }
@@ -332,7 +332,7 @@ class NonEvmChainService {
   }
 
   async broadcastSolanaWithdrawal(toAddress, amount) {
-    const solana = optionalModule('@solana/web3.js', 'npm install @solana/web3.js');
+    const solana = optionalModule('@solana/web3.js', 'pnpm add @solana/web3.js');
     const connection = this.getSolanaConnection();
     const keypair = this.getSolanaKeypair();
     const lamports = Math.round(Number(amount) * solana.LAMPORTS_PER_SOL);
@@ -349,7 +349,7 @@ class NonEvmChainService {
   }
 
   async getSolanaHotWalletBalance() {
-    const solana = optionalModule('@solana/web3.js', 'npm install @solana/web3.js');
+    const solana = optionalModule('@solana/web3.js', 'pnpm add @solana/web3.js');
     const connection = this.getSolanaConnection();
     const address = config.solana.hotWallet.address || this.getSolanaKeypair().publicKey.toBase58();
     const balance = await connection.getBalance(new solana.PublicKey(address));
@@ -362,7 +362,7 @@ class NonEvmChainService {
 
   getTonClient() {
     if (!this._tonClient) {
-      const ton = optionalModule('@ton/ton', 'npm install @ton/ton @ton/crypto');
+      const ton = optionalModule('@ton/ton', 'pnpm add @ton/ton @ton/crypto');
       this._tonClient = new ton.TonClient({
         endpoint: config.ton.rpcUrl,
       });
@@ -382,8 +382,8 @@ class NonEvmChainService {
   }
 
   async broadcastTonWithdrawal(toAddress, amount) {
-    const ton = optionalModule('@ton/ton', 'npm install @ton/ton @ton/crypto');
-    const tonCrypto = optionalModule('@ton/crypto', 'npm install @ton/ton @ton/crypto');
+    const ton = optionalModule('@ton/ton', 'pnpm add @ton/ton @ton/crypto');
+    const tonCrypto = optionalModule('@ton/crypto', 'pnpm add @ton/ton @ton/crypto');
 
     if (!config.ton.hotWallet.mnemonic) {
       throw new Error('TON_HOT_WALLET_MNEMONIC not configured');
@@ -415,7 +415,7 @@ class NonEvmChainService {
   }
 
   async getTonHotWalletBalance() {
-    const ton = optionalModule('@ton/ton', 'npm install @ton/ton @ton/crypto');
+    const ton = optionalModule('@ton/ton', 'pnpm add @ton/ton @ton/crypto');
     const client = this.getTonClient();
     const address = config.ton.hotWallet.address;
     if (!address) {

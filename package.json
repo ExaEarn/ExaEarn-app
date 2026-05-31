@@ -1,7 +1,7 @@
 {
   "name": "exaearn",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "apps/*",
     "backend/services/*",
@@ -23,7 +23,7 @@
     "mobile:android": "pnpm --filter @exaearn/mobile android",
     "mobile:ios": "pnpm --filter @exaearn/mobile ios",
     "backend:api": "php backend/api-gateway/artisan serve",
-    "legacy:web:build": "npm --prefix apps/web run build"
+    "legacy:web:build": "pnpm --filter @exaearn/web build"
   },
   "devDependencies": {
     "prisma": "^7.8.0",

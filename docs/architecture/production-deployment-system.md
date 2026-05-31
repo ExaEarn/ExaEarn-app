@@ -12,14 +12,14 @@ Target networks:
 Commands:
 ```bash
 cd exaearn-node
-npm run contracts:compile
-npm run contracts:test
-npm run contracts:deploy:base-sepolia
-npm run contracts:verify:base-sepolia
-npm run contracts:deploy:sepolia
-npm run contracts:verify:sepolia
-npm run contracts:deploy:bsc-testnet
-npm run contracts:verify:bsc-testnet
+pnpm run contracts:compile
+pnpm run contracts:test
+pnpm run contracts:deploy:base-sepolia
+pnpm run contracts:verify:base-sepolia
+pnpm run contracts:deploy:sepolia
+pnpm run contracts:verify:sepolia
+pnpm run contracts:deploy:bsc-testnet
+pnpm run contracts:verify:bsc-testnet
 ```
 
 Deployment outputs are written to `exaearn-node/deployments/<network>.json`. These records are the source of truth for backend and node service environment updates.
@@ -94,7 +94,7 @@ Use PM2 or systemd with restricted environment access.
 
 ```bash
 cd exaearn-node
-npm ci --omit=dev
+pnpm install --prod --frozen-lockfile
 pm2 start src/index.js --name exaearn-node
 pm2 save
 ```
@@ -123,7 +123,7 @@ Runtime fallback:
 - Static hosts such as GitHub Pages cannot run Laravel API routes. Login and account creation require a deployed Laravel backend plus `FRONTEND_URL`/CORS configured on that backend.
 
 Before launch:
-- run `npm run build`
+- run `pnpm run build`
 - test registration, login, wallet pages, giftcard flows, dashboard, and mobile breakpoints
 - confirm no private RPC URLs or private keys appear in built assets
 
@@ -140,16 +140,16 @@ Mainnet deployment is allowed only when:
 Mainnet commands:
 ```bash
 cd exaearn-node
-npm run contracts:deploy:base
-npm run contracts:verify:base
+pnpm run contracts:deploy:base
+pnpm run contracts:verify:base
 ```
 
 Optional networks:
 ```bash
-npm run contracts:deploy:ethereum
-npm run contracts:verify:ethereum
-npm run contracts:deploy:bsc
-npm run contracts:verify:bsc
+pnpm run contracts:deploy:ethereum
+pnpm run contracts:verify:ethereum
+pnpm run contracts:deploy:bsc
+pnpm run contracts:verify:bsc
 ```
 
 Hybrid launch rule:

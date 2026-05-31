@@ -38,12 +38,12 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php -d extension=pdo_sqlite -d extension=sqlite3 artisan key:generate",
             "@php -d extension=pdo_sqlite -d extension=sqlite3 artisan migrate --force",
-            "npm install",
-            "npm run build"
+            "pnpm install",
+            "pnpm run build"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php -d extension=pdo_sqlite -d extension=sqlite3 artisan serve\" \"php -d extension=pdo_sqlite -d extension=sqlite3 artisan queue:listen --tries=1 --timeout=0\" \"php -d extension=pdo_sqlite -d extension=sqlite3 artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "pnpm exec concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php -d extension=pdo_sqlite -d extension=sqlite3 artisan serve\" \"php -d extension=pdo_sqlite -d extension=sqlite3 artisan queue:listen --tries=1 --timeout=0\" \"php -d extension=pdo_sqlite -d extension=sqlite3 artisan pail --timeout=0\" \"pnpm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
         "test": [
             "@php -d extension=pdo_sqlite -d extension=sqlite3 artisan config:clear --ansi",

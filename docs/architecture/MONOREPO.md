@@ -41,10 +41,10 @@ pnpm admin:dev
 pnpm website:dev
 ```
 
-Direct npm-compatible fallbacks are still available for the moved Vite apps:
+Direct pnpm filter fallbacks are available for the moved Vite apps:
 
 ```bash
-npm --prefix apps/web run build
-npm --prefix apps/admin run build
-npm --prefix apps/website run build
+pnpm --filter @exaearn/web build
+pnpm --filter @exaearn/admin build
+pnpm --filter @exaearn/website build
 ```

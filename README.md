@@ -236,7 +236,7 @@ Frontend monorepo:
 - `pnpm website:dev`
 
 Direct app fallback:
-- `npm --prefix apps/web run dev`
+- `pnpm --filter @exaearn/web dev`
 
 ## Roadmap 2026
 ### Q1
