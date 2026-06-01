@@ -311,7 +311,7 @@ function useCinematicPageEffects() {
 function AmbientParticles() {
   return (
     <div className="ambient-particles" aria-hidden="true">
-      {Array.from({ length: 86 }, (_, index) => {
+      {Array.from({ length: 34 }, (_, index) => {
         const size = 1 + (index % 4);
         return (
           <motion.span
@@ -347,9 +347,9 @@ function seededNoise(index, salt = 1) {
   return value - Math.floor(value);
 }
 
-const networkNodes = Array.from({ length: 132 }, (_, index) => {
-  const rightCluster = index < 58;
-  const edgeCluster = index >= 58 && index < 98;
+const networkNodes = Array.from({ length: 88 }, (_, index) => {
+  const rightCluster = index < 38;
+  const edgeCluster = index >= 38 && index < 66;
   const x = rightCluster
     ? 520 + seededNoise(index, 2) * 430
     : edgeCluster
@@ -482,18 +482,22 @@ function BlockchainCanvas() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return undefined;
     const context = canvas.getContext("2d");
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let animationFrame = 0;
     let width = 0;
     let height = 0;
     let nodes = [];
     let links = [];
+    let isVisible = true;
 
     const makeNodes = () => {
-      nodes = Array.from({ length: 118 }, (_, index) => {
+      const nodeCount = window.innerWidth < 760 ? 44 : 74;
+      nodes = Array.from({ length: nodeCount }, (_, index) => {
         const layer = seededNoise(index, 41);
-        const orbital = index < 56;
-        const edge = index >= 56 && index < 92;
+        const orbital = index < nodeCount * 0.48;
+        const edge = index >= nodeCount * 0.48 && index < nodeCount * 0.78;
         const radius = orbital
           ? 0.18 + seededNoise(index, 42) * 0.32
           : edge
@@ -539,7 +543,7 @@ function BlockchainCanvas() {
     };
 
     const draw = (time = 0) => {
-      const tick = time * 0.001;
+      const tick = mediaQuery.matches ? 0 : time * 0.001;
       context.clearRect(0, 0, width, height);
       context.globalCompositeOperation = "lighter";
 
@@ -585,15 +589,34 @@ function BlockchainCanvas() {
       });
 
       context.globalCompositeOperation = "source-over";
-      animationFrame = requestAnimationFrame(draw);
+      animationFrame = 0;
+
+      if (!mediaQuery.matches && isVisible) {
+        animationFrame = requestAnimationFrame(draw);
+      }
     };
 
     resize();
     draw();
     window.addEventListener("resize", resize);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+
+        if (isVisible && !animationFrame) {
+          animationFrame = requestAnimationFrame(draw);
+        } else if (!isVisible && animationFrame) {
+          cancelAnimationFrame(animationFrame);
+          animationFrame = 0;
+        }
+      },
+      { rootMargin: "220px" },
+    );
+    observer.observe(canvas);
 
     return () => {
       cancelAnimationFrame(animationFrame);
+      observer.disconnect();
       window.removeEventListener("resize", resize);
     };
   }, []);
@@ -606,15 +629,18 @@ function SectionSignalCanvas({ className = "", density = 64, drift = 1 }) {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return undefined;
     const context = canvas.getContext("2d");
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let animationFrame = 0;
     let width = 0;
     let height = 0;
     let points = [];
+    let isVisible = false;
 
     const makePoints = () => {
-      points = Array.from({ length: density }, (_, index) => ({
+      const pointCount = Math.min(density, window.innerWidth < 760 ? 26 : 44);
+      points = Array.from({ length: pointCount }, (_, index) => ({
         x: seededNoise(index, 101) * width,
         y: seededNoise(index, 102) * height,
         baseX: seededNoise(index, 101) * width,
@@ -679,15 +705,33 @@ function SectionSignalCanvas({ className = "", density = 64, drift = 1 }) {
       });
 
       context.globalCompositeOperation = "source-over";
-      animationFrame = requestAnimationFrame(draw);
+      animationFrame = 0;
+
+      if (!mediaQuery.matches && isVisible) {
+        animationFrame = requestAnimationFrame(draw);
+      }
     };
 
     resize();
-    draw();
     window.addEventListener("resize", resize);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+
+        if (isVisible && !animationFrame) {
+          animationFrame = requestAnimationFrame(draw);
+        } else if (!isVisible && animationFrame) {
+          cancelAnimationFrame(animationFrame);
+          animationFrame = 0;
+        }
+      },
+      { rootMargin: "260px" },
+    );
+    observer.observe(canvas);
 
     return () => {
       cancelAnimationFrame(animationFrame);
+      observer.disconnect();
       window.removeEventListener("resize", resize);
     };
   }, [density, drift]);
@@ -756,7 +800,7 @@ function BlockchainNetworkBackground() {
         })}
       </svg>
       <div className="micro-ledger">
-        {Array.from({ length: 70 }, (_, index) => (
+        {Array.from({ length: 32 }, (_, index) => (
           <span
             key={index}
             style={{
@@ -1740,18 +1784,52 @@ function Footer() {
   );
 }
 
-function App() {
-  useCinematicPageEffects();
-  const [isLoading, setIsLoading] = useState(true);
+function DeferredPageSections() {
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setIsLoading(false), 1150);
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(() => setIsReady(true), { timeout: 900 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timeout = window.setTimeout(() => setIsReady(true), 450);
     return () => window.clearTimeout(timeout);
   }, []);
 
+  if (!isReady) {
+    return <div className="deferred-page-spacer" aria-hidden="true" />;
+  }
+
+  return (
+    <>
+      <ExaAiFloatingAccess />
+      <ProofOfActivity />
+      <InstitutionalLayer />
+      <ExaAiShowcase />
+      <LivingDashboardPreview />
+      <MobileShowcase />
+      <WhyExaEarn />
+      <FeatureGrid />
+      <HowItWorks />
+      <TrustSecurity />
+      <TokenSection />
+      <EcosystemMap />
+      <Roadmap />
+      <Community />
+      <DownloadAccess />
+      <FAQ />
+      <FinalCta />
+      <Footer />
+    </>
+  );
+}
+
+function App() {
+  useCinematicPageEffects();
+
   return (
     <main className="site-shell">
-      <div className={`cinematic-loader ${isLoading ? "is-loading" : ""}`} aria-hidden="true" />
       <div className="cursor-spotlight" aria-hidden="true" />
       <motion.nav
         className="topbar"
@@ -1806,25 +1884,8 @@ function App() {
           </div>
         </details>
       </motion.nav>
-      <ExaAiFloatingAccess />
       <Hero />
-      <ProofOfActivity />
-      <InstitutionalLayer />
-      <ExaAiShowcase />
-      <LivingDashboardPreview />
-      <MobileShowcase />
-      <WhyExaEarn />
-      <FeatureGrid />
-      <HowItWorks />
-      <TrustSecurity />
-      <TokenSection />
-      <EcosystemMap />
-      <Roadmap />
-      <Community />
-      <DownloadAccess />
-      <FAQ />
-      <FinalCta />
-      <Footer />
+      <DeferredPageSections />
     </main>
   );
 }
