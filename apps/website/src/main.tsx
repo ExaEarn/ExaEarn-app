@@ -83,7 +83,6 @@ function webAppUrl(path = "") {
   return `${webAppBaseUrl}${normalizedPath}`;
 }
 
-const WEB_APP_HOME_URL = webAppUrl("/");
 const WEB_APP_SIGNUP_URL = webAppUrl("/register");
 const WEB_APP_LOGIN_URL = webAppUrl("/login");
 
@@ -290,7 +289,7 @@ const footerLinks = [
       ["Community", "#community"],
       ["Download", "#download"],
       ["FAQ", "#faq"],
-      ["Launch app", WEB_APP_HOME_URL],
+      ["Launch app", WEB_APP_LOGIN_URL],
     ],
   },
 ];
@@ -2314,8 +2313,8 @@ function Footer({ onOpenDownload }) {
           </span>
         </a>
         <div className="footer-actions">
-          <ButtonLink className="primary" href={WEB_APP_HOME_URL}>
-            <Rocket size={17} /> Launch App
+          <ButtonLink className="primary" href={WEB_APP_LOGIN_URL}>
+            <Rocket size={17} /> Login
           </ButtonLink>
           <ButtonLink href="#download" onClick={onOpenDownload}>
             <Download size={17} /> Get Mobile Access
@@ -2503,8 +2502,8 @@ function App() {
           ))}
         </div>
         <div className="nav-actions">
-          <motion.a className="nav-action" href={WEB_APP_HOME_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-            <LockKeyhole size={16} /> Launch App
+          <motion.a className="nav-action" href={WEB_APP_LOGIN_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <LockKeyhole size={16} /> Login
           </motion.a>
           <WalletAccountControl
             isConnected={isWalletConnected}
