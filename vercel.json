@@ -1,8 +1,8 @@
 {
   "version": 2,
   "installCommand": "pnpm install",
-  "buildCommand": "turbo run build --filter=@exaearn/web",
-  "outputDirectory": "apps/web/dist",
+  "buildCommand": "turbo run build --filter=@exaearn/website",
+  "outputDirectory": "apps/website/dist",
   "rewrites": [
     {
       "source": "/(.*)",
