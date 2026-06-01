@@ -1,14 +1,16 @@
 // @ts-nocheck
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { motion, useMotionTemplate, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import {
+  Apple,
   ArrowDown,
   ArrowRight,
   Bell,
   BookOpen,
   Bot,
   BrainCircuit,
+  Check,
   ChartNoAxesCombined,
   CheckCircle2,
   ChevronDown,
@@ -25,26 +27,65 @@ import {
   Leaf,
   Link,
   LockKeyhole,
+  LogOut,
   Menu,
   MessageCircle,
   Network,
   Orbit,
   Play,
+  QrCode,
   Radio,
+  RefreshCcw,
   Rocket,
+  Settings,
   ShieldCheck,
+  Smartphone,
   ShoppingBag,
   Sparkles,
   Sprout,
   Twitter,
   UsersRound,
   Wallet,
+  X,
   Zap,
 } from "lucide-react";
 import logo from "./assets/exaearn1.5logo.jpg";
 import "./styles/index.css";
 
 const cinematicEase = [0.19, 1, 0.22, 1];
+
+function isLoopbackUrl(value) {
+  try {
+    const host = new URL(value).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function resolveWebAppBaseUrl() {
+  const configuredUrl = import.meta.env.VITE_WEB_APP_URL?.trim();
+  if (configuredUrl && (import.meta.env.DEV || !isLoopbackUrl(configuredUrl))) {
+    return configuredUrl.replace(/\/+$/, "");
+  }
+
+  if (import.meta.env.DEV) {
+    return "http://127.0.0.1:5173";
+  }
+
+  return "/app";
+}
+
+const webAppBaseUrl = resolveWebAppBaseUrl();
+
+function webAppUrl(path = "") {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${webAppBaseUrl}${normalizedPath}`;
+}
+
+const WEB_APP_HOME_URL = webAppUrl("/");
+const WEB_APP_SIGNUP_URL = webAppUrl("/register");
+const WEB_APP_LOGIN_URL = webAppUrl("/login");
 
 const fadeUp = {
   hidden: { opacity: 1, y: 28, filter: "blur(3px)" },
@@ -249,7 +290,7 @@ const footerLinks = [
       ["Community", "#community"],
       ["Download", "#download"],
       ["FAQ", "#faq"],
-      ["Launch app", "/app"],
+      ["Launch app", WEB_APP_HOME_URL],
     ],
   },
 ];
@@ -278,17 +319,599 @@ const footerTrustNotes = [
   "Audit-ready treasury records",
 ];
 
-function ButtonLink({ href, className = "", children }) {
+const downloadPlatforms = [
+  {
+    title: "Android",
+    description: "Download from Google Play for the best Android experience.",
+    action: "Get on Google Play",
+    href: "#download-android",
+    icon: Smartphone,
+    accent: "android",
+  },
+  {
+    title: "iPhone",
+    description: "Download from the App Store and enjoy ExaEarn on iOS.",
+    action: "Download on App Store",
+    href: "#download-ios",
+    icon: Apple,
+    accent: "ios",
+  },
+];
+
+const modalTrustBadges = ["Secure", "Encrypted", "Web3 Powered"];
+
+const walletOptions = [
+  ["MetaMask", "Connect using the world's most trusted Web3 wallet.", "MM", "metamask"],
+  ["Trust Wallet", "Access ExaEarn securely from mobile and desktop devices.", "TW", "trust"],
+  ["Coinbase Wallet", "Secure self-custody wallet with seamless Web3 access.", "CB", "coinbase"],
+  ["OKX Wallet", "Multi-chain wallet optimized for DeFi and Web3 applications.", "OK", "okx"],
+  ["WalletConnect", "Instantly connect hundreds of supported wallets.", "WC", "walletconnect"],
+];
+
+const walletFlowSteps = [
+  "Establishing Secure Wallet Connection",
+  "Verifying Wallet Ownership",
+  "Detecting Blockchain Network",
+  "Linking Wallet Verification",
+  "Preparing Signup Session",
+];
+
+const walletUseCases = [
+  "Staking",
+  "Earning Rewards",
+  "NFT Minting",
+  "Marketplace Activities",
+  "Blockchain Gaming",
+  "Deposits & Withdrawals",
+  "Referral Rewards",
+  "On-Chain Transactions",
+  "Future Ecosystem Features",
+];
+
+const walletActivities = ["Staking", "Rewards", "NFTs", "Gaming", "Marketplace", "Deposits", "Withdrawals"];
+
+const walletTrustBadges = [
+  "Non-Custodial",
+  "Secure Wallet Connection",
+  "Encrypted Session",
+  "Verified Identity",
+  "Web3 Powered",
+];
+
+const accountMenuItems = [
+  ["Continue Signup", "Create your ExaEarn profile", Rocket, WEB_APP_SIGNUP_URL],
+  ["Identity Setup", "Add personal account details", Fingerprint, WEB_APP_SIGNUP_URL],
+  ["Security Setup", "Protect your new account", LockKeyhole, WEB_APP_SIGNUP_URL],
+  ["Wallet Verification", "Review linked wallet status", ShieldCheck, WEB_APP_SIGNUP_URL],
+  ["Rewards Preview", "See what unlocks after signup", Sparkles, WEB_APP_SIGNUP_URL],
+  ["Account Preferences", "Prepare settings after registration", Settings, WEB_APP_SIGNUP_URL],
+];
+
+const connectedWalletProfile = {
+  address: "0x73A4...9F2C",
+  network: "BNB Smart Chain",
+  status: "Wallet Verified",
+  identity: "Signup Required",
+};
+
+function ButtonLink({ href, className = "", children, onClick, ...props }) {
   return (
     <motion.a
       className={`action-button ${className}`}
       href={href}
+      onClick={onClick}
       whileHover={{ y: -4, scale: 1.015 }}
       whileTap={{ scale: 0.975 }}
       transition={{ type: "spring", stiffness: 420, damping: 28 }}
+      {...props}
     >
       {children}
     </motion.a>
+  );
+}
+
+function DownloadAppModal({ isOpen, onClose }) {
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.setTimeout(() => closeButtonRef.current?.focus(), 80);
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  return (
+    <AnimatePresence>
+      {isOpen ? (
+        <motion.div
+          className="download-modal-layer"
+          role="presentation"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+        >
+          <motion.button
+            className="download-modal-backdrop"
+            aria-label="Close download modal"
+            type="button"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
+          <motion.section
+            className="download-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="download-modal-title"
+            aria-describedby="download-modal-description"
+            initial={{ opacity: 0, scale: 0.92, y: 26, filter: "blur(10px)" }}
+            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, scale: 0.94, y: 18, filter: "blur(8px)" }}
+            transition={{ duration: 0.42, ease: cinematicEase }}
+          >
+            <motion.div
+              className="download-modal-glow glow-a"
+              aria-hidden="true"
+              animate={{ x: [0, 16, -8, 0], y: [0, -12, 10, 0], opacity: [0.48, 0.82, 0.56, 0.48] }}
+              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="download-modal-glow glow-b"
+              aria-hidden="true"
+              animate={{ x: [0, -14, 10, 0], y: [0, 12, -8, 0], opacity: [0.34, 0.66, 0.44, 0.34] }}
+              transition={{ duration: 8.4, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="download-modal-grid" aria-hidden="true" />
+
+            <header className="download-modal-header">
+              <motion.div className="download-modal-brand" whileHover={{ scale: 1.025 }}>
+                <img src={logo} alt="ExaEarn" />
+                <span>
+                  <strong id="download-modal-title">Download ExaEarn</strong>
+                  <small>Premium mobile access</small>
+                </span>
+              </motion.div>
+              <motion.button
+                ref={closeButtonRef}
+                className="download-modal-close"
+                type="button"
+                aria-label="Close download modal"
+                onClick={onClose}
+                whileHover={{ y: -2, scale: 1.04 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <X size={18} />
+              </motion.button>
+            </header>
+
+            <div className="download-modal-copy">
+              <p id="download-modal-description">
+                Choose your preferred platform and start earning, staking, swapping, and growing with ExaEarn.
+              </p>
+            </div>
+
+            <div className="download-platform-grid">
+              {downloadPlatforms.map(({ title, description, action, href, icon: Icon, accent }) => (
+                <motion.a
+                  className={`download-platform-card ${accent}`}
+                  key={title}
+                  href={href}
+                  whileHover={{ y: -10, scale: 1.018 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 24 }}
+                >
+                  <span className="download-platform-orb">
+                    <Icon size={30} aria-hidden="true" />
+                  </span>
+                  <span className="download-platform-content">
+                    <strong>{title}</strong>
+                    <small>{description}</small>
+                  </span>
+                  <span className="download-store-button">
+                    {accent === "ios" ? <Apple size={18} /> : <Play size={18} />}
+                    {action}
+                  </span>
+                </motion.a>
+              ))}
+            </div>
+
+            <div className="download-modal-lower">
+              <section className="download-trust-panel" aria-label="Security and trust">
+                <div className="download-badge-row">
+                  {modalTrustBadges.map((badge) => (
+                    <motion.span key={badge} whileHover={{ y: -3 }}>
+                      <ShieldCheck size={15} />
+                      {badge}
+                    </motion.span>
+                  ))}
+                </div>
+                <p>
+                  Trusted by users earning through staking, rewards, swaps, referrals, and decentralized finance.
+                </p>
+              </section>
+
+              <section className="download-qr-panel" aria-labelledby="download-qr-title">
+                <div>
+                  <h3 id="download-qr-title">Scan to Download</h3>
+                  <p>Open your phone camera and scan to install ExaEarn instantly.</p>
+                </div>
+                <motion.div className="download-qr-shell" whileHover={{ scale: 1.025, rotate: -0.5 }}>
+                  <QrCode className="download-qr-icon" size={28} aria-hidden="true" />
+                  <div className="download-qr-code" aria-label="ExaEarn download QR code">
+                    {Array.from({ length: 49 }, (_, index) => (
+                      <span key={index} className={(index * 7 + index % 5) % 3 === 0 ? "active" : ""} />
+                    ))}
+                  </div>
+                </motion.div>
+              </section>
+            </div>
+          </motion.section>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function WalletOnboardingModal({ isOpen, onClose, onConnected, isConnected, onDisconnect }) {
+  const closeButtonRef = useRef(null);
+  const [selectedWallet, setSelectedWallet] = useState(null);
+  const [phase, setPhase] = useState("select");
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.setTimeout(() => closeButtonRef.current?.focus(), 80);
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (isConnected) {
+      setPhase("success");
+      setActiveStep(walletFlowSteps.length);
+      return;
+    }
+
+    setSelectedWallet(null);
+    setPhase("select");
+    setActiveStep(0);
+  }, [isOpen, isConnected]);
+
+  useEffect(() => {
+    if (phase !== "connecting") return undefined;
+
+    setActiveStep(0);
+    const timers = walletFlowSteps.map((_, index) => (
+      window.setTimeout(() => {
+        setActiveStep(index + 1);
+        if (index === walletFlowSteps.length - 1) {
+          window.setTimeout(() => {
+            setPhase("success");
+            onConnected();
+          }, 520);
+        }
+      }, 620 + index * 560)
+    ));
+
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [phase, onConnected]);
+
+  const selectWallet = (wallet) => {
+    setSelectedWallet(wallet);
+    setPhase("connecting");
+  };
+
+  const switchWallet = () => {
+    onDisconnect();
+    setSelectedWallet(null);
+    setActiveStep(0);
+    setPhase("select");
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen ? (
+        <motion.div
+          className="wallet-modal-layer"
+          role="presentation"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+        >
+          <motion.button className="wallet-modal-backdrop" type="button" aria-label="Close wallet onboarding" onClick={onClose} />
+          <motion.section
+            className="wallet-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="wallet-modal-title"
+            aria-describedby="wallet-modal-description"
+            initial={{ opacity: 0, scale: 0.92, y: 28, filter: "blur(10px)" }}
+            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, scale: 0.94, y: 18, filter: "blur(8px)" }}
+            transition={{ duration: 0.42, ease: cinematicEase }}
+          >
+            <motion.div
+              className="wallet-modal-orb orb-a"
+              aria-hidden="true"
+              animate={{ x: [0, 18, -10, 0], y: [0, -14, 10, 0], opacity: [0.5, 0.82, 0.56, 0.5] }}
+              transition={{ duration: 7.2, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="wallet-modal-orb orb-b"
+              aria-hidden="true"
+              animate={{ x: [0, -16, 12, 0], y: [0, 12, -10, 0], opacity: [0.34, 0.64, 0.42, 0.34] }}
+              transition={{ duration: 8.6, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="wallet-modal-grid" aria-hidden="true" />
+
+            <header className="wallet-modal-header">
+              <div className="wallet-modal-brand">
+                <img src={logo} alt="ExaEarn" />
+                <span>
+                  <strong id="wallet-modal-title">Unlock Your ExaEarn Account</strong>
+                  <small>Secure wallet identity activation</small>
+                </span>
+              </div>
+              <motion.button
+                ref={closeButtonRef}
+                className="download-modal-close"
+                type="button"
+                aria-label="Close wallet onboarding"
+                onClick={onClose}
+                whileHover={{ y: -2, scale: 1.04 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <X size={18} />
+              </motion.button>
+            </header>
+
+            <div className="wallet-modal-layout">
+              <aside className="wallet-identity-panel">
+                <p id="wallet-modal-description">
+                  Connect your wallet to securely verify ownership before creating your ExaEarn account.
+                </p>
+                <p>
+                  Your wallet becomes the verified on-chain layer for your profile, but signup still completes inside the ExaEarn app with your account details, security settings, and onboarding preferences.
+                </p>
+                <div className="wallet-usecase-grid" aria-label="Wallet use cases">
+                  {walletUseCases.map((item) => (
+                    <span key={item}>
+                      <CheckCircle2 size={14} />
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </aside>
+
+              <div className="wallet-flow-panel">
+                <AnimatePresence mode="wait">
+                  {phase === "select" ? (
+                    <motion.div
+                      key="select"
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -14 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <div className="wallet-panel-heading">
+                        <span>Wallet Selection</span>
+                        <small>Choose a secure provider</small>
+                      </div>
+                      <div className="wallet-option-grid">
+                        {walletOptions.map((wallet) => {
+                          const [name, description, mark, accent] = wallet;
+                          return (
+                            <motion.button
+                              type="button"
+                              className={`wallet-option-card ${accent}`}
+                              key={name}
+                              onClick={() => selectWallet(wallet)}
+                              whileHover={{ y: -7, scale: 1.012 }}
+                              whileTap={{ scale: 0.98 }}
+                              transition={{ type: "spring", stiffness: 340, damping: 24 }}
+                            >
+                              <span className="wallet-logo-mark">{mark}</span>
+                              <span>
+                                <strong>{name}</strong>
+                                <small>{description}</small>
+                              </span>
+                              <i aria-hidden="true" />
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  ) : null}
+
+                  {phase === "connecting" ? (
+                    <motion.div
+                      key="connecting"
+                      className="wallet-progress-state"
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -14 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <div className="wallet-progress-core" aria-hidden="true">
+                        <motion.span
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                        />
+                        <strong>{selectedWallet?.[0]}</strong>
+                      </div>
+                      <div className="wallet-progress-list">
+                        {walletFlowSteps.map((step, index) => {
+                          const isComplete = activeStep > index;
+                          const isCurrent = activeStep === index;
+                          return (
+                            <motion.div className={isComplete ? "complete" : isCurrent ? "current" : ""} key={step}>
+                              <span>{isComplete ? <Check size={15} /> : String(index + 1)}</span>
+                              <p>{step}</p>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  ) : null}
+
+                  {phase === "success" ? (
+                    <motion.div
+                      key="success"
+                      className="wallet-success-state"
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -14 }}
+                      transition={{ duration: 0.28 }}
+                    >
+                      <motion.div
+                        className="wallet-success-check"
+                        initial={{ scale: 0.74, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 360, damping: 20 }}
+                      >
+                        <Check size={34} />
+                      </motion.div>
+                      <h3>Wallet Verification Complete</h3>
+                      <p>
+                        Your wallet has been verified and reserved for your ExaEarn signup. Continue registration to create your full account profile, secure your identity, and unlock staking, rewards, NFTs, marketplace activity, gaming, referrals, deposits, withdrawals, and future ecosystem services.
+                      </p>
+                      <div className="wallet-context-grid">
+                        <span><small>Wallet Address</small><strong>{connectedWalletProfile.address}</strong></span>
+                        <span><small>Connected Network</small><strong>{connectedWalletProfile.network}</strong></span>
+                        <span><small>Wallet Status</small><strong>{connectedWalletProfile.status}</strong></span>
+                        <span><small>Account Stage</small><strong>{connectedWalletProfile.identity}</strong></span>
+                      </div>
+                      <div className="wallet-activity-row" aria-label="Supported wallet activities">
+                        {walletActivities.map((activity) => <span key={activity}>{activity}</span>)}
+                      </div>
+                      <div className="wallet-success-actions">
+                        <ButtonLink className="primary" href={WEB_APP_SIGNUP_URL}>Continue Signup</ButtonLink>
+                        <motion.button type="button" onClick={switchWallet} whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
+                          <RefreshCcw size={16} /> Switch Wallet
+                        </motion.button>
+                        <button className="wallet-text-action" type="button" onClick={switchWallet}>Disconnect Wallet</button>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            <footer className="wallet-trust-area">
+              <div>
+                {walletTrustBadges.map((badge) => (
+                  <span key={badge}>
+                    <ShieldCheck size={14} />
+                    {badge}
+                  </span>
+                ))}
+              </div>
+              <p>
+                ExaEarn never stores your private keys, recovery phrases, or wallet credentials. Your wallet remains fully under your ownership and control while interacting securely with the ExaEarn ecosystem.
+              </p>
+            </footer>
+          </motion.section>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function WalletAccountControl({ isConnected, onOpenWallet, onDisconnect }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  if (!isConnected) {
+    return (
+      <motion.button
+        className="wallet-connect-control"
+        type="button"
+        onClick={onOpenWallet}
+        whileHover={{ y: -3, scale: 1.02 }}
+        whileTap={{ scale: 0.97 }}
+      >
+        <Wallet size={16} /> Connect Wallet
+      </motion.button>
+    );
+  }
+
+  return (
+    <div className="wallet-account">
+      <motion.button
+        className="wallet-account-button"
+        type="button"
+        aria-expanded={isMenuOpen}
+        aria-haspopup="menu"
+        onClick={() => setIsMenuOpen((value) => !value)}
+        whileHover={{ y: -3, scale: 1.02 }}
+        whileTap={{ scale: 0.97 }}
+      >
+        <ShieldCheck size={16} />
+        <span>{connectedWalletProfile.address}</span>
+        <small>Verified</small>
+      </motion.button>
+      <AnimatePresence>
+        {isMenuOpen ? (
+          <motion.div
+            className="wallet-account-menu"
+            role="menu"
+            initial={{ opacity: 0, y: 10, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            {accountMenuItems.map(([label, note, Icon, href]) => (
+              <a key={label} href={href} role="menuitem">
+                <Icon size={17} />
+                <span>
+                  <strong>{label}</strong>
+                  <small>{note}</small>
+                </span>
+              </a>
+            ))}
+            <button type="button" role="menuitem" onClick={onDisconnect}>
+              <LogOut size={17} />
+              <span>
+                <strong>Disconnect Wallet</strong>
+                <small>Secure Logout</small>
+              </span>
+            </button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -891,7 +1514,7 @@ function HeroObject() {
   );
 }
 
-function Hero() {
+function Hero({ onOpenDownload, onOpenWallet, isWalletConnected }) {
   const mouseX = useMotionValue(72);
   const mouseY = useMotionValue(40);
   const smoothX = useSpring(mouseX, { stiffness: 80, damping: 24, mass: 0.4 });
@@ -934,11 +1557,11 @@ function Hero() {
           <ButtonLink className="primary" href="#ecosystem">
             <Rocket size={18} /> Enter Ecosystem
           </ButtonLink>
-          <ButtonLink href="#download">
+          <ButtonLink href="#download" onClick={onOpenDownload}>
             <Download size={18} /> Download App
           </ButtonLink>
-          <ButtonLink href="#connect">
-            <Wallet size={18} /> Connect Wallet
+          <ButtonLink href="#connect" onClick={onOpenWallet}>
+            <Wallet size={18} /> {isWalletConnected ? connectedWalletProfile.address : "Connect Wallet"}
           </ButtonLink>
         </motion.div>
         <motion.div className="hero-proofline" aria-label="Platform proof points" variants={staggerGroup}>
@@ -1222,7 +1845,7 @@ function LivingDashboardPreview() {
             <motion.button type="button" whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
               <ActiveIcon size={17} /> {active.action}
             </motion.button>
-            <motion.a href="/app" whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
+            <motion.a href={WEB_APP_SIGNUP_URL} whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
               <Rocket size={17} /> Create account
             </motion.a>
           </div>
@@ -1585,7 +2208,7 @@ function Community() {
   );
 }
 
-function DownloadAccess() {
+function DownloadAccess({ onOpenDownload }) {
   return (
     <Reveal as={motion.section} className="section-band download-section" id="download">
       <motion.div className="download-panel" whileHover={{ borderColor: "rgba(56, 232, 255, 0.34)" }}>
@@ -1598,10 +2221,10 @@ function DownloadAccess() {
           </p>
         </div>
         <div className="download-actions">
-          <ButtonLink className="store" href="#download">
+          <ButtonLink className="store" href="#download" onClick={onOpenDownload}>
             <Download size={19} /> Download on App Store
           </ButtonLink>
-          <ButtonLink className="store" href="#download">
+          <ButtonLink className="store" href="#download" onClick={onOpenDownload}>
             <Play size={19} /> Get it on Google Play
           </ButtonLink>
           <ButtonLink className="primary" href="#connect">
@@ -1635,7 +2258,7 @@ function FAQ() {
   );
 }
 
-function FinalCta() {
+function FinalCta({ onOpenDownload, onOpenWallet, isWalletConnected }) {
   return (
     <motion.section
       className="final-cta"
@@ -1657,21 +2280,21 @@ function FinalCta() {
         ownership, and real-world utility.
       </motion.p>
       <motion.div className="hero-actions" variants={fadeUp}>
-        <ButtonLink className="primary" href="/app">
+        <ButtonLink className="primary" href={WEB_APP_SIGNUP_URL}>
           <Rocket size={18} /> Join the Economy
         </ButtonLink>
-        <ButtonLink href="#download">
+        <ButtonLink href="#download" onClick={onOpenDownload}>
           <Download size={18} /> Download App
         </ButtonLink>
-        <ButtonLink href="#connect">
-          <Wallet size={18} /> Connect Wallet
+        <ButtonLink href="#connect" onClick={onOpenWallet}>
+          <Wallet size={18} /> {isWalletConnected ? "Verified Wallet" : "Connect Wallet"}
         </ButtonLink>
       </motion.div>
     </motion.section>
   );
 }
 
-function Footer() {
+function Footer({ onOpenDownload }) {
   return (
     <motion.footer
       className="site-footer"
@@ -1691,10 +2314,10 @@ function Footer() {
           </span>
         </a>
         <div className="footer-actions">
-          <ButtonLink className="primary" href="/app">
+          <ButtonLink className="primary" href={WEB_APP_HOME_URL}>
             <Rocket size={17} /> Launch App
           </ButtonLink>
-          <ButtonLink href="#download">
+          <ButtonLink href="#download" onClick={onOpenDownload}>
             <Download size={17} /> Get Mobile Access
           </ButtonLink>
         </div>
@@ -1784,7 +2407,7 @@ function Footer() {
   );
 }
 
-function DeferredPageSections() {
+function DeferredPageSections({ onOpenDownload, onOpenWallet, isWalletConnected }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -1817,16 +2440,41 @@ function DeferredPageSections() {
       <EcosystemMap />
       <Roadmap />
       <Community />
-      <DownloadAccess />
+      <DownloadAccess onOpenDownload={onOpenDownload} />
       <FAQ />
-      <FinalCta />
-      <Footer />
+      <FinalCta onOpenDownload={onOpenDownload} onOpenWallet={onOpenWallet} isWalletConnected={isWalletConnected} />
+      <Footer onOpenDownload={onOpenDownload} />
     </>
   );
 }
 
 function App() {
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
   useCinematicPageEffects();
+
+  const openDownloadModal = (event) => {
+    event?.preventDefault();
+    setIsDownloadModalOpen(true);
+  };
+
+  const closeDownloadModal = () => {
+    setIsDownloadModalOpen(false);
+  };
+
+  const openWalletModal = (event) => {
+    event?.preventDefault();
+    setIsWalletModalOpen(true);
+  };
+
+  const closeWalletModal = () => {
+    setIsWalletModalOpen(false);
+  };
+
+  const disconnectWallet = () => {
+    setIsWalletConnected(false);
+  };
 
   return (
     <main className="site-shell">
@@ -1854,9 +2502,16 @@ function App() {
             </motion.a>
           ))}
         </div>
-        <motion.a className="nav-action" href="/app" whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-          <LockKeyhole size={16} /> Launch App
-        </motion.a>
+        <div className="nav-actions">
+          <motion.a className="nav-action" href={WEB_APP_HOME_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <LockKeyhole size={16} /> Launch App
+          </motion.a>
+          <WalletAccountControl
+            isConnected={isWalletConnected}
+            onOpenWallet={openWalletModal}
+            onDisconnect={disconnectWallet}
+          />
+        </div>
         <details className="mobile-menu">
           <summary aria-label="Open navigation menu">
             <Menu size={22} />
@@ -1870,22 +2525,37 @@ function App() {
               <a href="#security">Security</a>
             </div>
             <div className="mobile-auth-actions" aria-label="Account actions">
-              <a href="/app">Sign in</a>
-              <a href="/app">Sign up</a>
+              <a href={WEB_APP_LOGIN_URL}>Sign in</a>
+              <a href={WEB_APP_SIGNUP_URL}>Sign up</a>
+              <a href="#connect" onClick={openWalletModal}>
+                {isWalletConnected ? connectedWalletProfile.address : "Connect Wallet"}
+              </a>
             </div>
             <div className="mobile-store-actions" aria-label="Download app">
-              <a href="#download">
+              <a href="#download" onClick={openDownloadModal}>
                 <Download size={17} /> App Store
               </a>
-              <a href="#download">
+              <a href="#download" onClick={openDownloadModal}>
                 <Play size={17} /> Play Store
               </a>
             </div>
           </div>
         </details>
       </motion.nav>
-      <Hero />
-      <DeferredPageSections />
+      <Hero onOpenDownload={openDownloadModal} onOpenWallet={openWalletModal} isWalletConnected={isWalletConnected} />
+      <DeferredPageSections
+        onOpenDownload={openDownloadModal}
+        onOpenWallet={openWalletModal}
+        isWalletConnected={isWalletConnected}
+      />
+      <DownloadAppModal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} />
+      <WalletOnboardingModal
+        isOpen={isWalletModalOpen}
+        onClose={closeWalletModal}
+        isConnected={isWalletConnected}
+        onConnected={() => setIsWalletConnected(true)}
+        onDisconnect={disconnectWallet}
+      />
     </main>
   );
 }

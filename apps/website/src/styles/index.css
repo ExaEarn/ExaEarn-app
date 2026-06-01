@@ -1972,6 +1972,1116 @@ p {
   --section-line-opacity: 0.36;
 }
 
+.download-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 3vw, 32px);
+}
+
+.download-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(56, 232, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 82% 74%, rgba(156, 98, 255, 0.18), transparent 34%),
+    rgba(1, 3, 8, 0.78);
+  backdrop-filter: blur(18px) saturate(1.18);
+}
+
+.download-modal {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden auto;
+  width: min(960px, 100%);
+  max-height: min(92vh, 920px);
+  border: 1px solid rgba(226, 241, 255, 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(246, 251, 255, 0.105), rgba(7, 12, 23, 0.8)),
+    radial-gradient(circle at 18% 0%, rgba(56, 232, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 92% 18%, rgba(245, 199, 99, 0.1), transparent 26%),
+    rgba(3, 6, 14, 0.88);
+  box-shadow:
+    0 42px 110px rgba(0, 0, 0, 0.58),
+    0 0 72px rgba(56, 232, 255, 0.16),
+    inset 0 1px 0 rgba(246, 251, 255, 0.14);
+  padding: clamp(18px, 3vw, 30px);
+  backdrop-filter: blur(28px) saturate(1.2);
+}
+
+.download-modal::before {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  content: "";
+  background:
+    linear-gradient(120deg, transparent, rgba(246, 251, 255, 0.08), transparent),
+    repeating-linear-gradient(90deg, transparent 0 54px, rgba(56, 232, 255, 0.03) 55px 56px);
+  opacity: 0.72;
+  mask-image: linear-gradient(to bottom, #000 0 42%, transparent 100%);
+}
+
+.download-modal-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background-image:
+    linear-gradient(rgba(56, 232, 255, 0.052) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92, 246, 163, 0.034) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.52;
+  mask-image: radial-gradient(ellipse at 50% 20%, #000 0 34%, transparent 76%);
+  animation: sectionMatrixDrift 22s linear infinite;
+}
+
+.download-modal-glow {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(32px);
+  mix-blend-mode: screen;
+}
+
+.download-modal-glow.glow-a {
+  right: -80px;
+  top: -92px;
+  width: 260px;
+  height: 260px;
+  background: rgba(56, 232, 255, 0.25);
+}
+
+.download-modal-glow.glow-b {
+  left: -82px;
+  bottom: 14%;
+  width: 230px;
+  height: 230px;
+  background: rgba(156, 98, 255, 0.22);
+}
+
+.download-modal-header,
+.download-modal-brand,
+.download-modal-lower,
+.download-badge-row,
+.download-qr-panel,
+.download-store-button {
+  display: flex;
+  align-items: center;
+}
+
+.download-modal-header {
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.download-modal-brand {
+  min-width: 0;
+  gap: 14px;
+}
+
+.download-modal-brand img {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(56, 232, 255, 0.36);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 32px rgba(56, 232, 255, 0.24);
+}
+
+.download-modal-brand span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.download-modal-brand strong {
+  color: rgba(246, 251, 255, 0.98);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: clamp(1.35rem, 2.6vw, 2.18rem);
+  line-height: 1;
+}
+
+.download-modal-brand small {
+  color: var(--gold);
+  font-family: "Orbitron", system-ui, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.download-modal-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  border: 1px solid rgba(226, 241, 255, 0.16);
+  border-radius: 10px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(8, 13, 25, 0.76)),
+    rgba(255, 255, 255, 0.04);
+  color: rgba(246, 251, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(246, 251, 255, 0.08);
+}
+
+.download-modal-copy p {
+  max-width: 720px;
+  margin: 18px 0 24px;
+  color: rgba(225, 239, 255, 0.76);
+  font-size: clamp(1rem, 1.45vw, 1.14rem);
+  line-height: 1.65;
+}
+
+.download-platform-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.download-platform-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  min-height: 286px;
+  border: 1px solid rgba(226, 241, 255, 0.14);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(246, 251, 255, 0.09), rgba(6, 11, 22, 0.78)),
+    rgba(255, 255, 255, 0.04);
+  padding: clamp(18px, 3vw, 24px);
+  box-shadow: 0 22px 72px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(246, 251, 255, 0.08);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.download-platform-card::before,
+.download-platform-card::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+
+.download-platform-card::before {
+  inset: -1px;
+  background:
+    linear-gradient(120deg, transparent 10%, rgba(246, 251, 255, 0.13), transparent 42%),
+    radial-gradient(circle at 84% 18%, rgba(56, 232, 255, 0.18), transparent 34%);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.download-platform-card::after {
+  right: -52px;
+  bottom: -62px;
+  width: 190px;
+  height: 190px;
+  border: 1px solid rgba(56, 232, 255, 0.12);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 232, 255, 0.16), transparent 62%);
+}
+
+.download-platform-card.ios::after {
+  background: radial-gradient(circle, rgba(245, 199, 99, 0.14), transparent 62%);
+  border-color: rgba(245, 199, 99, 0.14);
+}
+
+.download-platform-card:hover {
+  border-color: rgba(56, 232, 255, 0.38);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.36), 0 0 44px rgba(56, 232, 255, 0.16), inset 0 1px 0 rgba(246, 251, 255, 0.1);
+}
+
+.download-platform-card.ios:hover {
+  border-color: rgba(245, 199, 99, 0.38);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.36), 0 0 44px rgba(245, 199, 99, 0.14), inset 0 1px 0 rgba(246, 251, 255, 0.1);
+}
+
+.download-platform-card:hover::before {
+  opacity: 1;
+}
+
+.download-platform-orb {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border: 1px solid rgba(56, 232, 255, 0.25);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 30% 18%, rgba(246, 251, 255, 0.28), transparent 34%),
+    linear-gradient(135deg, rgba(56, 232, 255, 0.2), rgba(92, 246, 163, 0.1));
+  color: #dffbff;
+  box-shadow: 0 18px 46px rgba(56, 232, 255, 0.16);
+}
+
+.download-platform-card.ios .download-platform-orb {
+  border-color: rgba(245, 199, 99, 0.28);
+  background:
+    radial-gradient(circle at 30% 18%, rgba(246, 251, 255, 0.32), transparent 34%),
+    linear-gradient(135deg, rgba(245, 199, 99, 0.2), rgba(156, 98, 255, 0.1));
+  color: #fff5d7;
+}
+
+.download-platform-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-self: end;
+  gap: 10px;
+  margin-top: 42px;
+}
+
+.download-platform-content strong {
+  color: rgba(246, 251, 255, 0.98);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: clamp(1.42rem, 2.4vw, 2rem);
+}
+
+.download-platform-content small {
+  max-width: 28ch;
+  color: rgba(225, 239, 255, 0.68);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.download-store-button {
+  position: relative;
+  z-index: 1;
+  justify-content: center;
+  gap: 9px;
+  align-self: end;
+  min-height: 48px;
+  margin-top: 24px;
+  border: 1px solid rgba(56, 232, 255, 0.34);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(56, 232, 255, 0.16), rgba(92, 246, 163, 0.08));
+  color: rgba(246, 251, 255, 0.96);
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(246, 251, 255, 0.08);
+}
+
+.download-platform-card.ios .download-store-button {
+  border-color: rgba(245, 199, 99, 0.38);
+  background: linear-gradient(135deg, rgba(245, 199, 99, 0.16), rgba(156, 98, 255, 0.1));
+}
+
+.download-modal-lower {
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.download-trust-panel,
+.download-qr-panel {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid rgba(226, 241, 255, 0.12);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(246, 251, 255, 0.07), rgba(8, 13, 25, 0.7)),
+    rgba(255, 255, 255, 0.035);
+  padding: 18px;
+  box-shadow: inset 0 1px 0 rgba(246, 251, 255, 0.07);
+}
+
+.download-badge-row {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.download-badge-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(92, 246, 163, 0.22);
+  border-radius: 999px;
+  background: rgba(92, 246, 163, 0.07);
+  padding: 9px 11px;
+  color: rgba(233, 255, 244, 0.94);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.download-badge-row svg {
+  color: var(--green);
+}
+
+.download-trust-panel p,
+.download-qr-panel p {
+  margin: 14px 0 0;
+  color: rgba(225, 239, 255, 0.66);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.download-qr-panel {
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.download-qr-panel h3 {
+  margin: 0;
+  color: rgba(246, 251, 255, 0.96);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 1.1rem;
+}
+
+.download-qr-shell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(246, 251, 255, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(246, 251, 255, 0.95), rgba(201, 244, 255, 0.86)), #f6fbff;
+  box-shadow: 0 20px 52px rgba(56, 232, 255, 0.18), inset 0 0 0 8px rgba(3, 6, 14, 0.06);
+}
+
+.download-qr-icon {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  color: rgba(3, 6, 14, 0.54);
+}
+
+.download-qr-code {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  width: 76px;
+  height: 76px;
+  padding: 2px;
+}
+
+.download-qr-code span {
+  border-radius: 2px;
+  background: rgba(4, 9, 18, 0.1);
+}
+
+.download-qr-code span.active,
+.download-qr-code span:nth-child(1),
+.download-qr-code span:nth-child(2),
+.download-qr-code span:nth-child(7),
+.download-qr-code span:nth-child(8),
+.download-qr-code span:nth-child(42),
+.download-qr-code span:nth-child(43),
+.download-qr-code span:nth-child(48),
+.download-qr-code span:nth-child(49) {
+  background: #04101a;
+}
+
+.download-modal a:focus-visible,
+.download-modal button:focus-visible,
+.download-modal-backdrop:focus-visible,
+.wallet-modal a:focus-visible,
+.wallet-modal button:focus-visible,
+.wallet-modal-backdrop:focus-visible,
+.wallet-connect-control:focus-visible,
+.wallet-account-button:focus-visible,
+.wallet-account-menu a:focus-visible,
+.wallet-account-menu button:focus-visible,
+.mobile-store-actions a:focus-visible,
+.action-button:focus-visible {
+  outline: 2px solid rgba(92, 246, 163, 0.95);
+  outline-offset: 3px;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.wallet-connect-control,
+.wallet-account-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  border: 1px solid rgba(92, 246, 163, 0.24);
+  border-radius: 10px;
+  cursor: pointer;
+  background:
+    linear-gradient(145deg, rgba(92, 246, 163, 0.12), rgba(8, 13, 25, 0.76)),
+    rgba(11, 17, 31, 0.62);
+  padding: 12px 15px;
+  color: rgba(246, 251, 255, 0.94);
+  font: inherit;
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(246, 251, 255, 0.08), 0 0 28px rgba(92, 246, 163, 0.08);
+}
+
+.wallet-account {
+  position: relative;
+}
+
+.wallet-account-button {
+  border-color: rgba(92, 246, 163, 0.42);
+  background:
+    linear-gradient(135deg, rgba(92, 246, 163, 0.16), rgba(56, 232, 255, 0.1)),
+    rgba(8, 13, 25, 0.78);
+}
+
+.wallet-account-button svg {
+  color: var(--green);
+}
+
+.wallet-account-button small {
+  border: 1px solid rgba(92, 246, 163, 0.24);
+  border-radius: 999px;
+  background: rgba(92, 246, 163, 0.1);
+  padding: 3px 7px;
+  color: rgba(233, 255, 244, 0.92);
+  font-size: 0.68rem;
+}
+
+.wallet-account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  z-index: 80;
+  display: grid;
+  gap: 6px;
+  width: min(332px, calc(100vw - 28px));
+  border: 1px solid rgba(226, 241, 255, 0.14);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 88% 4%, rgba(92, 246, 163, 0.12), transparent 32%),
+    linear-gradient(145deg, rgba(246, 251, 255, 0.08), rgba(5, 9, 18, 0.94));
+  padding: 10px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 34px rgba(56, 232, 255, 0.12);
+  backdrop-filter: blur(24px);
+}
+
+.wallet-account-menu a,
+.wallet-account-menu button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  padding: 11px;
+  color: rgba(246, 251, 255, 0.92);
+  text-align: left;
+  font: inherit;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.wallet-account-menu a:hover,
+.wallet-account-menu button:hover {
+  border-color: rgba(56, 232, 255, 0.22);
+  background: rgba(255, 255, 255, 0.055);
+  transform: translateX(4px);
+}
+
+.wallet-account-menu a:first-child {
+  border-color: rgba(245, 199, 99, 0.32);
+  background:
+    linear-gradient(135deg, rgba(245, 199, 99, 0.16), rgba(92, 246, 163, 0.08)),
+    rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 1px 0 rgba(246, 251, 255, 0.08), 0 0 28px rgba(245, 199, 99, 0.08);
+}
+
+.wallet-account-menu a:first-child svg {
+  color: var(--gold);
+}
+
+.wallet-account-menu svg {
+  flex: 0 0 auto;
+  color: var(--cyan);
+}
+
+.wallet-account-menu span {
+  display: grid;
+  gap: 3px;
+}
+
+.wallet-account-menu strong {
+  font-size: 0.9rem;
+}
+
+.wallet-account-menu small {
+  color: rgba(225, 239, 255, 0.58);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.wallet-account-menu button {
+  margin-top: 5px;
+  border-top: 1px solid rgba(226, 241, 255, 0.1);
+  color: rgba(255, 196, 214, 0.96);
+}
+
+.wallet-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 3vw, 32px);
+}
+
+.wallet-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  border: 0;
+  background:
+    radial-gradient(circle at 48% 12%, rgba(92, 246, 163, 0.16), transparent 32%),
+    radial-gradient(circle at 82% 68%, rgba(56, 232, 255, 0.18), transparent 36%),
+    rgba(1, 3, 8, 0.8);
+  backdrop-filter: blur(18px) saturate(1.18);
+}
+
+.wallet-modal {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden auto;
+  width: min(1080px, 100%);
+  max-height: min(92vh, 940px);
+  border: 1px solid rgba(226, 241, 255, 0.18);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(246, 251, 255, 0.1), rgba(7, 12, 23, 0.82)),
+    radial-gradient(circle at 16% 0%, rgba(92, 246, 163, 0.16), transparent 30%),
+    radial-gradient(circle at 92% 18%, rgba(56, 232, 255, 0.13), transparent 30%),
+    rgba(3, 6, 14, 0.9);
+  box-shadow:
+    0 44px 118px rgba(0, 0, 0, 0.6),
+    0 0 80px rgba(92, 246, 163, 0.12),
+    inset 0 1px 0 rgba(246, 251, 255, 0.14);
+  padding: clamp(18px, 3vw, 30px);
+  backdrop-filter: blur(30px) saturate(1.18);
+}
+
+.wallet-modal::before {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  content: "";
+  background:
+    repeating-linear-gradient(90deg, transparent 0 54px, rgba(56, 232, 255, 0.028) 55px 56px),
+    linear-gradient(120deg, transparent, rgba(246, 251, 255, 0.07), transparent);
+  mask-image: linear-gradient(to bottom, #000 0 50%, transparent 100%);
+}
+
+.wallet-modal-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background-image:
+    linear-gradient(rgba(56, 232, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92, 246, 163, 0.04) 1px, transparent 1px);
+  background-size: 46px 46px;
+  opacity: 0.54;
+  mask-image: radial-gradient(ellipse at 62% 24%, #000 0 36%, transparent 78%);
+  animation: sectionMatrixDrift 22s linear infinite;
+}
+
+.wallet-modal-orb {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(36px);
+  mix-blend-mode: screen;
+}
+
+.wallet-modal-orb.orb-a {
+  right: -86px;
+  top: -94px;
+  width: 280px;
+  height: 280px;
+  background: rgba(92, 246, 163, 0.22);
+}
+
+.wallet-modal-orb.orb-b {
+  left: -84px;
+  bottom: 16%;
+  width: 240px;
+  height: 240px;
+  background: rgba(56, 232, 255, 0.2);
+}
+
+.wallet-modal-header,
+.wallet-modal-brand {
+  display: flex;
+  align-items: center;
+}
+
+.wallet-modal-header {
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.wallet-modal-brand {
+  min-width: 0;
+  gap: 14px;
+}
+
+.wallet-modal-brand img {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(92, 246, 163, 0.3);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 32px rgba(92, 246, 163, 0.2);
+}
+
+.wallet-modal-brand span {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.wallet-modal-brand strong {
+  color: rgba(246, 251, 255, 0.98);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: clamp(1.35rem, 2.7vw, 2.24rem);
+  line-height: 1;
+}
+
+.wallet-modal-brand small {
+  color: var(--green);
+  font-family: "Orbitron", system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wallet-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.wallet-identity-panel,
+.wallet-flow-panel,
+.wallet-trust-area {
+  border: 1px solid rgba(226, 241, 255, 0.13);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(246, 251, 255, 0.075), rgba(8, 13, 25, 0.72)),
+    rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 rgba(246, 251, 255, 0.07), 0 22px 64px rgba(0, 0, 0, 0.22);
+}
+
+.wallet-identity-panel {
+  padding: clamp(18px, 2.5vw, 24px);
+}
+
+.wallet-identity-panel p {
+  margin: 0 0 14px;
+  color: rgba(225, 239, 255, 0.72);
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.wallet-identity-panel p:first-child {
+  color: rgba(246, 251, 255, 0.96);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: clamp(1.08rem, 1.8vw, 1.28rem);
+  line-height: 1.35;
+}
+
+.wallet-usecase-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.wallet-usecase-grid span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(226, 241, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+  color: rgba(225, 239, 255, 0.78);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.wallet-usecase-grid svg {
+  flex: 0 0 auto;
+  color: var(--green);
+}
+
+.wallet-flow-panel {
+  min-height: 560px;
+  padding: clamp(16px, 2.4vw, 22px);
+}
+
+.wallet-panel-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.wallet-panel-heading span {
+  color: rgba(246, 251, 255, 0.96);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 1.18rem;
+  font-weight: 900;
+}
+
+.wallet-panel-heading small {
+  color: var(--gold);
+  font-weight: 900;
+}
+
+.wallet-option-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.wallet-option-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 92px;
+  cursor: pointer;
+  border: 1px solid rgba(226, 241, 255, 0.13);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(246, 251, 255, 0.075), rgba(6, 11, 22, 0.72)),
+    rgba(255, 255, 255, 0.035);
+  padding: 14px;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  box-shadow: inset 0 1px 0 rgba(246, 251, 255, 0.07);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.wallet-option-card::before {
+  position: absolute;
+  inset: -1px;
+  content: "";
+  background: linear-gradient(110deg, transparent 8%, rgba(246, 251, 255, 0.12), transparent 40%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.wallet-option-card:hover {
+  border-color: rgba(56, 232, 255, 0.34);
+  box-shadow: 0 20px 58px rgba(0, 0, 0, 0.28), 0 0 34px rgba(56, 232, 255, 0.12);
+}
+
+.wallet-option-card:hover::before {
+  opacity: 1;
+}
+
+.wallet-logo-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  color: #071017;
+  font-family: "Orbitron", system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 1000;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.24);
+}
+
+.wallet-option-card.metamask .wallet-logo-mark { background: linear-gradient(135deg, #f6851b, #ffe2b7); }
+.wallet-option-card.trust .wallet-logo-mark { background: linear-gradient(135deg, #3375bb, #bfe4ff); }
+.wallet-option-card.coinbase .wallet-logo-mark { background: linear-gradient(135deg, #0052ff, #dbe7ff); }
+.wallet-option-card.okx .wallet-logo-mark { background: linear-gradient(135deg, #f6fbff, #8a99ac); }
+.wallet-option-card.walletconnect .wallet-logo-mark { background: linear-gradient(135deg, #3b99fc, #8ff4ff); }
+
+.wallet-option-card span:not(.wallet-logo-mark) {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 5px;
+}
+
+.wallet-option-card strong {
+  color: rgba(246, 251, 255, 0.96);
+  font-size: 0.98rem;
+}
+
+.wallet-option-card small {
+  color: rgba(225, 239, 255, 0.64);
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.wallet-option-card i {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(92, 246, 163, 0.42);
+  border-radius: 50%;
+  box-shadow: 0 0 18px rgba(92, 246, 163, 0.24);
+}
+
+.wallet-progress-state,
+.wallet-success-state {
+  display: grid;
+  gap: 18px;
+  min-height: 510px;
+  align-content: center;
+}
+
+.wallet-progress-core {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  justify-self: center;
+  width: 150px;
+  height: 150px;
+  border: 1px solid rgba(56, 232, 255, 0.22);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(92, 246, 163, 0.2), transparent 58%),
+    rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 56px rgba(92, 246, 163, 0.16), inset 0 0 38px rgba(56, 232, 255, 0.08);
+}
+
+.wallet-progress-core span {
+  position: absolute;
+  width: 132px;
+  height: 132px;
+  border: 1px solid transparent;
+  border-top-color: var(--green);
+  border-right-color: rgba(56, 232, 255, 0.62);
+  border-radius: 50%;
+}
+
+.wallet-progress-core strong {
+  max-width: 112px;
+  text-align: center;
+  color: rgba(246, 251, 255, 0.95);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+
+.wallet-progress-list {
+  display: grid;
+  gap: 9px;
+}
+
+.wallet-progress-list div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(226, 241, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 12px;
+}
+
+.wallet-progress-list span {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid rgba(226, 241, 255, 0.14);
+  border-radius: 50%;
+  color: rgba(225, 239, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.wallet-progress-list p {
+  margin: 0;
+  color: rgba(225, 239, 255, 0.7);
+  font-weight: 800;
+}
+
+.wallet-progress-list .current {
+  border-color: rgba(56, 232, 255, 0.32);
+  background: rgba(56, 232, 255, 0.06);
+}
+
+.wallet-progress-list .complete {
+  border-color: rgba(92, 246, 163, 0.28);
+  background: rgba(92, 246, 163, 0.06);
+}
+
+.wallet-progress-list .complete span {
+  border-color: rgba(92, 246, 163, 0.38);
+  color: var(--green);
+}
+
+.wallet-success-state {
+  text-align: center;
+}
+
+.wallet-success-check {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: 86px;
+  height: 86px;
+  border: 1px solid rgba(92, 246, 163, 0.4);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(92, 246, 163, 0.24), rgba(56, 232, 255, 0.08));
+  color: var(--green);
+  box-shadow: 0 0 54px rgba(92, 246, 163, 0.2);
+}
+
+.wallet-success-state h3 {
+  margin: 0;
+  color: rgba(246, 251, 255, 0.98);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2.24rem);
+}
+
+.wallet-success-state > p {
+  max-width: 650px;
+  margin: 0 auto;
+  color: rgba(225, 239, 255, 0.7);
+  font-weight: 750;
+  line-height: 1.65;
+}
+
+.wallet-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wallet-context-grid span {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(226, 241, 255, 0.11);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 13px;
+  text-align: left;
+}
+
+.wallet-context-grid small {
+  color: rgba(225, 239, 255, 0.58);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.wallet-context-grid strong {
+  color: rgba(246, 251, 255, 0.96);
+  font-family: "Orbitron", system-ui, sans-serif;
+  font-size: 0.88rem;
+}
+
+.wallet-activity-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wallet-activity-row span {
+  border: 1px solid rgba(56, 232, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(56, 232, 255, 0.06);
+  padding: 8px 10px;
+  color: rgba(225, 239, 255, 0.78);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.wallet-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.wallet-success-actions > button:not(.wallet-text-action) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  border: 1px solid rgba(226, 241, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(11, 17, 31, 0.62);
+  padding: 12px 16px;
+  color: rgba(246, 251, 255, 0.92);
+  font: inherit;
+  font-weight: 900;
+}
+
+.wallet-text-action {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 196, 214, 0.9);
+  font: inherit;
+  font-weight: 900;
+}
+
+.wallet-trust-area {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.wallet-trust-area div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wallet-trust-area span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(92, 246, 163, 0.22);
+  border-radius: 999px;
+  background: rgba(92, 246, 163, 0.07);
+  padding: 8px 10px;
+  color: rgba(233, 255, 244, 0.92);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.wallet-trust-area p {
+  margin: 0;
+  color: rgba(225, 239, 255, 0.64);
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
 .download-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -3624,6 +4734,7 @@ p {
 .nav-links,
 .brand,
 .nav-action,
+.nav-actions,
 .mobile-menu {
   position: relative;
   z-index: 1;
@@ -4222,6 +5333,10 @@ p {
     grid-template-columns: 180px minmax(0, 1fr);
   }
 
+  .institutional-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .dashboard-activity-rail {
     grid-column: 1 / -1;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -4324,6 +5439,10 @@ p {
   }
 
   .nav-action {
+    display: none;
+  }
+
+  .nav-actions {
     display: none;
   }
 
@@ -4478,6 +5597,10 @@ p {
 
   .dashboard-sidebar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .institutional-grid {
+    grid-template-columns: 1fr;
   }
 
   .dashboard-sidebar button {
@@ -4657,6 +5780,128 @@ p {
 
   .download-actions {
     min-width: 0;
+  }
+
+  .download-modal-layer {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .download-modal {
+    width: 100%;
+    max-height: 94svh;
+    border-radius: 18px;
+    padding: 16px;
+  }
+
+  .download-modal-header {
+    align-items: flex-start;
+  }
+
+  .download-modal-brand img {
+    width: 46px;
+    height: 46px;
+  }
+
+  .download-modal-brand strong {
+    font-size: clamp(1.2rem, 7vw, 1.58rem);
+  }
+
+  .download-modal-brand small {
+    font-size: 0.66rem;
+  }
+
+  .download-platform-grid,
+  .download-modal-lower {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .download-platform-card {
+    min-height: 238px;
+  }
+
+  .download-platform-content {
+    margin-top: 28px;
+  }
+
+  .download-qr-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .download-qr-shell {
+    justify-self: center;
+    width: min(160px, 56vw);
+    height: min(160px, 56vw);
+  }
+
+  .wallet-modal-layer {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .wallet-modal {
+    width: 100%;
+    max-height: 94svh;
+    border-radius: 18px;
+    padding: 16px;
+  }
+
+  .wallet-modal-header {
+    align-items: flex-start;
+  }
+
+  .wallet-modal-brand img {
+    width: 46px;
+    height: 46px;
+  }
+
+  .wallet-modal-brand strong {
+    font-size: clamp(1.18rem, 6.5vw, 1.56rem);
+  }
+
+  .wallet-modal-brand small {
+    font-size: 0.62rem;
+  }
+
+  .wallet-modal-layout,
+  .wallet-context-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wallet-flow-panel {
+    min-height: auto;
+  }
+
+  .wallet-panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .wallet-option-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .wallet-option-card i {
+    display: none;
+  }
+
+  .wallet-progress-state,
+  .wallet-success-state {
+    min-height: auto;
+    padding-block: 10px;
+  }
+
+  .wallet-success-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wallet-success-actions .action-button,
+  .wallet-success-actions > button:not(.wallet-text-action) {
+    width: 100%;
   }
 
   .footer-topline,
