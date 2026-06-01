@@ -34,6 +34,17 @@ function getModuleKeyFromPath(path) {
   return path.replace("/admin/", "").replace("/admin", "dashboard") || "dashboard";
 }
 
+function isHtmlFallbackResponse(value) {
+  return typeof value === "string" && /<!doctype html|<html/i.test(value);
+}
+
+function normalizeRows(value) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.rows)) return value.rows;
+  return null;
+}
+
 const mockUsers = [
   { id: 101, email: "amina@exaearn.com", username: "amina", balance: "$18,540", status: "active", kyc: "Level 2", created_at: "2026-03-10" },
   { id: 102, email: "tobi@exaearn.com", username: "tobi", balance: "$6,214", status: "frozen", kyc: "Level 1", created_at: "2026-03-14" },
@@ -403,9 +414,18 @@ export async function fetchModuleData(path) {
   const moduleKey = getModuleKeyFromPath(path);
   try {
     const response = await adminHttp.get(path.replace("/admin", ""));
+    if (isHtmlFallbackResponse(response.data)) {
+      throw new Error("Admin API route served the frontend shell.");
+    }
+
+    const rows = normalizeRows(response.data);
+    if (!rows) {
+      throw new Error("Admin API returned an unsupported module payload.");
+    }
+
     return {
       headline: modulePayloads[path]?.headline ?? "Module view",
-      rows: response.data?.data ?? response.data ?? [],
+      rows,
       actions: modulePayloads[path]?.actions ?? defaultModuleActions[moduleKey] ?? [],
       stats: modulePayloads[path]?.stats,
       source: "api",
@@ -428,6 +448,10 @@ export async function runModuleAction(path, action, row, note = "") {
       record: row,
       note,
     });
+
+    if (isHtmlFallbackResponse(response.data)) {
+      throw new Error("Admin action route served the frontend shell.");
+    }
 
     return response.data ?? { status: "queued", message: `${action} queued successfully.` };
   } catch {

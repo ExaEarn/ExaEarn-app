@@ -1,16 +1,52 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useWebSocketConnection } from "../services/webSocketService";
-import { getApiBaseUrl } from "../config/apiConfig";
+import { getApiBaseUrl, isDemoAuthEnabled } from "../config/apiConfig";
 
 const AuthContext = createContext(null);
 const AUTH_USER_KEY = "exaearn_auth_user";
 const AUTH_TOKEN_KEY = "exaearn_auth_token";
+const DEMO_USERS_KEY = "exaearn_demo_users";
 const API_UNREACHABLE_MESSAGE = "Unable to reach the API. Check that the backend is running.";
 const API_NOT_CONFIGURED_MESSAGE = "API URL is not configured. Set VITE_API_URL or /env.js to your deployed Laravel backend URL.";
 
+function readStoredUser() {
+  try {
+    const storedUser = localStorage.getItem(AUTH_USER_KEY);
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readDemoUsers() {
+  try {
+    return JSON.parse(localStorage.getItem(DEMO_USERS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function writeDemoUsers(users) {
+  try {
+    localStorage.setItem(DEMO_USERS_KEY, JSON.stringify(users));
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
+function createDemoUser({ name, email }) {
+  return {
+    id: `demo-${Date.now()}`,
+    name: name?.trim() || email,
+    email: email?.trim().toLowerCase(),
+    picture: "",
+    demo: true,
+  };
+}
+
 function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => readStoredUser());
   const [token, setToken] = useState(() => {
     try {
       return localStorage.getItem(AUTH_TOKEN_KEY) || "";
@@ -24,6 +60,7 @@ function AuthProvider({ children }) {
   const [authError, setAuthError] = useState("");
 
   const apiBaseUrl = getApiBaseUrl();
+  const demoAuthEnabled = isDemoAuthEnabled();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
   const isGoogleConfigured = Boolean(googleClientId);
@@ -116,6 +153,11 @@ function AuthProvider({ children }) {
       return;
     }
 
+    if (demoAuthEnabled && token.startsWith("demo-local-")) {
+      setUser(readStoredUser());
+      return;
+    }
+
     try {
       const payload = await request("/api/user", { method: "GET" });
       setUser(payload.user ?? payload.data?.user ?? null);
@@ -123,7 +165,7 @@ function AuthProvider({ children }) {
       setUser(null);
       setToken("");
     }
-  }, [request, token]);
+  }, [demoAuthEnabled, request, token]);
 
   useEffect(() => {
     // Hydrate user session when the app boots.
@@ -194,6 +236,20 @@ function AuthProvider({ children }) {
       setAuthError("");
       setAuthLoading(true);
       try {
+        if (demoAuthEnabled) {
+          const normalizedEmail = email.trim().toLowerCase();
+          const demoUser = readDemoUsers().find((item) => item.email === normalizedEmail);
+          if (!demoUser || demoUser.password !== password) {
+            setAuthError("No preview account found for this email. Please sign up first.");
+            return { success: false };
+          }
+
+          const { password: _password, ...safeUser } = demoUser;
+          setUser(safeUser);
+          setToken(`demo-local-${Date.now()}`);
+          return { success: true };
+        }
+
         const payload = await request("/api/login", {
           method: "POST",
           body: JSON.stringify({
@@ -220,13 +276,24 @@ function AuthProvider({ children }) {
 
         return { success: true };
       } catch (error) {
+        if (demoAuthEnabled && error.message === API_UNREACHABLE_MESSAGE) {
+          const normalizedEmail = email.trim().toLowerCase();
+          const demoUser = readDemoUsers().find((item) => item.email === normalizedEmail);
+          if (demoUser && demoUser.password === password) {
+            const { password: _password, ...safeUser } = demoUser;
+            setUser(safeUser);
+            setToken(`demo-local-${Date.now()}`);
+            return { success: true };
+          }
+        }
+
         setAuthError(error.message || "Login failed.");
         return { success: false };
       } finally {
         setAuthLoading(false);
       }
     },
-    [request, fetchMe]
+    [apiBaseUrl, demoAuthEnabled, request, fetchMe]
   );
 
   const checkAccountAvailability = useCallback(
@@ -234,6 +301,16 @@ function AuthProvider({ children }) {
       setAuthError("");
       setAuthLoading(true);
       try {
+        if (demoAuthEnabled) {
+          const normalizedEmail = email.trim().toLowerCase();
+          const exists = readDemoUsers().some((item) => item.email === normalizedEmail);
+          return {
+            success: true,
+            exists,
+            message: exists ? "Preview account already exists. Please login." : "",
+          };
+        }
+
         const payload = await request("/api/account/check", {
           method: "POST",
           body: JSON.stringify({
@@ -264,7 +341,7 @@ function AuthProvider({ children }) {
         setAuthLoading(false);
       }
     },
-    [request]
+    [apiBaseUrl, demoAuthEnabled, request]
   );
 
   const register = useCallback(
@@ -272,6 +349,21 @@ function AuthProvider({ children }) {
       setAuthError("");
       setAuthLoading(true);
       try {
+        if (demoAuthEnabled) {
+          const normalizedEmail = email.trim().toLowerCase();
+          const demoUsers = readDemoUsers();
+          if (demoUsers.some((item) => item.email === normalizedEmail)) {
+            setAuthError("Account already exists. Please login.");
+            return { success: false };
+          }
+
+          const safeUser = createDemoUser({ name, email: normalizedEmail });
+          writeDemoUsers([...demoUsers, { ...safeUser, password }]);
+          setUser(safeUser);
+          setToken(`demo-local-${Date.now()}`);
+          return { success: true };
+        }
+
         const payload = await request("/api/register", {
           method: "POST",
           body: JSON.stringify({
@@ -298,13 +390,28 @@ function AuthProvider({ children }) {
 
         return { success: true };
       } catch (error) {
+        if (demoAuthEnabled && error.message === API_UNREACHABLE_MESSAGE) {
+          const normalizedEmail = email.trim().toLowerCase();
+          const demoUsers = readDemoUsers();
+          if (demoUsers.some((item) => item.email === normalizedEmail)) {
+            setAuthError("Account already exists. Please login.");
+            return { success: false };
+          }
+
+          const safeUser = createDemoUser({ name, email: normalizedEmail });
+          writeDemoUsers([...demoUsers, { ...safeUser, password }]);
+          setUser(safeUser);
+          setToken(`demo-local-${Date.now()}`);
+          return { success: true };
+        }
+
         setAuthError(error.message || "Registration failed.");
         return { success: false };
       } finally {
         setAuthLoading(false);
       }
     },
-    [request]
+    [apiBaseUrl, demoAuthEnabled, request]
   );
 
   const logout = useCallback(async () => {

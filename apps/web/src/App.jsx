@@ -27,6 +27,7 @@ import { useAuth } from "./context/AuthContext";
 import { useWebSocketEvent } from "./services/webSocketService";
 import useMarketData from "./components/market/useMarketData";
 import newsData from "./data/news.json";
+import Register from "./pages/auth/Register";
 import "./styles/App.css";
 
 const Game = lazy(() => import("./Game/Game"));
@@ -62,7 +63,6 @@ const CreateCampaignPage = lazy(() => import("./pages/Crowdfunding/CreateCampaig
 const SupportCampaignPage = lazy(() => import("./pages/Crowdfunding/SupportCampaignPage"));
 const ViewCampaignPage = lazy(() => import("./pages/Crowdfunding/ViewCampaignPage"));
 const Login = lazy(() => import("./pages/auth/Login"));
-const Register = lazy(() => import("./pages/auth/Register"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const NeedHelp = lazy(() => import("./pages/auth/NeedHelp"));
 const ForgotAccountAppeal = lazy(() => import("./pages/auth/ForgotAccountAppeal"));
@@ -323,10 +323,53 @@ function formatNotificationTime(value) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function getAuthPageFromLocation() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const authParam = params.get("auth")?.toLowerCase();
+    const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+    const routeSegment = pathname.split("/").filter(Boolean).at(-1);
+
+    if (authParam === "register" || routeSegment === "register" || routeSegment === "signup") {
+      return "register";
+    }
+
+    return "login";
+  } catch {
+    return "login";
+  }
+}
+
+function getAuthRoutePrefix() {
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  const lastSegment = segments.at(-1)?.toLowerCase();
+  const authSegments = new Set(["login", "signin", "register", "signup"]);
+
+  if (authSegments.has(lastSegment)) {
+    segments.pop();
+  }
+
+  return segments.length ? `/${segments.join("/")}` : "";
+}
+
+function getAuthUrl(page) {
+  const prefix = getAuthRoutePrefix();
+
+  if (page === "register") {
+    return `${prefix}/register`;
+  }
+
+  if (page === "login") {
+    return `${prefix}/login`;
+  }
+
+  return null;
+}
+
 export default function App() {
   const { user, setUser, logout, apiBaseUrl, request } = useAuth();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [authPage, setAuthPage] = useState("login");
+  const [authPage, setAuthPageState] = useState(getAuthPageFromLocation);
   const [portfolioValue, setPortfolioValue] = useState("0");
   const [portfolioCurrency, setPortfolioCurrency] = useState("USDT");
   const [showSplash, setShowSplash] = useState(false);
@@ -359,6 +402,26 @@ export default function App() {
     () => notifications.filter(isUnreadNotification).length,
     [notifications]
   );
+
+  const setAuthPage = useCallback((page) => {
+    setAuthPageState(page);
+
+    const nextUrl = getAuthUrl(page);
+    if (!nextUrl || window.location.pathname === nextUrl) {
+      return;
+    }
+
+    window.history.pushState({ authPage: page }, "", nextUrl);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setAuthPageState(getAuthPageFromLocation());
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const campaignNews = useMemo(() => {
     return [...newsData].sort((a, b) => {

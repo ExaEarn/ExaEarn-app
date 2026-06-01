@@ -2,14 +2,31 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { adminHttp } from "../services/http";
+import { isDemoAdminEnabled } from "../config/apiConfig";
+import { useAdminAuth } from "../context/AdminAuthContext";
+
+const previewAdmin = {
+  id: "preview-admin",
+  name: "ExaEarn Preview Admin",
+  email: "admin@exaearn.com",
+  role: "super_admin",
+  demo: true,
+};
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
+  const { login } = useAdminAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const demoAdminEnabled = isDemoAdminEnabled();
+
+  const startPreviewSession = () => {
+    login(`demo-admin-${Date.now()}`, previewAdmin);
+    navigate("/dashboard");
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -17,6 +34,11 @@ export function AdminLoginPage() {
     setError("");
 
     try {
+      if (demoAdminEnabled) {
+        startPreviewSession();
+        return;
+      }
+
       const response = await adminHttp.post("/login", {
         email,
         password,
@@ -24,11 +46,15 @@ export function AdminLoginPage() {
       });
 
       if (response.data?.token) {
-        localStorage.setItem("exaearn-admin-token", response.data.token);
-        localStorage.setItem("exaearn-admin-user", JSON.stringify(response.data.admin));
+        login(response.data.token, response.data.admin);
         navigate("/dashboard");
       }
     } catch (err) {
+      if (demoAdminEnabled) {
+        startPreviewSession();
+        return;
+      }
+
       setError(err.response?.data?.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
@@ -107,7 +133,9 @@ export function AdminLoginPage() {
           </form>
 
           <p className="text-center text-xs text-violet-100/40 mt-6">
-            Authorized personnel only. All access is logged.
+            {demoAdminEnabled
+              ? "Preview mode is enabled for dashboard testing. Real admin auth requires the deployed API."
+              : "Authorized personnel only. All access is logged."}
           </p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const THEME_STORAGE_KEY = "exaearn-theme";
 const ThemeContext = createContext(null);

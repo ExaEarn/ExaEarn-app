@@ -36,7 +36,10 @@ export function AdminAuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await adminHttp.post("/logout");
+      const token = localStorage.getItem("exaearn-admin-token") || "";
+      if (!token.startsWith("demo-admin-")) {
+        await adminHttp.post("/logout");
+      }
     } catch (error) {
       console.error("Logout error:", error);
     }

@@ -29,3 +29,9 @@ export function getNodeServiceUrl() {
   const runtimeConfig = readRuntimeConfig();
   return cleanUrl(runtimeConfig.NODE_SERVICE_URL || import.meta.env.VITE_NODE_SERVICE_URL);
 }
+
+export function isDemoAdminEnabled() {
+  const runtimeConfig = readRuntimeConfig();
+  const rawValue = runtimeConfig.DEMO_ADMIN_ENABLED ?? import.meta.env.VITE_DEMO_ADMIN_ENABLED;
+  return rawValue === true || String(rawValue || "").toLowerCase() === "true";
+}
