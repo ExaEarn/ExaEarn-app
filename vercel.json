@@ -1,9 +1,13 @@
 {
   "version": 2,
   "installCommand": "pnpm install",
-  "buildCommand": "turbo run build --filter=@exaearn/website",
+  "buildCommand": "pnpm --filter @exaearn/web build && pnpm --filter @exaearn/website build && node scripts/embed-web-app.mjs",
   "outputDirectory": "apps/website/dist",
   "rewrites": [
+    {
+      "source": "/app/(.*)",
+      "destination": "/app/index.html"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

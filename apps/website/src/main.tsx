@@ -87,12 +87,11 @@ const WEB_APP_SIGNUP_URL = webAppUrl("/register");
 const WEB_APP_LOGIN_URL = webAppUrl("/login");
 
 const fadeUp = {
-  hidden: { opacity: 1, y: 28, filter: "blur(3px)" },
+  hidden: { opacity: 1, y: 10 },
   visible: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.58, ease: cinematicEase },
+    transition: { duration: 0.32, ease: cinematicEase },
   },
 };
 
@@ -100,8 +99,8 @@ const staggerGroup = {
   hidden: {},
   visible: {
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.08,
+      staggerChildren: 0.025,
+      delayChildren: 0.02,
     },
   },
 };
@@ -113,7 +112,7 @@ function Reveal({ children, className = "", delay = 0, as: Component = motion.di
       variants={fadeUp}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, amount: 0.18, margin: "0px 0px -10% 0px" }}
+      viewport={{ once: true, amount: 0.08, margin: "0px 0px 12% 0px" }}
       transition={{ delay }}
       {...props}
     >
@@ -307,7 +306,7 @@ const footerHighlights = [
 ];
 
 const footerChannels = [
-  ["Telegram", "Community desk", MessageCircle, "#community"],
+  ["Telegram", "Community desk", MessageCircle, "https://t.me/ExaEarn"],
   ["X / Twitter", "Market updates", Twitter, "#community"],
   ["Release notes", "Product signals", Radio, "#roadmap"],
 ];
@@ -849,7 +848,7 @@ function WalletOnboardingModal({ isOpen, onClose, onConnected, isConnected, onDi
   );
 }
 
-function WalletAccountControl({ isConnected, onOpenWallet, onDisconnect }) {
+function WalletAccountControl({ isConnected, onOpenWallet, onDisconnect, label }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   if (!isConnected) {
@@ -861,7 +860,7 @@ function WalletAccountControl({ isConnected, onOpenWallet, onDisconnect }) {
         whileHover={{ y: -3, scale: 1.02 }}
         whileTap={{ scale: 0.97 }}
       >
-        <Wallet size={16} /> Connect Wallet
+        <Wallet size={16} /> {label ?? "Connect Wallet"}
       </motion.button>
     );
   }
@@ -1114,8 +1113,10 @@ function BlockchainCanvas() {
     let links = [];
     let isVisible = true;
 
+    const shouldAnimate = () => !mediaQuery.matches && window.innerWidth >= 900;
+
     const makeNodes = () => {
-      const nodeCount = window.innerWidth < 760 ? 44 : 74;
+      const nodeCount = window.innerWidth < 760 ? 28 : 52;
       nodes = Array.from({ length: nodeCount }, (_, index) => {
         const layer = seededNoise(index, 41);
         const orbital = index < nodeCount * 0.48;
@@ -1213,7 +1214,7 @@ function BlockchainCanvas() {
       context.globalCompositeOperation = "source-over";
       animationFrame = 0;
 
-      if (!mediaQuery.matches && isVisible) {
+      if (shouldAnimate() && isVisible) {
         animationFrame = requestAnimationFrame(draw);
       }
     };
@@ -1226,7 +1227,11 @@ function BlockchainCanvas() {
         isVisible = entry.isIntersecting;
 
         if (isVisible && !animationFrame) {
-          animationFrame = requestAnimationFrame(draw);
+          if (shouldAnimate()) {
+            animationFrame = requestAnimationFrame(draw);
+          } else {
+            draw();
+          }
         } else if (!isVisible && animationFrame) {
           cancelAnimationFrame(animationFrame);
           animationFrame = 0;
@@ -1260,8 +1265,10 @@ function SectionSignalCanvas({ className = "", density = 64, drift = 1 }) {
     let points = [];
     let isVisible = false;
 
+    const shouldAnimate = () => !mediaQuery.matches && window.innerWidth >= 900;
+
     const makePoints = () => {
-      const pointCount = Math.min(density, window.innerWidth < 760 ? 26 : 44);
+      const pointCount = Math.min(density, window.innerWidth < 760 ? 18 : 34);
       points = Array.from({ length: pointCount }, (_, index) => ({
         x: seededNoise(index, 101) * width,
         y: seededNoise(index, 102) * height,
@@ -1329,7 +1336,7 @@ function SectionSignalCanvas({ className = "", density = 64, drift = 1 }) {
       context.globalCompositeOperation = "source-over";
       animationFrame = 0;
 
-      if (!mediaQuery.matches && isVisible) {
+      if (shouldAnimate() && isVisible) {
         animationFrame = requestAnimationFrame(draw);
       }
     };
@@ -1341,7 +1348,11 @@ function SectionSignalCanvas({ className = "", density = 64, drift = 1 }) {
         isVisible = entry.isIntersecting;
 
         if (isVisible && !animationFrame) {
-          animationFrame = requestAnimationFrame(draw);
+          if (shouldAnimate()) {
+            animationFrame = requestAnimationFrame(draw);
+          } else {
+            draw();
+          }
         } else if (!isVisible && animationFrame) {
           cancelAnimationFrame(animationFrame);
           animationFrame = 0;
@@ -2198,7 +2209,7 @@ function Community() {
         </p>
       </div>
       <motion.div className="community-grid" variants={staggerGroup} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.28 }}>
-        <motion.a variants={fadeUp} whileHover={{ y: -8 }} href="#community"><MessageCircle size={22} /> Telegram</motion.a>
+        <motion.a variants={fadeUp} whileHover={{ y: -8 }} href="https://t.me/ExaEarn" target="_blank" rel="noreferrer"><MessageCircle size={22} /> Telegram</motion.a>
         <motion.a variants={fadeUp} whileHover={{ y: -8 }} href="#community"><UsersRound size={22} /> Discord</motion.a>
         <motion.a variants={fadeUp} whileHover={{ y: -8 }} href="#community"><Twitter size={22} /> X / Twitter</motion.a>
         <motion.a variants={fadeUp} whileHover={{ y: -8 }} href="#community"><Radio size={22} /> Updates</motion.a>
@@ -2404,22 +2415,6 @@ function Footer({ onOpenDownload }) {
 }
 
 function DeferredPageSections({ onOpenDownload, onOpenWallet, isWalletConnected }) {
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(() => setIsReady(true), { timeout: 900 });
-      return () => window.cancelIdleCallback(idleId);
-    }
-
-    const timeout = window.setTimeout(() => setIsReady(true), 450);
-    return () => window.clearTimeout(timeout);
-  }, []);
-
-  if (!isReady) {
-    return <div className="deferred-page-spacer" aria-hidden="true" />;
-  }
-
   return (
     <>
       <ExaAiFloatingAccess />
@@ -2513,6 +2508,7 @@ function App() {
             isConnected={isWalletConnected}
             onOpenWallet={openWalletModal}
             onDisconnect={disconnectWallet}
+            label="Connect"
           />
         </div>
         <details className="mobile-menu">

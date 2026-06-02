@@ -330,7 +330,7 @@ function getAuthPageFromLocation() {
     const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, "");
     const routeSegment = pathname.split("/").filter(Boolean).at(-1);
 
-    if (authParam === "register" || routeSegment === "register" || routeSegment === "signup") {
+    if (authParam === "register" || routeSegment === "register" || routeSegment === "signup" || routeSegment === "registe") {
       return "register";
     }
 
@@ -343,7 +343,7 @@ function getAuthPageFromLocation() {
 function getAuthRoutePrefix() {
   const segments = window.location.pathname.split("/").filter(Boolean);
   const lastSegment = segments.at(-1)?.toLowerCase();
-  const authSegments = new Set(["login", "signin", "register", "signup"]);
+  const authSegments = new Set(["login", "signin", "register", "signup", "registe"]);
 
   if (authSegments.has(lastSegment)) {
     segments.pop();

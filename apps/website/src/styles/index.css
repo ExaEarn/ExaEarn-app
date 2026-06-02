@@ -58,7 +58,7 @@ summary {
 }
 
 .deferred-page-spacer {
-  min-height: 45vh;
+  display: none;
 }
 
 .site-shell::before {
@@ -4521,20 +4521,18 @@ p {
 }
 
 .reveal-ready {
-  opacity: 0;
-  transform: translateY(28px) scale(0.985);
-  filter: blur(8px);
+  opacity: 1;
+  transform: translateY(8px);
+  filter: none;
   transition:
-    opacity 720ms cubic-bezier(0.19, 1, 0.22, 1),
-    transform 720ms cubic-bezier(0.19, 1, 0.22, 1),
-    filter 720ms cubic-bezier(0.19, 1, 0.22, 1);
-  transition-delay: calc(var(--reveal-index, 0) * 42ms);
+    transform 260ms cubic-bezier(0.19, 1, 0.22, 1);
+  transition-delay: calc(var(--reveal-index, 0) * 12ms);
 }
 
 .reveal-ready.is-visible {
   opacity: 1;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
+  transform: translateY(0);
+  filter: none;
 }
 
 @keyframes loaderCurtain {
@@ -5413,6 +5411,27 @@ p {
 }
 
 @media (max-width: 760px) {
+  .site-shell::before,
+  .section-band:not(.hero)::after,
+  .blockchain-background::after,
+  .network-core,
+  .solar-wavefield,
+  .hex-grid-layer,
+  .network-web line,
+  .node-aura,
+  .node-point,
+  .micro-ledger span,
+  .data-shards span,
+  .holographic-frames span,
+  .quantum-streaks span,
+  .ambient-particles span {
+    animation: none !important;
+  }
+
+  .section-signal-canvas {
+    opacity: 0.22;
+  }
+
   .topbar {
     flex-wrap: wrap;
     min-height: 70px;
