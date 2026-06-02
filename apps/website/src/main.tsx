@@ -136,10 +136,10 @@ const institutionalSignals = [
 ];
 
 const trustRails = [
-  ["Risk", "Adaptive monitoring, fraud signals, and transparent account activity."],
-  ["Scale", "Composable modules for wallets, staking, markets, rewards, and community rails."],
-  ["Access", "Mobile-first onboarding built for mainstream participation without protocol friction."],
-  ["Utility", "EXA-powered coordination across rewards, marketplace access, and governance."],
+  ["Risk", "Adaptive monitoring, fraud signals, and transparent account activity across treasury and wallet flows."],
+  ["Scale", "Composable modules for wallets, staking, markets, rewards, and institution-ready rails."],
+  ["Access", "Mobile-first onboarding and wallet access with low-friction participation for every user."],
+  ["Utility", "EXA-native coordination across rewards, marketplace access, governance, and real-world asset rails."],
 ];
 
 const appScreens = [
@@ -2215,8 +2215,8 @@ function DownloadAccess({ onOpenDownload }) {
           <p className="eyebrow">Download / access</p>
           <h2>Access the future financial system.</h2>
           <p>
-            Join the waitlist, prepare your wallet, and step into the ExaEarn app
-            experience as the ecosystem opens across mobile and Web3 rails.
+            Get the ExaEarn mobile app, web platform, and Web3 wallet experience
+            across all your devices as the ecosystem goes live.
           </p>
         </div>
         <div className="download-actions">
@@ -2225,9 +2225,6 @@ function DownloadAccess({ onOpenDownload }) {
           </ButtonLink>
           <ButtonLink className="store" href="#download" onClick={onOpenDownload}>
             <Play size={19} /> Get it on Google Play
-          </ButtonLink>
-          <ButtonLink className="primary" href="#connect">
-            <Rocket size={19} /> Join Waitlist
           </ButtonLink>
         </div>
       </motion.div>
@@ -2314,7 +2311,7 @@ function Footer({ onOpenDownload }) {
         </a>
         <div className="footer-actions">
           <ButtonLink className="primary" href={WEB_APP_LOGIN_URL}>
-            <Rocket size={17} /> Login
+            <Rocket size={17} /> Launch app
           </ButtonLink>
           <ButtonLink href="#download" onClick={onOpenDownload}>
             <Download size={17} /> Get Mobile Access
@@ -2502,9 +2499,16 @@ function App() {
           ))}
         </div>
         <div className="nav-actions">
-          <motion.a className="nav-action" href={WEB_APP_LOGIN_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-            <LockKeyhole size={16} /> Login
+          <motion.a className="nav-action primary" href={WEB_APP_SIGNUP_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <Rocket size={16} /> Launch App
           </motion.a>
+          <WalletAccountControl
+            isConnected={isWalletConnected}
+            onOpenWallet={openWalletModal}
+            onDisconnect={disconnectWallet}
+          />
+        </div>
+        <div className="mobile-connect-action">
           <WalletAccountControl
             isConnected={isWalletConnected}
             onOpenWallet={openWalletModal}
@@ -2526,9 +2530,6 @@ function App() {
             <div className="mobile-auth-actions" aria-label="Account actions">
               <a href={WEB_APP_LOGIN_URL}>Sign in</a>
               <a href={WEB_APP_SIGNUP_URL}>Sign up</a>
-              <a href="#connect" onClick={openWalletModal}>
-                {isWalletConnected ? connectedWalletProfile.address : "Connect Wallet"}
-              </a>
             </div>
             <div className="mobile-store-actions" aria-label="Download app">
               <a href="#download" onClick={openDownloadModal}>
