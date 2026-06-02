@@ -392,6 +392,11 @@ const connectedWalletProfile = {
   identity: "Signup Required",
 };
 
+function isMobileViewport() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 760px)").matches;
+}
+
 function ButtonLink({ href, className = "", children, onClick, ...props }) {
   return (
     <motion.a
@@ -571,6 +576,7 @@ function WalletOnboardingModal({ isOpen, onClose, onConnected, isConnected, onDi
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [phase, setPhase] = useState("select");
   const [activeStep, setActiveStep] = useState(0);
+  const [isCompactWalletFlow, setIsCompactWalletFlow] = useState(() => isMobileViewport());
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -594,6 +600,18 @@ function WalletOnboardingModal({ isOpen, onClose, onConnected, isConnected, onDi
   }, [isOpen, onClose]);
 
   useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const syncCompactState = () => setIsCompactWalletFlow(mediaQuery.matches);
+
+    syncCompactState();
+    mediaQuery.addEventListener("change", syncCompactState);
+
+    return () => mediaQuery.removeEventListener("change", syncCompactState);
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
     if (isConnected) {
@@ -611,23 +629,52 @@ function WalletOnboardingModal({ isOpen, onClose, onConnected, isConnected, onDi
     if (phase !== "connecting") return undefined;
 
     setActiveStep(0);
-    const timers = walletFlowSteps.map((_, index) => (
-      window.setTimeout(() => {
+    if (isMobileViewport()) {
+      setActiveStep(walletFlowSteps.length);
+      setPhase("success");
+      onConnected();
+      return undefined;
+    }
+
+    const firstDelay = isCompactWalletFlow ? 180 : 420;
+    const stepDelay = isCompactWalletFlow ? 140 : 320;
+    const finalDelay = isCompactWalletFlow ? 160 : 320;
+    const timers = [];
+    const fallbackTimer = window.setTimeout(() => {
+      setActiveStep(walletFlowSteps.length);
+      setPhase("success");
+      onConnected();
+    }, firstDelay + walletFlowSteps.length * stepDelay + finalDelay + 240);
+    timers.push(fallbackTimer);
+    walletFlowSteps.forEach((_, index) => {
+      const timer = window.setTimeout(() => {
         setActiveStep(index + 1);
         if (index === walletFlowSteps.length - 1) {
-          window.setTimeout(() => {
+          const successTimer = window.setTimeout(() => {
             setPhase("success");
             onConnected();
-          }, 520);
+          }, finalDelay);
+          timers.push(successTimer);
         }
-      }, 620 + index * 560)
-    ));
+      }, firstDelay + index * stepDelay);
+      timers.push(timer);
+    });
 
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [phase, onConnected]);
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [phase, isCompactWalletFlow, onConnected]);
 
   const selectWallet = (wallet) => {
     setSelectedWallet(wallet);
+
+    if (isCompactWalletFlow || isMobileViewport()) {
+      setActiveStep(walletFlowSteps.length);
+      setPhase("success");
+      onConnected();
+      return;
+    }
+
     setPhase("connecting");
   };
 
@@ -1104,6 +1151,8 @@ function BlockchainCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
+    if (isMobileViewport()) return undefined;
+
     const context = canvas.getContext("2d");
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let animationFrame = 0;
@@ -1257,6 +1306,8 @@ function SectionSignalCanvas({ className = "", density = 64, drift = 1 }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
+    if (isMobileViewport()) return undefined;
+
     const context = canvas.getContext("2d");
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let animationFrame = 0;
