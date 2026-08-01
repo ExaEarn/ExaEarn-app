@@ -61,7 +61,7 @@ class UserInitializationService
 
     private function createInternalAccounts(User $user): void
     {
-        foreach (['funding_wallet', 'spot_wallet', 'futures_wallet', 'exapoint_account'] as $accountType) {
+        foreach (['funding_wallet', 'unified_trading_wallet', 'spot_wallet', 'futures_wallet', 'exapoint_account'] as $accountType) {
             InternalAccount::updateOrCreate(
                 ['user_id' => $user->id, 'account_type' => $accountType],
                 [

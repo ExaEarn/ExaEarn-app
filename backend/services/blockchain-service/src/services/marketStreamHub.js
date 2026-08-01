@@ -69,6 +69,7 @@ class MarketStreamHub {
         socket.send(JSON.stringify({ type: 'unsubscribed', channel: message.channel, pair: String(message.pair).toUpperCase() }));
       }
     } catch (error) {
+      logger.debug('Invalid market websocket payload', { error: error.message });
       socket.send(JSON.stringify({ type: 'error', message: 'Invalid websocket payload' }));
     }
   }

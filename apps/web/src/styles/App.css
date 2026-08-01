@@ -1004,6 +1004,7 @@ html, body, #root {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
+  grid-auto-rows: 1fr;
 }
 
 .feature-card {
@@ -2181,7 +2182,8 @@ html, body, #root {
     font-size: 9px;
   }
   .features-grid {
-    gap: 6px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
   }
   .feature-card {
     min-height: 68px;
@@ -2425,8 +2427,13 @@ html, body, #root {
 }
 
 @media (max-width: 380px) {
+  .features-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
   .feature-card {
     min-height: 62px;
+    padding: 5px 2px;
   }
   .feature-name {
     font-size: 8px;
@@ -2450,7 +2457,8 @@ html, body, #root {
     min-width: 80px;
   }
   .features-grid {
-    gap: 0.9rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
   }
   .balance { font-size: 2rem; }
 }

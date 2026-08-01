@@ -48,10 +48,15 @@ class PriceOracleService
         $giftcardRates = $this->getGiftcardRates();
         foreach ($giftcardRates as $cardType => $rate) {
             GiftcardRate::updateOrCreate(
-                ['card_type' => strtoupper($cardType)],
+                ['brand' => strtolower($cardType)],
                 [
+                    'card_type' => strtoupper($cardType),
+                    'rate' => $rate,
                     'rate_to_usdt' => $rate,
                     'currency' => 'USDT',
+                    'min_value' => 1,
+                    'max_value' => 1000,
+                    'active' => true,
                     'source' => 'internal',
                     'last_updated' => now(),
                 ]

@@ -7,14 +7,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Admin;
 use App\Models\AdminLog;
-use App\Models\AgriReward;
 use App\Models\Athlete;
 use App\Models\AuditLog;
+use App\Models\Campaign;
 use App\Models\Course;
 use App\Models\FarmingProject;
 use App\Models\Giftcard;
 use App\Models\GiftcardOrder;
-use App\Models\LedgerEntry;
 use App\Models\LotteryGame;
 use App\Models\LotteryResult;
 use App\Models\Market;
@@ -26,7 +25,6 @@ use App\Models\Permission;
 use App\Models\RewardActivity;
 use App\Models\Role;
 use App\Models\Setting;
-use App\Models\StakingPool;
 use App\Models\Trade;
 use App\Models\Transaction;
 use App\Models\TreasuryBalance;
@@ -55,8 +53,7 @@ class AdminPlatformController extends Controller
         private readonly TransactionService $transactions,
         private readonly NotificationService $notifications,
         private readonly CryptoTreasuryService $treasuryService,
-    ) {
-    }
+    ) {}
 
     public function users(Request $request): JsonResponse
     {
@@ -101,7 +98,7 @@ class AdminPlatformController extends Controller
         ]);
 
         $amount = (string) abs((float) $payload['amount']);
-        $reference = 'admin_adjust:' . Str::uuid();
+        $reference = 'admin_adjust:'.Str::uuid();
 
         if ((float) $payload['amount'] > 0) {
             $tx = $this->ledger->credit((int) $payload['user_id'], $amount, (string) $payload['asset'], $reference, (string) $payload['reason']);
@@ -111,7 +108,10 @@ class AdminPlatformController extends Controller
 
         $this->log($request, 'admin.user.balance_adjust', array_merge($payload, ['reference' => $reference]));
 
-        return response()->json(['data' => $tx], 201);
+        $data = $tx->toArray();
+        $data['amount'] = (string) $payload['amount'];
+
+        return response()->json(['data' => $data], 201);
     }
 
     public function userLogs(Request $request): JsonResponse
@@ -249,43 +249,14 @@ class AdminPlatformController extends Controller
     {
         RewardActivity::query()->findOrFail($id)->delete();
         $this->log($request, 'admin.reward.delete', ['id' => $id]);
+
         return response()->json(['message' => 'Reward deleted.']);
-    }
-
-    public function stakingPools(Request $request): JsonResponse
-    {
-        return response()->json(['data' => StakingPool::query()->latest()->paginate((int) $request->query('per_page', 25))]);
-    }
-
-    public function upsertStakingPool(Request $request): JsonResponse
-    {
-        $payload = $request->validate(['id' => ['nullable', 'integer'], 'token' => ['required_without:asset', 'string'], 'asset' => ['nullable', 'string'], 'reward_token' => ['required', 'string'], 'apr' => ['nullable', 'numeric'], 'lock_days' => ['nullable', 'integer'], 'status' => ['nullable', 'string']]);
-        $pool = StakingPool::query()->updateOrCreate(['id' => $payload['id'] ?? null], [
-            'asset' => $payload['asset'] ?? $payload['token'],
-            'reward_token' => $payload['reward_token'],
-            'lock_period' => (int) ($payload['lock_days'] ?? 0) * 86400,
-            'reward_rate' => $payload['apr'] ?? 0,
-            'status' => $payload['status'] ?? 'active',
-        ]);
-        $this->log($request, 'admin.staking.upsert', $payload);
-
-        return response()->json(['data' => $pool], 201);
-    }
-
-    public function disableStakingPool(Request $request): JsonResponse
-    {
-        $payload = $request->validate(['id' => ['required', 'integer', 'exists:staking_pools,id']]);
-        $pool = StakingPool::query()->findOrFail((int) $payload['id']);
-        $pool->status = 'disabled';
-        $pool->save();
-        $this->log($request, 'admin.staking.disable', $payload);
-
-        return response()->json(['data' => $pool]);
     }
 
     public function modelIndex(Request $request, string $resource): JsonResponse
     {
         $model = $this->resourceModel($resource);
+
         return response()->json(['data' => $model::query()->latest()->paginate((int) $request->query('per_page', 25))]);
     }
 
@@ -294,6 +265,7 @@ class AdminPlatformController extends Controller
         $model = $this->resourceModel($resource);
         $record = $model::query()->create($request->all());
         $this->log($request, "admin.{$resource}.create", $request->all());
+
         return response()->json(['data' => $record], 201);
     }
 
@@ -305,6 +277,7 @@ class AdminPlatformController extends Controller
         $record->fill($payload['data']);
         $record->save();
         $this->log($request, "admin.{$resource}.update", $payload);
+
         return response()->json(['data' => $record]);
     }
 
@@ -316,6 +289,7 @@ class AdminPlatformController extends Controller
         $record->status = 'disabled';
         $record->save();
         $this->log($request, "admin.{$resource}.disable", $payload);
+
         return response()->json(['data' => $record]);
     }
 
@@ -412,6 +386,7 @@ class AdminPlatformController extends Controller
             $updated[] = Setting::query()->updateOrCreate(['key' => (string) $key], ['value' => is_scalar($value) ? (string) $value : json_encode($value), 'type' => is_array($value) ? 'json' : 'string', 'group' => strtok((string) $key, '.') ?: 'general']);
         }
         $this->log($request, 'admin.settings.update', ['keys' => array_keys($payload['settings'])]);
+
         return response()->json(['data' => $updated]);
     }
 
@@ -425,6 +400,7 @@ class AdminPlatformController extends Controller
         $payload = $request->validate(['name' => ['required', 'string'], 'email' => ['required', 'email', 'unique:admins,email'], 'password' => ['required', 'string', 'min:10'], 'role_id' => ['required', 'integer', 'exists:roles,id'], 'status' => ['nullable', 'string']]);
         $admin = Admin::query()->create(array_merge($payload, ['password' => Hash::make($payload['password']), 'status' => $payload['status'] ?? 'active']));
         $this->log($request, 'admin.admin.create', ['admin_id' => $admin->id, 'email' => $admin->email]);
+
         return response()->json(['data' => $admin->load('role')], 201);
     }
 
@@ -439,6 +415,7 @@ class AdminPlatformController extends Controller
         $role = Role::query()->firstOrCreate(['name' => $payload['name']]);
         $role = $this->permissionService->syncRolePermissions($role, $payload['permissions']);
         $this->log($request, 'admin.role.upsert', $payload);
+
         return response()->json(['data' => $role], 201);
     }
 
@@ -450,7 +427,7 @@ class AdminPlatformController extends Controller
             'agri-projects' => FarmingProject::class,
             'sports-athletes' => Athlete::class,
             'courses' => Course::class,
-            'campaigns' => \App\Models\Campaign::class,
+            'campaigns' => Campaign::class,
             'lottery' => LotteryGame::class,
             'lottery-winners' => LotteryResult::class,
             'giftcards' => Giftcard::class,

@@ -1,342 +1,319 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
   BookOpen,
-  Briefcase,
-  CircleDollarSign,
+  BriefcaseBusiness,
+  Building2,
+  CheckCircle2,
+  Clock3,
   GraduationCap,
+  Loader2,
+  Search,
   ShieldCheck,
   Sparkles,
-  UploadCloud,
-  Wallet,
+  Trophy,
 } from "lucide-react";
 import Image from "../../assets/Image";
+import { useAuth } from "../../context/AuthContext";
+import {
+  applyExaSkillsOpportunity,
+  purchaseExaSkillsCourse,
+  getExaSkillsHome,
+  submitExaSkillsChallenge,
+} from "../../services/exaSkillsApi";
 
-const featuredTracks = [
-  {
-    id: "track-1",
-    courseKey: "web3-fundamentals",
-    title: "Web3 Fundamentals",
-    level: "Beginner",
-    duration: "6 hrs",
-    lessons: 18,
-    earnPotential: "Up to 250 EXA",
-  },
-  {
-    id: "track-2",
-    courseKey: "defi-strategy-lab",
-    title: "DeFi Strategy Lab",
-    level: "Intermediate",
-    duration: "5 hrs",
-    lessons: 14,
-    earnPotential: "Up to 420 EXA",
-  },
-  {
-    id: "track-3",
-    courseKey: "rwa-tokenization",
-    title: "RWA and Tokenization",
-    level: "Advanced",
-    duration: "4 hrs",
-    lessons: 10,
-    earnPotential: "Up to 600 EXA",
-  },
-  {
-    id: "track-4",
-    courseKey: "web-development",
-    title: "Web Development",
-    level: "Beginner",
-    duration: "8 hrs",
-    lessons: 20,
-    earnPotential: "Up to 320 EXA",
-  },
-];
+const emptyHome = {
+  summary: {},
+  continue_learning: [],
+  categories: [],
+  featured_courses: [],
+  challenges: [],
+  opportunities: [],
+  credentials: [],
+  supported: {},
+};
 
-const platformStats = [
-  { label: "Active Learners", value: "24,800+" },
-  { label: "EXA Rewards Paid", value: "9.4M" },
-  { label: "Scholarships Granted", value: "1,120+" },
-  { label: "Hiring Partners", value: "36" },
-];
+function normalizeList(value) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+}
 
-const journeySteps = [
-  {
-    step: "01",
-    title: "Pick a Learning Path",
-    detail: "Choose beginner to advanced tracks aligned with high-demand digital skills.",
-  },
-  {
-    step: "02",
-    title: "Complete Skill Milestones",
-    detail: "Finish lessons, projects, and assessments with real proof-of-skill checkpoints.",
-  },
-  {
-    step: "03",
-    title: "Earn EXA Rewards",
-    detail: "Receive structured token rewards for verified progress and assessment completion.",
-  },
-  {
-    step: "04",
-    title: "Unlock Career Access",
-    detail: "Use certificates and portfolio proof to access mentors, jobs, and funding opportunities.",
-  },
-];
+function courseKey(course) {
+  return course?.slug || course?.id || "course";
+}
 
-const trustSignals = [
-  "Blockchain-backed completion and certification records",
-  "Verified mentor and educator onboarding standards",
-  "Transparent scholarship review and approval workflow",
-  "Global learner support and measurable employment outcomes",
-];
+function formatMoney(value, asset = "USDT") {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "Free";
+  return `${numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${asset}`;
+}
 
-function EdTech({
+function ExaSkills({
   onBack,
   onOpenBecomeEducator,
   onOpenApplyScholarship,
   onOpenCourseUpload,
   onOpenStartLearning = () => {},
-  onOpenInstructorWorkshop,
   onOpenInstructorDashboard = () => {},
 }) {
+  const { apiBaseUrl, token } = useAuth();
+  const [data, setData] = useState(emptyHome);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [enrollingId, setEnrollingId] = useState(null);
+  const [actionId, setActionId] = useState(null);
+  const [notice, setNotice] = useState("");
+
+  const loadHome = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await getExaSkillsHome({ apiBaseUrl, token });
+      setData({ ...emptyHome, ...(payload.data || {}) });
+    } catch (err) {
+      setError(err?.message || "ExaSkills is temporarily unavailable.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHome();
+  }, [apiBaseUrl, token]);
+
+  const categories = normalizeList(data.categories);
+  const courses = normalizeList(data.featured_courses);
+  const challenges = normalizeList(data.challenges);
+  const opportunities = normalizeList(data.opportunities);
+  const continueLearning = normalizeList(data.continue_learning);
+
+  const filteredCourses = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return courses;
+    return courses.filter((course) => `${course.title || ""} ${course.description || ""} ${course.instructor_name || ""}`.toLowerCase().includes(term));
+  }, [courses, query]);
+
+  const handleEnroll = async (course) => {
+    const id = courseKey(course);
+    setNotice("");
+    setEnrollingId(id);
+    try {
+      await purchaseExaSkillsCourse({ apiBaseUrl, token, course: id, idempotencyKey: crypto?.randomUUID?.() || `skills-${Date.now()}` });
+      setNotice("Course access confirmed. Your learning dashboard has been updated.");
+      await loadHome();
+    } catch (err) {
+      setNotice(err?.message || "Course access could not be completed.");
+    } finally {
+      setEnrollingId(null);
+    }
+  };
+
+  const handleChallengeSubmit = async (challenge) => {
+    const id = challenge?.slug || challenge?.id;
+    if (!id) return;
+    setNotice("");
+    setActionId(`challenge-${id}`);
+    try {
+      await submitExaSkillsChallenge({
+        apiBaseUrl,
+        token,
+        challenge: id,
+        body: { description: "I want to participate in this ExaSkills challenge." },
+      });
+      setNotice("Challenge participation saved. You can refine your submission before the deadline.");
+      await loadHome();
+    } catch (err) {
+      setNotice(err?.message || "Challenge submission could not be saved.");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleOpportunityApply = async (opportunity) => {
+    const id = opportunity?.slug || opportunity?.id;
+    if (!id) return;
+    setNotice("");
+    setActionId(`opportunity-${id}`);
+    try {
+      await applyExaSkillsOpportunity({
+        apiBaseUrl,
+        token,
+        opportunity: id,
+        body: { cover_note: "I am interested in this ExaSkills opportunity." },
+      });
+      setNotice("Opportunity application submitted.");
+      await loadHome();
+    } catch (err) {
+      setNotice(err?.message || "Opportunity application could not be submitted.");
+    } finally {
+      setActionId(null);
+    }
+  };
+
   return (
-    <main className="min-h-screen text-white exa-bg app-shell">
-      <div className="container mx-auto w-full max-w-sm px-3 pb-6 pt-4 sm:max-w-lg sm:px-4 sm:pt-6 md:max-w-2xl lg:max-w-5xl xl:max-w-6xl">
-        <div className="rounded-3xl p-4 shadow-xl glass-card sm:p-6">
-          <header className="rounded-3xl border border-[#D4AF37]/30 bg-gradient-to-br from-[#0B0B0B]/95 via-[#151515]/90 to-[#0B0B0B]/95 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4AF37]/60 bg-[#0B0B0B]/80">
-                  <img src={Image.edu} alt="ExaEarn EdTech" className="h-6 w-6 object-contain" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#D4AF37]/80">ExaEarn</p>
-                  <p className="text-sm text-[#F8F8F8]/75">EdTech</p>
-                </div>
+    <main className="min-h-screen bg-[#080A0F] text-white app-shell">
+      <div className="mx-auto w-full max-w-7xl px-3 pb-8 pt-4 sm:px-5 lg:px-8">
+        <header className="rounded-2xl border border-white/10 bg-[#0D1118] p-4 shadow-xl sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/10">
+                <img src={Image.edu} alt="ExaSkills" className="h-7 w-7 object-contain" />
               </div>
-              {onBack ? (
-                <button type="button" onClick={onBack} className="btn-outline inline-flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </button>
-              ) : null}
-            </div>
-
-            <div className="mt-5 grid gap-5 lg:grid-cols-[1.18fr_0.82fr]">
-              <div>
-                <p className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-1 text-xs font-semibold text-[#D4AF37]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Earn While You Learn
-                </p>
-                <h1 className="mt-3 font-['Sora'] text-3xl font-semibold leading-tight text-[#F8F8F8] sm:text-5xl">
-                  Learn Skills. Build Proof. Earn Value.
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#F8F8F8]/78 sm:text-base">
-                  ExaEarn EdTech combines education, rewards, and verified digital credentials so learners can grow income while
-                  growing competence.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <button type="button" onClick={onOpenStartLearning} className="btn-gold">
-                    Start Learning
-                  </button>
-                  <button type="button" onClick={onOpenApplyScholarship} className="btn-outline">
-                    Apply Scholarship
-                  </button>
-                  <button type="button" onClick={onOpenBecomeEducator} className="btn-outline">
-                    Become an Educator
-                  </button>
-                </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.24em] text-[#D4AF37]/80">ExaEarn</p>
+                <h1 className="truncate font-['Sora'] text-2xl font-semibold sm:text-3xl">ExaSkills</h1>
               </div>
-
-              <aside className="grid gap-3">
-                <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37]/85">Current Learning Wallet</p>
-                  <p className="mt-1 text-2xl font-semibold text-[#D4AF37]">3,250 EXA</p>
-                  <p className="mt-1 text-xs text-[#F8F8F8]/72">Rewards available from completed pathways and quizzes.</p>
-                </div>
-                <div className="rounded-2xl border border-[#F8F8F8]/15 bg-[#0B0B0B]/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37]/85">This Week Focus</p>
-                  <p className="mt-1 text-sm font-semibold text-[#F8F8F8]">Complete 2 modules to unlock +120 EXA bonus</p>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#F8F8F8]/15">
-                    <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020]" />
-                  </div>
-                </div>
-              </aside>
             </div>
-          </header>
-
-          <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {platformStats.map((stat) => (
-              <article key={stat.label} className="rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/60 p-4 text-center shadow-cosmic-card">
-                <p className="text-xs text-[#F8F8F8]/65">{stat.label}</p>
-                <p className="mt-2 text-xl font-semibold text-[#D4AF37]">{stat.value}</p>
-              </article>
-            ))}
-          </section>
-
-          <section className="mt-6 rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/60 p-4 sm:p-5">
-            <div className="flex items-center gap-2 text-[#D4AF37]">
-              <BadgeCheck className="h-4 w-4" />
-              <h2 className="font-['Sora'] text-lg font-semibold text-[#F8F8F8]">Choose Your Path</h2>
-            </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => onOpenCourseUpload("web3-fundamentals")}
-                className="group rounded-2xl border border-[#F8F8F8]/15 bg-[#0B0B0B]/70 p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#D4AF37]/60 hover:shadow-button-glow"
-              >
-                <BookOpen className="h-5 w-5 text-[#D4AF37]" />
-                <p className="mt-3 text-base font-semibold text-[#F8F8F8]">I want to learn and earn</p>
-                <p className="mt-1 text-xs text-[#F8F8F8]/70">Access high-value courses with EXA rewards and proof-of-skill certification.</p>
-                <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#D4AF37]">Start path <ArrowRight className="h-3.5 w-3.5" /></p>
+            {onBack ? (
+              <button type="button" onClick={onBack} className="btn-outline inline-flex items-center gap-2 px-3 py-2 text-xs sm:text-sm">
+                <ArrowLeft className="h-4 w-4" /> Back
               </button>
+            ) : null}
+          </div>
 
-              <button
-                type="button"
-                onClick={onOpenBecomeEducator}
-                className="group rounded-2xl border border-[#F8F8F8]/15 bg-[#0B0B0B]/70 p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#D4AF37]/60 hover:shadow-button-glow"
-              >
-                <GraduationCap className="h-5 w-5 text-[#D4AF37]" />
-                <p className="mt-3 text-base font-semibold text-[#F8F8F8]">I want to teach and monetize</p>
-                <p className="mt-1 text-xs text-[#F8F8F8]/70">Create learning programs, grow audience, and earn from verified outcomes.</p>
-                <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#D4AF37]">Apply now <ArrowRight className="h-3.5 w-3.5" /></p>
-              </button>
-
-              <button
-                type="button"
-                onClick={onOpenApplyScholarship}
-                className="group rounded-2xl border border-[#F8F8F8]/15 bg-[#0B0B0B]/70 p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#D4AF37]/60 hover:shadow-button-glow"
-              >
-                <Briefcase className="h-5 w-5 text-[#D4AF37]" />
-                <p className="mt-3 text-base font-semibold text-[#F8F8F8]">I need scholarship support</p>
-                <p className="mt-1 text-xs text-[#F8F8F8]/70">Get sponsored access to premium tracks and guided mentorship cohorts.</p>
-                <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#D4AF37]">Request funding <ArrowRight className="h-3.5 w-3.5" /></p>
-              </button>
-            </div>
-          </section>
-
-          <section className="mt-6 grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-            <article className="rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/60 p-4 sm:p-5">
-              <div className="flex items-center gap-2 text-[#D4AF37]">
-                <CircleDollarSign className="h-4 w-4" />
-                <h2 className="font-['Sora'] text-lg font-semibold text-[#F8F8F8]">How Learning Converts to Earnings</h2>
-              </div>
-              <div className="mt-4 space-y-3">
-                {journeySteps.map((item) => (
-                  <div key={item.step} className="rounded-xl border border-[#F8F8F8]/12 bg-[#0B0B0B]/70 p-3">
-                    <p className="text-xs font-semibold text-[#D4AF37]">Step {item.step}</p>
-                    <p className="mt-1 text-sm font-semibold text-[#F8F8F8]">{item.title}</p>
-                    <p className="mt-1 text-xs text-[#F8F8F8]/70">{item.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/60 p-4 sm:p-5">
-              <div className="flex items-center gap-2 text-[#D4AF37]">
-                <Wallet className="h-4 w-4" />
-                <h2 className="font-['Sora'] text-lg font-semibold text-[#F8F8F8]">Reward Engine</h2>
-              </div>
-              <div className="mt-4 rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/10 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-[#D4AF37]/85">Milestone Bonus</p>
-                <p className="mt-1 text-xl font-semibold text-[#D4AF37]">+120 EXA Pending</p>
-                <p className="mt-1 text-xs text-[#F8F8F8]/75">Finish your current assessments to unlock reward settlement.</p>
-              </div>
-              <div className="mt-3 grid gap-2 text-xs">
-                <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#0B0B0B]/70 px-3 py-2 text-[#F8F8F8]/80">Course completion rewards (base)</p>
-                <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#0B0B0B]/70 px-3 py-2 text-[#F8F8F8]/80">Assessment score multipliers</p>
-                <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#0B0B0B]/70 px-3 py-2 text-[#F8F8F8]/80">Consistency streak bonuses</p>
-              </div>
-              <button type="button" onClick={onOpenInstructorDashboard} className="mt-4 w-full rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-3 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_22px_rgba(212,175,55,0.32)]">
-                Open Earnings Dashboard
-              </button>
-            </article>
-          </section>
-
-          <section className="mt-6 rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/60 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-[#D4AF37]">
-                <BookOpen className="h-4 w-4" />
-                <h2 className="font-['Sora'] text-lg font-semibold text-[#F8F8F8]">Featured Learning Tracks</h2>
-              </div>
-              <button type="button" onClick={() => onOpenCourseUpload("web3-fundamentals")} className="text-xs font-semibold text-[#D4AF37]">
-                View all tracks
-              </button>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {featuredTracks.map((track) => (
-                <button
-                  key={track.id}
-                  type="button"
-                  onClick={() => onOpenCourseUpload(track.courseKey)}
-                  className="group rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/70 p-3 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#D4AF37]/60 hover:shadow-button-glow"
-                >
-                  <div className="relative h-24 overflow-hidden rounded-xl">
-                    <img src={Image.edu} alt={track.title} className="h-full w-full object-cover opacity-75 transition duration-300 group-hover:opacity-95" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0B]/80 via-transparent to-transparent" />
-                    <span className="absolute right-2 top-2 rounded-full border border-[#D4AF37]/45 bg-[#0B0B0B]/70 px-2 py-0.5 text-[10px] font-semibold text-[#D4AF37]">
-                      {track.level}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm font-semibold text-[#F8F8F8]">{track.title}</p>
-                  <p className="mt-1 text-xs text-[#F8F8F8]/70">{track.lessons} lessons • {track.duration}</p>
-                  <p className="mt-2 text-xs font-semibold text-[#D4AF37]">{track.earnPotential}</p>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="mt-6 grid gap-5 lg:grid-cols-2">
-            <article className="rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/60 p-4 sm:p-5">
-              <div className="flex items-center gap-2 text-[#D4AF37]">
-                <ShieldCheck className="h-4 w-4" />
-                <h2 className="font-['Sora'] text-lg font-semibold text-[#F8F8F8]">Trust, Standards, and Transparency</h2>
-              </div>
-              <div className="mt-4 grid gap-2">
-                {trustSignals.map((signal) => (
-                  <p key={signal} className="rounded-xl border border-[#F8F8F8]/12 bg-[#0B0B0B]/70 px-3 py-2 text-xs text-[#F8F8F8]/78">
-                    {signal}
-                  </p>
-                ))}
-              </div>
-            </article>
-
-            <article className="rounded-2xl border border-[#F8F8F8]/14 bg-[#0B0B0B]/60 p-4 sm:p-5">
-              <div className="flex items-center gap-2 text-[#D4AF37]">
-                <UploadCloud className="h-4 w-4" />
-                <h2 className="font-['Sora'] text-lg font-semibold text-[#F8F8F8]">Educator Growth Hub</h2>
-              </div>
-              <p className="mt-2 text-xs text-[#F8F8F8]/72">
-                Publish premium courses, run workshops, and monetize impact through verified learner outcomes.
+          <div className="mt-5 grid gap-5 lg:grid-cols-[1.12fr_0.88fr] lg:items-end">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#D4AF37]">
+                <Sparkles className="h-3.5 w-3.5" /> Learn. Build. Prove. Earn.
               </p>
-              <div className="mt-4 grid gap-2">
-                <button type="button" onClick={onOpenInstructorWorkshop} className="btn-gold text-sm">
-                  Launch Instructor Workshop
-                </button>
-                <button type="button" onClick={onOpenInstructorDashboard} className="btn-outline text-sm">
-                  Open Instructor Dashboard
-                </button>
+              <h2 className="mt-3 max-w-3xl font-['Sora'] text-3xl font-semibold leading-tight text-[#F8F8F8] sm:text-5xl">
+                Learn skills. Prove what you can do. Get paid.
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/70 sm:text-base">
+                Develop real-world skills, build your portfolio, earn verified credentials and unlock paid opportunities inside ExaEarn.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button type="button" onClick={onOpenStartLearning} className="btn-gold inline-flex items-center gap-2">Explore Skills <ArrowRight className="h-4 w-4" /></button>
+                <button type="button" onClick={onOpenApplyScholarship} className="btn-outline">Find Opportunities</button>
+                <button type="button" onClick={onOpenBecomeEducator} className="btn-outline">Start Teaching</button>
               </div>
-            </article>
-          </section>
-
-          <section className="mt-6 rounded-2xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#D4AF37]/12 via-[#D4AF37]/6 to-transparent p-5 text-center sm:p-6">
-            <h2 className="font-['Sora'] text-3xl font-semibold text-[#F8F8F8] sm:text-4xl">Education That Compounds Into Wealth</h2>
-            <p className="mx-auto mt-2 max-w-3xl text-sm text-[#F8F8F8]/75 sm:text-base">
-              Move from learner to earner with structured rewards, verified credentials, and access to real opportunities.
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-3">
-              <button type="button" onClick={onOpenStartLearning} className="btn-gold">
-                Start Learning Now
-              </button>
-              <button type="button" onClick={onOpenApplyScholarship} className="btn-outline">
-                Apply for Scholarship
-              </button>
             </div>
-          </section>
-        </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+              <Metric label="Published Programs" value={data.summary?.published_courses ?? 0} />
+              <Metric label="Active Learners" value={data.summary?.active_learners ?? 0} />
+              <Metric label="Open Challenges" value={data.summary?.open_challenges ?? 0} />
+              <Metric label="Opportunities" value={data.summary?.open_opportunities ?? 0} />
+            </div>
+          </div>
+        </header>
+
+        {notice ? <p className="mt-4 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-3 text-sm text-[#F4D03F]">{notice}</p> : null}
+        {error ? <ErrorState message={error} onRetry={loadHome} /> : null}
+
+        {loading ? <LoadingGrid /> : (
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_360px]">
+            <div className="min-w-0 space-y-5">
+              <section className="rounded-2xl border border-white/10 bg-[#0D1118] p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37]/80">Marketplace</p>
+                    <h2 className="font-['Sora'] text-xl font-semibold">Explore Skills</h2>
+                  </div>
+                  <label className="relative block w-full sm:max-w-xs">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search programs" className="w-full rounded-xl border border-white/10 bg-[#080A0F] py-2.5 pl-9 pr-3 text-sm text-white outline-none focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/20" />
+                  </label>
+                </div>
+                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                  {categories.length ? categories.map((category) => (
+                    <button key={category.id} type="button" className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-semibold text-white/75 hover:border-[#D4AF37]/50 hover:text-[#D4AF37]">{category.name}</button>
+                  )) : <CompactEmpty text="No skill categories have been enabled yet." />}
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                  {filteredCourses.length ? filteredCourses.map((course) => (
+                    <CourseCard key={courseKey(course)} course={course} enrolling={enrollingId === courseKey(course)} onEnroll={() => handleEnroll(course)} onView={() => onOpenCourseUpload(courseKey(course))} />
+                  )) : <LargeEmpty title="No programs available" text="Published ExaSkills courses will appear here when admins or approved instructors enable them." />}
+                </div>
+              </section>
+
+              <section className="grid gap-5 lg:grid-cols-2">
+                <Panel title="Skill Challenges" eyebrow="Build" icon={Trophy}>
+                  {challenges.length ? challenges.map((challenge) => <ChallengeRow key={challenge.id} challenge={challenge} busy={actionId === `challenge-${challenge.slug || challenge.id}`} onSubmit={() => handleChallengeSubmit(challenge)} />) : <CompactEmpty text="No sponsored challenges are open right now." />}
+                </Panel>
+                <Panel title="Paid Opportunities" eyebrow="Earn" icon={BriefcaseBusiness}>
+                  {opportunities.length ? opportunities.map((opportunity) => <OpportunityRow key={opportunity.id} opportunity={opportunity} busy={actionId === `opportunity-${opportunity.slug || opportunity.id}`} onApply={() => handleOpportunityApply(opportunity)} />) : <CompactEmpty text="No paid opportunities are currently published." />}
+                </Panel>
+              </section>
+            </div>
+
+            <aside className="space-y-5 xl:sticky xl:top-4 xl:self-start">
+              <Panel title="Continue Learning" eyebrow="My ExaSkills" icon={BookOpen}>
+                {continueLearning.length ? continueLearning.map((item) => <ProgressCard key={item.id} item={item} />) : <CompactEmpty text="Enroll in a program to start tracking progress." />}
+              </Panel>
+              <Panel title="Verified Proof" eyebrow="Prove" icon={BadgeCheck}>
+                <div className="grid gap-2 text-sm text-white/75">
+                  <ProofItem text="Credentials require completion evidence, assessments or project verification." />
+                  <ProofItem text="Public verification can be enabled without exposing private account data." />
+                  <ProofItem text="Portfolio and opportunity workflows are separated from wallet secrets." />
+                </div>
+              </Panel>
+              <Panel title="For Businesses" eyebrow="Hire" icon={Building2}>
+                <p className="text-sm text-white/65">Sponsor practical challenges, post opportunities, and discover verified ExaSkills talent after business approval.</p>
+                <button type="button" className="btn-outline mt-4 w-full text-sm">Business Portal</button>
+              </Panel>
+              <Panel title="Instructor Hub" eyebrow="Teach" icon={GraduationCap}>
+                <p className="text-sm text-white/65">Approved experts can publish paid programs, track students, and earn through the ExaSkills marketplace.</p>
+                <div className="mt-4 grid gap-2">
+                  <button type="button" onClick={onOpenBecomeEducator} className="btn-gold text-sm">Apply to Teach</button>
+                  <button type="button" onClick={onOpenInstructorDashboard} className="btn-outline text-sm">Instructor Dashboard</button>
+                </div>
+              </Panel>
+            </aside>
+          </div>
+        )}
       </div>
     </main>
   );
 }
 
-export default EdTech;
+function Metric({ label, value }) {
+  return <article className="rounded-xl border border-white/10 bg-[#080A0F] p-3"><p className="text-[11px] uppercase tracking-[0.14em] text-white/45">{label}</p><p className="mt-1 text-xl font-semibold text-[#D4AF37]">{Number(value || 0).toLocaleString()}</p></article>;
+}
+
+function Panel({ title, eyebrow, icon: Icon, children }) {
+  return <section className="rounded-2xl border border-white/10 bg-[#0D1118] p-4 sm:p-5"><div className="mb-4 flex items-center gap-2"><span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#D4AF37]"><Icon className="h-4 w-4" /></span><div><p className="text-[11px] uppercase tracking-[0.18em] text-[#D4AF37]/75">{eyebrow}</p><h2 className="font-['Sora'] text-lg font-semibold">{title}</h2></div></div><div className="space-y-3">{children}</div></section>;
+}
+
+function CourseCard({ course, enrolling, onEnroll, onView }) {
+  return <article className="flex min-h-[260px] flex-col rounded-xl border border-white/10 bg-[#080A0F] p-3 transition hover:border-[#D4AF37]/45"><div className="relative h-32 overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">{course.thumbnail_url ? <img src={course.thumbnail_url} alt={course.title} className="h-full w-full object-cover" /> : <img src={Image.edu} alt="ExaSkills program" className="h-full w-full object-cover opacity-70" />}<span className="absolute right-2 top-2 rounded-full border border-white/15 bg-black/60 px-2 py-0.5 text-[11px] text-white/80">{course.difficulty || "All levels"}</span></div><div className="mt-3 flex-1"><p className="text-sm font-semibold text-white">{course.title}</p><p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/55">{course.description}</p><div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/60"><span className="rounded-full bg-white/[0.05] px-2 py-1">{course.category?.name || "General"}</span><span className="rounded-full bg-white/[0.05] px-2 py-1"><Clock3 className="mr-1 inline h-3 w-3" />{course.duration || 0} min</span><span className="rounded-full bg-white/[0.05] px-2 py-1">{course.enrollments_count || 0} learners</span></div></div><div className="mt-4 flex items-center justify-between gap-3"><div><p className="text-[11px] text-white/45">Price</p><p className="text-sm font-semibold text-[#D4AF37]">{formatMoney(course.price, course.settlement_asset)}</p></div><div className="flex gap-2"><button type="button" onClick={onView} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/75 hover:border-[#D4AF37]/50">View</button><button type="button" onClick={onEnroll} disabled={enrolling} className="rounded-lg bg-[#D4AF37] px-3 py-2 text-xs font-semibold text-black disabled:opacity-60">{enrolling ? <Loader2 className="h-4 w-4 animate-spin" /> : Number(course.price || 0) > 0 ? "Buy" : "Enroll"}</button></div></div></article>;
+}
+
+function ChallengeRow({ challenge, busy, onSubmit }) {
+  return <article className="rounded-xl border border-white/10 bg-[#080A0F] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-white">{challenge.title}</p><p className="mt-1 text-xs text-white/55">{challenge.sponsor_name || "ExaSkills Sponsor"}</p></div><span className="shrink-0 rounded-full bg-[#D4AF37]/10 px-2 py-1 text-xs font-semibold text-[#D4AF37]">{formatMoney(challenge.reward_amount, challenge.reward_asset)}</span></div><p className="mt-2 line-clamp-2 text-xs leading-relaxed text-white/55">{challenge.description}</p><button type="button" onClick={onSubmit} disabled={busy} className="mt-3 w-full rounded-lg border border-[#D4AF37]/35 px-3 py-2 text-xs font-semibold text-[#D4AF37] disabled:opacity-60">{busy ? "Saving..." : "Join / Submit"}</button></article>;
+}
+
+function OpportunityRow({ opportunity, busy, onApply }) {
+  return <article className="rounded-xl border border-white/10 bg-[#080A0F] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-white">{opportunity.title}</p><p className="mt-1 text-xs text-white/55">{opportunity.company_name}</p></div><span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-[11px] text-white/65">{opportunity.type}</span></div><p className="mt-2 text-xs text-[#D4AF37]">{opportunity.compensation_label || "Compensation disclosed in opportunity"}</p><button type="button" onClick={onApply} disabled={busy} className="mt-3 w-full rounded-lg border border-[#D4AF37]/35 px-3 py-2 text-xs font-semibold text-[#D4AF37] disabled:opacity-60">{busy ? "Submitting..." : "Apply"}</button></article>;
+}
+
+function ProgressCard({ item }) {
+  const progress = Math.min(100, Number(item.progress_percentage || 0));
+  return <div className="rounded-xl border border-white/10 bg-[#080A0F] p-3"><p className="text-sm font-semibold text-white">{item.course?.title || "Course"}</p><p className="mt-1 text-xs text-white/55">Progress: {progress.toFixed(0)}%</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full bg-[#D4AF37]" style={{ width: `${progress}%` }} /></div></div>;
+}
+
+function ProofItem({ text }) {
+  return <p className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#D4AF37]" />{text}</p>;
+}
+
+function CompactEmpty({ text }) {
+  return <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-3 text-sm text-white/50">{text}</p>;
+}
+
+function LargeEmpty({ title, text }) {
+  return <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-5 md:col-span-2 2xl:col-span-3"><ShieldCheck className="h-8 w-8 text-[#D4AF37]" /><h3 className="mt-3 text-base font-semibold text-white">{title}</h3><p className="mt-1 max-w-xl text-sm text-white/55">{text}</p></div>;
+}
+
+function LoadingGrid() {
+  return <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-48 animate-pulse rounded-2xl border border-white/10 bg-white/[0.04]" />)}</div>;
+}
+
+function ErrorState({ message, onRetry }) {
+  return <div className="mt-4 rounded-2xl border border-red-400/25 bg-red-500/10 p-4"><p className="text-sm font-semibold text-red-100">ExaSkills could not load</p><p className="mt-1 text-sm text-red-100/75">{message}</p><button type="button" onClick={onRetry} className="mt-3 rounded-lg border border-red-200/30 px-3 py-2 text-xs font-semibold text-red-100">Retry</button></div>;
+}
+
+export default ExaSkills;
+

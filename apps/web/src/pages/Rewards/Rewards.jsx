@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Copy,
@@ -22,16 +22,16 @@ const taskData = [
     id: "task-1",
     title: "Complete Profile Setup",
     description: "Verify identity and security settings to unlock account benefits.",
-    reward: "Earn 5 XRP",
+    reward: "Earn ExaPoints",
     progress: 100,
     status: "Completed",
     category: "Task-to-Earn",
   },
   {
     id: "task-2",
-    title: "Stake XRP in Flex Pool",
-    description: "Stake a minimum of 500 XRP for daily yield rewards.",
-    reward: "Earn 20 XRP",
+    title: "Stake native PoS assets",
+    description: "Join an eligible ExaEarn Staking product after network verification is enabled.",
+    reward: "Earn ExaToken bonus",
     progress: 55,
     status: "In Progress",
     category: "Staking Rewards",
@@ -40,7 +40,7 @@ const taskData = [
     id: "task-3",
     title: "Invite First Referral",
     description: "Share your code and onboard a verified friend.",
-    reward: "Earn 12 XRP",
+    reward: "Earn ExaPoints",
     progress: 0,
     status: "Available",
     category: "Referral Bonus",
@@ -49,7 +49,7 @@ const taskData = [
     id: "task-4",
     title: "Join Liquidity Sprint",
     description: "Participate in the seasonal campaign to earn a multiplier bonus.",
-    reward: "Earn 40 XRP",
+    reward: "Earn ExaPoints",
     progress: 15,
     status: "In Progress",
     category: "Special Campaigns",
@@ -239,7 +239,7 @@ function Rewards({ onBack }) {
           <div className="space-y-4">
             <article className="rounded-2xl border border-violet-300/15 bg-[#120b20]/90 p-4 shadow-[0_10px_24px_rgba(0,0,0,0.35)] sm:p-5">
               <div className="flex items-center justify-between">
-                <h2 className="font-['Sora'] text-lg font-semibold text-violet-50">Referral Program</h2>
+                <h2 className="font-['Sora'] text-lg font-semibold text-violet-50">Affiliate Program</h2>
                 <Users className="w-5 h-5 text-amber-200" />
               </div>
 
@@ -259,8 +259,8 @@ function Rewards({ onBack }) {
                   <p className="mt-1 text-lg font-semibold text-white">38</p>
                 </div>
                 <div className="p-3 border rounded-xl border-violet-300/15 bg-violet-500/10">
-                  <p className="text-xs text-violet-100/65">Referral Earnings</p>
-                  <p className="mt-1 text-lg font-semibold text-amber-200">286 XRP</p>
+                  <p className="text-xs text-violet-100/65">Affiliate Earnings</p>
+                  <p className="mt-1 text-lg font-semibold text-amber-200">286 EXA</p>
                 </div>
               </div>
 
@@ -295,7 +295,7 @@ function Rewards({ onBack }) {
               <div className="mt-3 space-y-2 text-sm">
                 <div className="p-3 border rounded-xl border-violet-300/15 bg-violet-500/10">
                   <p className="text-xs text-violet-100/65">Active Staking Pools</p>
-                  <p className="font-semibold text-white">XRP Flex, XRP Locked 90D, ExaToken Prime</p>
+                  <p className="font-semibold text-white">SOL, ETH, ADA, ExaToken Prime</p>
                 </div>
                 <div className="p-3 border rounded-xl border-violet-300/15 bg-violet-500/10">
                   <p className="text-xs text-violet-100/65">Bonus APY</p>
@@ -329,4 +329,6 @@ function Rewards({ onBack }) {
 }
 
 export default Rewards;
+
+
 

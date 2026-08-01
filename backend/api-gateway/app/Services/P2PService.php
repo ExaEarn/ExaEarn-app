@@ -11,6 +11,7 @@ use App\Models\AuditLog;
 use App\Models\P2PAd;
 use App\Models\P2PDispute;
 use App\Models\P2PMessage;
+use App\Models\P2PPaymentMethod;
 use App\Models\P2PRating;
 use App\Models\P2PTrade;
 use App\Models\SuspiciousUser;
@@ -90,17 +91,36 @@ class P2PService
             throw new RuntimeException('KYC verification is required for this advertisement.');
         }
 
+        $type = strtolower((string) $payload['type']);
+        $asset = strtoupper((string) $payload['asset']);
+        $fiatCurrency = strtoupper((string) $payload['fiat_currency']);
+        $price = (string) $payload['price'];
+        $minLimit = (string) $payload['min_limit'];
+        $maxLimit = (string) $payload['max_limit'];
+        $availableAmount = (string) $payload['available_amount'];
+        $paymentMethods = collect($payload['payment_methods'] ?? [])->map(fn ($method) => trim((string) $method))->filter()->unique()->values()->all();
+
+        if ($this->compare($maxLimit, $minLimit) < 0) {
+            throw new RuntimeException('Maximum limit must be greater than or equal to minimum limit.');
+        }
+
+        $this->assertEligiblePaymentMethods($user->id, $fiatCurrency, $paymentMethods);
+
+        if ($type === 'sell') {
+            $this->assertSellAdLiquidityAvailable($user->id, $asset, $availableAmount);
+        }
+
         $ad = P2PAd::query()->create([
             'ad_uuid' => (string) Str::uuid(),
             'user_id' => $user->id,
-            'type' => strtolower((string) $payload['type']),
-            'asset' => strtoupper((string) $payload['asset']),
-            'fiat_currency' => strtoupper((string) $payload['fiat_currency']),
-            'price' => (string) $payload['price'],
-            'min_limit' => (string) $payload['min_limit'],
-            'max_limit' => (string) $payload['max_limit'],
-            'available_amount' => (string) $payload['available_amount'],
-            'payment_methods' => array_values($payload['payment_methods']),
+            'type' => $type,
+            'asset' => $asset,
+            'fiat_currency' => $fiatCurrency,
+            'price' => $price,
+            'min_limit' => $minLimit,
+            'max_limit' => $maxLimit,
+            'available_amount' => $availableAmount,
+            'payment_methods' => $paymentMethods,
             'region' => isset($payload['region']) ? strtoupper((string) $payload['region']) : null,
             'payment_time_limit_minutes' => (int) $payload['payment_time_limit_minutes'],
             'terms_of_trade' => $payload['terms_of_trade'] ?? null,
@@ -109,6 +129,7 @@ class P2PService
             'metadata' => [
                 'creator_email_verified' => (bool) $user->email_verified_at,
                 'creator_kyc_verified' => (bool) $user->kyc_verified_at,
+                'liquidity_check' => $type === 'sell' ? 'wallet_available_minus_live_sell_ads' : 'not_required',
             ],
         ]);
 
@@ -120,6 +141,21 @@ class P2PService
         ]);
 
         return $ad->load('user');
+    }
+
+    public function updateAdStatus(User $user, int $adId, string $status): array
+    {
+        /** @var P2PAd $ad */
+        $ad = P2PAd::query()->where('user_id', $user->id)->findOrFail($adId);
+
+        if ($status === 'active' && $ad->type === 'sell') {
+            $this->assertSellAdLiquidityAvailable($user->id, $ad->asset, (string) $ad->available_amount, $ad->id);
+        }
+
+        $ad->status = $status;
+        $ad->save();
+
+        return $this->transformAd($ad->fresh('user'));
     }
 
     public function openTrade(User $user, int $adId, array $payload): P2PTrade
@@ -159,6 +195,7 @@ class P2PService
 
             $buyerId = $ad->type === 'sell' ? $user->id : $ad->user_id;
             $sellerId = $ad->type === 'sell' ? $ad->user_id : $user->id;
+            $sellerPaymentDetails = $this->resolveTradeSellerPaymentMethod($ad, $user, $sellerId, $paymentMethod, $payload);
 
             $escrowTransaction = $this->transactions->createTransaction(
                 $sellerId,
@@ -202,6 +239,11 @@ class P2PService
                     'opened_by' => $user->id,
                     'ad_type' => $ad->type,
                     'terms_of_trade' => $ad->terms_of_trade,
+                    'crypto_buyer_id' => $buyerId,
+                    'crypto_seller_id' => $sellerId,
+                    'fiat_sender_id' => $buyerId,
+                    'fiat_receiver_id' => $sellerId,
+                    'seller_payment_details' => $sellerPaymentDetails,
                 ],
             ]);
 
@@ -586,6 +628,101 @@ class P2PService
         });
     }
 
+    private function assertEligiblePaymentMethods(int $userId, string $fiatCurrency, array $paymentMethods): void
+    {
+        if ($paymentMethods === []) {
+            throw new RuntimeException('At least one eligible payment method is required.');
+        }
+
+        $eligible = P2PPaymentMethod::query()
+            ->where('user_id', $userId)
+            ->where('fiat_currency', strtoupper($fiatCurrency))
+            ->where('is_enabled', true)
+            ->pluck('method_type')
+            ->map(fn ($method) => trim((string) $method))
+            ->unique()
+            ->values()
+            ->all();
+
+        foreach ($paymentMethods as $paymentMethod) {
+            if (!in_array($paymentMethod, $eligible, true)) {
+                throw new RuntimeException(sprintf('No eligible payment method is available for %s.', strtoupper($fiatCurrency)));
+            }
+        }
+    }
+
+    private function assertSellAdLiquidityAvailable(int $userId, string $asset, string $requestedAmount, ?int $excludeAdId = null): void
+    {
+        $wallet = $this->wallets->getWallet($userId, $asset);
+
+        $reservedByOtherSellAds = (string) P2PAd::query()
+            ->where('user_id', $userId)
+            ->where('type', 'sell')
+            ->whereIn('status', ['active', 'paused'])
+            ->when($excludeAdId !== null, fn ($query) => $query->where('id', '!=', $excludeAdId))
+            ->sum('available_amount');
+
+        $remainingWalletLiquidity = $this->sub((string) $wallet->available_balance, $reservedByOtherSellAds);
+
+        if ($this->compare($remainingWalletLiquidity, $requestedAmount) < 0) {
+            throw new RuntimeException(sprintf(
+                'Insufficient available %s balance for this sell ad. Available to publish: %s %s.',
+                strtoupper($asset),
+                $remainingWalletLiquidity,
+                strtoupper($asset)
+            ));
+        }
+    }
+
+    private function resolveTradeSellerPaymentMethod(P2PAd $ad, User $actor, int $sellerId, string $paymentMethod, array $payload): ?array
+    {
+        $query = P2PPaymentMethod::query()
+            ->where('user_id', $sellerId)
+            ->where('method_type', $paymentMethod)
+            ->where('fiat_currency', $ad->fiat_currency)
+            ->where('is_enabled', true)
+            ->orderByDesc('is_default')
+            ->latest('id');
+
+        if ($ad->type === 'buy') {
+            $selectedId = isset($payload['seller_payment_method_id']) ? (int) $payload['seller_payment_method_id'] : 0;
+            if ($selectedId > 0) {
+                $method = (clone $query)->where('id', $selectedId)->first();
+                if (!$method) {
+                    throw new RuntimeException('Selected payment method is no longer available for this offer.');
+                }
+            } else {
+                $method = $query->first();
+                if (!$method) {
+                    throw new RuntimeException('Add a receiving payment method before opening this order.');
+                }
+            }
+        } else {
+            $method = $query->first();
+            if (!$method) {
+                return [
+                    'method_type' => $paymentMethod,
+                    'fiat_currency' => $ad->fiat_currency,
+                    'status' => 'pending_setup',
+                ];
+            }
+        }
+
+        return [
+            'id' => $method->id,
+            'method_type' => $method->method_type,
+            'display_name' => $method->display_name,
+            'fiat_currency' => $method->fiat_currency,
+            'bank_name' => $method->bank_name,
+            'account_name' => $method->account_name,
+            'account_number' => $method->account_number,
+            'masked_account_number' => $method->account_number ? str_repeat('?', max(strlen((string) $method->account_number) - 4, 0)) . substr((string) $method->account_number, -4) : null,
+            'payment_note' => $method->payment_note,
+            'is_default' => (bool) $method->is_default,
+            'status' => $method->is_enabled ? 'active' : 'disabled',
+        ];
+    }
+
     private function getTradeForUser(User $user, string $tradeUuid): P2PTrade
     {
         /** @var P2PTrade|null $trade */
@@ -849,3 +986,4 @@ class P2PService
         return $leftFloat < $rightFloat ? -1 : ($leftFloat > $rightFloat ? 1 : 0);
     }
 }
+

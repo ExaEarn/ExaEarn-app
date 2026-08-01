@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const config = require('../config');
+const logger = require('../utils/logger');
 const contractInteractionService = require('./contractInteractionService');
 const blockchain = require('./blockchain');
 
@@ -87,6 +88,7 @@ class GameFiContractService {
           };
         }
       } catch (error) {
+        logger.debug('Ignoring non-lottery-entry log while verifying GameFi receipt', { error: error.message });
       }
     }
 
@@ -169,6 +171,7 @@ class GameFiContractService {
           };
         }
       } catch (error) {
+        logger.debug('Ignoring non-betting-entry log while verifying GameFi receipt', { error: error.message });
       }
     }
 

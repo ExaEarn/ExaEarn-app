@@ -1,10 +1,5 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { io } from 'socket.io-client';
-
-/**
- * SSE-based event service for real-time updates.
- * This is a lightweight path to stream Laravel events without a hosted WebSocket provider.
- */
 
 let eventSource = null;
 let socket = null;
@@ -28,7 +23,53 @@ const handleSseMessage = (event) => {
 };
 
 export const initializeWebSocket = (baseUrl) => {
-  if (eventSource || !baseUrl) {
+  const nodeBaseUrl = import.meta.env.VITE_NODE_SERVICE_URL?.trim();
+
+  if ((socket || eventSource) || (!nodeBaseUrl && !baseUrl)) {
+    return;
+  }
+
+  if (nodeBaseUrl) {
+    socket = io(nodeBaseUrl, {
+      path: '/ws/wallet',
+      transports: ['websocket'],
+      withCredentials: true,
+    });
+
+    socket.on('connect', () => {
+      try {
+        const raw = localStorage.getItem('exaearn_auth_user');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const userId = Number(parsed?.id || parsed?.user?.id);
+
+        if (Number.isFinite(userId) && userId > 0) {
+          socket.emit('subscribe:user', { user_id: userId });
+        }
+      } catch (error) {
+        console.warn('Failed to subscribe websocket user room', error);
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.warn('Socket connection error:', error?.message || error);
+    });
+
+    socket.on('exapoint:update', (data) => {
+      dispatchEvent('exapoint:update', data);
+    });
+
+    socket.on('portfolio:update', (data) => {
+      dispatchEvent('portfolio:update', data);
+    });
+
+    socket.on('price:update', (data) => {
+      dispatchEvent('price:update', data);
+    });
+
+    socket.on('game.flight', (data) => {
+      dispatchEvent('game.flight', data);
+    });
+
     return;
   }
 
@@ -38,48 +79,13 @@ export const initializeWebSocket = (baseUrl) => {
   eventSource.addEventListener('user.created', handleSseMessage);
   eventSource.addEventListener('portfolio:update', handleSseMessage);
   eventSource.addEventListener('price:update', handleSseMessage);
+  eventSource.addEventListener('market:stream', handleSseMessage);
+  eventSource.addEventListener('game.flight', handleSseMessage);
   eventSource.addEventListener('open', () => {
     console.info('SSE connection opened:', endpoint);
   });
   eventSource.addEventListener('error', (error) => {
     console.warn('SSE connection error:', error);
-  });
-
-  const nodeBaseUrl = import.meta.env.VITE_NODE_SERVICE_URL?.trim();
-  if (!nodeBaseUrl) {
-    return;
-  }
-
-  socket = io(nodeBaseUrl, {
-    path: '/ws/wallet',
-    transports: ['websocket'],
-    withCredentials: true,
-  });
-
-  socket.on('connect', () => {
-    try {
-      const raw = localStorage.getItem('exaearn_auth_user');
-      const parsed = raw ? JSON.parse(raw) : null;
-      const userId = Number(parsed?.id || parsed?.user?.id);
-
-      if (Number.isFinite(userId) && userId > 0) {
-        socket.emit('subscribe:user', { user_id: userId });
-      }
-    } catch (error) {
-      console.warn('Failed to subscribe websocket user room', error);
-    }
-  });
-
-  socket.on('exapoint:update', (data) => {
-    dispatchEvent('exapoint:update', data);
-  });
-
-  socket.on('portfolio:update', (data) => {
-    dispatchEvent('portfolio:update', data);
-  });
-
-  socket.on('price:update', (data) => {
-    dispatchEvent('price:update', data);
   });
 };
 

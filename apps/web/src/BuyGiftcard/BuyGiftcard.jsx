@@ -21,7 +21,6 @@ const providerIcons = {
 const paymentLabelMap = {
   balance: "Platform Balance",
   crypto: "Crypto Wallet",
-  token: "ExaToken",
 };
 
 function BuyGiftcard({ onBack }) {

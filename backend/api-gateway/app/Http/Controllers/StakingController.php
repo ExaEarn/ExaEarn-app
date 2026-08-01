@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers;
@@ -10,98 +11,168 @@ use RuntimeException;
 
 class StakingController extends Controller
 {
-    public function __construct(private readonly StakingService $stakingService)
+    public function __construct(private readonly StakingService $stakingService) {}
+
+    public function assets(): JsonResponse
     {
+        return response()->json(['data' => $this->stakingService->listAssets()]);
     }
 
-    public function pools(): JsonResponse
+    public function products(): JsonResponse
     {
-        return response()->json(['data' => $this->stakingService->listPools()]);
+        return response()->json(['data' => $this->stakingService->listProducts()]);
     }
 
-    public function myStakes(Request $request): JsonResponse
+    public function product(string $slug): JsonResponse
     {
-        return response()->json(['data' => $this->stakingService->userStakes((int) $request->user()->id)]);
+        try {
+            return response()->json(['data' => $this->stakingService->productBySlug($slug)]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 404);
+        }
     }
 
-    public function createPool(Request $request): JsonResponse
+    public function portfolio(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->userPortfolio((int) $request->user()->id)]);
+    }
+
+    public function positions(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->userPositions((int) $request->user()->id)]);
+    }
+
+    public function createPosition(Request $request): JsonResponse
     {
         $payload = $request->validate([
-            'asset' => ['required', 'string', 'max:16'],
-            'reward_token' => ['nullable', 'string', 'max:16'],
-            'contract_pool_id' => ['nullable', 'integer', 'min:1'],
-            'lock_period' => ['required', 'integer', 'min:1'],
-            'reward_rate' => ['required', 'numeric', 'gt:0'],
-            'reward_multiplier' => ['nullable', 'numeric', 'gt:0'],
-            'pool_size' => ['required', 'numeric', 'gt:0'],
-            'status' => ['nullable', 'string', 'max:20'],
-            'metadata' => ['nullable', 'array'],
-        ]);
-
-        $pool = $this->stakingService->createPool($payload);
-        return response()->json(['data' => $pool], 201);
-    }
-
-    public function stake(Request $request): JsonResponse
-    {
-        $payload = $request->validate([
-            'pool_id' => ['required', 'integer', 'min:1'],
+            'staking_product_id' => ['required', 'integer', 'min:1'],
             'amount' => ['required', 'numeric', 'gt:0'],
             'auto_compound' => ['nullable', 'boolean'],
+            'terms_version' => ['required', 'string', 'max:32'],
+            'transaction_pin' => ['nullable', 'string', 'max:120'],
+            'two_factor_code' => ['nullable', 'string', 'max:20'],
+            'idempotency_key' => ['required', 'string', 'max:120'],
         ]);
 
         try {
-            $result = $this->stakingService->stake(
-                (int) $request->user()->id,
-                (int) $payload['pool_id'],
-                (string) $payload['amount'],
-                (bool) ($payload['auto_compound'] ?? false)
-            );
+            $position = $this->stakingService->createPosition((int) $request->user()->id, $payload);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json(['data' => $result], 201);
+        return response()->json(['data' => $position], 201);
     }
 
-    public function claim(Request $request, int $stakeId): JsonResponse
+    public function showPosition(Request $request, string $publicId): JsonResponse
     {
-        try {
-            $result = $this->stakingService->claimStakeRewards((int) $request->user()->id, $stakeId);
-        } catch (RuntimeException $exception) {
-            return response()->json(['message' => $exception->getMessage()], 422);
+        $positions = collect($this->stakingService->userPositions((int) $request->user()->id));
+        $position = $positions->firstWhere('public_id', $publicId);
+
+        if (! $position) {
+            return response()->json(['message' => 'Staking position not found.'], 404);
         }
 
-        return response()->json(['data' => $result]);
+        return response()->json(['data' => $position]);
     }
 
-    public function compound(Request $request, int $stakeId): JsonResponse
-    {
-        try {
-            $result = $this->stakingService->compoundStakeRewards((int) $request->user()->id, $stakeId);
-        } catch (RuntimeException $exception) {
-            return response()->json(['message' => $exception->getMessage()], 422);
-        }
-
-        return response()->json(['data' => $result]);
-    }
-
-    public function unstake(Request $request, int $stakeId): JsonResponse
+    public function unstake(Request $request, string $publicId): JsonResponse
     {
         $payload = $request->validate([
             'amount' => ['nullable', 'numeric', 'gt:0'],
+            'transaction_pin' => ['nullable', 'string', 'max:120'],
+            'two_factor_code' => ['nullable', 'string', 'max:20'],
+            'idempotency_key' => ['required', 'string', 'max:120'],
         ]);
 
         try {
-            $result = $this->stakingService->unstake(
-                (int) $request->user()->id,
-                $stakeId,
-                isset($payload['amount']) ? (string) $payload['amount'] : null
-            );
+            return response()->json(['data' => $this->stakingService->requestUnstake((int) $request->user()->id, $publicId, $payload)], 202);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
+    }
 
-        return response()->json(['data' => $result]);
+    public function acceptTerms(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'terms_version' => ['required', 'string', 'max:32'],
+        ]);
+
+        $this->stakingService->acceptTerms((int) $request->user()->id, $payload['terms_version'], [
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return response()->json(['status' => 'accepted']);
+    }
+
+    public function terms(): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->terms()]);
+    }
+
+    public function claimNativeRewards(Request $request, string $publicId): JsonResponse
+    {
+        try {
+            return response()->json(['data' => $this->stakingService->claimNativeRewards((int) $request->user()->id, $publicId)], 202);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function claimExaTokenRewards(Request $request, string $publicId): JsonResponse
+    {
+        try {
+            return response()->json(['data' => $this->stakingService->claimExaTokenRewards((int) $request->user()->id, $publicId)], 202);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function updateAutoCompound(Request $request, string $publicId): JsonResponse
+    {
+        $payload = $request->validate(['auto_compound' => ['required', 'boolean']]);
+
+        try {
+            return response()->json(['data' => $this->stakingService->updateAutoCompound((int) $request->user()->id, $publicId, (bool) $payload['auto_compound'])]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function rewards(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->userRewards((int) $request->user()->id)]);
+    }
+
+    public function transactions(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->userTransactions((int) $request->user()->id)]);
+    }
+
+    public function apyHistory(): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->apyHistory()]);
+    }
+
+    public function exaTokenCampaigns(): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->exaTokenCampaigns()]);
+    }
+
+    public function networkStatuses(): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->networkStatuses()]);
+    }
+
+    public function unbondingEstimates(): JsonResponse
+    {
+        return response()->json(['data' => $this->stakingService->unbondingEstimates()]);
+    }
+
+    public function unavailable(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Legacy XRP/paper staking has been removed. Use /api/v1/staking for ExaEarn Native PoS Staking.',
+        ], 410);
     }
 }

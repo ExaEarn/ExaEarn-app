@@ -12,7 +12,9 @@ use RuntimeException;
 class BlockchainService
 {
     private string $baseUrl;
+
     private string $secret;
+
     private int $timeout;
 
     public function __construct()
@@ -50,41 +52,6 @@ class BlockchainService
     public function analyzeGiftcardFraud(array $payload): array
     {
         return $this->postOrFail('/fraud/giftcards/analyze', $payload);
-    }
-
-    public function stakeIntoPool(int $userId, int $poolId, string $amount, bool $autoCompound = false): array
-    {
-        return $this->postOrFail('/staking/stake', [
-            'user_id' => $userId,
-            'pool_id' => $poolId,
-            'amount' => $amount,
-            'auto_compound' => $autoCompound,
-        ]);
-    }
-
-    public function claimStakingRewards(int $userId, int $poolId): array
-    {
-        return $this->postOrFail('/staking/claim', [
-            'user_id' => $userId,
-            'pool_id' => $poolId,
-        ]);
-    }
-
-    public function compoundStakingRewards(int $userId, int $poolId): array
-    {
-        return $this->postOrFail('/staking/compound', [
-            'user_id' => $userId,
-            'pool_id' => $poolId,
-        ]);
-    }
-
-    public function unstakeFromPool(int $userId, int $poolId, string $amount): array
-    {
-        return $this->postOrFail('/staking/unstake', [
-            'user_id' => $userId,
-            'pool_id' => $poolId,
-            'amount' => $amount,
-        ]);
     }
 
     public function distributeReward(string $walletAddress, string $amount, string $token, string $activityType, string $rewardId): array
@@ -146,6 +113,32 @@ class BlockchainService
     public function resolveBettingPool(array $payload): array
     {
         return $this->postOrFail('/games/betting/pools/resolve', $payload);
+    }
+
+    public function executeContract(string $method, array $params = [], string $contract = 'lottery', string $network = 'base', ?string $value = null): array
+    {
+        return $this->postNode('/contracts/execute', array_filter([
+            'contract' => $contract,
+            'method' => $method,
+            'params' => $params,
+            'network' => $network,
+            'value' => $value,
+        ], static fn ($item) => $item !== null));
+    }
+
+    public function callContract(string $method, array $params = [], string $contract = 'lottery', string $network = 'base'): array
+    {
+        return $this->postNode('/contracts/call', [
+            'contract' => $contract,
+            'method' => $method,
+            'params' => $params,
+            'network' => $network,
+        ]);
+    }
+
+    public function getTransactionStatus(string $txHash, string $network = 'base'): array
+    {
+        return $this->getNode('/transactions/'.rawurlencode($txHash).'/status?network='.rawurlencode($network));
     }
 
     public function publishGameEvent(array $payload): array
@@ -238,14 +231,14 @@ class BlockchainService
 
     private function getOrFail(string $path): array
     {
-        $response = $this->client()->get($this->baseUrl . $path);
+        $response = $this->client()->get($this->baseUrl.$path);
 
         return $this->decode($response, $path);
     }
 
     private function postOrFail(string $path, array $payload): array
     {
-        $response = $this->client()->post($this->baseUrl . $path, $payload);
+        $response = $this->client()->post($this->baseUrl.$path, $payload);
 
         return $this->decode($response, $path);
     }

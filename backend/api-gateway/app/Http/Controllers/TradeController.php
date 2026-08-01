@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Market;
 use App\Models\Order;
+use App\Models\Trade;
 use App\Services\SmartOrderRoutingService;
 use App\Services\TradeService;
 use Illuminate\Http\JsonResponse;
@@ -156,7 +157,25 @@ class TradeController extends Controller
     {
         $query = Order::query()->where('user_id', $request->user()->id)->latest();
         if ($request->filled('pair')) {
-            $query->where('pair', strtoupper((string) $request->query('pair')));
+            $query->where('pair', $this->normalizePair((string) $request->query('pair')));
+        }
+
+        return response()->json(['data' => $query->paginate((int) $request->query('per_page', 50))]);
+    }
+
+    public function userTrades(Request $request): JsonResponse
+    {
+        $query = Trade::query()
+            ->with(['buyOrder', 'sellOrder'])
+            ->where(function ($builder) use ($request): void {
+                $builder
+                    ->whereHas('buyOrder', fn ($orderQuery) => $orderQuery->where('user_id', $request->user()->id))
+                    ->orWhereHas('sellOrder', fn ($orderQuery) => $orderQuery->where('user_id', $request->user()->id));
+            })
+            ->latest('executed_at');
+
+        if ($request->filled('pair')) {
+            $query->where('pair', $this->normalizePair((string) $request->query('pair')));
         }
 
         return response()->json(['data' => $query->paginate((int) $request->query('per_page', 50))]);
@@ -164,18 +183,119 @@ class TradeController extends Controller
 
     public function orderBook(string $pair): JsonResponse
     {
-        return response()->json(['data' => $this->tradeService->getOrderBook($pair, 50)]);
+        return response()->json(['data' => $this->tradeService->getOrderBook($this->normalizePair($pair), 50)]);
+    }
+
+    public function orderBookByQuery(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'pair' => ['required', 'string', 'max:32'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
+        ]);
+
+        return response()->json([
+            'data' => $this->tradeService->getOrderBook(
+                $this->normalizePair((string) $payload['pair']),
+                (int) ($payload['limit'] ?? 50)
+            ),
+        ]);
     }
 
     public function trades(string $pair): JsonResponse
     {
-        return response()->json(['data' => $this->tradeService->getRecentTrades($pair, 100)]);
+        return response()->json(['data' => $this->tradeService->getRecentTrades($this->normalizePair($pair), 100)]);
+    }
+
+    public function tradesByQuery(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'pair' => ['required', 'string', 'max:32'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
+        ]);
+
+        return response()->json([
+            'data' => $this->tradeService->getRecentTrades(
+                $this->normalizePair((string) $payload['pair']),
+                (int) ($payload['limit'] ?? 100)
+            ),
+        ]);
     }
 
     public function candles(Request $request, string $pair): JsonResponse
     {
         return response()->json([
-            'data' => $this->tradeService->getCandles($pair, (string) $request->query('timeframe', '1m'), (int) $request->query('limit', 100)),
+            'data' => $this->tradeService->getCandles(
+                $this->normalizePair($pair),
+                (string) $request->query('timeframe', '1m'),
+                (int) $request->query('limit', 100)
+            ),
         ]);
+    }
+
+    public function candlesByQuery(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'pair' => ['required', 'string', 'max:32'],
+            'timeframe' => ['nullable', 'string', 'max:8'],
+            'interval' => ['nullable', 'string', 'max:8'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:2000'],
+        ]);
+
+        return response()->json([
+            'data' => $this->tradeService->getCandles(
+                $this->normalizePair((string) $payload['pair']),
+                (string) ($payload['timeframe'] ?? $payload['interval'] ?? '1m'),
+                (int) ($payload['limit'] ?? 200)
+            ),
+        ]);
+    }
+
+    public function klines(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'symbol' => ['required', 'string', 'max:32'],
+            'interval' => ['nullable', 'string', 'max:8'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:2000'],
+        ]);
+
+        $candles = $this->tradeService->getCandles(
+            $this->normalizePair((string) $payload['symbol']),
+            (string) ($payload['interval'] ?? '1m'),
+            (int) ($payload['limit'] ?? 500)
+        );
+
+        return response()->json([
+            'data' => array_map(static fn (array $candle): array => [
+                'time' => (int) ($candle['timestamp'] ?? 0),
+                'open' => (string) ($candle['open'] ?? '0'),
+                'high' => (string) ($candle['high'] ?? '0'),
+                'low' => (string) ($candle['low'] ?? '0'),
+                'close' => (string) ($candle['close'] ?? '0'),
+                'volume' => (string) ($candle['volume'] ?? '0'),
+            ], $candles),
+        ]);
+    }
+
+    private function normalizePair(string $pair): string
+    {
+        $clean = strtoupper(trim($pair));
+
+        if (str_contains($clean, '/')) {
+            return $clean;
+        }
+
+        if (str_contains($clean, '-')) {
+            [$base, $quote] = array_pad(explode('-', $clean, 2), 2, 'USDT');
+            return sprintf('%s/%s', trim($base), trim($quote));
+        }
+
+        $quotes = ['USDT', 'USDC', 'BTC', 'ETH'];
+        foreach ($quotes as $quote) {
+            if (str_ends_with($clean, $quote) && strlen($clean) > strlen($quote)) {
+                return sprintf('%s/%s', substr($clean, 0, -strlen($quote)), $quote);
+            }
+        }
+
+        return $clean;
     }
 }

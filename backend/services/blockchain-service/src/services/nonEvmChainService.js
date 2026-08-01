@@ -38,7 +38,7 @@ class NonEvmChainService {
     }
   }
 
-  async broadcastWithdrawal({ currency, network, toAddress, amount }) {
+  async broadcastWithdrawal({ network, toAddress, amount }) {
     const normalized = this.normalizeNetwork(network);
 
     switch (normalized) {

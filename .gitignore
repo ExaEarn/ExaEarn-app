@@ -206,3 +206,15 @@ vite.config.ts.timestamp-*
 
 /generated/prisma
 .vercel
+# Local browser/dev artifacts
+.edge-shot-profile/
+.postgres/
+.vercel-cli/
+.vercel-configs/
+apps/mobile/dist-web/
+tmp/
+website-*.png
+*.backup.jsx
+.npmrc
+package-lock.json
+apps/mobile/serve-dist-web.cjs

@@ -1,6 +1,22 @@
 <?php
 
 return [
+    'supported_currencies' => [
+        'NGN',
+        'ZAR',
+        'GHS',
+        'KES',
+        'USD',
+        'EUR',
+        'GBP',
+        'CAD',
+        'AUD',
+        'USDT',
+        'USDC',
+    ],
+
+    'default_rate_currency' => env('GIFTCARD_DEFAULT_RATE_CURRENCY', 'USD'),
+
     /*
     |--------------------------------------------------------------------------
     | Gift Card Configuration
@@ -71,28 +87,28 @@ return [
             'name' => 'Amazon',
             'min_value' => 10,
             'max_value' => 500,
-            'currencies' => ['USD', 'EUR', 'GBP'],
+            'currencies' => ['NGN', 'ZAR', 'GHS', 'KES', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'USDT', 'USDC'],
             'validation_api' => env('AMAZON_VALIDATION_API'),
         ],
         'google_play' => [
             'name' => 'Google Play',
             'min_value' => 5,
             'max_value' => 200,
-            'currencies' => ['USD', 'EUR'],
+            'currencies' => ['NGN', 'ZAR', 'GHS', 'KES', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'USDT', 'USDC'],
             'validation_api' => env('GOOGLE_PLAY_VALIDATION_API'),
         ],
         'itunes' => [
             'name' => 'iTunes',
             'min_value' => 10,
             'max_value' => 500,
-            'currencies' => ['USD', 'EUR', 'GBP'],
+            'currencies' => ['NGN', 'ZAR', 'GHS', 'KES', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'USDT', 'USDC'],
             'validation_api' => env('ITUNES_VALIDATION_API'),
         ],
         'steam' => [
             'name' => 'Steam',
             'min_value' => 5,
             'max_value' => 100,
-            'currencies' => ['USD', 'EUR'],
+            'currencies' => ['NGN', 'ZAR', 'GHS', 'KES', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'USDT', 'USDC'],
             'validation_api' => env('STEAM_VALIDATION_API'),
         ],
     ],

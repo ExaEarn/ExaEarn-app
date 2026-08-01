@@ -2,25 +2,30 @@
 
 namespace App\Providers;
 
+use App\Domain\Staking\Contracts\SecureSignerInterface;
+use App\Domain\Staking\Services\HttpSecureSigner;
+use App\Models\ActivityLog;
+use App\Models\Admin;
+use App\Models\AutoTradingStrategy;
+use App\Models\DeviceToken;
 use App\Models\Giftcard;
 use App\Models\Nft;
+use App\Models\Notification;
+use App\Models\TradingSignal;
 use App\Models\User;
 use App\Models\UserAsset;
 use App\Models\Wallet;
-use App\Models\Notification;
-use App\Models\DeviceToken;
-use App\Models\TradingSignal;
-use App\Models\AutoTradingStrategy;
-use App\Policies\NotificationPolicy;
-use App\Policies\DeviceTokenPolicy;
-use App\Policies\TradingSignalPolicy;
 use App\Policies\AutoTradingStrategyPolicy;
+use App\Policies\DeviceTokenPolicy;
+use App\Policies\NotificationPolicy;
+use App\Policies\TradingSignalPolicy;
 use App\Services\PortfolioService;
 use App\Services\RealtimeStreamService;
 use App\Services\ReferralService;
 use App\Services\RewardEngineService;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,7 +34,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(SecureSignerInterface::class, HttpSecureSigner::class);
     }
 
     /**
@@ -42,6 +47,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(DeviceToken::class, DeviceTokenPolicy::class);
         Gate::policy(TradingSignal::class, TradingSignalPolicy::class);
         Gate::policy(AutoTradingStrategy::class, AutoTradingStrategyPolicy::class);
+        Gate::define('viewAllLogs', fn ($user, string $class = ActivityLog::class): bool => $user instanceof Admin || ($user instanceof User && $user->role === 'admin'));
+        Gate::define('viewAdminLogs', fn ($user, string $class = ActivityLog::class): bool => $user instanceof Admin || ($user instanceof User && $user->role === 'admin'));
         // Referral codes are safe to ensure from the user model event.
         // Wallet provisioning is handled explicitly by UserInitializationService.
         User::created(function (User $user) {
@@ -50,7 +57,7 @@ class AppServiceProvider extends ServiceProvider
                 $referralService = app(ReferralService::class);
                 $referralService->ensureReferralCode($user);
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Failed to ensure referral code for user', [
+                Log::error('Failed to ensure referral code for user', [
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
@@ -62,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
             $rewardEngine = app(RewardEngineService::class);
             $rewardEngine->syncActivities();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Reward activity sync failed', [
+            Log::warning('Reward activity sync failed', [
                 'error' => $e->getMessage(),
             ]);
         }
@@ -70,7 +77,7 @@ class AppServiceProvider extends ServiceProvider
         $invalidatePortfolio = static function ($model): void {
             try {
                 $userId = $model->user_id ?? $model->owner_user_id ?? null;
-                if (!$userId) {
+                if (! $userId) {
                     return;
                 }
 
@@ -90,13 +97,13 @@ class AppServiceProvider extends ServiceProvider
                         'data' => $portfolio,
                     ]);
                 } catch (\Throwable $innerException) {
-                    \Illuminate\Support\Facades\Log::warning('Failed to publish portfolio update', [
+                    Log::warning('Failed to publish portfolio update', [
                         'user_id' => $userId,
                         'error' => $innerException->getMessage(),
                     ]);
                 }
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Portfolio cache invalidation failed', [
+                Log::warning('Portfolio cache invalidation failed', [
                     'model' => get_class($model),
                     'error' => $e->getMessage(),
                 ]);

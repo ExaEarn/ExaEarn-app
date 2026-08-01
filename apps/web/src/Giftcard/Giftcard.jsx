@@ -21,6 +21,7 @@ import SummaryPanel from "./SummaryPanel";
 import "./Giftcard.css";
 
 const providerOptions = ["Amazon", "Steam", "iTunes", "Google Play"];
+const giftcardCurrencies = ["NGN", "ZAR", "GHS", "KES", "USD", "EUR", "GBP", "CAD", "AUD", "USDT", "USDC"];
 
 const supportedProviders = [
   { name: "Amazon", icon: <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" /> },
@@ -220,9 +221,11 @@ function Giftcard({ onBack }) {
                       onChange={(event) => setCurrency(event.target.value)}
                       className="w-full bg-transparent text-base text-violet-50 outline-none"
                     >
-                      <option value="USD" className="bg-cosmic-900">USD</option>
-                      <option value="EUR" className="bg-cosmic-900">EUR</option>
-                      <option value="GBP" className="bg-cosmic-900">GBP</option>
+                      {giftcardCurrencies.map((option) => (
+                        <option key={option} value={option} className="bg-cosmic-900">
+                          {option}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

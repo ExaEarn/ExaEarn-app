@@ -1,559 +1,543 @@
-import { useMemo, useState } from "react";
+﻿
+import { useEffect, useMemo, useState } from "react";
+import Decimal from "decimal.js";
 import {
   ArrowLeft,
-  ArrowRightLeft,
-  CheckCircle2,
+  ArrowUpDown,
   ChevronDown,
-  ChevronUp,
+  Search,
   Settings2,
-  ShieldCheck,
   Sparkles,
-  TrendingUp,
+  Star,
   X,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
-const GOLD_GRADIENT = "from-[#f8e08e] via-[#d7b25f] to-[#b88a2a]";
+const PRODUCT_TABS = ["Convert", "Spot", "Futures", "Options", "TradFi"];
+const PERCENTAGES = [25, 50, 75, 100];
+const FAVORITES_KEY = "exaearn_convert_favorites";
+const RECENT_KEY = "exaearn_convert_recent";
+const CONVERT_PRESET_KEY = "exaearn_convert_preset";
 
-const CRYPTO_ASSETS = [
-  { symbol: "XRP", name: "Ripple", icon: "XR", balanceLabel: "Available balance", balance: "2,840.55 XRP" },
-  { symbol: "ETH", name: "Ethereum", icon: "ET", balanceLabel: "Available balance", balance: "0.820 ETH" },
-  { symbol: "BTC", name: "Bitcoin", icon: "BT", balanceLabel: "Available balance", balance: "0.146 BTC" },
-  { symbol: "USDT", name: "Tether", icon: "US", balanceLabel: "Available balance", balance: "1,920.00 USDT" },
-  { symbol: "ADA", name: "Cardano", icon: "AD", balanceLabel: "Available balance", balance: "5,128.40 ADA" },
-];
+const CRYPTO_REGISTRY = {
+  BTC: { name: "Bitcoin" },
+  ETH: { name: "Ethereum" },
+  USDT: { name: "Tether" },
+  USDC: { name: "USD Coin" },
+  BNB: { name: "BNB" },
+  TRX: { name: "Tron" },
+  SOL: { name: "Solana" },
+  XRP: { name: "XRP" },
+  EXA: { name: "ExaToken" },
+  TON: { name: "Toncoin" },
+  MATIC: { name: "Polygon" },
+};
 
-const FIAT_ASSETS = [
-  { symbol: "NGN", name: "Nigerian Naira", icon: "NG", balanceLabel: "Bank balance", balance: "₦2,450,000.00" },
-  { symbol: "USD", name: "US Dollar", icon: "US", balanceLabel: "Bank balance", balance: "$3,400.00" },
-  { symbol: "EUR", name: "Euro", icon: "EU", balanceLabel: "Bank balance", balance: "€1,910.00" },
-  { symbol: "GBP", name: "British Pound", icon: "GB", balanceLabel: "Bank balance", balance: "£1,420.00" },
-];
+const FIAT_REGISTRY = {
+  NGN: { name: "Nigerian Naira", symbol: "?" },
+  USD: { name: "US Dollar", symbol: "$" },
+  EUR: { name: "Euro", symbol: "€" },
+  GBP: { name: "British Pound", symbol: "£" },
+  CAD: { name: "Canadian Dollar", symbol: "CA$" },
+  AUD: { name: "Australian Dollar", symbol: "A$" },
+  CHF: { name: "Swiss Franc", symbol: "CHF" },
+  JPY: { name: "Japanese Yen", symbol: "¥" },
+  CNY: { name: "Chinese Yuan", symbol: "¥" },
+  ZAR: { name: "South African Rand", symbol: "R" },
+  KES: { name: "Kenyan Shilling", symbol: "KSh" },
+  GHS: { name: "Ghanaian Cedi", symbol: "GH?" },
+  UGX: { name: "Ugandan Shilling", symbol: "USh" },
+  TZS: { name: "Tanzanian Shilling", symbol: "TSh" },
+  RWF: { name: "Rwandan Franc", symbol: "FRw" },
+  AED: { name: "UAE Dirham", symbol: "?.?" },
+  SAR: { name: "Saudi Riyal", symbol: "?" },
+  INR: { name: "Indian Rupee", symbol: "?" },
+  SGD: { name: "Singapore Dollar", symbol: "S$" },
+  HKD: { name: "Hong Kong Dollar", symbol: "HK$" },
+  NZD: { name: "New Zealand Dollar", symbol: "NZ$" },
+  SEK: { name: "Swedish Krona", symbol: "kr" },
+  NOK: { name: "Norwegian Krone", symbol: "kr" },
+  DKK: { name: "Danish Krone", symbol: "kr" },
+  PLN: { name: "Polish Zloty", symbol: "zl" },
+  TRY: { name: "Turkish Lira", symbol: "?" },
+  BRL: { name: "Brazilian Real", symbol: "R$" },
+  MXN: { name: "Mexican Peso", symbol: "MX$" },
+};
 
-function AssetTypeTabs({ value, onChange }) {
-  return (
-    <div className="inline-flex rounded-lg border border-[#c9a451]/30 bg-black/30 p-1">
-      {["crypto", "fiat"].map((type) => (
-        <button
-          key={type}
-          type="button"
-          onClick={() => onChange(type)}
-          className={`rounded-md px-3 py-1.5 text-xs font-semibold tracking-wide transition ${
-            value === type
-              ? "bg-gradient-to-r from-[#f8e08e]/20 via-[#d7b25f]/20 to-[#b88a2a]/20 text-[#f5d780] ring-1 ring-[#d7b25f]/40"
-              : "text-neutral-400 hover:text-[#e5c573]"
-          }`}
-        >
-          {type === "crypto" ? "Crypto" : "Fiat"}
-        </button>
-      ))}
-    </div>
-  );
-}
+const decimal = (value) => {
+  try {
+    return new Decimal(value || 0);
+  } catch {
+    return new Decimal(0);
+  }
+};
 
-function AssetSelect({ label, type, setType, value, setValue }) {
-  const options = type === "crypto" ? CRYPTO_ASSETS : FIAT_ASSETS;
-  const selected = options.find((item) => item.symbol === value) || options[0];
+const readList = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 
-  return (
-    <div className="rounded-2xl border border-[#c9a451]/20 bg-[#121212]/90 p-4 sm:p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">{label}</p>
-        <AssetTypeTabs
-          value={type}
-          onChange={(nextType) => {
-            setType(nextType);
-            const nextPool = nextType === "crypto" ? CRYPTO_ASSETS : FIAT_ASSETS;
-            setValue(nextPool[0].symbol);
-          }}
-        />
-      </div>
+const persistList = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore
+  }
+};
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-        <label className="group flex items-center justify-between rounded-xl border border-[#c9a451]/25 bg-black/25 px-3 py-2.5">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-neutral-800 to-neutral-950 text-[10px] font-bold text-[#f5d780] ring-1 ring-[#d7b25f]/30">
-              {selected.icon}
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-neutral-100">{selected.symbol}</p>
-              <p className="text-xs text-neutral-400">{selected.name}</p>
-            </div>
-          </div>
-          <select
-            value={selected.symbol}
-            onChange={(event) => setValue(event.target.value)}
-            className="cursor-pointer appearance-none bg-transparent pl-6 pr-0 text-right text-xs font-semibold text-[#ebcc7d] outline-none"
-          >
-            {options.map((item) => (
-              <option key={item.symbol} value={item.symbol} className="bg-[#111111] text-neutral-100">
-                {item.symbol}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none ml-1 h-4 w-4 text-neutral-500 transition group-focus-within:text-[#e5c573]" />
-        </label>
+const formatAmount = (value, maximumFractionDigits = 8) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "0";
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: amount > 0 && amount < 1 ? Math.min(maximumFractionDigits, 2) : 0,
+    maximumFractionDigits,
+  });
+};
 
-        <button
-          type="button"
-          className="rounded-xl border border-[#c9a451]/40 bg-black/20 px-4 py-2 text-xs font-semibold text-[#f2d27e] transition hover:border-[#c9a451]/70 hover:bg-[#c9a451]/10"
-        >
-          Max
-        </button>
-      </div>
+const formatCurrencyValue = (code, value) => {
+  const amount = Number(value);
+  const registry = FIAT_REGISTRY[code] || { symbol: code };
+  if (!Number.isFinite(amount)) return `${registry.symbol}0.00`;
+  return `${registry.symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
-      <div className="mt-3 rounded-xl border border-neutral-800 bg-[#0b0b0b] p-3">
-        <p className="text-xs text-neutral-500">{selected.balanceLabel}</p>
-        <p className="mt-1 text-sm font-semibold text-neutral-100">{selected.balance}</p>
-        {type === "fiat" ? (
-          <p className="mt-2 inline-flex rounded-md border border-[#c9a451]/25 bg-[#c9a451]/10 px-2 py-1 text-[10px] font-medium text-[#f0cf79]">
-            Powered by ExaEarn Gateway
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
+const mapError = (message) => {
+  const text = String(message || "");
+  const lower = text.toLowerCase();
+  if (lower.includes("insufficient balance")) return "Insufficient available balance for this conversion.";
+  if (lower.includes("quote expired")) return "Your quote expired. Refresh the rate and try again.";
+  if (lower.includes("quote not found")) return "The quote is no longer available. Please request a new quote.";
+  if (lower.includes("unsupported") || lower.includes("unavailable")) return "This conversion pair is currently unavailable.";
+  if (lower.includes("unauthenticated") || lower.includes("authentication required")) return "Please sign in to continue with Convert.";
+  if (lower.includes("unable to reach the api")) return "Convert is temporarily unavailable because the backend cannot be reached.";
+  return text || "The request could not be completed safely. Please try again later.";
+};
 
-function Swap({ onBack }) {
-  const [fromType, setFromType] = useState("crypto");
-  const [toType, setToType] = useState("fiat");
-  const [fromAsset, setFromAsset] = useState("XRP");
-  const [toAsset, setToAsset] = useState("NGN");
+const mergeBalances = (assets, balances) => {
+  const balanceMap = new Map((balances || []).map((item) => [String(item.currency || "").toUpperCase(), item]));
+  return assets.map((asset) => ({
+    ...asset,
+    available_balance: String(balanceMap.get(asset.code)?.balance ?? asset.available_balance ?? "0"),
+    locked_balance: String(balanceMap.get(asset.code)?.locked ?? asset.locked_balance ?? "0"),
+    total_balance: String(balanceMap.get(asset.code)?.total ?? asset.total_balance ?? "0"),
+  }));
+};
+
+const getAssetLabel = (asset) => {
+  if (!asset) return "Select an asset";
+  if (asset.type === "fiat") return FIAT_REGISTRY[asset.code]?.name || asset.code;
+  return CRYPTO_REGISTRY[asset.code]?.name || asset.code;
+};
+
+const getAssetBadge = (asset) => {
+  if (!asset) return "--";
+  if (asset.type === "fiat") return asset.code;
+  return asset.code.slice(0, 3);
+};
+
+const formatBalanceDisplay = (asset) => {
+  if (!asset) return "--";
+  if (asset.type === "fiat") return formatCurrencyValue(asset.code, asset.available_balance || 0);
+  return `${formatAmount(asset.available_balance || 0, 8)} ${asset.code}`;
+};
+
+function Swap({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenTradFi }) {
+  const { request, user } = useAuth();
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [metaError, setMetaError] = useState("");
+  const [assets, setAssets] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [fromCode, setFromCode] = useState("");
+  const [toCode, setToCode] = useState("");
   const [amount, setAmount] = useState("");
-  const [isRotated, setIsRotated] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [expandedRates, setExpandedRates] = useState(false);
-  const [slippage, setSlippage] = useState("0.5%");
-  const [payoutMethod, setPayoutMethod] = useState("Bank Transfer");
-  const [autoRoute, setAutoRoute] = useState(true);
-  const [deadline, setDeadline] = useState("20");
+  const [selectorRole, setSelectorRole] = useState("");
+  const [selectorSearch, setSelectorSearch] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
+  const [expiresIn, setExpiresIn] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState(null);
+  const [favorites, setFavorites] = useState(() => readList(FAVORITES_KEY));
+  const [recentCodes, setRecentCodes] = useState(() => readList(RECENT_KEY));
+  const fromAsset = useMemo(() => assets.find((item) => item.code === fromCode) || null, [assets, fromCode]);
+  const toAsset = useMemo(() => assets.find((item) => item.code === toCode) || null, [assets, toCode]);
+  const fromType = fromAsset?.type === "fiat" ? "fiat" : "crypto";
+  const toType = toAsset?.type === "fiat" ? "fiat" : "crypto";
+  const amountDecimal = decimal(amount);
+  const balanceDecimal = decimal(fromAsset?.available_balance);
+  const insufficientBalance = amountDecimal.gt(balanceDecimal);
+  const sameAsset = fromCode && toCode && fromCode === toCode;
+  const canQuote = Boolean(user && fromAsset && toAsset && amountDecimal.gt(0) && !sameAsset);
 
-  const fromPool = fromType === "crypto" ? CRYPTO_ASSETS : FIAT_ASSETS;
-  const toPool = toType === "crypto" ? CRYPTO_ASSETS : FIAT_ASSETS;
-  const selectedFrom = fromPool.find((item) => item.symbol === fromAsset) || fromPool[0];
-  const selectedTo = toPool.find((item) => item.symbol === toAsset) || toPool[0];
-  const parsedAmount = Number.parseFloat(amount || "0");
-  const cleanAmount = Number.isNaN(parsedAmount) ? 0 : parsedAmount;
+  const supportedFiat = useMemo(() => assets.filter((item) => item.type === "fiat"), [assets]);
+  const supportedCrypto = useMemo(() => assets.filter((item) => item.type !== "fiat"), [assets]);
 
-  const receivedAmount = useMemo(() => {
-    if (!cleanAmount) return "0.00";
-    const mockRate = fromType === "crypto" && toType === "fiat" ? 1540 : fromType === "fiat" && toType === "crypto" ? 0.00063 : 0.984;
-    return (cleanAmount * mockRate).toLocaleString(undefined, { maximumFractionDigits: 6 });
-  }, [cleanAmount, fromType, toType]);
+  const selectorAssets = useMemo(() => {
+    const source = selectorRole === "to" ? (toType === "fiat" ? supportedFiat : supportedCrypto) : (fromType === "fiat" ? supportedFiat : supportedCrypto);
+    const term = selectorSearch.trim().toLowerCase();
+    return source.filter((item) => {
+      const label = getAssetLabel(item).toLowerCase();
+      return !term || item.code.toLowerCase().includes(term) || label.includes(term);
+    });
+  }, [selectorRole, selectorSearch, fromType, toType, supportedFiat, supportedCrypto]);
 
-  const ctaLabel = useMemo(() => {
-    if (fromType === "crypto" && toType === "crypto") return "Swap Crypto";
-    if (fromType === "crypto" && toAsset === "NGN") return "Convert to Naira";
-    if (fromType === "fiat" && toType === "crypto") return "Buy Crypto";
-    if (fromType === "crypto" && toType === "fiat") return "Sell Crypto";
-    return "Swap";
-  }, [fromType, toType, toAsset]);
+  const referenceFiat = useMemo(() => {
+    const supportedCodes = new Set(supportedFiat.map((item) => item.code));
+    return Object.entries(FIAT_REGISTRY)
+      .filter(([code]) => !supportedCodes.has(code))
+      .map(([code, item]) => ({ code, ...item }));
+  }, [supportedFiat]);
 
-  const isCryptoToNgn = fromType === "crypto" && toType === "fiat" && toAsset === "NGN";
-  const isNgnToCrypto = fromType === "fiat" && fromAsset === "NGN" && toType === "crypto";
-  const showGatewayFee = fromType === "fiat" || toType === "fiat";
-  const showNetworkFee = fromType === "crypto" || toType === "crypto";
-  const isDisabled = !amount || Number.isNaN(Number(amount)) || Number(amount) <= 0;
+  const persistRecent = (codes) => {
+    const next = Array.from(new Set(codes.filter(Boolean))).slice(0, 8);
+    persistList(RECENT_KEY, next);
+    return next;
+  };
+
+  const refreshMeta = async () => {
+    if (!user) return;
+    setMetaError("");
+    setMetaLoading(true);
+    try {
+      const [metaPayload, balancesPayload, historyPayload] = await Promise.all([
+        request("/api/swap/meta", { method: "GET" }),
+        request("/api/wallet/balances", { method: "GET" }),
+        request("/api/swap/history?per_page=10", { method: "GET" }).catch(() => ({ data: { data: [] } })),
+      ]);
+      const merged = mergeBalances(Array.isArray(metaPayload?.data?.assets) ? metaPayload.data.assets : [], Array.isArray(balancesPayload?.data) ? balancesPayload.data : []);
+      setAssets(merged);
+      setHistory(Array.isArray(historyPayload?.data?.data) ? historyPayload.data.data : []);
+    } catch (error) {
+      setMetaError(mapError(error?.message));
+    } finally {
+      setMetaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setMetaLoading(false);
+      setMetaError("Authentication required");
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      setMetaLoading(true);
+      try {
+        const [metaPayload, balancesPayload, historyPayload] = await Promise.all([
+          request("/api/swap/meta", { method: "GET" }),
+          request("/api/wallet/balances", { method: "GET" }),
+          request("/api/swap/history?per_page=10", { method: "GET" }).catch(() => ({ data: { data: [] } })),
+        ]);
+
+        if (cancelled) return;
+        const baseAssets = Array.isArray(metaPayload?.data?.assets) ? metaPayload.data.assets : [];
+        const balances = Array.isArray(balancesPayload?.data) ? balancesPayload.data : [];
+        const merged = mergeBalances(baseAssets, balances);
+        setAssets(merged);
+        setHistory(Array.isArray(historyPayload?.data?.data) ? historyPayload.data.data : Array.isArray(metaPayload?.data?.recent_swaps) ? metaPayload.data.recent_swaps : []);
+
+        const defaultFrom = metaPayload?.data?.defaults?.from_currency;
+        const defaultTo = metaPayload?.data?.defaults?.to_currency;
+        const availableCodes = merged.map((item) => item.code);
+        const recentAvailable = recentCodes.filter((code) => availableCodes.includes(code));
+        let preset = null;
+        try {
+          const rawPreset = localStorage.getItem(CONVERT_PRESET_KEY);
+          preset = rawPreset ? JSON.parse(rawPreset) : null;
+        } catch {
+          preset = null;
+        }
+
+        const presetFrom = preset?.fromCode;
+        const presetTo = preset?.toCode;
+        const hasPresetFrom = presetFrom && availableCodes.includes(presetFrom);
+        const hasPresetTo = presetTo && availableCodes.includes(presetTo);
+        const nextFrom = hasPresetFrom ? presetFrom : recentAvailable[0] || (availableCodes.includes(defaultFrom) ? defaultFrom : merged[0]?.code) || "";
+        const nextToCandidate = hasPresetTo ? presetTo : recentAvailable[1] || (availableCodes.includes(defaultTo) ? defaultTo : merged.find((item) => item.code !== nextFrom)?.code) || "";
+        setFromCode((prev) => prev || nextFrom);
+        setToCode((prev) => prev || (nextToCandidate === nextFrom ? merged.find((item) => item.code !== nextFrom)?.code || "" : nextToCandidate));
+        if (hasPresetFrom || hasPresetTo) {
+          try { localStorage.removeItem(CONVERT_PRESET_KEY); } catch { /* ignore local preset cleanup errors */ }
+        }
+        setMetaError("");
+      } catch (error) {
+        if (!cancelled) setMetaError(mapError(error?.message));
+      } finally {
+        if (!cancelled) setMetaLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [request, user]);
+
+  useEffect(() => {
+    if (!canQuote) {
+      setQuote(null);
+      setQuoteError(sameAsset ? "Choose two different assets." : "");
+      setExpiresIn(0);
+      return;
+    }
+    if (insufficientBalance) {
+      setQuote(null);
+      setQuoteError("Insufficient available balance for this conversion.");
+      setExpiresIn(0);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setQuoteLoading(true);
+      try {
+        const payload = await request("/api/swap/quote", {
+          method: "POST",
+          body: JSON.stringify({ from_currency: fromCode, to_currency: toCode, amount: amountDecimal.toString() }),
+        });
+        if (cancelled) return;
+        setQuote(payload?.data || null);
+        setExpiresIn(Number(payload?.data?.expires_in || 0));
+        setQuoteError("");
+      } catch (error) {
+        if (!cancelled) {
+          setQuote(null);
+          setExpiresIn(0);
+          setQuoteError(mapError(error?.message));
+        }
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [request, canQuote, fromCode, toCode, amount, insufficientBalance, sameAsset]);
+
+  useEffect(() => {
+    if (!quote?.quote_id) return;
+    const timer = window.setInterval(() => setExpiresIn((current) => (current > 0 ? current - 1 : 0)), 1000);
+    return () => window.clearInterval(timer);
+  }, [quote?.quote_id]);
+
+  const receiveDisplay = useMemo(() => {
+    if (!quote?.receive_amount) return toType === "fiat" ? formatCurrencyValue(toCode || "USD", 0) : `0 ${toCode || ""}`.trim();
+    if (toType === "fiat") return formatCurrencyValue(toCode, quote.receive_amount);
+    return `${formatAmount(quote.receive_amount, 8)} ${toCode}`;
+  }, [quote, toType, toCode]);
+
+  const feeDisplay = useMemo(() => {
+    if (!quote?.fee) return fromType === "fiat" ? formatCurrencyValue(fromCode || "USD", 0) : `0 ${fromCode || ""}`.trim();
+    if (fromType === "fiat") return formatCurrencyValue(fromCode, quote.fee);
+    return `${formatAmount(quote.fee, 8)} ${fromCode}`;
+  }, [quote, fromType, fromCode]);
+
+  const rateDisplay = useMemo(() => {
+    if (!quote?.rate || !fromCode || !toCode) return "--";
+    if (toType === "fiat") return `1 ${fromCode} ˜ ${formatCurrencyValue(toCode, quote.rate)}`;
+    return `1 ${fromCode} ˜ ${formatAmount(quote.rate, 8)} ${toCode}`;
+  }, [quote, fromCode, toCode, toType]);
+
+  const disabledReason = useMemo(() => {
+    if (!user) return "Sign in to use Convert.";
+    if (!fromAsset || !toAsset) return "Loading supported assets...";
+    if (sameAsset) return "Choose two different assets.";
+    if (!amount) return "Enter an amount to continue.";
+    if (!amountDecimal.gt(0)) return "Enter an amount greater than zero.";
+    if (insufficientBalance) return "Insufficient available balance.";
+    if (quoteLoading) return "Fetching best rate...";
+    if (quoteError) return quoteError;
+    if (!quote?.quote_id) return "Quote unavailable right now.";
+    if (expiresIn <= 0) return "Quote expired. Refresh the rate.";
+    return "";
+  }, [user, fromAsset, toAsset, sameAsset, amount, amountDecimal, insufficientBalance, quoteLoading, quoteError, quote, expiresIn]);
+
+  const handleSelectCode = (code) => {
+    if (selectorRole === "from") {
+      setFromCode(code);
+      setRecentCodes((prev) => persistRecent([code, toCode, ...prev]));
+    } else if (selectorRole === "to") {
+      setToCode(code);
+      setRecentCodes((prev) => persistRecent([fromCode, code, ...prev]));
+    }
+    setSelectorRole("");
+    setSelectorSearch("");
+  };
+
+  const handleTypeChange = (role, type) => {
+    const source = type === "fiat" ? supportedFiat : supportedCrypto;
+    const fallback = source.find((item) => item.code !== (role === "from" ? toCode : fromCode)) || source[0];
+    if (!fallback) return;
+    if (role === "from") setFromCode(fallback.code);
+    if (role === "to") setToCode(fallback.code);
+  };
 
   const handleReverse = () => {
-    setIsRotated((prev) => !prev);
-    setFromType(toType);
-    setToType(fromType);
-    setFromAsset(toAsset);
-    setToAsset(fromAsset);
+    if (!fromCode || !toCode) return;
+    setFromCode(toCode);
+    setToCode(fromCode);
   };
 
-  const handleSwapClick = () => {
-    if (isDisabled) return;
-    setShowConfirm(true);
+  const handlePercent = (percent) => {
+    if (!fromAsset) return;
+    const decimals = Number(fromAsset.decimals ?? (fromType === "fiat" ? 2 : 8));
+    const value = decimal(fromAsset.available_balance).mul(percent).div(100);
+    setAmount(value.toDecimalPlaces(Math.min(decimals, fromType === "fiat" ? 2 : 8), Decimal.ROUND_DOWN).toString());
   };
 
-  const handleConfirm = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setShowConfirm(false);
-    }, 1200);
+  const toggleFavorite = (code) => {
+    const next = favorites.includes(code) ? favorites.filter((item) => item !== code) : [code, ...favorites].slice(0, 12);
+    setFavorites(next);
+    persistList(FAVORITES_KEY, next);
   };
 
+  const handleExecute = async () => {
+    if (disabledReason || !quote?.quote_id) return;
+    setSubmitting(true);
+    try {
+      const payload = await request("/api/swap/execute", {
+        method: "POST",
+        body: JSON.stringify({ quote_id: quote.quote_id }),
+        headers: { "X-Idempotency-Key": `swap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` },
+      });
+      setSubmitResult(payload?.data || null);
+      setReviewOpen(false);
+      setAmount("");
+      setQuote(null);
+      setExpiresIn(0);
+      await refreshMeta();
+    } catch (error) {
+      setQuoteError(mapError(error?.message));
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#050505] via-[#0d0d0d] to-[#17120b] px-4 pb-28 pt-7 text-neutral-100 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-6">
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              {onBack ? (
-                <button
-                  type="button"
-                  onClick={onBack}
-                  className="mb-3 inline-flex items-center gap-2 rounded-lg border border-[#c9a451]/30 bg-black/25 px-3 py-2 text-xs font-semibold text-[#f1d486] transition hover:border-[#c9a451]/60 hover:bg-[#c9a451]/10"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </button>
-              ) : null}
-              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-neutral-50 sm:text-4xl">Smart Swap</h1>
-              <p className="mt-1 max-w-xl text-sm text-neutral-400">
-                Instantly convert crypto and local currencies in one secure interface.
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-xl border border-[#c9a451]/35 bg-[#c9a451]/10 px-3 py-2 text-xs font-semibold text-[#f1d486]">
-              <Sparkles className="h-4 w-4" />
-              Multi-Chain & Fiat Enabled
-            </div>
-          </div>
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-[#c9a451]/30 to-transparent" />
-        </header>
-
-        <section className="mx-auto max-w-2xl rounded-2xl border border-[#c9a451]/25 bg-[linear-gradient(160deg,rgba(20,20,20,.98),rgba(12,12,12,.95))] p-4 shadow-[0_30px_80px_rgba(0,0,0,.55)] backdrop-blur-xl sm:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">Hybrid Swap Engine</p>
-            <button
-              type="button"
-              onClick={() => setShowSettings(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#c9a451]/30 bg-black/30 text-[#e2be6d] transition hover:border-[#c9a451]/55 hover:bg-[#c9a451]/10"
-              aria-label="Open swap settings"
-            >
-              <Settings2 className="h-4 w-4" />
-            </button>
-          </div>
-
-          <AssetSelect
-            label="From"
-            type={fromType}
-            setType={setFromType}
-            value={fromAsset}
-            setValue={setFromAsset}
-          />
-
-          <div className="my-3 flex justify-center">
-            <button
-              type="button"
-              onClick={handleReverse}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#d7b25f]/65 bg-gradient-to-r from-[#f8e08e]/90 via-[#d7b25f]/90 to-[#b88a2a]/90 text-[#1a1409] shadow-[0_0_30px_rgba(215,178,95,0.4)] transition hover:scale-[1.04]"
-            >
-              <ArrowRightLeft className={`h-4 w-4 transition-transform duration-500 ${isRotated ? "rotate-180" : ""}`} />
-            </button>
-          </div>
-
-          <div className="rounded-2xl border border-[#c9a451]/20 bg-[#121212]/90 p-4 sm:p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">To</p>
-              <div className="rounded-lg border border-[#c9a451]/30 bg-black/30 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-[#f1d486]">
-                Estimated Output
+    <main className="min-h-[100dvh] overflow-x-hidden bg-[#04070d] px-3 pb-[calc(env(safe-area-inset-bottom)+88px)] pt-[calc(env(safe-area-inset-top)+10px)] text-white sm:px-4 lg:px-6 lg:pb-8">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
+        <ProductNav onBack={onBack} onOpenTrade={onOpenTrade} onOpenFutures={onOpenFutures} onOpenOptions={onOpenOptions} onOpenTradFi={onOpenTradFi} />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,560px)_minmax(280px,1fr)] lg:items-start lg:justify-center">
+          <section className="rounded-3xl border border-white/10 bg-[#0a1019] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-4">
+            <div className="flex items-center justify-between gap-3 border-b border-white/8 pb-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Convert</div>
+                <h1 className="mt-1 text-xl font-semibold tracking-tight text-white">Swap assets instantly</h1>
               </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <label className="group flex items-center justify-between rounded-xl border border-[#c9a451]/25 bg-black/25 px-3 py-2.5">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-neutral-800 to-neutral-950 text-[10px] font-bold text-[#f5d780] ring-1 ring-[#d7b25f]/30">
-                    {selectedTo.icon}
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-100">{selectedTo.symbol}</p>
-                    <p className="text-xs text-neutral-400">{selectedTo.name}</p>
-                  </div>
-                </div>
-                <select
-                  value={selectedTo.symbol}
-                  onChange={(event) => setToAsset(event.target.value)}
-                  className="cursor-pointer appearance-none bg-transparent pl-6 pr-0 text-right text-xs font-semibold text-[#ebcc7d] outline-none"
-                >
-                  {toPool.map((item) => (
-                    <option key={item.symbol} value={item.symbol} className="bg-[#111111] text-neutral-100">
-                      {item.symbol}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none ml-1 h-4 w-4 text-neutral-500 transition group-focus-within:text-[#e5c573]" />
-              </label>
-
-              <div className="rounded-xl border border-[#c9a451]/25 bg-black/20 px-4 py-2 text-right">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Arrival</p>
-                <p className="mt-1 text-xs font-semibold text-neutral-200">{showGatewayFee ? "~2 - 6 mins" : "~30 sec"}</p>
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-xl border border-neutral-800 bg-[#0b0b0b] p-3">
-              <p className="text-xs text-neutral-500">Estimated received</p>
-              <p className="mt-1 text-xl font-semibold text-[#f4d682]">
-                {receivedAmount} {selectedTo.symbol}
-              </p>
-              <p className="mt-1 text-xs text-neutral-400">1 {selectedFrom.symbol} = 1,540.22 NGN (indicative)</p>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-[#c9a451]/20 bg-[#0f0f0f] p-3">
-            <label className="mb-2 block text-xs text-neutral-500">Amount</label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0.00"
-              className="w-full rounded-lg border border-[#c9a451]/25 bg-black/40 px-3 py-3 text-base font-semibold text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d7b25f]/70"
-            />
-            <p className="mt-2 text-xs text-neutral-400">USD estimate: ${cleanAmount ? (cleanAmount * 2.15).toFixed(2) : "0.00"}</p>
-          </div>
-
-          {(isCryptoToNgn || isNgnToCrypto) && (
-            <div className="mt-4 rounded-xl border border-[#c9a451]/25 bg-black/35 p-3">
-              {isCryptoToNgn ? (
-                <div className="grid gap-2 text-xs sm:grid-cols-3">
-                  <div>
-                    <p className="text-neutral-500">Estimated bank payout</p>
-                    <p className="font-semibold text-neutral-100">₦{cleanAmount ? (cleanAmount * 1540).toLocaleString() : "0.00"}</p>
-                  </div>
-                  <div>
-                    <p className="text-neutral-500">Processing time</p>
-                    <p className="font-semibold text-neutral-100">3 - 5 mins</p>
-                  </div>
-                  <div>
-                    <p className="text-neutral-500">Gateway fee</p>
-                    <p className="font-semibold text-neutral-100">0.45%</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2 text-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-neutral-500">Payment method</p>
-                    <div className="flex gap-2">
-                      {["Bank Transfer", "Card"].map((method) => (
-                        <button
-                          key={method}
-                          type="button"
-                          onClick={() => setPayoutMethod(method)}
-                          className={`rounded-md px-3 py-1 font-semibold transition ${
-                            payoutMethod === method
-                              ? "border border-[#d7b25f]/60 bg-[#d7b25f]/20 text-[#f2d27e]"
-                              : "border border-neutral-700 bg-black/30 text-neutral-300 hover:border-[#d7b25f]/35"
-                          }`}
-                        >
-                          {method}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-neutral-300">Payment processing begins after transfer confirmation.</p>
-                  <p className="inline-flex items-center gap-1 rounded-md border border-[#d7b25f]/30 bg-[#d7b25f]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#edce7a]">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Compliance Verified
-                  </p>
-                </div>
-              )}
-              <p className="mt-3 text-[11px] text-neutral-500">
-                All fiat transactions comply with regional financial regulations.
-              </p>
-            </div>
-          )}
-
-          <div className="mt-4 overflow-hidden rounded-xl border border-[#c9a451]/20 bg-black/25">
-            <button
-              type="button"
-              onClick={() => setExpandedRates((prev) => !prev)}
-              className="flex w-full items-center justify-between px-3 py-3 text-left text-sm font-semibold text-neutral-200 md:cursor-default"
-            >
-              Rate & Fee Breakdown
-              <span className="md:hidden">{expandedRates ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
-            </button>
-            <div className={`${expandedRates ? "block" : "hidden"} border-t border-[#c9a451]/15 p-3 md:block`}>
-              <div className="grid gap-2 text-xs">
-                <FeeRow label="Exchange Rate" value={`1 ${selectedFrom.symbol} = 1,540.22 ${selectedTo.symbol}`} />
-                {showNetworkFee ? <FeeRow label="Network Fee" value="~0.00012 ETH" /> : null}
-                {showGatewayFee ? <FeeRow label="Gateway Fee" value="0.45%" /> : null}
-                <FeeRow label="Slippage" value={slippage} />
-                <FeeRow label="Price Impact" value="0.08%" />
-                <FeeRow label="Total Deduction" value={showGatewayFee ? "0.57%" : "0.12%"} />
-                <FeeRow label="Minimum Received" value={`${cleanAmount ? (cleanAmount * 0.97).toFixed(4) : "0.00"} ${selectedTo.symbol}`} />
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSwapClick}
-            disabled={isDisabled || loading}
-            className={`mt-4 hidden w-full rounded-xl bg-gradient-to-r ${GOLD_GRADIENT} px-4 py-3 text-sm font-semibold text-[#19150c] shadow-[0_0_26px_rgba(215,178,95,.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 sm:block`}
-          >
-            {loading ? "Processing..." : ctaLabel}
-          </button>
-        </section>
-
-        <section className="mx-auto mt-6 hidden max-w-5xl rounded-2xl border border-[#c9a451]/15 bg-[#0f0f0f]/80 p-5 lg:block">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-neutral-100">Market Snapshot</h2>
-            <span className="inline-flex items-center gap-1 text-xs text-[#e4c070]">
-              <TrendingUp className="h-4 w-4" />
-              Live trend placeholder
-            </span>
-          </div>
-          <div className="grid grid-cols-4 gap-4">
-            <StatCard title="24H Volume" value="$1.82B" />
-            <StatCard title="Liquidity" value="$624M" />
-            <StatCard title="Price Change" value="+2.41%" />
-            <StatCard title="Avg Route Time" value="41 sec" />
-          </div>
-          <div className="mt-4 h-28 rounded-xl border border-neutral-800 bg-gradient-to-r from-[#131313] via-[#1a1a1a] to-[#101010] p-3">
-            <div className="h-full w-full rounded-lg bg-[radial-gradient(circle_at_10%_80%,rgba(215,178,95,.22),transparent_28%),radial-gradient(circle_at_35%_35%,rgba(215,178,95,.08),transparent_30%),linear-gradient(180deg,rgba(255,255,255,.04),transparent)]" />
-          </div>
-        </section>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#c9a451]/25 bg-[#080808]/95 p-3 backdrop-blur md:hidden">
-        <button
-          type="button"
-          onClick={handleSwapClick}
-          disabled={isDisabled || loading}
-          className={`w-full rounded-xl bg-gradient-to-r ${GOLD_GRADIENT} px-4 py-3 text-sm font-semibold text-[#19150c] shadow-[0_0_26px_rgba(215,178,95,.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45`}
-        >
-          {loading ? "Processing..." : ctaLabel}
-        </button>
-      </div>
-
-      {showSettings ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-md rounded-xl border border-[#c9a451]/30 bg-[#101010] p-5 shadow-[0_24px_70px_rgba(0,0,0,.6)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-neutral-50">Swap Settings</h3>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 bg-black/30 text-neutral-300 hover:border-[#c9a451]/45 hover:text-[#f1d486]"
-              >
-                <X className="h-4 w-4" />
+              <button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-slate-300">
+                <Settings2 className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-4 text-sm">
-              <div>
-                <p className="mb-2 text-neutral-400">Slippage tolerance</p>
-                <div className="flex flex-wrap gap-2">
-                  {["0.1%", "0.5%", "1.0%"].map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setSlippage(item)}
-                      className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                        slippage === item
-                          ? "border border-[#d7b25f]/70 bg-[#d7b25f]/20 text-[#f1d486]"
-                          : "border border-neutral-700 bg-black/30 text-neutral-300 hover:border-[#c9a451]/35"
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {!user ? <InlineMessage tone="warning" text="Authentication required. Sign in to request live conversion quotes." /> : null}
+            {metaError && !metaLoading ? <InlineMessage tone="danger" text={metaError} /> : null}
 
-              <div>
-                <p className="mb-2 text-neutral-400">Preferred payout method</p>
-                <select
-                  value={payoutMethod}
-                  onChange={(event) => setPayoutMethod(event.target.value)}
-                  className="w-full rounded-lg border border-neutral-700 bg-black/40 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-[#c9a451]/60"
-                >
-                  <option>Bank Transfer</option>
-                  <option>Card</option>
-                  <option>Wallet Settlement</option>
-                </select>
-              </div>
+            <div className="mt-3 space-y-3">
+              <CompactPanel label="From" type={fromType} onTypeChange={(type) => handleTypeChange("from", type)} asset={fromAsset} onOpenSelector={() => setSelectorRole("from")} amount={amount} onAmountChange={setAmount} onMax={() => setAmount(fromAsset?.available_balance || "")} percentages={PERCENTAGES} onPercent={handlePercent} balanceLabel={fromType === "fiat" ? "Available fiat balance" : "Available balance"} quoteSide="from" />
 
-              <div className="flex items-center justify-between rounded-lg border border-neutral-800 bg-black/35 px-3 py-2">
-                <div>
-                  <p className="text-neutral-200">Auto-route optimization</p>
-                  <p className="text-xs text-neutral-500">Use best liquidity paths</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAutoRoute((prev) => !prev)}
-                  className={`relative h-6 w-11 rounded-full transition ${autoRoute ? "bg-[#c9a451]/50" : "bg-neutral-700"}`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-neutral-100 transition ${
-                      autoRoute ? "left-[22px]" : "left-0.5"
-                    }`}
-                  />
+              <div className="flex justify-center">
+                <button type="button" onClick={handleReverse} className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-amber-300/40 bg-amber-300/10 text-amber-200 transition hover:rotate-180">
+                  <ArrowUpDown className="h-4 w-4" />
                 </button>
               </div>
 
-              <div>
-                <p className="mb-2 text-neutral-400">Transaction deadline</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    value={deadline}
-                    onChange={(event) => setDeadline(event.target.value)}
-                    className="w-24 rounded-lg border border-neutral-700 bg-black/40 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-[#c9a451]/60"
-                  />
-                  <span className="text-neutral-400">minutes</span>
-                </div>
+              <CompactPanel label="To" type={toType} onTypeChange={(type) => handleTypeChange("to", type)} asset={toAsset} onOpenSelector={() => setSelectorRole("to")} quoteSide="to" estimatedReceive={receiveDisplay} rateLine={rateDisplay} quoteLoading={quoteLoading} expiresIn={expiresIn} />
+
+              <div className="rounded-2xl border border-white/8 bg-[#070d16] p-3">
+                <SummaryRow label="Rate" value={rateDisplay} />
+                <SummaryRow label="Fee" value={feeDisplay} />
+                <SummaryRow label="You receive" value={receiveDisplay} emphasis />
+                <button type="button" onClick={() => setDetailsOpen(true)} className="mt-3 text-xs font-medium text-amber-300 transition hover:text-amber-200">Rate & fee details &gt;</button>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
-      {showConfirm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div className="w-full max-w-md rounded-xl border border-[#c9a451]/35 bg-[#101010] p-5 shadow-[0_26px_80px_rgba(0,0,0,.65)] animate-[fadeIn_.2s_ease-out]">
-            <h3 className="text-lg font-semibold text-neutral-50">Confirm Swap</h3>
-            <p className="mt-1 text-xs text-neutral-400">Review transaction details before final confirmation.</p>
+              {quoteError && amount ? <InlineMessage tone="danger" text={quoteError} /> : null}
 
-            <div className="mt-4 space-y-2 rounded-xl border border-neutral-800 bg-black/35 p-3 text-xs">
-              <FeeRow label="From" value={`${amount || "0.00"} ${selectedFrom.symbol}`} />
-              <FeeRow label="To" value={`${receivedAmount} ${selectedTo.symbol}`} />
-              <FeeRow label="Rate" value={`1 ${selectedFrom.symbol} = 1,540.22 ${selectedTo.symbol}`} />
-              <FeeRow label="Fees" value={showGatewayFee ? "Network + Gateway" : "Network"} />
-              <FeeRow label="Estimated delivery" value={showGatewayFee ? "2 - 6 mins" : "Under 1 min"} />
-            </div>
-
-            <div className="mt-3 rounded-lg border border-[#c9a451]/20 bg-[#c9a451]/10 p-3 text-xs text-[#f2d27e]">
-              <p className="flex items-start gap-2">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                All swaps are executed through secure smart contract routing and regulated fiat gateways.
-              </p>
-            </div>
-
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={handleConfirm}
-                className={`flex-1 rounded-lg bg-gradient-to-r ${GOLD_GRADIENT} px-3 py-2.5 text-sm font-semibold text-[#1a1409]`}
-              >
-                Confirm
+              <button type="button" onClick={() => setReviewOpen(true)} disabled={Boolean(disabledReason)} className="w-full rounded-2xl bg-[#f0c96b] px-4 py-3.5 text-sm font-semibold text-[#1d1707] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45">
+                {quoteLoading ? "Fetching best rate..." : "Review Conversion"}
               </button>
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 rounded-lg border border-neutral-700 bg-black/40 px-3 py-2.5 text-sm font-semibold text-neutral-200 hover:border-neutral-500"
-              >
-                Cancel
-              </button>
+
+              {disabledReason ? <p className="text-center text-xs text-slate-500">{disabledReason}</p> : null}
             </div>
-          </div>
+          </section>
+
+          <aside className="space-y-4">
+            <section className="hidden rounded-3xl border border-white/8 bg-[#0a1019] p-4 lg:block">
+              <div className="flex items-center justify-between gap-3"><div><div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Recent</div><h2 className="mt-1 text-lg font-semibold">Recent conversions</h2></div><Sparkles className="h-4 w-4 text-amber-300" /></div>
+              <div className="mt-3 space-y-2">{history.length ? history.slice(0, 6).map((item) => <HistoryRow key={item.swap_id} item={item} />) : <EmptyCard title="No recent conversions" copy="Your latest convert activity will appear here." />}</div>
+            </section>
+            <section className="rounded-3xl border border-white/8 bg-[#0a1019] p-4">
+              <div className="flex items-center justify-between gap-3"><div><div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Supported</div><h2 className="mt-1 text-lg font-semibold">Active convert assets</h2></div><button type="button" onClick={refreshMeta} className="text-xs font-medium text-slate-400 hover:text-white">Refresh</button></div>
+              <div className="mt-3 flex flex-wrap gap-2">{assets.slice(0, 12).map((item) => <span key={item.code} className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-xs text-slate-300">{item.code}</span>)}</div>
+            </section>
+          </aside>
         </div>
-      ) : null}
+      </div>
+
+      {selectorRole ? <SelectorSheet title={selectorRole === "from" ? "Select source asset" : "Select destination asset"} assets={selectorAssets} favorites={favorites} recentCodes={recentCodes} search={selectorSearch} onSearch={setSelectorSearch} onClose={() => setSelectorRole("")} onSelect={handleSelectCode} onToggleFavorite={toggleFavorite} referenceFiat={(selectorRole === "from" ? fromType : toType) === "fiat" ? referenceFiat : []} /> : null}
+
+      {detailsOpen ? <Sheet title="Rate & fee details" onClose={() => setDetailsOpen(false)}><div className="space-y-3 text-sm"><DetailRow label="Indicative rate" value={rateDisplay} /><DetailRow label="ExaEarn fee" value={feeDisplay} /><DetailRow label="Route" value={quote?.route || "Best available route"} /><DetailRow label="Quote validity" value={expiresIn > 0 ? `${expiresIn}s remaining` : "Awaiting fresh quote"} /><DetailRow label="Settlement" value={toType === "fiat" ? `${toCode} wallet settlement` : `${toCode} wallet credit`} /><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-xs text-slate-400">Rates are variable and refresh automatically. Unsupported currencies may still appear in the global registry as coming soon, but only backend-enabled currencies can execute.</div></div></Sheet> : null}
+
+      {reviewOpen ? <Sheet title="Review conversion" onClose={() => setReviewOpen(false)}><div className="space-y-3"><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3"><DetailRow label="Convert" value={`${amount || "0"} ${fromCode || ""}`.trim()} /><DetailRow label="Receive" value={receiveDisplay} /><DetailRow label="Rate" value={rateDisplay} /><DetailRow label="Fees" value={feeDisplay} /><DetailRow label="Destination" value={`${toCode} wallet`} /><DetailRow label="Quote" value={expiresIn > 0 ? `Rate locked for ${expiresIn}s` : "Refresh required"} /></div><div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-100">The final conversion uses the backend-confirmed quote only, and expired quotes cannot execute.</div><button type="button" onClick={handleExecute} disabled={Boolean(disabledReason) || submitting} className="w-full rounded-2xl bg-[#f0c96b] px-4 py-3 text-sm font-semibold text-[#1d1707] disabled:cursor-not-allowed disabled:opacity-45">{submitting ? "Submitting..." : "Confirm Conversion"}</button></div></Sheet> : null}
+
+      {submitResult ? <Sheet title="Conversion submitted" onClose={() => setSubmitResult(null)}><div className="space-y-3"><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-sm"><DetailRow label="Reference" value={submitResult.swap_id || "--"} /><DetailRow label="Status" value={String(submitResult.status || "queued").toUpperCase()} /><DetailRow label="From" value={`${submitResult.amount_sent} ${submitResult.from_currency}`} /><DetailRow label="To" value={`${submitResult.amount_received} ${submitResult.to_currency}`} /></div><p className="text-xs text-slate-400">Your conversion was queued through the existing ExaEarn swap engine. Balances and recent conversions refresh automatically after submission.</p></div></Sheet> : null}
     </main>
   );
 }
 
-function FeeRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2 last:border-0 last:pb-0">
-      <span className="text-neutral-500">{label}</span>
-      <span className="font-medium text-neutral-100">{value}</span>
-    </div>
-  );
+function ProductNav({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenTradFi }) {
+  return <div className="flex items-center gap-3 overflow-x-auto border-b border-white/8 pb-2"><button type="button" onClick={onBack} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/[0.03] text-slate-300"><ArrowLeft className="h-4 w-4" /></button>{PRODUCT_TABS.map((tab) => { const active = tab === "Convert"; const handler = tab === "Spot" ? onOpenTrade : tab === "Futures" ? onOpenFutures : tab === "Options" ? onOpenOptions : tab === "TradFi" ? onOpenTradFi : undefined; return <button key={tab} type="button" onClick={handler} className={`relative shrink-0 whitespace-nowrap pb-2 text-sm ${active ? "text-white" : "text-slate-500"}`}>{tab}{active ? <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-amber-400" /> : null}</button>; })}</div>;
 }
 
-function StatCard({ title, value }) {
-  return (
-    <article className="rounded-xl border border-neutral-800 bg-black/35 p-3">
-      <p className="text-xs text-neutral-500">{title}</p>
-      <p className="mt-1 text-sm font-semibold text-neutral-100">{value}</p>
-    </article>
-  );
+function CompactPanel({ label, type, onTypeChange, asset, onOpenSelector, amount, onAmountChange, onMax, percentages, onPercent, balanceLabel, estimatedReceive, rateLine, quoteLoading, expiresIn, quoteSide }) {
+  return <div className="rounded-2xl border border-white/8 bg-[#070d16] p-3"><div className="flex items-center justify-between gap-3"><div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</div><div className="inline-flex rounded-xl border border-white/8 bg-white/[0.03] p-1 text-xs">{["crypto", "fiat"].map((item) => <button key={item} type="button" onClick={() => onTypeChange(item)} className={`rounded-lg px-2.5 py-1 ${type === item ? "bg-white text-slate-950" : "text-slate-400"}`}>{item === "crypto" ? "Crypto" : "Fiat"}</button>)}</div></div><button type="button" onClick={onOpenSelector} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left"><div className="min-w-0"><div className="text-sm font-semibold text-white">{asset?.code || "Select"}</div><div className="truncate text-xs text-slate-500">{getAssetLabel(asset)}</div></div><ChevronDown className="h-4 w-4 text-slate-500" /></button>{quoteSide === "from" ? <><div className="mt-3 flex items-center gap-2 rounded-2xl border border-white/8 bg-[#04070d] px-3 py-3"><input value={amount} onChange={(event) => onAmountChange(event.target.value)} inputMode="decimal" placeholder="0.00" className="h-8 w-full bg-transparent text-2xl font-semibold text-white outline-none placeholder:text-slate-600" /><button type="button" onClick={onMax} className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs font-semibold text-amber-200">MAX</button></div><div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500"><span>{balanceLabel}: <span className="text-slate-300">{asset ? formatBalanceDisplay(asset) : "--"}</span></span><div className="flex gap-1">{percentages.map((percent) => <button key={percent} type="button" onClick={() => onPercent(percent)} className="rounded-lg bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300">{percent === 100 ? "MAX" : `${percent}%`}</button>)}</div></div></> : <div className="mt-3 rounded-2xl border border-white/8 bg-[#04070d] px-3 py-3"><div className="text-xs text-slate-500">Estimated receive</div><div className="mt-1 text-2xl font-semibold text-white">{estimatedReceive}</div><div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500"><span>{quoteLoading ? "Fetching best rate..." : rateLine}</span><span>{expiresIn > 0 ? `Rate expires in ${expiresIn}s` : "Indicative rate"}</span></div></div>}</div>;
+}
+function SelectorSheet({ title, assets, favorites, recentCodes, search, onSearch, onClose, onSelect, onToggleFavorite, referenceFiat }) {
+  const recent = assets.filter((item) => recentCodes.includes(item.code));
+  const favoriteAssets = assets.filter((item) => favorites.includes(item.code));
+  return <div className="fixed inset-0 z-50 flex items-end bg-black/70 p-0 lg:items-center lg:justify-center lg:p-6" onClick={onClose}><div className="w-full max-h-[88dvh] rounded-t-[24px] border border-white/10 bg-[#050b14] p-4 lg:max-w-[720px] lg:rounded-[28px]" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div><div className="text-xs uppercase tracking-[0.18em] text-slate-500">Select</div><div className="text-lg font-semibold text-white">{title}</div></div><button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-slate-300"><X className="h-4 w-4" /></button></div><div className="mt-3 rounded-2xl bg-white/[0.04] px-3 py-2"><div className="flex items-center gap-2"><Search className="h-4 w-4 text-slate-500" /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search asset or currency" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /></div></div>{favoriteAssets.length ? <Section title="Favorites">{favoriteAssets.map((item) => <SelectorRow key={item.code} item={item} favorite onSelect={onSelect} onToggleFavorite={onToggleFavorite} />)}</Section> : null}{recent.length ? <Section title="Recently used">{recent.map((item) => <SelectorRow key={item.code} item={item} favorite={favorites.includes(item.code)} onSelect={onSelect} onToggleFavorite={onToggleFavorite} />)}</Section> : null}<Section title="Available now">{assets.map((item) => <SelectorRow key={item.code} item={item} favorite={favorites.includes(item.code)} onSelect={onSelect} onToggleFavorite={onToggleFavorite} />)}</Section>{referenceFiat.length ? <Section title="Global currencies coming soon">{referenceFiat.map((item) => <button key={item.code} type="button" disabled className="flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.02] px-3 py-3 text-left opacity-60"><div><div className="text-sm font-semibold text-white">{item.code}</div><div className="text-xs text-slate-500">{item.name}</div></div><div className="text-[11px] font-medium text-slate-400">Coming soon</div></button>)}</Section> : null}</div></div>;
+}
+
+function SelectorRow({ item, favorite, onSelect, onToggleFavorite }) {
+  return <button type="button" onClick={() => onSelect(item.code)} className="flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.02] px-3 py-3 text-left hover:bg-white/[0.04]"><div className="flex min-w-0 items-center gap-3"><div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#0d1522] text-xs font-semibold text-amber-200">{getAssetBadge(item)}</div><div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{item.code}</div><div className="truncate text-xs text-slate-500">{getAssetLabel(item)}</div></div></div><div className="flex items-center gap-3"><div className="text-right text-xs text-slate-400">{formatBalanceDisplay(item)}</div><button type="button" onClick={(event) => { event.stopPropagation(); onToggleFavorite(item.code); }} className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${favorite ? "text-amber-300" : "text-slate-500"}`}><Star className={`h-4 w-4 ${favorite ? "fill-current" : ""}`} /></button></div></button>;
+}
+
+function Section({ title, children }) {
+  return <div className="mt-4"><div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">{title}</div><div className="space-y-2">{children}</div></div>;
+}
+
+function Sheet({ title, children, onClose }) {
+  return <div className="fixed inset-0 z-50 flex items-end bg-black/70 p-0 lg:items-center lg:justify-center lg:p-6" onClick={onClose}><div className="w-full max-h-[88dvh] overflow-y-auto rounded-t-[24px] border border-white/10 bg-[#050b14] p-4 lg:max-w-[520px] lg:rounded-[28px]" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><div className="text-lg font-semibold text-white">{title}</div><button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-slate-300"><X className="h-4 w-4" /></button></div><div className="mt-4">{children}</div></div></div>;
+}
+
+function SummaryRow({ label, value, emphasis = false }) {
+  return <div className="mt-2 flex items-center justify-between gap-3 first:mt-0"><span className="text-sm text-slate-400">{label}</span><span className={`text-right font-mono ${emphasis ? "text-base font-semibold text-white" : "text-sm text-white"}`}>{value}</span></div>;
+}
+
+function DetailRow({ label, value }) {
+  return <div className="flex items-center justify-between gap-4 border-b border-white/8 pb-3 last:border-none last:pb-0"><span className="text-sm text-slate-400">{label}</span><span className="text-right text-sm font-medium text-white">{value}</span></div>;
+}
+
+function HistoryRow({ item }) {
+  return <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-semibold text-white">{item.from_currency} ? {item.to_currency}</div><div className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString()}</div></div><div className="rounded-full border border-white/8 px-2 py-1 text-[11px] uppercase tracking-wide text-slate-300">{item.status}</div></div><div className="mt-2 flex items-center justify-between gap-3 text-sm"><span className="text-slate-400">{item.amount_sent} {item.from_currency}</span><span className="font-medium text-white">{item.amount_received} {item.to_currency}</span></div></div>;
+}
+
+function EmptyCard({ title, copy }) {
+  return <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center"><div className="text-sm font-semibold text-white">{title}</div><div className="mt-1 text-xs text-slate-400">{copy}</div></div>;
+}
+
+function InlineMessage({ tone, text }) {
+  const className = tone === "danger" ? "border-rose-500/20 bg-rose-500/10 text-rose-200" : "border-amber-300/20 bg-amber-300/10 text-amber-100";
+  return <div className={`mt-3 rounded-2xl border px-3 py-2 text-xs ${className}`}>{text}</div>;
 }
 
 export default Swap;
+

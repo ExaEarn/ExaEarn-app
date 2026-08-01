@@ -64,6 +64,14 @@ class RealtimeHub {
 
     this._io.to(`user:${userId}`).emit('portfolio:update', payload);
   }
+
+  publishGameFlight(payload) {
+    if (!this._io) {
+      return;
+    }
+
+    this._io.emit('game.flight', payload);
+  }
 }
 
 module.exports = new RealtimeHub();

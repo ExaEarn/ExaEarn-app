@@ -9,6 +9,7 @@ const AUTH_TOKEN_KEY = "exaearn_auth_token";
 const DEMO_USERS_KEY = "exaearn_demo_users";
 const API_UNREACHABLE_MESSAGE = "Unable to reach the API. Check that the backend is running.";
 const API_NOT_CONFIGURED_MESSAGE = "API URL is not configured. Set VITE_API_URL or /env.js to your deployed Laravel backend URL.";
+const API_TIMEOUT_MESSAGE = "The request took too long. Please try again.";
 
 function readStoredUser() {
   try {
@@ -58,6 +59,7 @@ function AuthProvider({ children }) {
   const [googleAuthError, setGoogleAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [authReady, setAuthReady] = useState(false);
 
   const apiBaseUrl = getApiBaseUrl();
   const demoAuthEnabled = isDemoAuthEnabled();
@@ -89,7 +91,6 @@ function AuthProvider({ children }) {
     }
   }, [token]);
 
-  // Initialize WebSocket connection for real-time events
   useWebSocketConnection(apiBaseUrl);
 
   const request = useCallback(
@@ -101,7 +102,7 @@ function AuthProvider({ children }) {
       }
       const requestUrl = `${normalizedBase}${normalizedPath}`;
 
-      const { headers: optionHeaders, ...restOptions } = options || {};
+      const { headers: optionHeaders, timeoutMs = 15000, signal: externalSignal, ...restOptions } = options || {};
 
       const headers = {
         Accept: "application/json",
@@ -110,21 +111,31 @@ function AuthProvider({ children }) {
         ...(optionHeaders || {}),
       };
 
-      // Avoid breaking FormData requests.
       if (restOptions.body && typeof FormData !== "undefined" && restOptions.body instanceof FormData) {
         delete headers["Content-Type"];
       }
+
+      const controller = new AbortController();
+      const abortSignal = externalSignal || controller.signal;
+      const timeoutId = timeoutMs > 0 ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
 
       let response;
       try {
         response = await fetch(requestUrl, {
           ...restOptions,
           headers,
-          credentials: 'include', // Include cookies for Sanctum session auth
+          signal: abortSignal,
+          credentials: 'include',
         });
-      } catch {
+      } catch (error) {
+        if (timeoutId) window.clearTimeout(timeoutId);
+        if (error?.name === "AbortError") {
+          throw new Error(API_TIMEOUT_MESSAGE);
+        }
         throw new Error(API_UNREACHABLE_MESSAGE);
       }
+
+      if (timeoutId) window.clearTimeout(timeoutId);
 
       let payload = {};
       try {
@@ -150,11 +161,13 @@ function AuthProvider({ children }) {
   const fetchMe = useCallback(async () => {
     if (!token) {
       setUser(null);
+      setAuthReady(true);
       return;
     }
 
     if (demoAuthEnabled && token.startsWith("demo-local-")) {
       setUser(readStoredUser());
+      setAuthReady(true);
       return;
     }
 
@@ -164,11 +177,12 @@ function AuthProvider({ children }) {
     } catch {
       setUser(null);
       setToken("");
+    } finally {
+      setAuthReady(true);
     }
   }, [demoAuthEnabled, request, token]);
 
   useEffect(() => {
-    // Hydrate user session when the app boots.
     fetchMe();
   }, [fetchMe]);
 
@@ -247,15 +261,13 @@ function AuthProvider({ children }) {
           const { password: _password, ...safeUser } = demoUser;
           setUser(safeUser);
           setToken(`demo-local-${Date.now()}`);
+          setAuthReady(true);
           return { success: true };
         }
 
         const payload = await request("/api/login", {
           method: "POST",
-          body: JSON.stringify({
-            email,
-            password,
-          }),
+          body: JSON.stringify({ email, password }),
         });
 
         const succeeded = payload.success === true || payload.status === "success";
@@ -271,9 +283,10 @@ function AuthProvider({ children }) {
         if (payload.user || payload.data?.user) {
           setUser(payload.user ?? payload.data.user);
         } else {
-          await fetchMe(); // Fetch user after successful login
+          await fetchMe();
         }
 
+        setAuthReady(true);
         return { success: true };
       } catch (error) {
         if (demoAuthEnabled && error.message === API_UNREACHABLE_MESSAGE) {
@@ -283,6 +296,7 @@ function AuthProvider({ children }) {
             const { password: _password, ...safeUser } = demoUser;
             setUser(safeUser);
             setToken(`demo-local-${Date.now()}`);
+            setAuthReady(true);
             return { success: true };
           }
         }
@@ -293,7 +307,7 @@ function AuthProvider({ children }) {
         setAuthLoading(false);
       }
     },
-    [apiBaseUrl, demoAuthEnabled, request, fetchMe]
+    [demoAuthEnabled, request, fetchMe]
   );
 
   const checkAccountAvailability = useCallback(
@@ -341,7 +355,7 @@ function AuthProvider({ children }) {
         setAuthLoading(false);
       }
     },
-    [apiBaseUrl, demoAuthEnabled, request]
+    [demoAuthEnabled, request]
   );
 
   const register = useCallback(
@@ -361,6 +375,7 @@ function AuthProvider({ children }) {
           writeDemoUsers([...demoUsers, { ...safeUser, password }]);
           setUser(safeUser);
           setToken(`demo-local-${Date.now()}`);
+          setAuthReady(true);
           return { success: true };
         }
 
@@ -388,6 +403,7 @@ function AuthProvider({ children }) {
           setUser(payload.user ?? payload.data.user);
         }
 
+        setAuthReady(true);
         return { success: true };
       } catch (error) {
         if (demoAuthEnabled && error.message === API_UNREACHABLE_MESSAGE) {
@@ -402,6 +418,7 @@ function AuthProvider({ children }) {
           writeDemoUsers([...demoUsers, { ...safeUser, password }]);
           setUser(safeUser);
           setToken(`demo-local-${Date.now()}`);
+          setAuthReady(true);
           return { success: true };
         }
 
@@ -411,7 +428,7 @@ function AuthProvider({ children }) {
         setAuthLoading(false);
       }
     },
-    [apiBaseUrl, demoAuthEnabled, request]
+    [demoAuthEnabled, request]
   );
 
   const logout = useCallback(async () => {
@@ -422,6 +439,7 @@ function AuthProvider({ children }) {
     } finally {
       setUser(null);
       setToken("");
+      setAuthReady(true);
     }
   }, [request]);
 
@@ -431,6 +449,7 @@ function AuthProvider({ children }) {
       setUser,
       token,
       setToken,
+      authReady,
       authLoading,
       authError,
       apiBaseUrl,
@@ -448,6 +467,7 @@ function AuthProvider({ children }) {
     [
       user,
       token,
+      authReady,
       authLoading,
       authError,
       apiBaseUrl,

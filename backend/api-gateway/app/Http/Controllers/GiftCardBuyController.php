@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\GiftCardInventory;
+use App\Models\GiftcardOrder;
 use App\Services\GiftCard\GiftCardBuyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Gift Card Buy Controller
@@ -18,16 +22,12 @@ class GiftCardBuyController extends Controller
 {
     public function __construct(
         private readonly GiftCardBuyService $buyService,
-    ) {
-    }
+    ) {}
 
     /**
      * POST /api/giftcard/buy
      *
      * Purchase gift cards.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function buy(Request $request): JsonResponse
     {
@@ -37,12 +37,12 @@ class GiftCardBuyController extends Controller
                 'brand' => ['required', 'string', 'lowercase'],
                 'card_value' => ['required', 'numeric', 'min:1', 'max:100000'],
                 'quantity' => ['required', 'integer', 'min:1', 'max:100'],
-                'currency' => ['required', 'string', 'uppercase'],
-                'payment_wallet_currency' => ['nullable', 'string', 'uppercase'],
+                'currency' => ['required', 'string', 'uppercase', 'max:8', Rule::in($this->supportedCurrencies())],
+                'payment_wallet_currency' => ['nullable', 'string', 'uppercase', 'max:8', Rule::in($this->supportedCurrencies())],
             ]);
 
             $user = auth()->user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized',
@@ -70,7 +70,7 @@ class GiftCardBuyController extends Controller
             ]);
 
             return response()->json($result, $result['success'] ? 200 : 400);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -93,15 +93,12 @@ class GiftCardBuyController extends Controller
      * GET /api/giftcard/orders
      *
      * Get user's purchase orders.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function getOrders(Request $request): JsonResponse
     {
         $user = auth()->user();
 
-        $orders = \App\Models\GiftcardOrder::query()
+        $orders = GiftcardOrder::query()
             ->where('user_id', $user->id)
             ->where('type', 'buy')
             ->orderBy('created_at', 'desc')
@@ -122,15 +119,12 @@ class GiftCardBuyController extends Controller
      * GET /api/giftcard/orders/:id
      *
      * Get specific order details.
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function getOrder(int $id): JsonResponse
     {
         $user = auth()->user();
 
-        $order = \App\Models\GiftcardOrder::query()
+        $order = GiftcardOrder::query()
             ->where('id', $id)
             ->where('user_id', $user->id)
             ->where('type', 'buy')
@@ -154,15 +148,12 @@ class GiftCardBuyController extends Controller
      * GET /api/giftcard/orders/:id/cards
      *
      * Get delivered cards from order (masked view).
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function getOrderCards(int $id): JsonResponse
     {
         $user = auth()->user();
 
-        $order = \App\Models\GiftcardOrder::query()
+        $order = GiftcardOrder::query()
             ->where('id', $id)
             ->where('user_id', $user->id)
             ->where('type', 'buy')
@@ -171,7 +162,7 @@ class GiftCardBuyController extends Controller
 
         $cardIds = $order->metadata['card_ids_delivered'] ?? [];
 
-        $cards = \App\Models\GiftCardInventory::query()
+        $cards = GiftCardInventory::query()
             ->whereIn('id', $cardIds)
             ->where('sold_to_user_id', $user->id)
             ->get()
@@ -188,5 +179,13 @@ class GiftCardBuyController extends Controller
             'card_count' => count($cardIds),
             'cards' => $cards,
         ]);
+    }
+
+    private function supportedCurrencies(): array
+    {
+        return array_values(array_unique(array_map(
+            static fn (mixed $currency): string => strtoupper((string) $currency),
+            (array) config('giftcard.supported_currencies', ['USD', 'EUR', 'GBP', 'NGN', 'ZAR'])
+        )));
     }
 }

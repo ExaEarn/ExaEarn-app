@@ -1,318 +1,443 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\TransactionType;
-use App\Jobs\CalculateRewardJob;
-use App\Models\StakingPool;
-use App\Models\StakingReward;
-use App\Models\UserStake;
-use Illuminate\Support\Collection;
+use App\Domain\Staking\Services\StakingLedgerService;
+use App\Domain\Staking\Services\StakingProviderRegistry;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class StakingService
 {
-    private const SCALE = 8;
+    private const SCALE = 18;
 
     public function __construct(
-        private readonly BlockchainService $blockchain,
-        private readonly TransactionService $transactions,
-        private readonly ReferralService $referrals,
-    ) {
-    }
+        private readonly LedgerService $ledger,
+        private readonly StakingProviderRegistry $providers,
+        private readonly StakingLedgerService $stakingLedger,
+    ) {}
 
-    public function listPools(): Collection
+    public function listAssets(): array
     {
-        return StakingPool::query()->orderBy('lock_period')->get();
-    }
-
-    public function userStakes(int $userId): Collection
-    {
-        return UserStake::query()
-            ->with('pool')
-            ->where('user_id', $userId)
-            ->latest()
+        return DB::table('staking_assets')
+            ->whereNotIn('symbol', config('staking.excluded_native_pos_assets', []))
+            ->orderBy('symbol')
             ->get()
-            ->map(function (UserStake $stake) {
-                $this->syncStakeRewards($stake);
-                $stake->refresh();
-
-                return [
-                    'id' => $stake->id,
-                    'pool' => $stake->pool,
-                    'amount' => (string) $stake->amount,
-                    'compounded_amount' => (string) $stake->compounded_amount,
-                    'pending_reward' => $this->calculatePendingReward($stake),
-                    'lock_start' => $stake->lock_start,
-                    'lock_end' => $stake->lock_end,
-                    'auto_compound' => $stake->auto_compound,
-                    'status' => $stake->status,
-                    'tx_hash' => $stake->tx_hash,
-                    'unstake_tx_hash' => $stake->unstake_tx_hash,
-                ];
-            });
+            ->map(fn ($asset) => $this->withProviderHealth((array) $asset))
+            ->all();
     }
 
-    public function createPool(array $payload): StakingPool
+    public function listProducts(): array
     {
-        return StakingPool::query()->create([
-            'asset' => strtoupper((string) $payload['asset']),
-            'reward_token' => strtoupper((string) ($payload['reward_token'] ?? config('staking.reward_token'))),
-            'contract_pool_id' => $payload['contract_pool_id'] ?? null,
-            'lock_period' => (int) $payload['lock_period'],
-            'reward_rate' => (string) $payload['reward_rate'],
-            'reward_multiplier' => (string) ($payload['reward_multiplier'] ?? '1'),
-            'pool_size' => (string) $payload['pool_size'],
-            'total_staked' => '0',
-            'status' => $payload['status'] ?? 'active',
-            'metadata' => $payload['metadata'] ?? null,
-        ]);
+        return DB::table('staking_products')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_products.staking_asset_id')
+            ->whereNotIn('staking_assets.symbol', config('staking.excluded_native_pos_assets', []))
+            ->select('staking_products.*', 'staking_assets.symbol', 'staking_assets.network')
+            ->orderBy('staking_assets.symbol')
+            ->get()
+            ->map(fn ($product) => (array) $product)
+            ->all();
     }
 
-    public function stake(int $userId, int $poolId, string $amount, bool $autoCompound = false): array
+    public function productBySlug(string $slug): array
     {
-        $pool = StakingPool::query()->findOrFail($poolId);
-        if ($pool->status !== 'active') {
-            throw new RuntimeException('Staking pool is not active.');
+        $product = DB::table('staking_products')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_products.staking_asset_id')
+            ->where('staking_products.slug', $slug)
+            ->whereNotIn('staking_assets.symbol', config('staking.excluded_native_pos_assets', []))
+            ->select('staking_products.*', 'staking_assets.symbol', 'staking_assets.network')
+            ->first();
+
+        if (! $product) {
+            throw new RuntimeException('Staking product not found.');
         }
 
-        if ($this->compare($this->add((string) $pool->total_staked, $amount), (string) $pool->pool_size) > 0) {
-            throw new RuntimeException('Staking pool allocation exceeded.');
-        }
+        return (array) $product;
+    }
 
-        $result = DB::transaction(function () use ($userId, $pool, $amount, $autoCompound) {
-            $transaction = $this->transactions->recordLockedOperation(
-                $userId,
-                TransactionType::StakingLock,
-                (string) $pool->asset,
-                $amount,
-                "stake:pool:{$pool->id}",
-                ['pool_id' => $pool->id, 'auto_compound' => $autoCompound]
+    public function userPortfolio(int $userId): array
+    {
+        $rows = DB::table('staking_positions')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_positions.staking_asset_id')
+            ->where('staking_positions.user_id', $userId)
+            ->selectRaw('staking_assets.symbol,
+                SUM(principal_amount) as principal,
+                SUM(pending_stake_amount) as pending_stake,
+                SUM(active_principal_amount) as active_stake,
+                SUM(pending_unstake_amount) as pending_unstake,
+                SUM(total_native_gross_rewards) as native_gross_rewards,
+                SUM(total_native_validator_fees) as validator_fees,
+                SUM(total_native_network_fees) as network_fees,
+                SUM(total_native_platform_fees) as platform_commission,
+                SUM(total_native_net_rewards - claimed_native_rewards) as claimable_native_rewards,
+                SUM(total_exatoken_bonus_rewards - claimed_exatoken_rewards) as claimable_exatoken')
+            ->groupBy('staking_assets.symbol')
+            ->get();
+
+        return $rows->map(fn ($row) => (array) $row)->all();
+    }
+
+    public function userPositions(int $userId): array
+    {
+        return DB::table('staking_positions')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_positions.staking_asset_id')
+            ->join('staking_products', 'staking_products.id', '=', 'staking_positions.staking_product_id')
+            ->where('staking_positions.user_id', $userId)
+            ->select('staking_positions.*', 'staking_assets.symbol', 'staking_assets.network', 'staking_products.name as product_name')
+            ->latest('staking_positions.created_at')
+            ->get()
+            ->map(fn ($position) => (array) $position)
+            ->all();
+    }
+
+    public function createPosition(int $userId, array $payload): array
+    {
+        return DB::transaction(function () use ($userId, $payload): array {
+            $product = DB::table('staking_products')
+                ->join('staking_assets', 'staking_assets.id', '=', 'staking_products.staking_asset_id')
+                ->where('staking_products.id', (int) $payload['staking_product_id'])
+                ->select('staking_products.*', 'staking_assets.symbol', 'staking_assets.network', 'staking_assets.readiness_status', 'staking_assets.native_staking_enabled', 'staking_assets.new_positions_enabled', 'staking_assets.emergency_paused')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $product) {
+                throw new RuntimeException('Staking product not found.');
+            }
+
+            $symbol = strtoupper((string) $product->symbol);
+            if (in_array($symbol, config('staking.excluded_native_pos_assets', []), true)) {
+                throw new RuntimeException("{$symbol} is not available for Native PoS Staking.");
+            }
+
+            if ($product->status !== 'active' || ! $product->native_staking_enabled || ! $product->new_positions_enabled || $product->emergency_paused) {
+                throw new RuntimeException('This staking product is not accepting positions.');
+            }
+
+            if (! in_array($product->readiness_status, ['testnet', 'integration_testing', 'internal_testing', 'limited_release', 'production'], true)) {
+                throw new RuntimeException('The staking provider has not passed readiness checks.');
+            }
+
+            $amount = $this->normalizeAmount((string) $payload['amount']);
+            $this->assertAmountRules($amount, (string) $product->minimum_amount, $product->maximum_amount ? (string) $product->maximum_amount : null);
+
+            $providerHealth = $this->providers->forSymbol($symbol)->healthCheck();
+            if (($providerHealth['ready'] ?? false) !== true) {
+                throw new RuntimeException('The staking provider is not healthy: '.($providerHealth['status'] ?? 'unknown'));
+            }
+
+            $available = $this->ledger->getBalance($userId, $symbol, 'funding');
+            if ($this->compare($available, $amount) < 0) {
+                throw new RuntimeException('Insufficient available balance.');
+            }
+
+            $idempotencyKey = (string) $payload['idempotency_key'];
+            $existing = DB::table('staking_positions')->where('user_id', $userId)->where('idempotency_key', $idempotencyKey)->first();
+            if ($existing) {
+                return (array) $existing;
+            }
+
+            $funding = $this->ledger->getOrCreateAccount($userId, 'funding', $symbol);
+            $pending = $this->ledger->getOrCreateAccount($userId, 'staking_pending', $symbol);
+            $ledgerTx = $this->ledger->postDoubleEntry(
+                "staking:reserve:{$userId}:{$idempotencyKey}",
+                'Reserve principal for staking',
+                [
+                    ['account_id' => $funding->id, 'amount' => $this->sub('0', $amount), 'asset' => $symbol, 'user_id' => $userId],
+                    ['account_id' => $pending->id, 'amount' => $amount, 'asset' => $symbol, 'user_id' => $userId],
+                ],
+                'staking_reservation',
+                ['staking_product_id' => $product->id]
             );
 
-            $stake = UserStake::query()->create([
+            $publicId = (string) Str::uuid();
+            $positionId = DB::table('staking_positions')->insertGetId([
+                'public_id' => $publicId,
                 'user_id' => $userId,
-                'pool_id' => $pool->id,
-                'amount' => $amount,
-                'compounded_amount' => '0',
-                'lock_start' => now(),
-                'lock_end' => now()->addSeconds($pool->lock_period),
-                'last_reward_at' => now(),
-                'auto_compound' => $autoCompound,
-                'status' => 'active',
-                'metadata' => ['transaction_id' => $transaction->transaction_id],
+                'staking_product_id' => $product->id,
+                'staking_asset_id' => $product->staking_asset_id,
+                'principal_amount' => $amount,
+                'pending_stake_amount' => $amount,
+                'status' => 'pending',
+                'auto_compound_enabled' => (bool) ($payload['auto_compound'] ?? false),
+                'opened_at' => now(),
+                'terms_version' => (string) $payload['terms_version'],
+                'source' => 'api',
+                'idempotency_key' => $idempotencyKey,
+                'metadata' => json_encode(['ledger_transaction_id' => $ledgerTx->id]),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
-            $onChain = $this->blockchain->stakeIntoPool(
-                $userId,
-                (int) ($pool->contract_pool_id ?? $pool->id),
-                $amount,
-                $autoCompound
-            );
+            DB::table('staking_transactions')->insert([
+                'public_id' => (string) Str::uuid(),
+                'user_id' => $userId,
+                'staking_position_id' => $positionId,
+                'staking_asset_id' => $product->staking_asset_id,
+                'transaction_type' => 'stake_reservation',
+                'amount' => $amount,
+                'fee_amount' => '0',
+                'net_amount' => $amount,
+                'ledger_transaction_id' => $ledgerTx->id,
+                'status' => 'completed',
+                'idempotency_key' => "staking_tx:reserve:{$userId}:{$idempotencyKey}",
+                'processed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-            $stake->tx_hash = $onChain['tx_hash'] ?? null;
-            $stake->save();
-
-            $pool->total_staked = $this->add((string) $pool->total_staked, $amount);
-            $pool->save();
-
-            return ['stake' => $stake->fresh('pool'), 'blockchain' => $onChain];
+            return (array) DB::table('staking_positions')->where('id', $positionId)->first();
         });
-
-        $this->referrals->queueQualifiedActivity($userId, 'staking_participation', [
-            'event_key' => 'stake:' . $result['stake']->id,
-            'stake_id' => $result['stake']->id,
-            'ip_address' => request()?->ip(),
-        ]);
-
-        CalculateRewardJob::dispatch($userId, 'staking_participation', $amount, [
-            'activity_key' => 'stake:' . $result['stake']->id,
-            'stake_id' => $result['stake']->id,
-            'ip_address' => request()?->ip(),
-        ])->onQueue('rewards');
-
-        return $result;
     }
 
-    public function syncStakeRewards(UserStake $stake): ?StakingReward
+    public function requestUnstake(int $userId, string $publicId, array $payload): array
     {
-        $stake->loadMissing('pool');
-        if ($stake->status !== 'active') {
-            return null;
-        }
+        return DB::transaction(function () use ($userId, $publicId, $payload): array {
+            $position = DB::table('staking_positions')
+                ->join('staking_assets', 'staking_assets.id', '=', 'staking_positions.staking_asset_id')
+                ->where('staking_positions.user_id', $userId)
+                ->where('staking_positions.public_id', $publicId)
+                ->select('staking_positions.*', 'staking_assets.symbol', 'staking_assets.unstaking_enabled', 'staking_assets.emergency_paused')
+                ->lockForUpdate()
+                ->first();
 
-        $rewardAmount = $this->calculatePendingReward($stake);
-        if ($this->compare($rewardAmount, (string) config('staking.min_reward_payout', '0.00000001')) < 0) {
-            return null;
-        }
+            if (! $position) {
+                throw new RuntimeException('Staking position not found.');
+            }
+            if ($position->status !== 'active') {
+                throw new RuntimeException('Only active positions can be unstaked.');
+            }
+            if (! $position->unstaking_enabled || $position->emergency_paused) {
+                throw new RuntimeException('Unstaking is paused for this network.');
+            }
 
-        $reward = StakingReward::query()->create([
-            'user_id' => $stake->user_id,
-            'stake_id' => $stake->id,
-            'reward_amount' => $rewardAmount,
-            'reward_token' => (string) $stake->pool->reward_token,
-            'claimed' => false,
-            'metadata' => ['generated_at' => now()->toISOString()],
-        ]);
+            $amount = $this->normalizeAmount((string) ($payload['amount'] ?? $position->active_principal_amount));
+            if ($this->compare($amount, '0') <= 0 || $this->compare($amount, (string) $position->active_principal_amount) > 0) {
+                throw new RuntimeException('Invalid unstake amount.');
+            }
 
-        $stake->last_reward_at = now();
-        $stake->save();
+            $idempotencyKey = (string) $payload['idempotency_key'];
+            $existing = DB::table('staking_unstake_requests')->where('user_id', $userId)->where('idempotency_key', $idempotencyKey)->first();
+            if ($existing) {
+                return (array) $existing;
+            }
 
-        if ($stake->auto_compound) {
-            $this->compoundStakeRewards($stake->user_id, $stake->id, false);
-            $stake->refresh();
-        }
+            $this->stakingLedger->reserveActivePrincipalForUnstaking((int) $position->id, $amount, $idempotencyKey);
 
-        return $reward;
+            $requestId = DB::table('staking_unstake_requests')->insertGetId([
+                'public_id' => (string) Str::uuid(),
+                'staking_position_id' => $position->id,
+                'user_id' => $userId,
+                'requested_amount' => $amount,
+                'status' => 'pending',
+                'requested_at' => now(),
+                'idempotency_key' => $idempotencyKey,
+                'metadata' => json_encode(['release_requires_network_confirmation' => true]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $pendingUnstakeAmount = $this->add((string) $position->pending_unstake_amount, $amount);
+            $activePrincipalAmount = $this->sub((string) $position->active_principal_amount, $amount);
+            DB::table('staking_positions')->where('id', $position->id)->update([
+                'pending_unstake_amount' => $pendingUnstakeAmount,
+                'active_principal_amount' => $activePrincipalAmount,
+                'status' => $this->compare($activePrincipalAmount, '0') <= 0 ? 'unstaking' : 'partial_unstake_pending',
+                'unstaking_requested_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return (array) DB::table('staking_unstake_requests')->where('id', $requestId)->first();
+        });
     }
 
-    public function claimStakeRewards(int $userId, int $stakeId): array
+    public function acceptTerms(int $userId, string $termsVersion, array $metadata = []): void
     {
-        $stake = UserStake::query()->with('pool')->where('user_id', $userId)->findOrFail($stakeId);
-        $this->syncStakeRewards($stake);
-        $rewards = StakingReward::query()
-            ->where('stake_id', $stake->id)
-            ->where('claimed', false)
-            ->get();
-
-        $total = $rewards->reduce(fn (string $carry, StakingReward $reward) => $this->add($carry, (string) $reward->reward_amount), '0');
-        if ($this->compare($total, '0') <= 0) {
-            throw new RuntimeException('No claimable staking rewards available.');
-        }
-
-        $blockchain = $this->blockchain->claimStakingRewards($userId, (int) ($stake->pool->contract_pool_id ?? $stake->pool->id));
-        $transaction = $this->transactions->recordReward(
-            $userId,
-            TransactionType::StakingReward,
-            (string) $stake->pool->reward_token,
-            $total,
-            "stake_reward:{$stake->id}",
-            ['stake_id' => $stake->id, 'tx_hash' => $blockchain['tx_hash'] ?? null]
+        DB::table('staking_terms_acceptances')->updateOrInsert(
+            ['user_id' => $userId, 'terms_version' => $termsVersion],
+            ['status' => 'accepted', 'metadata' => json_encode($metadata), 'updated_at' => now(), 'created_at' => now()]
         );
-
-        foreach ($rewards as $reward) {
-            $reward->claimed = true;
-            $reward->claimed_at = now();
-            $reward->tx_hash = $blockchain['tx_hash'] ?? null;
-            $reward->metadata = array_merge($reward->metadata ?? [], ['transaction_id' => $transaction->transaction_id]);
-            $reward->save();
-        }
-
-        return ['amount' => $total, 'transaction' => $transaction, 'blockchain' => $blockchain];
     }
 
-    public function compoundStakeRewards(int $userId, int $stakeId, bool $syncFirst = true): array
+    public function terms(): array
     {
-        $stake = UserStake::query()->with('pool')->where('user_id', $userId)->findOrFail($stakeId);
-        if ($syncFirst) {
-            $this->syncStakeRewards($stake);
-        }
-
-        $rewards = StakingReward::query()
-            ->where('stake_id', $stake->id)
-            ->where('claimed', false)
-            ->get();
-
-        $total = $rewards->reduce(fn (string $carry, StakingReward $reward) => $this->add($carry, (string) $reward->reward_amount), '0');
-        if ($this->compare($total, '0') <= 0) {
-            throw new RuntimeException('No rewards available to compound.');
-        }
-
-        $blockchain = $this->blockchain->compoundStakingRewards($userId, (int) ($stake->pool->contract_pool_id ?? $stake->pool->id));
-
-        $stake->compounded_amount = $this->add((string) $stake->compounded_amount, $total);
-        $stake->auto_compound = true;
-        $stake->save();
-
-        foreach ($rewards as $reward) {
-            $reward->claimed = true;
-            $reward->claimed_at = now();
-            $reward->tx_hash = $blockchain['tx_hash'] ?? null;
-            $reward->metadata = array_merge($reward->metadata ?? [], ['compounded' => true]);
-            $reward->save();
-        }
-
-        return ['amount' => $total, 'stake' => $stake->fresh(), 'blockchain' => $blockchain];
+        return [
+            'terms_version' => 'staking-v1',
+            'native_rewards_source' => 'verified blockchain or approved provider settlements only',
+            'excluded_native_pos_assets' => config('staking.excluded_native_pos_assets'),
+            'mainnet_activation' => 'dual-admin approval required per network',
+        ];
     }
 
-    public function unstake(int $userId, int $stakeId, ?string $amount = null): array
+    public function userRewards(int $userId): array
     {
-        $stake = UserStake::query()->with('pool')->where('user_id', $userId)->findOrFail($stakeId);
-        if ($stake->status !== 'active') {
-            throw new RuntimeException('Stake is not active.');
-        }
-        if (now()->lt($stake->lock_end)) {
-            throw new RuntimeException('Stake is still locked.');
-        }
-
-        $unstakeAmount = $amount ?? (string) $stake->amount;
-        if ($this->compare($unstakeAmount, '0') <= 0 || $this->compare($unstakeAmount, (string) $stake->amount) > 0) {
-            throw new RuntimeException('Invalid unstake amount.');
-        }
-
-        $this->syncStakeRewards($stake);
-        $blockchain = $this->blockchain->unstakeFromPool($userId, (int) ($stake->pool->contract_pool_id ?? $stake->pool->id), $unstakeAmount);
-
-        $this->transactions->releaseLockedFunds(
-            $userId,
-            TransactionType::StakingUnlock,
-            (string) $stake->pool->asset,
-            $unstakeAmount,
-            "unstake:{$stake->id}",
-            ['stake_id' => $stake->id, 'tx_hash' => $blockchain['tx_hash'] ?? null]
-        );
-
-        $claimableCompounded = (string) $stake->compounded_amount;
-        if ($this->compare($claimableCompounded, '0') > 0) {
-            $this->transactions->recordReward(
-                $userId,
-                TransactionType::StakingReward,
-                (string) $stake->pool->reward_token,
-                $claimableCompounded,
-                "stake_compound_release:{$stake->id}",
-                ['stake_id' => $stake->id, 'tx_hash' => $blockchain['tx_hash'] ?? null]
-            );
-        }
-
-        $stake->amount = $this->sub((string) $stake->amount, $unstakeAmount);
-        $stake->compounded_amount = '0';
-        $stake->unstake_tx_hash = $blockchain['tx_hash'] ?? null;
-        $stake->status = $this->compare((string) $stake->amount, '0') <= 0 ? 'completed' : 'active';
-        $stake->save();
-
-        $stake->pool->total_staked = $this->sub((string) $stake->pool->total_staked, $unstakeAmount);
-        $stake->pool->save();
-
-        return ['stake' => $stake->fresh('pool'), 'blockchain' => $blockchain];
+        return DB::table('staking_reward_allocations')
+            ->join('staking_reward_batches', 'staking_reward_batches.id', '=', 'staking_reward_allocations.staking_reward_batch_id')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_reward_batches.staking_asset_id')
+            ->where('staking_reward_allocations.user_id', $userId)
+            ->select('staking_reward_allocations.*', 'staking_assets.symbol', 'staking_reward_batches.period_start', 'staking_reward_batches.period_end')
+            ->latest('staking_reward_allocations.id')
+            ->limit(100)
+            ->get()
+            ->map(fn ($reward) => (array) $reward)
+            ->all();
     }
 
-    public function calculatePendingReward(UserStake $stake): string
+    public function userTransactions(int $userId): array
     {
-        $stake->loadMissing('pool');
-        if ($stake->status !== 'active') {
-            return '0';
-        }
-
-        $lastRewardAt = $stake->last_reward_at ?? $stake->lock_start;
-        $elapsed = max(0, now()->timestamp - $lastRewardAt->timestamp);
-        if ($elapsed === 0) {
-            return '0';
-        }
-
-        $effectiveStake = $this->add((string) $stake->amount, (string) $stake->compounded_amount);
-        $baseReward = $this->mul($effectiveStake, (string) $stake->pool->reward_rate);
-        $annualized = $this->div($baseReward, '100');
-        $withMultiplier = $this->mul($annualized, (string) $stake->pool->reward_multiplier);
-        $perSecond = $this->div($withMultiplier, (string) config('staking.seconds_per_year', 31536000));
-
-        return $this->mul($perSecond, (string) $elapsed);
+        return DB::table('staking_transactions')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_transactions.staking_asset_id')
+            ->where('staking_transactions.user_id', $userId)
+            ->select('staking_transactions.*', 'staking_assets.symbol')
+            ->latest('staking_transactions.id')
+            ->limit(100)
+            ->get()
+            ->map(fn ($transaction) => (array) $transaction)
+            ->all();
     }
 
-    private function add(string $a, string $b): string
+    public function apyHistory(): array
     {
-        return function_exists('bcadd') ? bcadd($a, $b, self::SCALE) : number_format((float) $a + (float) $b, self::SCALE, '.', '');
+        return DB::table('staking_apy_history')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_apy_history.staking_asset_id')
+            ->whereNotIn('staking_assets.symbol', config('staking.excluded_native_pos_assets', []))
+            ->select('staking_apy_history.*', 'staking_assets.symbol', DB::raw('staking_apy_history.created_at as recorded_at'))
+            ->latest('staking_apy_history.created_at')
+            ->limit(250)
+            ->get()
+            ->map(fn ($row) => (array) $row)
+            ->all();
+    }
+
+    public function exaTokenCampaigns(): array
+    {
+        return DB::table('exatoken_staking_campaigns')
+            ->whereIn('status', ['active', 'scheduled'])
+            ->orderByDesc('starts_at')
+            ->get()
+            ->map(fn ($campaign) => (array) $campaign)
+            ->all();
+    }
+
+    public function networkStatuses(): array
+    {
+        return DB::table('staking_network_statuses')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_network_statuses.staking_asset_id')
+            ->whereNotIn('staking_assets.symbol', config('staking.excluded_native_pos_assets', []))
+            ->select('staking_network_statuses.*', 'staking_assets.symbol', 'staking_assets.network', DB::raw('staking_network_statuses.created_at as checked_at'))
+            ->latest('staking_network_statuses.created_at')
+            ->limit(100)
+            ->get()
+            ->map(fn ($status) => (array) $status)
+            ->all();
+    }
+
+    public function unbondingEstimates(): array
+    {
+        return DB::table('staking_assets')
+            ->whereNotIn('symbol', config('staking.excluded_native_pos_assets', []))
+            ->select('symbol', 'network', 'unbonding_period_seconds', 'expected_activation_seconds', 'supports_partial_unstaking', 'metadata')
+            ->orderBy('symbol')
+            ->get()
+            ->map(fn ($asset) => (array) $asset)
+            ->all();
+    }
+
+    public function claimNativeRewards(int $userId, string $publicId): array
+    {
+        $position = DB::table('staking_positions')
+            ->where('user_id', $userId)
+            ->where('public_id', $publicId)
+            ->first();
+
+        if (! $position) {
+            throw new RuntimeException('Staking position not found.');
+        }
+
+        $claimable = $this->sub((string) $position->total_native_net_rewards, (string) $position->claimed_native_rewards);
+        if ($this->compare($claimable, '0') <= 0) {
+            throw new RuntimeException('No verified native staking rewards are currently claimable.');
+        }
+
+        throw new RuntimeException('Native reward claiming requires a reconciled reward allocation and ledger distribution job.');
+    }
+
+    public function claimExaTokenRewards(int $userId, string $publicId): array
+    {
+        $position = DB::table('staking_positions')
+            ->where('user_id', $userId)
+            ->where('public_id', $publicId)
+            ->first();
+
+        if (! $position) {
+            throw new RuntimeException('Staking position not found.');
+        }
+
+        $claimable = $this->sub((string) $position->total_exatoken_bonus_rewards, (string) $position->claimed_exatoken_rewards);
+        if ($this->compare($claimable, '0') <= 0) {
+            throw new RuntimeException('No funded ExaToken staking bonuses are currently claimable.');
+        }
+
+        throw new RuntimeException('ExaToken bonus claiming requires a funded reserve allocation and ledger distribution job.');
+    }
+
+    public function updateAutoCompound(int $userId, string $publicId, bool $enabled): array
+    {
+        return DB::transaction(function () use ($userId, $publicId, $enabled): array {
+            $position = DB::table('staking_positions')
+                ->join('staking_products', 'staking_products.id', '=', 'staking_positions.staking_product_id')
+                ->where('staking_positions.user_id', $userId)
+                ->where('staking_positions.public_id', $publicId)
+                ->select('staking_positions.*', 'staking_products.auto_compound_supported')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $position) {
+                throw new RuntimeException('Staking position not found.');
+            }
+            if (! $position->auto_compound_supported && $enabled) {
+                throw new RuntimeException('Auto-compounding is not supported for this staking product.');
+            }
+
+            DB::table('staking_positions')->where('id', $position->id)->update([
+                'auto_compound_enabled' => $enabled,
+                'updated_at' => now(),
+            ]);
+
+            return (array) DB::table('staking_positions')->where('id', $position->id)->first();
+        });
+    }
+
+    private function withProviderHealth(array $asset): array
+    {
+        try {
+            $asset['provider_health'] = $this->providers->forSymbol((string) $asset['symbol'])->healthCheck();
+        } catch (\Throwable $exception) {
+            $asset['provider_health'] = ['ready' => false, 'status' => 'provider_missing', 'message' => $exception->getMessage()];
+        }
+
+        return $asset;
+    }
+
+    private function assertAmountRules(string $amount, string $minimum, ?string $maximum): void
+    {
+        if ($this->compare($amount, $minimum) < 0) {
+            throw new RuntimeException('Amount is below the product minimum.');
+        }
+        if ($maximum !== null && $this->compare($amount, $maximum) > 0) {
+            throw new RuntimeException('Amount exceeds the product maximum.');
+        }
+    }
+
+    private function normalizeAmount(string $amount): string
+    {
+        if (! is_numeric($amount)) {
+            throw new RuntimeException('Invalid amount.');
+        }
+
+        return function_exists('bcadd') ? bcadd($amount, '0', self::SCALE) : number_format((float) $amount, self::SCALE, '.', '');
     }
 
     private function sub(string $a, string $b): string
@@ -320,18 +445,9 @@ class StakingService
         return function_exists('bcsub') ? bcsub($a, $b, self::SCALE) : number_format((float) $a - (float) $b, self::SCALE, '.', '');
     }
 
-    private function mul(string $a, string $b): string
+    private function add(string $a, string $b): string
     {
-        return function_exists('bcmul') ? bcmul($a, $b, self::SCALE) : number_format((float) $a * (float) $b, self::SCALE, '.', '');
-    }
-
-    private function div(string $a, string $b): string
-    {
-        if ($this->compare($b, '0') === 0) {
-            throw new RuntimeException('Division by zero.');
-        }
-
-        return function_exists('bcdiv') ? bcdiv($a, $b, self::SCALE) : number_format((float) $a / (float) $b, self::SCALE, '.', '');
+        return function_exists('bcadd') ? bcadd($a, $b, self::SCALE) : number_format((float) $a + (float) $b, self::SCALE, '.', '');
     }
 
     private function compare(string $a, string $b): int
@@ -340,8 +456,7 @@ class StakingService
             return bccomp($a, $b, self::SCALE);
         }
 
-        $fa = (float) $a;
-        $fb = (float) $b;
-        return $fa < $fb ? -1 : ($fa > $fb ? 1 : 0);
+        return (float) $a <=> (float) $b;
     }
 }
+

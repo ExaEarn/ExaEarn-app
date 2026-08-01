@@ -8,7 +8,6 @@ const contractInteractionService = require('../services/contractInteractionServi
 const marketStreamHub = require('../services/marketStreamHub');
 const marketStreamSubscriber = require('../services/marketStreamSubscriber');
 const p2pChatHub = require('../services/p2pChatHub');
-const stakingContractService = require('../services/stakingContractService');
 const rewardDistributorService = require('../services/rewardDistributorService');
 const agriContractService = require('../services/agriContractService');
 const fraudDetectionService = require('../services/fraudDetectionService');
@@ -234,65 +233,6 @@ class BlockchainController {
     }
   }
 
-  async stake(req, res) {
-    try {
-      const result = await stakingContractService.stake({
-        userId: Number(req.body.user_id),
-        poolId: Number(req.body.pool_id),
-        amount: parseRequiredString(String(req.body.amount ?? ''), 'amount'),
-        autoCompound: Boolean(req.body.auto_compound),
-      });
-
-      return res.status(201).json(result);
-    } catch (error) {
-      logger.error('Staking request failed', { error: error.message, body: req.body });
-      return res.status(422).json({ error: error.message });
-    }
-  }
-
-  async claimStakingReward(req, res) {
-    try {
-      const result = await stakingContractService.claim({
-        userId: Number(req.body.user_id),
-        poolId: Number(req.body.pool_id),
-      });
-
-      return res.status(201).json(result);
-    } catch (error) {
-      logger.error('Claim staking reward failed', { error: error.message, body: req.body });
-      return res.status(422).json({ error: error.message });
-    }
-  }
-
-  async compoundStakingReward(req, res) {
-    try {
-      const result = await stakingContractService.compound({
-        userId: Number(req.body.user_id),
-        poolId: Number(req.body.pool_id),
-      });
-
-      return res.status(201).json(result);
-    } catch (error) {
-      logger.error('Compound staking reward failed', { error: error.message, body: req.body });
-      return res.status(422).json({ error: error.message });
-    }
-  }
-
-  async unstake(req, res) {
-    try {
-      const result = await stakingContractService.unstake({
-        userId: Number(req.body.user_id),
-        poolId: Number(req.body.pool_id),
-        amount: parseRequiredString(String(req.body.amount ?? ''), 'amount'),
-      });
-
-      return res.status(201).json(result);
-    } catch (error) {
-      logger.error('Unstake request failed', { error: error.message, body: req.body });
-      return res.status(422).json({ error: error.message });
-    }
-  }
-
   async monitorXrpDeposits(req, res) {
     try {
       const result = await xrpBridgeService.monitorDeposits();
@@ -351,21 +291,6 @@ class BlockchainController {
       return res.status(201).json(result);
     } catch (error) {
       logger.error('XRP release failed', { error: error.message, body: req.body });
-      return res.status(422).json({ error: error.message });
-    }
-  }
-
-  async unstakeRelease(req, res) {
-    try {
-      const result = await xrpBridgeService.processUnstakeRelease({
-        userId: parseRequiredString(String(req.body.user_id ?? ''), 'user_id'),
-        userAddress: parseRequiredString(req.body.user_address, 'user_address'),
-        amount: parseRequiredString(String(req.body.amount ?? ''), 'amount'),
-      });
-
-      return res.status(201).json(result);
-    } catch (error) {
-      logger.error('XRP unstake release flow failed', { error: error.message, body: req.body });
       return res.status(422).json({ error: error.message });
     }
   }

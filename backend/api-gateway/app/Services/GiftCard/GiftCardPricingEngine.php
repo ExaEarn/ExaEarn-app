@@ -18,17 +18,11 @@ class GiftCardPricingEngine
      * Get sell rate for a brand.
      * Users receive this rate when selling cards to the platform.
      *
-     * @param string $brand
-     * @param string $currency
      * @return array{rate: float, min_value: int, max_value: int}
      */
     public function getSellRate(string $brand, string $currency = 'USD'): array
     {
-        $rate = GiftCardRate::query()
-            ->where('brand', strtolower($brand))
-            ->where('currency', strtoupper($currency))
-            ->active()
-            ->firstOrFail();
+        $rate = $this->resolveRate($brand, $currency);
 
         return [
             'rate' => (float) $rate->rate,
@@ -41,18 +35,11 @@ class GiftCardPricingEngine
      * Get buy price for a gift card.
      * Platform calculates the cost to the user based on card value and markup.
      *
-     * @param string $brand
-     * @param float $cardValue
-     * @param string $currency
      * @return array{card_value: float, buy_price: float, markup_rate: float}
      */
     public function getBuyPrice(string $brand, float $cardValue, string $currency = 'USD'): array
     {
-        $rate = GiftCardRate::query()
-            ->where('brand', strtolower($brand))
-            ->where('currency', strtoupper($currency))
-            ->active()
-            ->firstOrFail();
+        $rate = $this->resolveRate($brand, $currency);
 
         // Buy price is typically markup on the sell rate
         // Example: If sell rate is 0.85 (85%), buy rate might be 1.15 (users pay 115% of card value)
@@ -76,10 +63,6 @@ class GiftCardPricingEngine
     /**
      * Calculate total purchase amount for multiple cards.
      *
-     * @param string $brand
-     * @param float $cardValue
-     * @param int $quantity
-     * @param string $currency
      * @return array{unit_price: float, quantity: int, subtotal: float, platform_fee: float, total: float}
      */
     public function calculateTotalPrice(string $brand, float $cardValue, int $quantity, string $currency = 'USD'): array
@@ -106,9 +89,6 @@ class GiftCardPricingEngine
     /**
      * Get markup rate for buying gift cards.
      * Platform profit = markup_rate * card_value - (sell_rate * card_value).
-     *
-     * @param string $brand
-     * @return float
      */
     private function getMarkupRate(string $brand): float
     {
@@ -119,13 +99,40 @@ class GiftCardPricingEngine
         return $brandMarkups[strtolower($brand)] ?? (float) config('giftcard.default_markup_rate', 1.10);
     }
 
+    private function resolveRate(string $brand, string $currency): GiftCardRate
+    {
+        $brand = strtolower($brand);
+        $currency = strtoupper($currency);
+
+        $rate = GiftCardRate::query()
+            ->where('brand', $brand)
+            ->where('currency', $currency)
+            ->active()
+            ->first();
+
+        if ($rate) {
+            return $rate;
+        }
+
+        $fallbackCurrency = (string) config('giftcard.default_rate_currency', 'USD');
+        $fallback = GiftCardRate::query()
+            ->where('brand', $brand)
+            ->where('currency', strtoupper($fallbackCurrency))
+            ->active()
+            ->first();
+
+        if ($fallback) {
+            return $fallback;
+        }
+
+        return GiftCardRate::query()
+            ->where('brand', $brand)
+            ->active()
+            ->firstOrFail();
+    }
+
     /**
      * Calculate platform profit from a transaction.
-     *
-     * @param string $brand
-     * @param float $cardValue
-     * @param float $sellPriceReceived
-     * @return float
      */
     public function calculateProfit(string $brand, float $cardValue, float $sellPriceReceived): float
     {

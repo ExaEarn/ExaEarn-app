@@ -1,4 +1,4 @@
-import React, { lazy, useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowUp,
   BarChart3,
@@ -287,7 +287,7 @@ const features = [
   { name: "NFT Market", image: Image.nft, icon: Gem, tone: "blue" },
   { name: "Crowdfund", image: Image.crowdfund, icon: HandCoins, tone: "gold" },
   { name: "Agritech", image: Image.agriculture, icon: Leaf, tone: "green" },
-  { name: "EdTech", image: Image.edu, icon: GraduationCap, tone: "cyan" },
+  { name: "ExaSkills", image: Image.edu, icon: GraduationCap, tone: "cyan" },
   { name: "More", image: Image.more, icon: MoreHorizontal, tone: "violet" },
 ];
 
@@ -1164,7 +1164,7 @@ export default function App() {
       setCurrentPage("crowdfunding");
     } else if (featureName === "Agritech") {
       setCurrentPage("agriculture");
-    } else if (featureName === "EdTech") {
+    } else if (featureName === "ExaSkills") {
       setCurrentPage("edtech");
     } else if (featureName === "Stake XRP") {
       setCurrentPage("staking");

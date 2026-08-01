@@ -4,31 +4,78 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\FiatDepositIntent;
 use App\Models\PaymentIntent;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class PaymentGatewayService
 {
-    public function __construct(private readonly TransactionService $transactionService)
-    {
+    public function __construct(
+        private readonly TransactionService $transactionService,
+        private readonly FeeTreasuryService $feeTreasuryService,
+    ) {
     }
 
-    public function createIntent(int $userId, string $provider, string $currency, string $amount): PaymentIntent
+    public function createIntent(int $userId, string $provider, string $currency, string $amount, ?string $intentId = null, array $metadata = []): PaymentIntent
     {
-        return PaymentIntent::create([
-            'intent_id' => (string) Str::uuid(),
-            'user_id' => $userId,
-            'provider' => strtolower($provider),
-            'currency' => strtoupper($currency),
-            'amount' => $amount,
-            'status' => 'pending',
-            'metadata' => [
-                'payment_instructions' => 'Complete transfer to virtual account and submit reference.',
-                'provider_reference' => null,
-            ],
-        ]);
+        return PaymentIntent::updateOrCreate(
+            ['intent_id' => $intentId ?: (string) Str::uuid()],
+            [
+                'user_id' => $userId,
+                'provider' => strtolower($provider),
+                'currency' => strtoupper($currency),
+                'amount' => $amount,
+                'status' => 'pending',
+                'metadata' => array_merge([
+                    'payment_instructions' => 'Complete transfer to virtual account and submit reference.',
+                    'provider_reference' => null,
+                ], $metadata),
+            ]
+        );
+    }
+
+    public function createHostedCheckoutIntent(
+        int $userId,
+        string $provider,
+        string $currency,
+        string $amount,
+        string $reference,
+        array $customer,
+        string $redirectUrl,
+        array $paymentOptions = ['card'],
+        array $metadata = []
+    ): array {
+        $provider = strtolower($provider);
+        $intent = $this->createIntent(
+            $userId,
+            $provider,
+            $currency,
+            $amount,
+            null,
+            array_merge($metadata, [
+                'reference' => $reference,
+                'fiat_intent_reference' => (string) ($metadata['fiat_intent_reference'] ?? $reference),
+            ])
+        );
+
+        if (app()->environment(['local', 'testing'])) {
+            return [
+                'intent' => $intent,
+                'provider' => $provider,
+                'checkout_url' => rtrim((string) config('app.url', 'http://localhost'), '/') . '/payments/demo/' . $reference,
+                'redirect_url' => $redirectUrl,
+                'expires_at' => now()->addMinutes(30)->toISOString(),
+            ];
+        }
+
+        return match ($provider) {
+            'flutterwave' => $this->createFlutterwaveCheckout($intent, $customer, $redirectUrl, $paymentOptions),
+            default => throw new RuntimeException('Unsupported hosted checkout provider.'),
+        };
     }
 
     public function resolveProvider(string $countryCode, ?string $requestedProvider = null): string
@@ -61,7 +108,7 @@ class PaymentGatewayService
                 throw new RuntimeException('Missing payment reference.');
             }
 
-            $intent = PaymentIntent::query()->where('intent_id', $reference)->lockForUpdate()->first();
+            $intent = $this->resolveIntentByReference($reference);
             if (!$intent) {
                 throw new RuntimeException('Payment intent not found.');
             }
@@ -96,22 +143,29 @@ class PaymentGatewayService
                 }
             }
 
-            $this->transactionService->recordDeposit(
-                $intent->user_id,
-                $intent->currency,
-                $amount,
-                $reference,
-                null,
-                [
-                    'provider' => $provider,
-                    'provider_reference' => $providerReference,
-                    'bank_reference' => $this->extractBankReference($provider, $payload),
-                ]
-            );
+            $bankReference = $this->extractBankReference($provider, $payload);
+            $fiatIntentReference = (string) data_get($intent->metadata, 'fiat_intent_reference', '');
+
+            if ($fiatIntentReference !== '') {
+                $this->creditFiatDepositIntent($intent, $fiatIntentReference, $provider, $providerReference, $bankReference);
+            } else {
+                $this->transactionService->recordDeposit(
+                    $intent->user_id,
+                    $intent->currency,
+                    $amount,
+                    $reference,
+                    null,
+                    [
+                        'provider' => $provider,
+                        'provider_reference' => $providerReference,
+                        'bank_reference' => $bankReference,
+                    ]
+                );
+            }
 
             $intent->status = 'completed';
             $intent->provider_reference = $providerReference ?? $intent->provider_reference;
-            $intent->bank_reference = $this->extractBankReference($provider, $payload) ?? $intent->bank_reference;
+            $intent->bank_reference = $bankReference ?? $intent->bank_reference;
             $intent->metadata = array_merge($intent->metadata ?? [], ['webhook_payload' => $payload]);
             $intent->completed_at = now();
             $intent->save();
@@ -119,6 +173,158 @@ class PaymentGatewayService
             return $intent;
         });
     }
+
+
+    private function resolveIntentByReference(string $reference): ?PaymentIntent
+    {
+        if (Str::isUuid($reference)) {
+            return PaymentIntent::query()->where('intent_id', $reference)->lockForUpdate()->first();
+        }
+
+        return PaymentIntent::query()
+            ->where('metadata->reference', $reference)
+            ->orWhere('metadata->fiat_intent_reference', $reference)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function createFlutterwaveCheckout(PaymentIntent $intent, array $customer, string $redirectUrl, array $paymentOptions): array
+    {
+        $secretKey = (string) config('services.flutterwave.secret_key', '');
+        $paymentUrl = (string) config('services.flutterwave.payment_url', 'https://api.flutterwave.com/v3/payments');
+
+        if ($secretKey === '') {
+            throw new RuntimeException('Flutterwave secret key is not configured.');
+        }
+
+        $response = Http::withToken($secretKey)
+            ->acceptJson()
+            ->post($paymentUrl, [
+                'tx_ref' => $intent->intent_id,
+                'amount' => (string) $intent->amount,
+                'currency' => strtoupper((string) $intent->currency),
+                'redirect_url' => $redirectUrl,
+                'payment_options' => implode(', ', array_values(array_filter($paymentOptions))),
+                'customer' => [
+                    'email' => (string) ($customer['email'] ?? ''),
+                    'name' => (string) ($customer['name'] ?? 'ExaEarn User'),
+                    'phone_number' => (string) ($customer['phone'] ?? ''),
+                ],
+                'customizations' => [
+                    'title' => 'ExaEarn Fiat Deposit',
+                    'description' => 'Fund your ExaEarn wallet securely.',
+                ],
+                'meta' => [
+                    'source' => 'fiat_deposit',
+                    'intent_id' => $intent->intent_id,
+                    'user_id' => $intent->user_id,
+                ],
+            ]);
+
+        if (!$response->successful()) {
+            throw new RuntimeException('Flutterwave checkout initialization failed.');
+        }
+
+        $link = (string) data_get($response->json(), 'data.link', '');
+        if ($link === '') {
+            throw new RuntimeException('Flutterwave checkout link was not returned.');
+        }
+
+        $intent->metadata = array_merge($intent->metadata ?? [], [
+            'checkout_response' => $response->json(),
+            'checkout_url' => $link,
+        ]);
+        $intent->save();
+
+        return [
+            'intent' => $intent,
+            'provider' => 'flutterwave',
+            'checkout_url' => $link,
+            'redirect_url' => $redirectUrl,
+            'expires_at' => now()->addMinutes(30)->toISOString(),
+        ];
+    }
+
+    private function creditFiatDepositIntent(PaymentIntent $intent, string $fiatIntentReference, string $provider, ?string $providerReference, ?string $bankReference): void
+    {
+        $fiatIntent = FiatDepositIntent::query()->where('reference', $fiatIntentReference)->lockForUpdate()->first();
+
+        if (!$fiatIntent) {
+            $this->transactionService->recordDeposit(
+                $intent->user_id,
+                $intent->currency,
+                (string) $intent->amount,
+                $intent->intent_id,
+                null,
+                [
+                    'provider' => $provider,
+                    'provider_reference' => $providerReference,
+                    'bank_reference' => $bankReference,
+                ]
+            );
+            return;
+        }
+
+        if ((string) $fiatIntent->status === 'credited') {
+            return;
+        }
+
+        if (in_array((string) $fiatIntent->status, ['cancelled', 'failed', 'expired'], true)) {
+            throw new RuntimeException('This fiat deposit intent cannot be credited in its current state.');
+        }
+
+        $result = $this->feeTreasuryService->collectFiatDeposit(
+            (int) $fiatIntent->user_id,
+            (string) $fiatIntent->gross_amount,
+            (string) $fiatIntent->currency,
+            (string) $fiatIntent->reference,
+            [
+                'source' => 'payment_gateway_webhook',
+                'fiat_intent_reference' => (string) $fiatIntent->reference,
+                'method_id' => (string) $fiatIntent->method_id,
+                'provider' => $provider,
+                'provider_reference' => $providerReference,
+                'bank_reference' => $bankReference,
+                'payment_intent_id' => $intent->intent_id,
+            ]
+        );
+
+        Transaction::query()->updateOrCreate(
+            ['reference' => (string) $fiatIntent->reference],
+            [
+                'transaction_id' => (string) $fiatIntent->reference,
+                'user_id' => (int) $fiatIntent->user_id,
+                'type' => 'deposit',
+                'currency' => (string) $fiatIntent->currency,
+                'amount' => (string) $fiatIntent->net_amount,
+                'fee' => (string) $fiatIntent->fee_amount,
+                'status' => 'completed',
+                'metadata' => [
+                    'source' => 'payment_gateway_webhook',
+                    'fiat_intent_reference' => (string) $fiatIntent->reference,
+                    'gross_amount' => (string) $fiatIntent->gross_amount,
+                    'fee_amount' => (string) $fiatIntent->fee_amount,
+                    'method_id' => (string) $fiatIntent->method_id,
+                    'provider' => $provider,
+                    'provider_reference' => $providerReference,
+                    'bank_reference' => $bankReference,
+                    'ledger_reference' => $result['ledger_transaction']->reference,
+                ],
+            ]
+        );
+
+        $fiatIntent->status = 'credited';
+        $fiatIntent->paid_at = $fiatIntent->paid_at ?: now();
+        $fiatIntent->settled_at = now();
+        $fiatIntent->metadata = array_merge($fiatIntent->metadata ?? [], [
+            'provider' => $provider,
+            'provider_reference' => $providerReference,
+            'bank_reference' => $bankReference,
+            'payment_intent_id' => $intent->intent_id,
+        ]);
+        $fiatIntent->save();
+    }
+
 
     private function isValidSignature(string $provider, array $payload, string $rawBody, array $headers): bool
     {

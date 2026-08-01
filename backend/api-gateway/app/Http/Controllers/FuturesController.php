@@ -15,6 +15,7 @@ use App\Services\FuturesOrderService;
 use App\Services\MarginModeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 class FuturesController extends Controller
@@ -31,9 +32,69 @@ class FuturesController extends Controller
 
     public function markets(): JsonResponse
     {
+        $this->ensureDefaultMarkets();
+
         return response()->json(['data' => FuturesMarket::query()->orderBy('symbol')->get()]);
     }
 
+    /**
+     * Ensure the futures terminal always has a baseline supported market catalog.
+     */
+    private function ensureDefaultMarkets(): void
+    {
+        $symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT', 'ADAUSDT', 'DOGEUSDT', 'TRXUSDT', 'DOTUSDT', 'AVAXUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'UNIUSDT', 'ATOMUSDT', 'MATICUSDT', '1000BONKUSDT', 'APTUSDT', 'ARBUSDT', 'SUIUSDT', 'OPUSDT', 'NEARUSDT', 'FILUSDT', 'ETCUSDT', 'XLMUSDT', 'HBARUSDT', 'AAVEUSDT', 'INJUSDT', 'SEIUSDT', 'TIAUSDT', 'WIFUSDT', 'PEPEUSDT'];
+        $prices = [];
+
+        try {
+            $exchangeInfo = Http::timeout(6)->retry(1, 150)->get('https://fapi.binance.com/fapi/v1/exchangeInfo');
+            $tickers = Http::timeout(6)->retry(1, 150)->get('https://fapi.binance.com/fapi/v1/ticker/24hr');
+
+            if ($exchangeInfo->ok() && $tickers->ok()) {
+                $activeSymbols = collect($exchangeInfo->json('symbols', []))
+                    ->filter(function ($row): bool {
+                        return is_array($row)
+                            && ($row['status'] ?? null) === 'TRADING'
+                            && ($row['contractType'] ?? null) === 'PERPETUAL'
+                            && ($row['quoteAsset'] ?? null) === 'USDT'
+                            && is_string($row['symbol'] ?? null);
+                    })
+                    ->keyBy(fn (array $row): string => strtoupper((string) $row['symbol']));
+
+                $symbols = collect($tickers->json())
+                    ->filter(fn ($row): bool => is_array($row) && isset($row['symbol']) && $activeSymbols->has(strtoupper((string) $row['symbol'])))
+                    ->sortByDesc(fn ($row): float => (float) ($row['quoteVolume'] ?? 0))
+                    ->take(40)
+                    ->map(fn ($row): string => strtoupper((string) $row['symbol']))
+                    ->values()
+                    ->all();
+
+                $prices = collect($tickers->json())
+                    ->filter(fn ($row): bool => is_array($row) && isset($row['symbol']))
+                    ->mapWithKeys(fn (array $row): array => [strtoupper((string) $row['symbol']) => (string) ($row['lastPrice'] ?? '0')])
+                    ->all();
+            }
+        } catch (\Throwable) {
+            $symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT', 'ADAUSDT', 'DOGEUSDT', 'TRXUSDT', 'DOTUSDT', 'AVAXUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'UNIUSDT', 'ATOMUSDT', 'MATICUSDT', '1000BONKUSDT', 'APTUSDT', 'ARBUSDT', 'SUIUSDT', 'OPUSDT', 'NEARUSDT', 'FILUSDT', 'ETCUSDT', 'XLMUSDT', 'HBARUSDT', 'AAVEUSDT', 'INJUSDT', 'SEIUSDT', 'TIAUSDT', 'WIFUSDT', 'PEPEUSDT'];
+            $prices = [];
+        }
+
+        if (empty($symbols)) {
+            $symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT', 'ADAUSDT', 'DOGEUSDT', 'TRXUSDT', 'DOTUSDT', 'AVAXUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'UNIUSDT', 'ATOMUSDT', 'MATICUSDT', '1000BONKUSDT', 'APTUSDT', 'ARBUSDT', 'SUIUSDT', 'OPUSDT', 'NEARUSDT', 'FILUSDT', 'ETCUSDT', 'XLMUSDT', 'HBARUSDT', 'AAVEUSDT', 'INJUSDT', 'SEIUSDT', 'TIAUSDT', 'WIFUSDT', 'PEPEUSDT'];
+        }
+
+        foreach ($symbols as $symbol) {
+            FuturesMarket::query()->updateOrCreate(
+                ['symbol' => $symbol],
+                [
+                    'status' => 'active',
+                    'min_leverage' => 1,
+                    'max_leverage' => 100,
+                    'maintenance_margin_rate' => '0.00500000',
+                    'last_price' => $prices[$symbol] ?? '0',
+                ]
+            );
+        }
+    }
     public function placeOrder(Request $request): JsonResponse
     {
         $payload = $request->validate([
@@ -249,4 +310,6 @@ class FuturesController extends Controller
         return response()->json(['data' => $result]);
     }
 }
+
+
 

@@ -17,8 +17,7 @@ class RewardController extends Controller
     public function __construct(
         private readonly RewardEngineService $rewardEngine,
         private readonly ExaPointService $exaPoints,
-    ) {
-    }
+    ) {}
 
     public function activities(): JsonResponse
     {
@@ -81,12 +80,22 @@ class RewardController extends Controller
                 ]
             );
         } catch (RuntimeException $exception) {
-            $status = str_contains(strtolower($exception->getMessage()), 'duplicate') ? 409 : 422;
+            if (str_contains(strtolower($exception->getMessage()), 'duplicate')) {
+                return response()->json([
+                    'status' => 'error',
+                    'code' => 'already_claimed',
+                    'message' => 'Daily reward already claimed today.',
+                    'data' => [
+                        'reward_points' => 0,
+                        'progress' => $this->dailyProgress((int) $request->user()->id),
+                    ],
+                ], 409);
+            }
 
             return response()->json([
                 'status' => 'error',
                 'message' => $exception->getMessage(),
-            ], $status);
+            ], 422);
         }
 
         $progress = $this->dailyProgress((int) $request->user()->id);
@@ -184,7 +193,7 @@ class RewardController extends Controller
 
     private function fingerprintHash(?string $value): ?string
     {
-        if (!$value) {
+        if (! $value) {
             return null;
         }
 

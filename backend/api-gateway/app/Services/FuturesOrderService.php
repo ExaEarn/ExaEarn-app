@@ -21,6 +21,7 @@ class FuturesOrderService
     public function __construct(
         private readonly BlockchainService $blockchain,
         private readonly FuturesRiskEngineService $riskEngine,
+        private readonly UnifiedTradingReservationService $reservations,
     )
     {
     }
@@ -66,9 +67,9 @@ class FuturesOrderService
             $notional = $this->mul($executionPrice, $quantity);
             $marginRequired = $this->div($notional, (string) $leverage);
             $this->riskEngine->validateOrderRisk($userId, $market, $side, $leverage, $notional, $marginRequired);
-            $this->validateMargin($userId, $marginRequired);
+            $this->reservations->validateFuturesMargin($userId, $marginRequired);
 
-            $this->lockMargin($userId, $marginRequired, sprintf('futures_margin_lock:%s', $symbol));
+            $marginAllocations = $this->reservations->reserveFuturesMargin($userId, $marginRequired, sprintf('futures_margin_lock:%s', $symbol));
 
             $order = FuturesOrder::query()->create([
                 'order_uuid' => (string) Str::uuid(),
@@ -86,7 +87,7 @@ class FuturesOrderService
                 'remaining_quantity' => $quantity,
                 'status' => 'open',
                 'source' => (string) ($payload['source'] ?? 'api'),
-                'metadata' => $payload['metadata'] ?? null,
+                'metadata' => array_merge($payload['metadata'] ?? [], ['margin_allocations' => $marginAllocations]),
             ]);
 
             if ($isConditional) {
@@ -158,7 +159,8 @@ class FuturesOrderService
                 : '0';
             $toRelease = $this->mul((string) $order->initial_margin, $remainingRatio);
             if ($this->compare($toRelease, '0') > 0) {
-                $this->releaseMargin($userId, $toRelease, sprintf('futures_margin_release:%s', $order->symbol));
+                $allocations = is_array(($order->metadata ?? [])['margin_allocations'] ?? null) ? ($order->metadata ?? [])['margin_allocations'] : null;
+                $this->reservations->releaseFuturesMargin($userId, $toRelease, sprintf('futures_margin_release:%s', $order->symbol), $allocations);
             }
 
             $order->status = 'cancelled';
@@ -205,26 +207,7 @@ class FuturesOrderService
 
     public function getUserMarginStatus(int $userId): array
     {
-        $account = InternalAccount::query()
-            ->where('user_id', $userId)
-            ->where('account_type', 'futures_wallet')
-            ->first();
-
-        if (!$account) {
-            throw new RuntimeException('Futures wallet not found for user.');
-        }
-
-        $totalMargin = $this->add((string) $account->available_balance, (string) $account->locked_balance);
-        $usagePercentage = $this->compare($totalMargin, '0') > 0
-            ? $this->mul($this->div((string) $account->locked_balance, $totalMargin), '100')
-            : '0';
-
-        return [
-            'total_margin' => $totalMargin,
-            'available_margin' => (string) $account->available_balance,
-            'locked_margin' => (string) $account->locked_balance,
-            'margin_usage_percentage' => $usagePercentage,
-        ];
+        return $this->reservations->getUnifiedMarginStatus($userId);
     }
 
     public function calculateMarginRequired(string $price, string $quantity, int $leverage): string
@@ -276,7 +259,7 @@ class FuturesOrderService
 
         // Check margin availability
         try {
-            $this->validateMargin($userId, $marginRequired);
+            $this->reservations->validateFuturesMargin($userId, $marginRequired);
         } catch (RuntimeException $exception) {
             $errors[] = $exception->getMessage();
         }

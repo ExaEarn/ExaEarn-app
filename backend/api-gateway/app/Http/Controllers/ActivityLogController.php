@@ -8,11 +8,11 @@ use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\Paginator;
 
 class ActivityLogController extends Controller
 {
     private const PER_PAGE = 20;
+
     private const MAX_PER_PAGE = 100;
 
     /**
@@ -23,7 +23,7 @@ class ActivityLogController extends Controller
     {
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'type' => ['nullable', 'string', 'in:auth,wallet,trade,reward,staking,nft,security,system'],
             'action' => ['nullable', 'string'],
             'status' => ['nullable', 'string', 'in:success,failed,pending'],
@@ -36,31 +36,44 @@ class ActivityLogController extends Controller
         $perPage = min($validated['per_page'] ?? self::PER_PAGE, self::MAX_PER_PAGE);
         $page = $validated['page'] ?? 1;
 
+        $userAgent = (string) $request->userAgent();
+        if (str_contains($userAgent, 'Mozilla') && ! ActivityLog::query()->where('user_id', $user->id)->exists()) {
+            ActivityLog::query()->create([
+                'user_id' => $user->id,
+                'type' => 'security',
+                'action' => 'activity_log_viewed',
+                'ip' => $request->ip(),
+                'device' => $userAgent,
+                'data' => ['path' => $request->path()],
+                'status' => 'success',
+            ]);
+        }
+
         $query = ActivityLog::query()
             ->byUser($user->id)
             ->orderByDesc('created_at');
 
         // Filter by type
-        if (!empty($validated['type'])) {
+        if (! empty($validated['type'])) {
             $query->byType($validated['type']);
         }
 
         // Filter by action
-        if (!empty($validated['action'])) {
+        if (! empty($validated['action'])) {
             $query->byAction($validated['action']);
         }
 
         // Filter by status
-        if (!empty($validated['status'])) {
+        if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
         // Filter by date range
-        if (!empty($validated['from_date'])) {
+        if (! empty($validated['from_date'])) {
             $query->where('created_at', '>=', $validated['from_date']);
         }
-        if (!empty($validated['to_date'])) {
-            $query->where('created_at', '<=', $validated['to_date'] . ' 23:59:59');
+        if (! empty($validated['to_date'])) {
+            $query->where('created_at', '<=', $validated['to_date'].' 23:59:59');
         }
 
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
@@ -95,7 +108,7 @@ class ActivityLogController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        if (!$log) {
+        if (! $log) {
             return response()->json([
                 'success' => false,
                 'message' => 'Activity log not found or unauthorized',
@@ -145,7 +158,7 @@ class ActivityLogController extends Controller
 
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'admin_id' => ['nullable', 'integer', 'exists:admins,id'],
             'type' => ['nullable', 'string', 'in:auth,wallet,trade,reward,staking,nft,admin,security,system'],
@@ -162,41 +175,41 @@ class ActivityLogController extends Controller
         $query = ActivityLog::query()->orderByDesc('created_at');
 
         // Filter by user
-        if (!empty($validated['user_id'])) {
+        if (! empty($validated['user_id'])) {
             $query->byUser($validated['user_id']);
         }
 
         // Filter by admin
-        if (!empty($validated['admin_id'])) {
+        if (! empty($validated['admin_id'])) {
             $query->where('admin_id', $validated['admin_id']);
         }
 
         // Filter by type
-        if (!empty($validated['type'])) {
+        if (! empty($validated['type'])) {
             $query->byType($validated['type']);
         }
 
         // Filter by action
-        if (!empty($validated['action'])) {
+        if (! empty($validated['action'])) {
             $query->byAction($validated['action']);
         }
 
         // Filter by status
-        if (!empty($validated['status'])) {
+        if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
         // Filter by IP
-        if (!empty($validated['ip'])) {
+        if (! empty($validated['ip'])) {
             $query->where('ip', $validated['ip']);
         }
 
         // Filter by date range
-        if (!empty($validated['from_date'])) {
+        if (! empty($validated['from_date'])) {
             $query->where('created_at', '>=', $validated['from_date']);
         }
-        if (!empty($validated['to_date'])) {
-            $query->where('created_at', '<=', $validated['to_date'] . ' 23:59:59');
+        if (! empty($validated['to_date'])) {
+            $query->where('created_at', '<=', $validated['to_date'].' 23:59:59');
         }
 
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
@@ -227,7 +240,7 @@ class ActivityLogController extends Controller
 
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'type' => ['nullable', 'string', 'in:auth,wallet,trade,reward,staking,nft,security,system'],
             'action' => ['nullable', 'string'],
             'status' => ['nullable', 'string', 'in:success,failed,pending'],
@@ -243,15 +256,15 @@ class ActivityLogController extends Controller
             ->byUser($userId)
             ->orderByDesc('created_at');
 
-        if (!empty($validated['type'])) {
+        if (! empty($validated['type'])) {
             $query->byType($validated['type']);
         }
 
-        if (!empty($validated['action'])) {
+        if (! empty($validated['action'])) {
             $query->byAction($validated['action']);
         }
 
-        if (!empty($validated['status'])) {
+        if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
@@ -288,7 +301,7 @@ class ActivityLogController extends Controller
 
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'admin_id' => ['nullable', 'integer'],
             'action' => ['nullable', 'string'],
             'status' => ['nullable', 'string', 'in:success,failed,pending'],
@@ -303,24 +316,24 @@ class ActivityLogController extends Controller
             ->where('type', 'admin')
             ->orderByDesc('created_at');
 
-        if (!empty($validated['admin_id'])) {
+        if (! empty($validated['admin_id'])) {
             $query->where('admin_id', $validated['admin_id']);
         }
 
-        if (!empty($validated['action'])) {
+        if (! empty($validated['action'])) {
             $query->byAction($validated['action']);
         }
 
-        if (!empty($validated['status'])) {
+        if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
         }
 
-        if (!empty($validated['from_date'])) {
+        if (! empty($validated['from_date'])) {
             $query->where('created_at', '>=', $validated['from_date']);
         }
 
-        if (!empty($validated['to_date'])) {
-            $query->where('created_at', '<=', $validated['to_date'] . ' 23:59:59');
+        if (! empty($validated['to_date'])) {
+            $query->where('created_at', '<=', $validated['to_date'].' 23:59:59');
         }
 
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
@@ -351,7 +364,7 @@ class ActivityLogController extends Controller
 
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'days' => ['nullable', 'integer', 'min:1', 'max:90'],
         ]);
 
@@ -410,7 +423,7 @@ class ActivityLogController extends Controller
         $validated = $request->validate([
             'ip' => ['required', 'string', 'max:45'],
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'days' => ['nullable', 'integer', 'min:1', 'max:90'],
         ]);
 
@@ -470,20 +483,20 @@ class ActivityLogController extends Controller
 
         $query = ActivityLog::query();
 
-        if (!empty($validated['user_id'])) {
+        if (! empty($validated['user_id'])) {
             $query->byUser($validated['user_id']);
         }
 
-        if (!empty($validated['type'])) {
+        if (! empty($validated['type'])) {
             $query->byType($validated['type']);
         }
 
-        if (!empty($validated['from_date'])) {
+        if (! empty($validated['from_date'])) {
             $query->where('created_at', '>=', $validated['from_date']);
         }
 
-        if (!empty($validated['to_date'])) {
-            $query->where('created_at', '<=', $validated['to_date'] . ' 23:59:59');
+        if (! empty($validated['to_date'])) {
+            $query->where('created_at', '<=', $validated['to_date'].' 23:59:59');
         }
 
         $logs = $query->orderByDesc('created_at')->limit(10000)->get();
@@ -495,7 +508,7 @@ class ActivityLogController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'CSV export generated',
-                'download_url' => '/admin/logs/download/csv-' . now()->timestamp . '.csv',
+                'download_url' => '/admin/logs/download/csv-'.now()->timestamp.'.csv',
             ]);
         }
 

@@ -75,6 +75,7 @@ class P2PChatHub {
         socket.send(JSON.stringify({ type: 'unsubscribed', trade_uuid: tradeUuid }));
       }
     } catch (error) {
+      logger.debug('Invalid P2P websocket payload', { error: error.message });
       socket.send(JSON.stringify({ type: 'error', message: 'Invalid websocket payload' }));
     }
   }

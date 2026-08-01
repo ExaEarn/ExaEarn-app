@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   BellRing,
@@ -41,7 +41,7 @@ const categories = [
   { id: "staking", label: "Staking & Rewards", icon: Coins },
   { id: "swap", label: "Token Swap", icon: Sparkles },
   { id: "p2p", label: "P2P Marketplace", icon: HandCoins },
-  { id: "referral", label: "Referral Program", icon: Users },
+  { id: "referral", label: "Affiliate Program", icon: Users },
   { id: "security", label: "Security & 2FA", icon: LockKeyhole },
   { id: "campaigns", label: "Campaigns & Bonuses", icon: Megaphone },
 ];
@@ -69,7 +69,7 @@ const faqSeed = [
   },
   {
     id: "faq-5",
-    q: "How does referral reward settlement work?",
+    q: "How does affiliate reward settlement work?",
     a: "Referral rewards are calculated based on eligible activity and distributed automatically via the ExaEarn reward engine.",
   },
 ];
@@ -105,7 +105,7 @@ const articleSeed = [
   },
   {
     id: "art-5",
-    title: "Referral Program: How Payouts Are Calculated",
+    title: "Affiliate Program: How Payouts Are Calculated",
     views: 29103,
     category: "Referral",
     body: "Payout rates vary by tier and product activity. Referral analytics are updated in near real-time on your dashboard.",
@@ -427,3 +427,4 @@ function StatusItem({ label, status }) {
 }
 
 export default HelpSupportCenter;
+

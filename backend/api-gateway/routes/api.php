@@ -5,9 +5,11 @@ declare(strict_types=1);
 use App\Http\Controllers\Admin\AdminSettingController;
 use App\Http\Controllers\AgriController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ExaPointController;
 use App\Http\Controllers\EventStreamController;
 use App\Http\Controllers\FuturesController;
+use App\Http\Controllers\FlightGameController;
 use App\Http\Controllers\GameFiController;
 use App\Http\Controllers\GiftcardController;
 use App\Http\Controllers\NftController;
@@ -42,7 +44,11 @@ use App\Http\Controllers\Admin\AdminPlatformController;
 use App\Http\Controllers\Admin\SecurityController;
 use App\Http\Controllers\GiftCardBuyController;
 use App\Http\Controllers\Admin\GiftCardAdminController;
+use App\Http\Controllers\Admin\ExaAiAdminController;
+use App\Http\Controllers\Admin\ExaSkillsAdminController;
 use App\Http\Controllers\API\AITradingAssistantController;
+use App\Http\Controllers\API\ExaAiController;
+use App\Http\Controllers\API\ExaSkillsController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BlockchainEventController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -92,8 +98,14 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
     Route::patch('preferences/currency', [UserPreferenceController::class, 'updateCurrencyPreference']);
 });
 
+Route::get('exaskills/verify/{credential}', [ExaSkillsController::class, 'verifyCredential']);
+
 Route::get('events/subscribe', [EventStreamController::class, 'subscribe']);
 Route::get('events/campaigns/subscribe', [EventStreamController::class, 'subscribeCampaigns']);
+
+Route::get('games/flight/state', [FlightGameController::class, 'state']);
+Route::get('games/flight/history', [FlightGameController::class, 'history']);
+Route::get('games/flight/rounds/{roundUuid}/fairness', [FlightGameController::class, 'fairness']);
 
 Route::post('blockchain/event', [BlockchainEventController::class, 'store'])
     ->middleware('node.webhook');
@@ -178,6 +190,8 @@ Route::prefix('admin')->group(function (): void {
         Route::get('agritech', fn () => response()->json(['data' => [], 'message' => 'AgriTech module data']));
         Route::get('sports', fn () => response()->json(['data' => [], 'message' => 'Sports module data']));
         Route::get('edtech', fn () => response()->json(['data' => [], 'message' => 'EdTech module data']));
+        Route::get('exaskills', [ExaSkillsAdminController::class, 'overview']);
+        Route::post('exaskills/challenges/{challenge}/payout-winner', [ExaSkillsAdminController::class, 'payoutChallengeWinner'])->middleware('rate.limit');
         Route::get('crowdfunding', fn () => response()->json(['data' => [], 'message' => 'Crowdfunding module data']));
         Route::get('lottery', fn () => response()->json(['data' => [], 'message' => 'Lottery module data']));
         Route::get('giftcard', fn () => response()->json(['data' => [], 'message' => 'GiftCard module data']));
@@ -193,6 +207,29 @@ Route::prefix('admin')->group(function (): void {
 });
 
 Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
+    Route::prefix('accounts')->group(function (): void {
+        Route::get('/', [AccountController::class, 'index']);
+        Route::get('funding', [AccountController::class, 'funding']);
+        Route::get('unified-trading', [AccountController::class, 'unifiedTrading']);
+        Route::get('unified-trading/balances', [AccountController::class, 'unifiedTradingBalances']);
+        Route::post('transfer', [AccountController::class, 'transfer'])->middleware('rate.limit');
+        Route::get('transfers', [AccountController::class, 'transferHistory']);
+    });
+    Route::prefix('exaskills')->group(function (): void {
+        Route::get('home', [ExaSkillsController::class, 'home']);
+        Route::get('categories', [ExaSkillsController::class, 'categories']);
+        Route::get('courses', [ExaSkillsController::class, 'courses']);
+        Route::get('courses/{course}', [ExaSkillsController::class, 'course']);
+        Route::post('courses/{course}/enroll', [ExaSkillsController::class, 'enroll'])->middleware('rate.limit');
+        Route::post('courses/{course}/purchase', [ExaSkillsController::class, 'purchaseCourse'])->middleware('rate.limit');
+        Route::get('dashboard', [ExaSkillsController::class, 'dashboard']);
+        Route::post('instructors/apply', [ExaSkillsController::class, 'instructorApply'])->middleware('rate.limit');
+        Route::get('challenges', [ExaSkillsController::class, 'challenges']);
+        Route::post('challenges/{challenge}/submissions', [ExaSkillsController::class, 'submitChallenge'])->middleware('rate.limit');
+        Route::post('challenges/{challenge}/fund', [ExaSkillsController::class, 'fundChallenge'])->middleware('rate.limit');
+        Route::get('opportunities', [ExaSkillsController::class, 'opportunities']);
+        Route::post('opportunities/{opportunity}/applications', [ExaSkillsController::class, 'applyOpportunity'])->middleware('rate.limit');
+    });
     Route::prefix('wallet')->group(function (): void {
         Route::get('balances', [WalletController::class, 'balances']);
         Route::get('deposit-addresses', [WalletController::class, 'depositAddresses']);
@@ -202,6 +239,10 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('withdraw', [WalletController::class, 'withdraw'])->middleware('rate.limit');
         Route::get('transactions', [WalletController::class, 'transactions']);
         Route::get('withdrawals', [WalletController::class, 'withdrawals']);
+        Route::get('deposit/history', [WalletController::class, 'depositHistory']);
+        Route::post('deposit/fiat-instructions', [WalletController::class, 'fiatDepositInstructions'])->middleware('rate.limit');
+        Route::post('deposit/fiat-intents/{reference}/mark-paid', [WalletController::class, 'markFiatDepositIntentPaid'])->middleware('rate.limit');
+        Route::post('deposit/fiat-intents/{reference}/settle', [WalletController::class, 'settleFiatDepositIntent'])->middleware('rate.limit');
         Route::get('{currency}', [WalletController::class, 'show']);
     });
 
@@ -392,6 +433,11 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
     });
 
     Route::prefix('p2p')->group(function (): void {
+        Route::get('meta', [P2PController::class, 'meta']);
+        Route::get('payment-methods', [P2PController::class, 'paymentMethods']);
+        Route::post('payment-methods', [P2PController::class, 'createPaymentMethod'])->middleware('rate.limit');
+        Route::patch('payment-methods/{paymentMethodId}', [P2PController::class, 'updatePaymentMethod'])->middleware('rate.limit');
+        Route::delete('payment-methods/{paymentMethodId}', [P2PController::class, 'deletePaymentMethod'])->middleware('rate.limit');
         Route::get('ads', [P2PController::class, 'ads']);
         Route::get('ads/mine', [P2PController::class, 'myAds']);
         Route::post('ads', [P2PController::class, 'createAd']);
@@ -409,6 +455,11 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('trades/{tradeUuid}/rate', [P2PController::class, 'rateTrade']);
     });
 
+    Route::prefix('games/flight')->group(function (): void {
+        Route::get('my-bets', [FlightGameController::class, 'myBets']);
+        Route::post('bets', [FlightGameController::class, 'placeBet'])->middleware('rate.limit');
+        Route::post('bets/{betUuid}/cashout', [FlightGameController::class, 'cashOut'])->middleware('rate.limit');
+    });
     Route::prefix('gamefi')->group(function (): void {
         Route::get('lotteries', [GameFiController::class, 'lotteryGames']);
         Route::get('lotteries/{gameId}', [GameFiController::class, 'lotteryGame']);
@@ -550,6 +601,34 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::delete('strategies/{strategy}', [AITradingAssistantController::class, 'deleteStrategy']);
     });
 
+
+    Route::prefix('exaai')->group(function (): void {
+        Route::get('overview', [ExaAiController::class, 'overview']);
+        Route::get('plans', [ExaAiController::class, 'plans']);
+        Route::get('subscription', [ExaAiController::class, 'subscription']);
+        Route::post('subscription', [ExaAiController::class, 'subscribe'])->middleware('rate.limit');
+        Route::get('strategies', [ExaAiController::class, 'strategies']);
+        Route::get('allocations', [ExaAiController::class, 'allocations']);
+        Route::get('allocations/active', [ExaAiController::class, 'activeAllocation']);
+        Route::post('allocations', [ExaAiController::class, 'allocationStore'])->middleware('rate.limit');
+        Route::post('sessions', [ExaAiController::class, 'sessionStore'])->middleware('rate.limit');
+        Route::get('sessions/current', [ExaAiController::class, 'sessionCurrent']);
+        Route::post('sessions/{id}/pause', [ExaAiController::class, 'pause'])->middleware('rate.limit');
+        Route::post('sessions/{id}/resume', [ExaAiController::class, 'resume'])->middleware('rate.limit');
+        Route::post('sessions/{id}/stop', [ExaAiController::class, 'stop'])->middleware('rate.limit');
+        Route::get('positions', [ExaAiController::class, 'positions']);
+        Route::get('trades', [ExaAiController::class, 'trades']);
+        Route::get('performance', [ExaAiController::class, 'performance']);
+    });
+    Route::prefix('admin/exaai')->middleware(['admin.security', 'admin.audit'])->group(function (): void {
+        Route::get('overview', [ExaAiAdminController::class, 'overview']);
+        Route::get('plans', [ExaAiAdminController::class, 'plans']);
+        Route::get('strategies', [ExaAiAdminController::class, 'strategies']);
+        Route::get('sessions', [ExaAiAdminController::class, 'sessions']);
+        Route::get('subscriptions', [ExaAiAdminController::class, 'subscriptions']);
+        Route::get('trades', [ExaAiAdminController::class, 'trades']);
+        Route::get('audit-logs', [ExaAiAdminController::class, 'auditLogs']);
+    });
     Route::prefix('admin/giftcard')->middleware(['admin.security', 'admin.audit'])->group(function (): void {
         Route::get('submissions', [GiftCardAdminController::class, 'submissions']);
         Route::get('submissions/{id}', [GiftCardAdminController::class, 'submissionDetails']);
@@ -698,3 +777,4 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         });
     });
 });
+

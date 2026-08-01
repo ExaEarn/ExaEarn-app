@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Services;
@@ -17,25 +18,340 @@ use App\Repositories\WalletRepository;
 use App\Services\System\SettingService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class TradeService
 {
     private const SCALE = 8;
+    private const DEFAULT_LIVE_MARKET_SYMBOLS = [
+        'BTCUSDT',
+        'ETHUSDT',
+        'SOLUSDT',
+        'XRPUSDT',
+        'BNBUSDT',
+        'ADAUSDT',
+        'DOTUSDT',
+        'AVAXUSDT',
+        'MATICUSDT',
+        'ATOMUSDT',
+        'LINKUSDT',
+    ];
 
     public function __construct(
         private readonly WalletRepository $wallets,
         private readonly TransactionService $transactions,
         private readonly MarketStreamService $marketStream,
+        private readonly UnifiedTradingReservationService $reservations,
         private readonly ReferralService $referrals,
         private readonly FeeTreasuryService $feeTreasury,
-    ) {
-    }
+    ) {}
 
     public function listMarkets(): Collection
     {
-        return Market::query()->orderBy('symbol')->get();
+        $markets = Market::query()->orderBy('symbol')->get();
+        $dbSymbols = $markets
+            ->pluck('symbol')
+            ->map(fn (string $symbol): string => $this->toExternalSymbol($symbol))
+            ->values()
+            ->all();
+
+        $symbols = collect(array_merge(self::DEFAULT_LIVE_MARKET_SYMBOLS, $dbSymbols))
+            ->filter(fn (string $symbol): bool => $symbol !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $liveTickers = $this->fetchLiveTickers($symbols);
+
+        $payloads = $markets->mapWithKeys(function (Market $market) use ($liveTickers): array {
+            $symbol = $this->toExternalSymbol($market->symbol);
+            $ticker = $liveTickers[$symbol] ?? [];
+
+            if (isset($ticker['lastPrice']) && (float) $ticker['lastPrice'] > 0) {
+                $market->forceFill(['last_price' => (string) $ticker['lastPrice']])->save();
+            }
+
+            $payload = $this->marketPayload($market->toArray(), $ticker);
+
+            return [$payload['symbol'] => $payload];
+        });
+
+        foreach ($symbols as $symbol) {
+            $pair = $this->pairFromExternalSymbol($symbol);
+            if ($payloads->has($pair)) {
+                continue;
+            }
+
+            [$base, $quote] = $this->splitPair($pair);
+            $payloads->put($pair, $this->marketPayload([
+                'symbol' => $pair,
+                'base_currency' => $base,
+                'quote_currency' => $quote,
+                'status' => 'active',
+                'last_price' => (string) (($liveTickers[$symbol]['lastPrice'] ?? '0')),
+                'price_precision' => '0.00010000',
+                'min_order_size' => '0.00010000',
+                'max_order_size' => '0.00000000',
+                'maker_fee' => '0.00100000',
+                'taker_fee' => '0.00200000',
+            ], $liveTickers[$symbol] ?? []));
+        }
+
+        return $payloads->sortBy('symbol')->values();
+    }
+
+    /**
+     * @param  array<int, string>  $symbols
+     * @return array<string, array<string, mixed>>
+     */
+    private function fetchLiveTickers(array $symbols): array
+    {
+        $binance = $this->fetchBinanceTickers($symbols);
+        if ($binance !== []) {
+            return $binance;
+        }
+
+        return $this->fetchCoinGeckoTickers($symbols);
+    }
+
+    /**
+     * @param  array<int, string>  $symbols
+     * @return array<string, array<string, mixed>>
+     */
+    private function fetchBinanceTickers(array $symbols): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->retry(1, 150)
+                ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/ticker/24hr', [
+                    'symbols' => json_encode(array_values(array_unique($symbols)), JSON_THROW_ON_ERROR),
+                ]);
+
+            if (! $response->ok()) {
+                return [];
+            }
+
+            return collect($response->json())
+                ->filter(fn ($item): bool => is_array($item) && isset($item['symbol']))
+                ->map(fn (array $item): array => array_merge($item, ['source' => 'binance']))
+                ->keyBy(fn (array $item): string => strtoupper((string) $item['symbol']))
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array{bids: array<int, array<string, mixed>>, asks: array<int, array<string, mixed>>, last_synced_at: string}|array{}
+     */
+    private function fetchBinanceDepth(string $symbol, int $depth): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->retry(1, 150)
+                ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/depth', [
+                    'symbol' => $symbol,
+                    'limit' => max(5, min($depth, 100)),
+                ]);
+
+            if (! $response->ok()) {
+                return [];
+            }
+
+            $payload = $response->json();
+
+            return [
+                'bids' => collect($payload['bids'] ?? [])->map(fn (array $row): array => [
+                    'price' => (string) ($row[0] ?? '0'),
+                    'amount' => (string) ($row[1] ?? '0'),
+                    'side' => 'buy',
+                ])->values()->all(),
+                'asks' => collect($payload['asks'] ?? [])->map(fn (array $row): array => [
+                    'price' => (string) ($row[0] ?? '0'),
+                    'amount' => (string) ($row[1] ?? '0'),
+                    'side' => 'sell',
+                ])->values()->all(),
+                'last_synced_at' => now()->toISOString(),
+            ];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchBinanceRecentTrades(string $symbol, string $pair, int $limit): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->retry(1, 150)
+                ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/trades', [
+                    'symbol' => $symbol,
+                    'limit' => max(1, min($limit, 1000)),
+                ]);
+
+            if (! $response->ok()) {
+                return [];
+            }
+
+            return collect($response->json())
+                ->filter(fn ($item): bool => is_array($item) && isset($item['price'], $item['qty']))
+                ->map(function (array $item) use ($pair): array {
+                    $timestamp = (int) ($item['time'] ?? 0);
+
+                    return [
+                        'trade_uuid' => 'binance-'.(string) ($item['id'] ?? Str::uuid()),
+                        'pair' => $pair,
+                        'price' => (string) $item['price'],
+                        'amount' => (string) $item['qty'],
+                        'quote_amount' => bcmul((string) $item['price'], (string) $item['qty'], self::SCALE),
+                        'executed_at' => $timestamp > 0 ? gmdate('c', (int) floor($timestamp / 1000)) : now()->toISOString(),
+                        'side' => (($item['isBuyerMaker'] ?? false) === true) ? 'sell' : 'buy',
+                        'metadata' => [
+                            'source' => 'binance',
+                            'is_buyer_maker' => (bool) ($item['isBuyerMaker'] ?? false),
+                        ],
+                    ];
+                })
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int, array<string, string|int>>
+     */
+    private function fetchBinanceCandles(string $symbol, string $timeframe, int $limit): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->retry(1, 150)
+                ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/klines', [
+                    'symbol' => $symbol,
+                    'interval' => $timeframe,
+                    'limit' => max(1, min($limit, 1000)),
+                ]);
+
+            if (! $response->ok()) {
+                return [];
+            }
+
+            return collect($response->json())
+                ->filter(fn ($row): bool => is_array($row) && isset($row[0], $row[1], $row[2], $row[3], $row[4], $row[5]))
+                ->map(fn (array $row): array => [
+                    'timestamp' => (int) floor(((int) $row[0]) / 1000),
+                    'open' => (string) $row[1],
+                    'high' => (string) $row[2],
+                    'low' => (string) $row[3],
+                    'close' => (string) $row[4],
+                    'volume' => (string) $row[5],
+                ])
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $symbols
+     * @return array<string, array<string, mixed>>
+     */
+    private function fetchCoinGeckoTickers(array $symbols): array
+    {
+        $coinIds = [
+            'BTC' => 'bitcoin',
+            'ETH' => 'ethereum',
+            'XRP' => 'ripple',
+            'SOL' => 'solana',
+            'BNB' => 'binancecoin',
+            'ADA' => 'cardano',
+            'DOGE' => 'dogecoin',
+            'MATIC' => 'matic-network',
+            'AVAX' => 'avalanche-2',
+            'DOT' => 'polkadot',
+            'ATOM' => 'cosmos',
+            'LINK' => 'chainlink',
+        ];
+
+        $bases = collect($symbols)
+            ->map(fn (string $symbol): string => str_ends_with($symbol, 'USDT') ? substr($symbol, 0, -4) : $symbol)
+            ->filter(fn (string $base): bool => isset($coinIds[$base]))
+            ->unique()
+            ->values();
+
+        if ($bases->isEmpty()) {
+            return [];
+        }
+
+        try {
+            $ids = $bases->map(fn (string $base): string => $coinIds[$base])->implode(',');
+            $response = Http::timeout(5)
+                ->retry(1, 150)
+                ->get('https://api.coingecko.com/api/v3/simple/price', [
+                    'ids' => $ids,
+                    'vs_currencies' => 'usd',
+                    'include_24hr_change' => 'true',
+                    'include_24hr_vol' => 'true',
+                ]);
+
+            if (! $response->ok()) {
+                return [];
+            }
+
+            $json = $response->json();
+
+            return $bases->mapWithKeys(function (string $base) use ($coinIds, $json): array {
+                $coin = $json[$coinIds[$base]] ?? [];
+
+                return [
+                    "{$base}USDT" => [
+                        'symbol' => "{$base}USDT",
+                        'lastPrice' => (string) ($coin['usd'] ?? '0'),
+                        'priceChangePercent' => (string) ($coin['usd_24h_change'] ?? '0'),
+                        'quoteVolume' => (string) ($coin['usd_24h_vol'] ?? '0'),
+                        'source' => 'coingecko',
+                    ],
+                ];
+            })->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $market
+     * @param  array<string, mixed>  $ticker
+     * @return array<string, mixed>
+     */
+    private function marketPayload(array $market, array $ticker = []): array
+    {
+        $base = strtoupper((string) ($market['base_currency'] ?? ''));
+        $quote = strtoupper((string) ($market['quote_currency'] ?? 'USDT'));
+        $symbol = strtoupper((string) ($market['symbol'] ?? "{$base}/{$quote}"));
+        $pair = str_contains($symbol, '/') ? $symbol : "{$base}/{$quote}";
+        $last = (string) ($ticker['lastPrice'] ?? $market['last_price'] ?? '0');
+
+        return array_merge($market, [
+            'symbol' => $symbol,
+            'pair' => $pair,
+            'base' => $base,
+            'quote' => $quote,
+            'last' => (float) $last,
+            'last_price' => $last,
+            'change24h' => (float) ($ticker['priceChangePercent'] ?? 0),
+            'price_change_percent' => (float) ($ticker['priceChangePercent'] ?? 0),
+            'volume' => (float) ($ticker['quoteVolume'] ?? 0),
+            'high24h' => (float) ($ticker['highPrice'] ?? 0),
+            'low24h' => (float) ($ticker['lowPrice'] ?? 0),
+            'source' => $ticker['source'] ?? ($ticker === [] ? 'database' : 'live'),
+            'synced_at' => now()->toISOString(),
+        ]);
     }
 
     public function getOrderBook(string $pair, int $depth = 50): array
@@ -46,10 +362,20 @@ class TradeService
             ['bid_orders' => [], 'ask_orders' => [], 'last_synced_at' => now()]
         );
 
+        $bids = array_slice($snapshot->bid_orders ?? [], 0, $depth);
+        $asks = array_slice($snapshot->ask_orders ?? [], 0, $depth);
+
+        if ($bids === [] && $asks === []) {
+            $external = $this->fetchBinanceDepth($this->toExternalSymbol($market->symbol), $depth);
+            if ($external !== []) {
+                return array_merge(['pair' => $market->symbol], $external);
+            }
+        }
+
         return [
             'pair' => $market->symbol,
-            'bids' => array_slice($snapshot->bid_orders ?? [], 0, $depth),
-            'asks' => array_slice($snapshot->ask_orders ?? [], 0, $depth),
+            'bids' => $bids,
+            'asks' => $asks,
             'last_synced_at' => $snapshot->last_synced_at,
         ];
     }
@@ -58,11 +384,17 @@ class TradeService
     {
         $market = $this->getMarket($pair);
 
-        return Trade::query()
+        $trades = Trade::query()
             ->where('market_id', $market->id)
             ->latest('executed_at')
             ->limit($limit)
             ->get();
+
+        if ($trades->isNotEmpty()) {
+            return $trades;
+        }
+
+        return collect($this->fetchBinanceRecentTrades($this->toExternalSymbol($market->symbol), $market->symbol, $limit));
     }
 
     public function getCandles(string $pair, string $timeframe = '1m', int $limit = 100): array
@@ -70,10 +402,18 @@ class TradeService
         $market = $this->getMarket($pair);
         $seconds = match ($timeframe) {
             '1m' => 60,
+            '3m' => 180,
             '5m' => 300,
             '15m' => 900,
+            '30m' => 1800,
             '1h' => 3600,
+            '2h' => 7200,
+            '4h' => 14400,
+            '6h' => 21600,
+            '12h' => 43200,
             '1d' => 86400,
+            '1w' => 604800,
+            '1M' => 2592000,
             default => throw new RuntimeException('Unsupported timeframe.'),
         };
 
@@ -82,10 +422,17 @@ class TradeService
             ->orderBy('executed_at')
             ->get();
 
+        if ($trades->isEmpty()) {
+            $externalCandles = $this->fetchBinanceCandles($this->toExternalSymbol($market->symbol), $timeframe, $limit);
+            if ($externalCandles !== []) {
+                return $externalCandles;
+            }
+        }
+
         $buckets = [];
         foreach ($trades as $trade) {
             $bucket = (int) floor($trade->executed_at->timestamp / $seconds) * $seconds;
-            if (!isset($buckets[$bucket])) {
+            if (! isset($buckets[$bucket])) {
                 $buckets[$bucket] = [
                     'timestamp' => $bucket,
                     'open' => (string) $trade->price,
@@ -105,6 +452,31 @@ class TradeService
         return array_slice(array_values($buckets), -$limit);
     }
 
+    private function toExternalSymbol(string $pair): string
+    {
+        return strtoupper(str_replace('/', '', str_replace('-', '/', trim($pair))));
+    }
+
+    private function pairFromExternalSymbol(string $symbol): string
+    {
+        $clean = strtoupper(trim($symbol));
+        foreach (['USDT', 'USDC', 'BTC', 'ETH'] as $quote) {
+            if (str_ends_with($clean, $quote) && strlen($clean) > strlen($quote)) {
+                return sprintf('%s/%s', substr($clean, 0, -strlen($quote)), $quote);
+            }
+        }
+
+        return $clean;
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function splitPair(string $pair): array
+    {
+        return array_pad(explode('/', strtoupper($pair), 2), 2, 'USDT');
+    }
+
     public function placeOrder(
         int $userId,
         string $pair,
@@ -118,11 +490,11 @@ class TradeService
         $side = strtolower($side);
         $type = strtolower($type);
 
-        if (!in_array($side, ['buy', 'sell'], true)) {
+        if (! in_array($side, ['buy', 'sell'], true)) {
             throw new RuntimeException('Invalid order side.');
         }
 
-        if (!in_array($type, ['market', 'limit', 'stop_loss', 'take_profit'], true)) {
+        if (! in_array($type, ['market', 'limit', 'stop_loss', 'take_profit'], true)) {
             throw new RuntimeException('Invalid order type.');
         }
 
@@ -146,15 +518,15 @@ class TradeService
             throw new RuntimeException('Conditional orders require a valid stop_price.');
         }
 
-        if ($isConditional && !in_array($triggerOrderType, ['market', 'limit'], true)) {
+        if ($isConditional && ! in_array($triggerOrderType, ['market', 'limit'], true)) {
             throw new RuntimeException('Conditional orders require a valid trigger order type.');
         }
 
         $executionType = $isConditional ? $triggerOrderType : $type;
         $matchPrice = $price;
-        if ($executionType === 'market' && !$isConditional) {
+        if ($executionType === 'market' && ! $isConditional) {
             $bestCounterOrder = $this->getBestCounterOrder($market->id, $side);
-            if (!$bestCounterOrder) {
+            if (! $bestCounterOrder) {
                 throw new RuntimeException('No liquidity available for market order.');
             }
             $matchPrice = (string) $bestCounterOrder->price;
@@ -171,9 +543,8 @@ class TradeService
                 : $this->mul($amount, (string) $matchPrice))
             : $amount;
 
-        $this->transactions->recordLockedOperation(
+        $this->reservations->reserveSpotOrder(
             $userId,
-            TransactionType::Trade,
             $lockCurrency,
             $lockAmount,
             "order_lock:{$market->symbol}",
@@ -208,7 +579,7 @@ class TradeService
 
         $trades = $isConditional ? [] : $this->matchOrder($order);
         $this->refreshOrderBook($market);
-        if (!$isConditional) {
+        if (! $isConditional) {
             $this->processConditionalOrders($market);
         }
 
@@ -218,7 +589,7 @@ class TradeService
             'order_book' => $this->getOrderBook($market->symbol),
         ];
 
-        if (!$isConditional && $trades !== []) {
+        if (! $isConditional && $trades !== []) {
             $this->referrals->queueQualifiedActivity($userId, 'first_trade', [
                 'event_key' => $order->order_uuid,
                 'transaction_id' => $order->order_uuid,
@@ -321,14 +692,13 @@ class TradeService
             ->where('user_id', $userId)
             ->firstOrFail();
 
-        if (!in_array($order->status, ['open', 'partially_filled', 'pending_trigger'], true)) {
+        if (! in_array($order->status, ['open', 'partially_filled', 'pending_trigger'], true)) {
             throw new RuntimeException('Only open orders can be cancelled.');
         }
 
         if ($this->compare((string) $order->locked_amount, '0') > 0) {
-            $this->transactions->releaseLockedFunds(
+            $this->reservations->releaseSpotOrder(
                 $userId,
-                TransactionType::Trade,
                 (string) $order->locked_currency,
                 (string) $order->locked_amount,
                 "order_cancel:{$order->pair}",
@@ -591,9 +961,8 @@ class TradeService
         if ($incomingOrder->type === 'market') {
             $fresh = $incomingOrder->fresh();
             if ($this->compare((string) $fresh->locked_amount, '0') > 0) {
-                $this->transactions->releaseLockedFunds(
+                $this->reservations->releaseSpotOrder(
                     $fresh->user_id,
-                    TransactionType::Trade,
                     (string) $fresh->locked_currency,
                     (string) $fresh->locked_amount,
                     "market_order_release:{$fresh->pair}",
@@ -624,7 +993,7 @@ class TradeService
                 ->get()
                 ->first(fn (Order $candidate) => $this->shouldTriggerConditionalOrder($candidate, (string) $market->last_price));
 
-            if (!$order) {
+            if (! $order) {
                 return;
             }
 
@@ -641,7 +1010,7 @@ class TradeService
                 return;
             }
 
-            if (!$this->shouldTriggerConditionalOrder($lockedOrder, (string) $market->last_price)) {
+            if (! $this->shouldTriggerConditionalOrder($lockedOrder, (string) $market->last_price)) {
                 return;
             }
 
@@ -649,9 +1018,8 @@ class TradeService
             if ($executionType === 'market' && $lockedOrder->side === 'buy') {
                 $requiredQuote = $this->quoteRequiredForBuyAmount($market->id, (string) $lockedOrder->remaining_amount);
                 if ($this->compare((string) $lockedOrder->locked_amount, $requiredQuote) < 0) {
-                    $this->transactions->releaseLockedFunds(
+                    $this->reservations->releaseSpotOrder(
                         $lockedOrder->user_id,
-                        TransactionType::Trade,
                         (string) $lockedOrder->locked_currency,
                         (string) $lockedOrder->locked_amount,
                         "conditional_order_release:{$lockedOrder->pair}",
@@ -664,6 +1032,7 @@ class TradeService
                     $lockedOrder->locked_amount = '0';
                     $lockedOrder->metadata = $metadata;
                     $lockedOrder->save();
+
                     return;
                 }
             }
@@ -682,7 +1051,7 @@ class TradeService
 
     private function shouldTriggerConditionalOrder(Order $order, string $lastPrice): bool
     {
-        if (!in_array($order->type, ['stop_loss', 'take_profit'], true)) {
+        if (! in_array($order->type, ['stop_loss', 'take_profit'], true)) {
             return false;
         }
 
@@ -750,9 +1119,34 @@ class TradeService
 
     private function getMarket(string $pair): Market
     {
-        return Market::query()
-            ->where('symbol', strtoupper($pair))
-            ->firstOrFail();
+        $normalized = strtoupper(str_replace('-', '/', trim($pair)));
+
+        if (! str_contains($normalized, '/')) {
+            foreach (['USDT', 'USDC', 'BTC', 'ETH'] as $quote) {
+                if (str_ends_with($normalized, $quote) && strlen($normalized) > strlen($quote)) {
+                    $normalized = sprintf('%s/%s', substr($normalized, 0, -strlen($quote)), $quote);
+                    break;
+                }
+            }
+        }
+
+        [$base, $quote] = array_pad(explode('/', $normalized, 2), 2, 'USDT');
+        $symbol = sprintf('%s/%s', strtoupper($base), strtoupper($quote));
+
+        return Market::query()->firstOrCreate(
+            ['symbol' => $symbol],
+            [
+                'base_currency' => strtoupper($base),
+                'quote_currency' => strtoupper($quote),
+                'status' => 'active',
+                'last_price' => '0',
+                'price_precision' => '0.0001',
+                'min_order_size' => '0.0001',
+                'max_order_size' => '0',
+                'maker_fee' => '0.001',
+                'taker_fee' => '0.002',
+            ]
+        );
     }
 
     private function getBestCounterOrder(int $marketId, string $incomingSide): ?Order
@@ -817,6 +1211,7 @@ class TradeService
             if ($this->compare($remainingBudget, $fullCost) >= 0) {
                 $baseAmount = $this->add($baseAmount, (string) $order->remaining_amount);
                 $remainingBudget = $this->sub($remainingBudget, $fullCost);
+
                 continue;
             }
 
@@ -902,6 +1297,7 @@ class TradeService
         }
         $fa = (float) $a;
         $fb = (float) $b;
+
         return $fa < $fb ? -1 : ($fa > $fb ? 1 : 0);
     }
 
@@ -910,3 +1306,5 @@ class TradeService
         return $this->compare($a, $b) <= 0 ? $a : $b;
     }
 }
+
+

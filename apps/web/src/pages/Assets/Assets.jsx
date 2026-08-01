@@ -1,233 +1,612 @@
-import { useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowDownToLine,
   ArrowLeft,
   ArrowUpFromLine,
+  ChevronDown,
+  CircleAlert,
   Eye,
   EyeOff,
-  Plus,
+  History,
   Repeat2,
-  SendHorizontal,
+  Search,
   Settings2,
   Wallet,
-  ArrowRightLeft,
+  X,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useWebSocketEvent } from "../../services/webSocketService";
 import TransferModal from "../../components/TransferModal";
 
-const holdings = [
-  {
-    id: "asset-1",
-    symbol: "XRP",
-    name: "Ripple",
-    balance: "2,840.55 XRP",
-    fiat: "₦3,905,880",
-    change: "+2.8%",
-    tone: "from-sky-400 to-blue-500",
-  },
-  {
-    id: "asset-2",
-    symbol: "USDT",
-    name: "Tether",
-    balance: "1,920.00 USDT",
-    fiat: "₦3,153,600",
-    change: "+0.1%",
-    tone: "from-emerald-400 to-green-500",
-  },
-  {
-    id: "asset-3",
-    symbol: "EXA",
-    name: "ExaToken",
-    balance: "45,200 EXA",
-    fiat: "₦2,904,200",
-    change: "+5.9%",
-    tone: "from-amber-300 to-yellow-500",
-  },
-  {
-    id: "asset-4",
-    symbol: "ETH",
-    name: "Ethereum",
-    balance: "0.820 ETH",
-    fiat: "₦6,420,000",
-    change: "-1.2%",
-    tone: "from-indigo-300 to-violet-500",
-  },
+const DISPLAY_CURRENCIES = ["USD", "USDT", "NGN", "EUR", "GBP", "BTC"];
+const ASSET_FILTERS = ["all", "crypto", "fiat"];
+const SORT_OPTIONS = [
+  { value: "value", label: "Value" },
+  { value: "balance", label: "Balance" },
+  { value: "asset", label: "Asset" },
 ];
 
-function ActionButton({ icon: Icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-20 flex-col items-center justify-center rounded-xl border border-violet-300/20 bg-violet-500/10 px-3 py-3 text-violet-100 transition duration-200 hover:-translate-y-0.5 hover:border-amber-300/50 hover:text-amber-200 active:scale-[0.98]"
-    >
-      <Icon className="h-5 w-5" />
-      <span className="mt-2 text-xs font-semibold">{label}</span>
-    </button>
-  );
+const ASSET_META = {
+  BTC: { name: "Bitcoin", tone: "from-amber-300 to-orange-500" },
+  ETH: { name: "Ethereum", tone: "from-violet-400 to-indigo-500" },
+  USDT: { name: "Tether", tone: "from-emerald-400 to-green-500" },
+  USDC: { name: "USD Coin", tone: "from-sky-400 to-blue-500" },
+  XRP: { name: "XRP", tone: "from-slate-300 to-slate-500" },
+  EXA: { name: "ExaToken", tone: "from-cyan-400 to-blue-500" },
+  NGN: { name: "Nigerian Naira", tone: "from-lime-400 to-emerald-500" },
+  USD: { name: "US Dollar", tone: "from-emerald-300 to-teal-500" },
+  EUR: { name: "Euro", tone: "from-blue-400 to-indigo-500" },
+  BNB: { name: "BNB", tone: "from-yellow-300 to-amber-500" },
+  SOL: { name: "Solana", tone: "from-fuchsia-400 to-cyan-400" },
+  TRX: { name: "Tron", tone: "from-rose-400 to-red-500" },
+  TON: { name: "Toncoin", tone: "from-cyan-300 to-sky-500" },
+};
+
+function formatAmount(value, maximumFractionDigits = 8) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "--";
+  return number.toLocaleString(undefined, { maximumFractionDigits });
 }
 
-function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw }) {
-  const [showBalance, setShowBalance] = useState(true);
+function formatDisplayValue(value, currency, hidden = false) {
+  if (hidden) return "••••••";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "--";
+
+  if (["BTC", "USDT"].includes(currency)) {
+    return `${formatAmount(number, currency === "BTC" ? 8 : 2)} ${currency}`;
+  }
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: currency === "NGN" ? 2 : 2,
+    }).format(number);
+  } catch {
+    return `${formatAmount(number, 2)} ${currency}`;
+  }
+}
+
+function getAssetMeta(code, type) {
+  const upper = String(code || "").toUpperCase();
+  return {
+    code: upper,
+    name: ASSET_META[upper]?.name || upper,
+    tone: ASSET_META[upper]?.tone || (type === "fiat" ? "from-emerald-400 to-teal-500" : "from-violet-400 to-indigo-500"),
+  };
+}
+
+function safeValue(payload) {
+  const data = payload?.data;
+  if (!data || typeof data !== "object") return null;
+  return data;
+}
+
+function sanitizePortfolio(portfolio) {
+  if (!portfolio) return null;
+  return {
+    total_value: portfolio.total_value,
+    currency: portfolio.currency,
+    breakdown: Array.isArray(portfolio.breakdown) ? portfolio.breakdown : [],
+  };
+}
+
+function mergeAssets(balances, portfolio) {
+  const breakdown = new Map((portfolio?.breakdown || []).map((row) => [String(row.asset || "").toUpperCase(), row]));
+
+  return (balances || []).map((balance) => {
+    const code = String(balance.currency || "").toUpperCase();
+    const meta = getAssetMeta(code, balance.type);
+    const total = Number(balance.total || 0);
+    const available = Number(balance.balance || 0);
+    const locked = Number(balance.locked || 0);
+    const row = breakdown.get(code);
+    const totalValue = Number(row?.value ?? row?.value_usdt ?? NaN);
+    const unitValue = Number.isFinite(totalValue) && total > 0 ? totalValue / total : null;
+    const availableValue = unitValue !== null ? unitValue * available : null;
+    const lockedValue = unitValue !== null ? unitValue * locked : null;
+
+    return {
+      ...balance,
+      code,
+      name: meta.name,
+      tone: meta.tone,
+      total,
+      available,
+      locked,
+      totalValue,
+      availableValue,
+      lockedValue,
+    };
+  });
+}
+
+function buildAccountRows(accountPayload, mergedAssets) {
+  const accountSource = accountPayload?.accounts;
+  const assetRows = Array.isArray(accountPayload?.assets) ? accountPayload.assets : [];
+  const defaults = [
+    { key: "funding", label: "Funding Account", description: "Deposits, withdrawals and receive flows." },
+    { key: "unified_trading", label: "Unified Trading Account", description: "Shared collateral for Spot and Futures." },
+  ];
+
+  const accountEntries = Array.isArray(accountSource)
+    ? accountSource
+    : accountSource && typeof accountSource === "object"
+      ? Object.entries(accountSource).map(([key, values]) => ({ key, ...(values && typeof values === "object" ? values : {}) }))
+      : defaults;
+
+  const unitValues = new Map(mergedAssets.map((asset) => [asset.code, asset.total > 0 && Number.isFinite(asset.totalValue) ? asset.totalValue / asset.total : null]));
+
+  return accountEntries.map((account) => {
+    const key = String(account.key || "").toLowerCase();
+    const accountAssets = assetRows
+      .map((assetRow) => {
+        const bucket = assetRow?.[key];
+        if (!bucket || typeof bucket !== "object") return null;
+        const asset = String(assetRow.asset || "").toUpperCase();
+        return {
+          asset,
+          available: String(bucket.available ?? "0"),
+          locked: String(bucket.locked ?? "0"),
+          total: String(bucket.total ?? "0"),
+          transferable: String(bucket.transferable ?? bucket.available ?? "0"),
+          inUse: String(bucket.in_use ?? bucket.locked ?? "0"),
+          futuresAvailable: String(bucket.futures_available ?? "0"),
+          futuresMargin: String(bucket.futures_margin ?? "0"),
+          spotAvailable: String(bucket.spot_available ?? bucket.available ?? "0"),
+          spotLocked: String(bucket.spot_locked ?? bucket.locked ?? "0"),
+        };
+      })
+      .filter(Boolean);
+
+    let totalValue = 0;
+    let availableValue = 0;
+    let lockedValue = 0;
+    let transferableValue = 0;
+
+    accountAssets.forEach((bucket) => {
+      const unit = unitValues.get(bucket.asset);
+      if (unit === null || unit === undefined || !Number.isFinite(unit)) return;
+      totalValue += Number(bucket.total || 0) * unit;
+      availableValue += Number(bucket.available || 0) * unit;
+      lockedValue += Number(bucket.locked || 0) * unit;
+      transferableValue += Number(bucket.transferable || 0) * unit;
+    });
+
+    return {
+      ...account,
+      key,
+      label: account.label || defaults.find((item) => item.key === key)?.label || "Account",
+      description: account.description || defaults.find((item) => item.key === key)?.description || "",
+      assets: accountAssets,
+      assetCount: accountAssets.filter((item) => Number(item.total || 0) > 0).length,
+      totalValue,
+      availableValue,
+      lockedValue,
+      transferableValue,
+    };
+  });
+}
+
+function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw, onOpenTransactions, onOpenTrade }) {
+  const { request, user } = useAuth();
+  const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem("exaearn_assets_privacy") === "hidden");
+  const [displayCurrency, setDisplayCurrency] = useState(() => localStorage.getItem("exaearn_assets_currency") || "USD");
+  const [hideZeroBalances, setHideZeroBalances] = useState(() => localStorage.getItem("exaearn_assets_hide_zero") === "true");
+  const [activeTab, setActiveTab] = useState("assets");
+  const [assetFilter, setAssetFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("value");
+  const [search, setSearch] = useState("");
+  const [balances, setBalances] = useState([]);
+  const [portfolio, setPortfolio] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
   const [selectedAsset, setSelectedAsset] = useState(null);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [showCurrencySelector, setShowCurrencySelector] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const handleTransfer = async (transferData) => {
+  const loadAssets = useCallback(async (mode = "full") => {
+    if (mode === "full") setLoading(true);
+    else setRefreshing(true);
+    setError("");
+
     try {
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/wallet/internal-transfer`, {
+      const [balancesPayload, portfolioPayload, accountsPayload] = await Promise.all([
+        request("/api/wallet/balances", { method: "GET" }),
+        request(`/api/portfolio?base_currency=${encodeURIComponent(displayCurrency)}`, { method: "GET" }),
+        request("/api/accounts", { method: "GET" }),
+      ]);
+
+      setBalances(Array.isArray(balancesPayload?.data) ? balancesPayload.data : []);
+      setPortfolio(sanitizePortfolio(safeValue(portfolioPayload)));
+      setAccounts(buildAccountRows(safeValue(accountsPayload), mergeAssets(Array.isArray(balancesPayload?.data) ? balancesPayload.data : [], sanitizePortfolio(safeValue(portfolioPayload)))));
+    } catch (loadError) {
+      setError(loadError?.message || "Unable to load balances.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [displayCurrency, request]);
+
+  useEffect(() => {
+    loadAssets("full");
+  }, [loadAssets]);
+
+  useWebSocketEvent("portfolio:update", useCallback(() => {
+    loadAssets("refresh");
+  }, [loadAssets]));
+
+  useEffect(() => {
+    localStorage.setItem("exaearn_assets_privacy", privacyMode ? "hidden" : "visible");
+  }, [privacyMode]);
+
+  useEffect(() => {
+    localStorage.setItem("exaearn_assets_currency", displayCurrency);
+  }, [displayCurrency]);
+
+  useEffect(() => {
+    localStorage.setItem("exaearn_assets_hide_zero", String(hideZeroBalances));
+  }, [hideZeroBalances]);
+
+  const mergedAssets = useMemo(() => mergeAssets(balances, portfolio), [balances, portfolio]);
+
+  const totals = useMemo(() => {
+    let available = 0;
+    let locked = 0;
+    mergedAssets.forEach((asset) => {
+      if (Number.isFinite(asset.availableValue)) available += asset.availableValue;
+      if (Number.isFinite(asset.lockedValue)) locked += asset.lockedValue;
+    });
+    return { available, locked };
+  }, [mergedAssets]);
+
+  const filteredAssets = useMemo(() => {
+    let next = [...mergedAssets];
+
+    if (assetFilter !== "all") next = next.filter((asset) => asset.type === assetFilter);
+    if (hideZeroBalances) next = next.filter((asset) => asset.total > 0);
+    if (search.trim()) {
+      const needle = search.trim().toLowerCase();
+      next = next.filter((asset) => asset.code.toLowerCase().includes(needle) || asset.name.toLowerCase().includes(needle));
+    }
+
+    next.sort((left, right) => {
+      if (sortBy === "asset") return left.code.localeCompare(right.code);
+      if (sortBy === "balance") return right.total - left.total;
+      return (Number.isFinite(right.totalValue) ? right.totalValue : -1) - (Number.isFinite(left.totalValue) ? left.totalValue : -1);
+    });
+
+    return next;
+  }, [assetFilter, hideZeroBalances, mergedAssets, search, sortBy]);
+
+  const selectedAssetRow = useMemo(() => filteredAssets.find((asset) => asset.code === selectedAsset) || mergedAssets.find((asset) => asset.code === selectedAsset) || null, [filteredAssets, mergedAssets, selectedAsset]);
+
+  const handleTransfer = async (payload) => {
+    try {
+      await request("/api/accounts/transfer", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(transferData),
+        body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error(`Transfer failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("Transfer successful:", result);
-      setIsTransferModalOpen(false);
-      // Optionally refresh balances or show success message
-    } catch (error) {
-      console.error("Transfer error:", error);
-      // Show error message to user
+      setShowTransferModal(false);
+      await loadAssets("refresh");
+    } catch (transferError) {
+      setError(transferError?.message || "Unable to complete transfer.");
+      throw transferError;
     }
   };
 
-  return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#050509] via-[#140822] to-[#1c0d32] px-4 py-8 text-violet-50 sm:px-6 sm:py-10">
-      <div className="pointer-events-none absolute -left-24 top-20 h-56 w-56 rounded-full bg-purple-500/25 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-1/3 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
+  const portfolioValue = portfolio?.total_value;
+  const portfolioCurrency = portfolio?.currency || displayCurrency;
+  const btcEquivalent = useMemo(() => {
+    if (!portfolio || portfolio.currency === "BTC") return portfolio?.total_value || null;
+    const btcAsset = mergedAssets.find((asset) => asset.code === "BTC");
+    if (!btcAsset || !Number.isFinite(btcAsset.totalValue) || btcAsset.totalValue <= 0) return null;
+    const total = Number(portfolio.total_value);
+    if (!Number.isFinite(total)) return null;
+    return total / (btcAsset.totalValue / Math.max(btcAsset.total, 1e-8));
+  }, [mergedAssets, portfolio]);
 
-      <section className="mx-auto w-full max-w-7xl rounded-3xl border border-violet-300/15 bg-[#110a20]/70 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-6 lg:p-8">
-        <header className="rounded-2xl border border-violet-300/15 bg-[#140c24]/85 p-4 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              {onBack ? (
-                <button
-                  type="button"
-                  onClick={onBack}
-                  className="mb-3 inline-flex items-center gap-2 rounded-xl border border-violet-300/25 bg-violet-950/35 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-amber-300/60 hover:text-amber-200"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </button>
-              ) : null}
-              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-white sm:text-4xl">Assets</h1>
-              <p className="mt-1 text-sm text-violet-100/70">Manage your portfolio</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBalance((prev) => !prev)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-violet-300/25 bg-violet-500/10 text-violet-100 transition hover:border-amber-300/60 hover:text-amber-200"
-              >
-                {showBalance ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+  return (
+    <main className="min-h-[100dvh] bg-[#06080d] px-3 pb-8 pt-3 text-slate-100 sm:px-4 lg:px-6">
+      <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-4">
+        <header className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-[#0c1018] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {onBack ? (
+              <button type="button" onClick={onBack} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100">
+                <ArrowLeft className="h-4 w-4" />
               </button>
-              <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-violet-300/25 bg-violet-500/10 text-violet-100 transition hover:border-amber-300/60 hover:text-amber-200">
+            ) : null}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{user?.name || "Assets"}</p>
+              <p className="text-xs text-slate-500">Assets</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label="Toggle balance privacy" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
+              {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+            <button type="button" onClick={onOpenTransactions} aria-label="Open transaction history" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
+              <History className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
+
+        {error ? (
+          <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+            <div className="flex items-start justify-between gap-3">
+              <span>{error}</span>
+              <button type="button" onClick={() => loadAssets("refresh")} className="font-semibold text-rose-100">Retry</button>
+            </div>
+          </div>
+        ) : null}
+
+        <section className="rounded-2xl border border-white/8 bg-[#0c1018] px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-500">
+                <span>Total Assets</span>
+                <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label="Toggle balance privacy" className="text-slate-400">
+                  {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {loading ? <div className="mt-2 h-10 w-52 animate-pulse rounded-xl bg-white/[0.05]" /> : <p className="mt-2 text-3xl font-semibold text-white sm:text-4xl">{formatDisplayValue(portfolioValue, portfolioCurrency, privacyMode)}</p>}
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                <button type="button" onClick={() => setShowCurrencySelector(true)} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200">
+                  {portfolioCurrency}
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {btcEquivalent ? <span>{privacyMode ? "≈ •••••• BTC" : `≈ ${formatAmount(btcEquivalent, 5)} BTC`}</span> : null}
+              </div>
+            </div>
+            {refreshing ? <div className="text-xs text-slate-500">Refreshing...</div> : null}
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SummaryMetric label="Available" value={formatDisplayValue(totals.available, portfolioCurrency, privacyMode)} loading={loading} />
+            <SummaryMetric label="In Use" value={formatDisplayValue(totals.locked, portfolioCurrency, privacyMode)} loading={loading} />
+            <SummaryMetric label="Assets" value={privacyMode ? "••••" : String(mergedAssets.filter((item) => item.total > 0).length)} loading={loading} />
+            <SummaryMetric label="P&L" value="--" hint="Shown when real performance data is available" loading={false} />
+          </div>
+        </section>
+
+        <section className="grid grid-cols-4 gap-3 rounded-2xl border border-white/8 bg-[#0c1018] px-3 py-3">
+          <QuickAction icon={ArrowDownToLine} label="Deposit" onClick={onOpenAddFunds} />
+          <QuickAction icon={ArrowUpFromLine} label="Withdraw" onClick={onOpenWithdraw} />
+          <QuickAction icon={Repeat2} label="Transfer" onClick={() => setShowTransferModal(true)} />
+          <QuickAction icon={Repeat2} label="Convert" onClick={onOpenSwap} />
+        </section>
+
+        <section className="rounded-2xl border border-white/8 bg-[#0c1018]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
+            <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
+              <button type="button" onClick={() => setActiveTab("assets")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "assets" ? "bg-white text-slate-950" : "text-slate-400"}`}>
+                Asset
+              </button>
+              <button type="button" onClick={() => setActiveTab("accounts")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "accounts" ? "bg-white text-slate-950" : "text-slate-400"}`}>
+                Account
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-300">
+                <Search className="h-4 w-4 text-slate-500" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={activeTab === "assets" ? "Search assets" : "Search accounts"} className="w-36 bg-transparent outline-none placeholder:text-slate-500 sm:w-44" />
+              </div>
+              <button type="button" onClick={() => setShowFilters((value) => !value)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300">
                 <Settings2 className="h-4 w-4" />
               </button>
             </div>
           </div>
-        </header>
 
-        <section className="mt-5 rounded-2xl border border-violet-300/15 bg-gradient-to-br from-[#24123e] via-[#1b112f] to-[#2a1c1a] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.35)] sm:p-6">
-          <p className="text-xs text-violet-100/65">Total Balance</p>
-          <p className="mt-1 text-3xl font-semibold text-amber-200 drop-shadow-[0_0_14px_rgba(251,191,36,0.35)] sm:text-4xl">
-            {showBalance ? "6,125.70 XRP" : "••••••••"}
-          </p>
-          <p className="mt-2 text-sm text-violet-100/70">{showBalance ? "≈ ₦16,383,680" : "≈ ₦••••••••"}</p>
-        </section>
-
-        <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <ActionButton icon={Plus} label="Add Funds" onClick={onOpenAddFunds} />
-          <ActionButton icon={SendHorizontal} label="Send" onClick={onOpenSend} />
-          <ActionButton icon={Repeat2} label="Swap" onClick={onOpenSwap} />
-          <ActionButton icon={ArrowRightLeft} label="Transfer" onClick={() => setIsTransferModalOpen(true)} />
-          <ActionButton icon={ArrowUpFromLine} label="Withdraw" onClick={onOpenWithdraw} />
-        </section>
-
-        <section className="mt-5 rounded-2xl border border-violet-300/15 bg-[#140c24]/85 p-4 sm:p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-['Sora'] text-lg font-semibold text-violet-50">Your Assets</h2>
-            <span className="text-xs text-violet-100/65">{holdings.length} tokens</span>
-          </div>
-
-          {holdings.length ? (
-            <div className="space-y-3">
-              {holdings.map((asset) => (
-                <article key={asset.id} className="rounded-xl border border-violet-300/15 bg-[#110a1e]/80 p-3 shadow-[0_8px_20px_rgba(0,0,0,0.3)] transition hover:border-amber-300/40">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAsset((prev) => (prev === asset.id ? null : asset.id))}
-                    className="flex w-full items-center justify-between gap-3 text-left"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${asset.tone} text-xs font-bold text-white shadow-[0_0_14px_rgba(168,85,247,0.25)]`}>
-                        {asset.symbol.slice(0, 2)}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white">{asset.symbol}</p>
-                        <p className="text-xs text-violet-100/65">{asset.name}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-violet-50">{asset.balance}</p>
-                      <p className="text-xs text-violet-100/65">{asset.fiat}</p>
-                      <p className={`mt-0.5 text-xs font-semibold ${asset.change.startsWith("+") ? "text-emerald-300" : "text-rose-300"}`}>{asset.change}</p>
-                    </div>
+          {showFilters ? (
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3 text-sm">
+              <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
+                {ASSET_FILTERS.map((filter) => (
+                  <button key={filter} type="button" onClick={() => setAssetFilter(filter)} className={`rounded-full px-3 py-1.5 ${assetFilter === filter ? "bg-white text-slate-950" : "text-slate-400"}`}>
+                    {filter === "all" ? "All" : filter === "crypto" ? "Crypto" : "Fiat"}
                   </button>
+                ))}
+              </div>
+              <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-slate-300">
+                <input type="checkbox" checked={hideZeroBalances} onChange={(event) => setHideZeroBalances(event.target.checked)} />
+                Hide zero balances
+              </label>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-slate-200 outline-none">
+                {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </div>
+          ) : null}
 
-                  {selectedAsset === asset.id ? (
-                    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-violet-300/15 pt-3 sm:grid-cols-4">
-                      <button className="rounded-lg border border-violet-300/20 bg-violet-500/12 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-amber-300/50 hover:text-amber-200">
-                        Send
-                      </button>
-                      <button className="rounded-lg border border-violet-300/20 bg-violet-500/12 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-amber-300/50 hover:text-amber-200">
-                        Receive
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onOpenSwap}
-                        className="rounded-lg border border-violet-300/20 bg-violet-500/12 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-amber-300/50 hover:text-amber-200"
-                      >
-                        Swap
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onOpenWithdraw}
-                        className="rounded-lg border border-violet-300/20 bg-violet-500/12 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-amber-300/50 hover:text-amber-200"
-                      >
-                        Withdraw
-                      </button>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
+          {activeTab === "assets" ? (
+            <div>
+              <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 border-b border-white/8 px-4 py-3 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
+                <span>Asset</span>
+                <span className="text-right">Balance</span>
+                <span className="text-right">Value</span>
+              </div>
+              {loading ? (
+                <div className="space-y-3 p-4">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-white/[0.04]" />)}</div>
+              ) : filteredAssets.length ? (
+                <div className="divide-y divide-white/6">
+                  {filteredAssets.map((asset) => (
+                    <button key={asset.code} type="button" onClick={() => setSelectedAsset(asset.code)} className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-white/[0.03] lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <AssetAvatar code={asset.code} tone={asset.tone} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-white">{asset.code}</p>
+                          <p className="truncate text-xs text-slate-500">{asset.name}</p>
+                        </div>
+                      </div>
+                      <div className="text-left lg:text-right">
+                        <p className="text-sm font-medium text-white">{privacyMode ? `•••• ${asset.code}` : `${formatAmount(asset.total, asset.decimals || 8)} ${asset.code}`}</p>
+                        <p className="mt-1 text-xs text-slate-500">Available {privacyMode ? "••••" : formatAmount(asset.available, asset.decimals || 8)}</p>
+                      </div>
+                      <div className="text-left lg:text-right">
+                        <p className="text-sm font-medium text-white">{formatDisplayValue(asset.totalValue, portfolioCurrency, privacyMode)}</p>
+                        <p className="mt-1 text-xs text-slate-500">In use {privacyMode ? "••••" : formatAmount(asset.locked, asset.decimals || 8)}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="No assets found" body="Try changing the filters or add funds to start building your portfolio." />
+              )}
             </div>
           ) : (
-            <div className="rounded-xl border border-violet-300/15 bg-[#110a1e]/80 p-10 text-center">
-              <Wallet className="mx-auto h-9 w-9 text-violet-200/65" />
-              <p className="mt-3 text-base font-semibold text-violet-50">No Assets Yet</p>
-              <p className="mt-1 text-sm text-violet-100/65">Add funds to start your journey</p>
+            <div>
+              <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 border-b border-white/8 px-4 py-3 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
+                <span>Account</span>
+                <span className="text-right">Transferable</span>
+                <span className="text-right">In Use</span>
+                <span className="text-right">Equity</span>
+              </div>
+              {loading ? (
+                <div className="space-y-3 p-4">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-white/[0.04]" />)}</div>
+              ) : accounts.length ? (
+                <div className="divide-y divide-white/6">
+                  {accounts.map((account) => (
+                    <div key={account.key} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{account.label}</p>
+                        <p className="mt-1 text-xs text-slate-500">Real backend account balance</p>
+                      </div>
+                      <p className="text-left text-sm text-white lg:text-right">{privacyMode ? "••••" : formatAmount(account.available, 8)}</p>
+                      <p className="text-left text-sm text-white lg:text-right">{privacyMode ? "••••" : formatAmount(account.locked, 8)}</p>
+                      <p className="text-left text-sm text-white lg:text-right">{formatDisplayValue(account.totalValue, portfolioCurrency, privacyMode)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="Account breakdown unavailable" body="This account view will populate as account balance data becomes available for your profile." />
+              )}
             </div>
           )}
         </section>
+      </div>
 
-        <p className="mt-5 text-center text-xs text-violet-100/60">
-          Your assets are securely managed within the ExaEarn ecosystem.
-        </p>
-      </section>
+      {showCurrencySelector ? (
+        <Sheet title="Display currency" onClose={() => setShowCurrencySelector(false)}>
+          <div className="space-y-2">
+            {DISPLAY_CURRENCIES.map((currency) => (
+              <button key={currency} type="button" onClick={() => { setDisplayCurrency(currency); setShowCurrencySelector(false); }} className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left ${displayCurrency === currency ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : "border-white/10 bg-white/[0.03] text-slate-200"}`}>
+                <span>{currency}</span>
+                {displayCurrency === currency ? <span className="text-xs font-semibold">Selected</span> : null}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      ) : null}
 
-      <TransferModal 
-        isOpen={isTransferModalOpen} 
-        onClose={() => setIsTransferModalOpen(false)} 
-        onTransfer={handleTransfer} 
+      {selectedAssetRow ? (
+        <Sheet title={selectedAssetRow.code} onClose={() => setSelectedAsset(null)}>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center gap-3">
+                <AssetAvatar code={selectedAssetRow.code} tone={selectedAssetRow.tone} />
+                <div>
+                  <p className="text-lg font-semibold text-white">{selectedAssetRow.code}</p>
+                  <p className="text-sm text-slate-500">{selectedAssetRow.name}</p>
+                </div>
+              </div>
+              <dl className="mt-4 space-y-3 text-sm">
+                <DetailRow label="Total" value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.total, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
+                <DetailRow label="Available" value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.available, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
+                <DetailRow label="In Use" value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.locked, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
+                <DetailRow label="Value" value={formatDisplayValue(selectedAssetRow.totalValue, portfolioCurrency, privacyMode)} />
+              </dl>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ActionPill label="Deposit" onClick={onOpenAddFunds} />
+              <ActionPill label="Withdraw" onClick={onOpenWithdraw} />
+              <ActionPill label="Transfer" onClick={() => setShowTransferModal(true)} />
+              <ActionPill label="Convert" onClick={onOpenSwap} />
+              {onOpenTrade ? <ActionPill label="Trade" onClick={onOpenTrade} /> : null}
+              {onOpenSend ? <ActionPill label="Send" onClick={onOpenSend} /> : null}
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+
+      <TransferModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        onTransfer={handleTransfer}
+        assets={Array.from(new Set([
+          ...mergedAssets.map((asset) => asset.code),
+          ...accounts.flatMap((account) => (account.assets || []).map((item) => item.asset)),
+        ])).filter(Boolean).sort()}
+        balances={accounts}
       />
     </main>
   );
+}
+
+function SummaryMetric({ label, value, hint, loading }) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3">
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      {loading ? <div className="mt-2 h-6 w-24 animate-pulse rounded bg-white/[0.05]" /> : <p className="mt-2 text-base font-semibold text-white">{value}</p>}
+      {hint ? <p className="mt-1 text-[11px] text-slate-500">{hint}</p> : null}
+    </div>
+  );
+}
+
+function QuickAction({ icon: Icon, label, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="flex flex-col items-center gap-2 rounded-xl px-2 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/[0.05]">
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function AssetAvatar({ code, tone }) {
+  return <span className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${tone} text-xs font-bold text-white`}>{code.slice(0, 2)}</span>;
+}
+
+function EmptyState({ title, body }) {
+  return (
+    <div className="px-4 py-10 text-center">
+      <CircleAlert className="mx-auto h-8 w-8 text-slate-500" />
+      <p className="mt-3 text-sm font-semibold text-white">{title}</p>
+      <p className="mt-1 text-sm text-slate-500">{body}</p>
+    </div>
+  );
+}
+
+function Sheet({ title, children, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm lg:p-4">
+      <div className="max-h-[92vh] w-full overflow-hidden rounded-t-[28px] border border-white/10 bg-[#0b0f16] shadow-2xl lg:max-w-xl lg:rounded-[28px]">
+        <div className="flex items-center justify-between border-b border-white/8 px-4 py-4">
+          <h2 className="text-base font-semibold text-white">{title}</h2>
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto px-4 py-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-right font-medium text-white">{value}</span>
+    </div>
+  );
+}
+
+function ActionPill({ label, onClick }) {
+  return <button type="button" onClick={onClick} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06]">{label}</button>;
 }
 
 export default Assets;

@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActivityLog extends Model
 {
+    use HasFactory;
+
+    public const UPDATED_AT = null;
+
     protected $table = 'activity_logs';
 
     protected $fillable = [
@@ -68,5 +73,10 @@ class ActivityLog extends Model
     public function scopeFailed($query)
     {
         return $query->where('status', 'failed');
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(fn (): bool => false);
     }
 }

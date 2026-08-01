@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\LedgerEntry;
 use App\Models\LedgerTransaction;
+use App\Models\Wallet;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
@@ -48,7 +49,7 @@ class LedgerService
             }
 
             $newBalance = $this->add((string) $account->balance, $amount);
-            if ($this->compare($newBalance, '0') < 0) {
+            if ($account->user_id !== null && $this->compare($newBalance, '0') < 0) {
                 throw new RuntimeException('Balance cannot be negative.');
             }
 
@@ -106,7 +107,7 @@ class LedgerService
                 $account = Account::query()->lockForUpdate()->findOrFail($entry->account_id);
                 $rollbackAmount = $this->sub('0', (string) $entry->amount);
                 $newBalance = $this->add((string) $account->balance, $rollbackAmount);
-                if ($this->compare($newBalance, '0') < 0) {
+                if ($account->user_id !== null && $this->compare($newBalance, '0') < 0) {
                     throw new RuntimeException('Rollback would create negative balance.');
                 }
                 $account->balance = $newBalance;
@@ -156,7 +157,7 @@ class LedgerService
         $defaults = ['balance' => '0'];
 
         if ($userId !== null && $accountType === 'funding') {
-            $wallet = \App\Models\Wallet::query()
+            $wallet = Wallet::query()
                 ->where('user_id', $userId)
                 ->where('currency', $asset)
                 ->first();
@@ -198,6 +199,7 @@ class LedgerService
 
         return $query->get()->map(function (LedgerEntry $entry) {
             $entry->setAttribute('type', $this->compare((string) $entry->amount, '0') >= 0 ? 'credit' : 'debit');
+
             return $entry;
         });
     }
@@ -311,7 +313,7 @@ class LedgerService
     {
         $userFunding = $this->getOrCreateAccount($userId, 'funding', strtoupper($asset));
         $treasury = $this->getOrCreateAccount(null, 'treasury', strtoupper($asset));
-        
+
         $totalAmount = $this->add((string) $cardValue, (string) $userChargedFees);
 
         return $this->postDoubleEntry($reference, "Gift card purchase #{$giftcardOrderId}", [
@@ -327,7 +329,7 @@ class LedgerService
     {
         $treasury = $this->getOrCreateAccount(null, 'treasury', strtoupper($asset));
         $externalProvider = $this->getOrCreateAccount(null, 'external_provider', strtoupper($asset));
-        
+
         $totalFee = $this->add((string) $apiFee, (string) $deliveryFee);
 
         return $this->postDoubleEntry($reference, "API fee to {$provider}", [
@@ -428,7 +430,7 @@ class LedgerService
         foreach ($grouped as $accountEntries) {
             $entry = $accountEntries->last();
             $account = Account::query()->find($entry->account_id);
-            if (!$account) {
+            if (! $account) {
                 continue;
             }
 
@@ -462,6 +464,7 @@ class LedgerService
         }
         $fa = (float) $a;
         $fb = (float) $b;
+
         return $fa < $fb ? -1 : ($fa > $fb ? 1 : 0);
     }
 }

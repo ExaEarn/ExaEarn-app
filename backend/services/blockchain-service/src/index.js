@@ -87,7 +87,6 @@ app.get('/transactions/:txHash/status', verifyServiceSecret, async (req, res) =>
 app.post('/streams/:topic/publish', verifyServiceSecret, (req, res) => {
   const topic = req.params.topic;
   const body = req.body || {};
-  const event = body.event || null;
   const data = body.data ?? body;
   const userId = Number(body.user_id ?? body.userId);
 
@@ -103,6 +102,9 @@ app.post('/streams/:topic/publish', verifyServiceSecret, (req, res) => {
       return res.status(204).send();
     case 'market':
       realtimeHub.publishPriceUpdate(data);
+      return res.status(204).send();
+    case 'game':
+      realtimeHub.publishGameFlight(body);
       return res.status(204).send();
     default:
       return res.status(404).json({ message: 'Unknown publish topic' });

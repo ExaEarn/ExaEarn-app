@@ -18,12 +18,12 @@ export function AuthButton({ label, onPress, variant = "primary", loading, icon 
     return (
       <AnimatedPressable disabled={loading} onPress={onPress} scaleTo={0.985}>
         <LinearGradient
-          colors={["rgba(127,70,212,0.96)", "rgba(217,70,239,0.9)", colors.auric500]}
+          colors={["rgba(14,165,233,0.96)", "rgba(127,70,212,0.96)", colors.auric500]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
-          className="h-[58px] flex-row items-center justify-center rounded-2xl border border-auric-300/60"
+          className="h-[58px] flex-row items-center justify-center rounded-2xl border border-cyan-200/45"
           style={{
-            shadowColor: colors.auric500,
+            shadowColor: "#22d3ee",
             shadowOffset: { width: 0, height: 12 },
             shadowOpacity: 0.32,
             shadowRadius: 24,
@@ -43,12 +43,12 @@ export function AuthButton({ label, onPress, variant = "primary", loading, icon 
     );
   }
 
-  const border = variant === "outline" ? "border-auric-300/55" : "border-violet-200/20";
-  const text = variant === "outline" ? "text-auric-300" : "text-violet-100/80";
+  const border = variant === "outline" ? "border-auric-300/75" : "border-cyan-200/25";
+  const text = variant === "outline" ? "text-auric-300" : "text-violet-50";
 
   return (
     <AnimatedPressable
-      className={`h-[56px] flex-row items-center justify-center rounded-2xl border bg-cosmic-900/65 ${border}`}
+      className={`h-[56px] flex-row items-center justify-center rounded-2xl border bg-cosmic-900/90 ${border}`}
       disabled={loading}
       onPress={onPress}
     >

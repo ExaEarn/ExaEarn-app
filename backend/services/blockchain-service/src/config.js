@@ -61,7 +61,6 @@ const contracts = {
   agriInvestment: process.env.AGRI_INVESTMENT_CONTRACT_ADDRESS || '',
   rewardDistribution: process.env.REWARD_DISTRIBUTION_CONTRACT_ADDRESS || '',
   wrappedXrp: process.env.WRAPPED_XRP_ADDRESS || '',
-  xrpStaking: process.env.XRP_STAKING_CONTRACT_ADDRESS || '',
 };
 
 const chainFamilies = {

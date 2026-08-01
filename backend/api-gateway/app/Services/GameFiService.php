@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
 use App\Jobs\ProcessLotteryResultJob;
 use App\Jobs\UpdateGameLeaderboardJob;
 use App\Jobs\VerifyEntryTransactionJob;
-use App\Enums\TransactionStatus;
-use App\Enums\TransactionType;
 use App\Models\AuditLog;
 use App\Models\Bet;
 use App\Models\BettingPool;
@@ -17,7 +17,6 @@ use App\Models\LotteryGame;
 use App\Models\LotteryResult;
 use App\Models\Transaction;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,9 +26,7 @@ class GameFiService
 {
     private const SCALE = 8;
 
-    public function __construct(private readonly BlockchainApiService $blockchain)
-    {
-    }
+    public function __construct(private readonly BlockchainService $blockchain) {}
 
     public function lotteryGames(): Collection
     {
@@ -134,7 +131,7 @@ class GameFiService
             throw new RuntimeException('Lottery is not open.');
         }
 
-        if (!$game->contract_round_id) {
+        if (! $game->contract_round_id) {
             throw new RuntimeException('Lottery round is not available on-chain yet.');
         }
 
@@ -186,7 +183,7 @@ class GameFiService
                 'amount' => (string) $game->entry_fee_eth,
                 'fee' => '0',
                 'status' => TransactionStatus::Pending,
-                'reference' => 'lottery_entry:' . $entry->id,
+                'reference' => 'lottery_entry:'.$entry->id,
                 'tx_hash' => $txHash,
                 'metadata' => [
                     'game_id' => $game->id,
@@ -249,7 +246,7 @@ class GameFiService
             throw new RuntimeException('Wallet has reached the maximum bets for this pool.');
         }
 
-        if (!in_array((string) $payload['bet_option'], $pool->bet_options ?? [], true)) {
+        if (! in_array((string) $payload['bet_option'], $pool->bet_options ?? [], true)) {
             throw new RuntimeException('Selected bet option is not valid for this pool.');
         }
 
@@ -284,10 +281,11 @@ class GameFiService
                 'entry_fee_eth' => (string) $entry->game->entry_fee_eth,
             ]);
 
-            if (!($verification['confirmed'] ?? false)) {
+            if (! ($verification['confirmed'] ?? false)) {
                 $entry->status = 'rejected';
                 $entry->metadata = array_merge($entry->metadata ?? [], ['verification' => $verification]);
                 $entry->save();
+
                 return;
             }
 
@@ -314,6 +312,7 @@ class GameFiService
 
             ProcessLotteryResultJob::dispatch($entry->game_id);
             UpdateGameLeaderboardJob::dispatch('lottery');
+
             return;
         }
 
@@ -352,7 +351,7 @@ class GameFiService
     public function syncLotteryResult(int $gameId): void
     {
         $game = LotteryGame::query()->findOrFail($gameId);
-        if ($game->status === 'completed' || !$game->contract_round_id) {
+        if ($game->status === 'completed' || ! $game->contract_round_id) {
             return;
         }
 
@@ -360,7 +359,7 @@ class GameFiService
             'round_id' => $game->contract_round_id,
         ]);
 
-        if (!($result['drawn'] ?? false) || empty($result['winner_wallet'])) {
+        if (! ($result['drawn'] ?? false) || empty($result['winner_wallet'])) {
             return;
         }
 
@@ -397,7 +396,7 @@ class GameFiService
             throw new RuntimeException('Betting pool is not open.');
         }
 
-        if (!in_array((string) $payload['winning_option'], $pool->bet_options ?? [], true)) {
+        if (! in_array((string) $payload['winning_option'], $pool->bet_options ?? [], true)) {
             throw new RuntimeException('Winning option is invalid for this pool.');
         }
 

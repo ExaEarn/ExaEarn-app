@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\ActivityLog;
+use App\Models\Admin;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Request as RequestFacade;
 
@@ -13,12 +15,10 @@ class ActivityAuditService
     /**
      * Log user activity
      *
-     * @param int $userId
-     * @param string $type auth, wallet, trade, reward, staking, nft, security, system
-     * @param string $action login, logout, withdrawal, deposit, order_created, etc
-     * @param array $data Additional context data (JSON)
-     * @param string $status success, failed, pending
-     * @return ActivityLog
+     * @param  string  $type  auth, wallet, trade, reward, staking, nft, security, system
+     * @param  string  $action  login, logout, withdrawal, deposit, order_created, etc
+     * @param  array  $data  Additional context data (JSON)
+     * @param  string  $status  success, failed, pending
      */
     public function logUser(
         int $userId,
@@ -40,11 +40,9 @@ class ActivityAuditService
     /**
      * Log admin activity
      *
-     * @param int $adminId
-     * @param string $action adjust_balance, ban_user, approve_withdrawal, edit_reward, etc
-     * @param array $data Additional context
-     * @param int|null $userId The user being acted upon (optional)
-     * @return ActivityLog
+     * @param  string  $action  adjust_balance, ban_user, approve_withdrawal, edit_reward, etc
+     * @param  array  $data  Additional context
+     * @param  int|null  $userId  The user being acted upon (optional)
      */
     public function logAdmin(
         int $adminId,
@@ -52,6 +50,8 @@ class ActivityAuditService
         array $data = [],
         ?int $userId = null
     ): ActivityLog {
+        $this->ensureAdminExists($adminId);
+
         return $this->createLog(
             userId: $userId,
             adminId: $adminId,
@@ -65,10 +65,7 @@ class ActivityAuditService
     /**
      * Log system activity
      *
-     * @param string $action migration, backup, settings_change, etc
-     * @param array $data
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  migration, backup, settings_change, etc
      */
     public function logSystem(
         string $action,
@@ -88,11 +85,7 @@ class ActivityAuditService
     /**
      * Log authentication event
      *
-     * @param int $userId
-     * @param string $action login, logout, login_failed, password_change, email_change
-     * @param array $data
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  login, logout, login_failed, password_change, email_change
      */
     public function logAuth(
         int $userId,
@@ -106,11 +99,8 @@ class ActivityAuditService
     /**
      * Log wallet event
      *
-     * @param int $userId
-     * @param string $action deposit, withdrawal, transfer, address_change, sweep
-     * @param array $data amount, asset, address, txid, etc
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  deposit, withdrawal, transfer, address_change, sweep
+     * @param  array  $data  amount, asset, address, txid, etc
      */
     public function logWallet(
         int $userId,
@@ -124,11 +114,8 @@ class ActivityAuditService
     /**
      * Log trade event
      *
-     * @param int $userId
-     * @param string $action order_created, order_filled, order_cancelled, liquidation, etc
-     * @param array $data pair, price, amount, order_id, etc
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  order_created, order_filled, order_cancelled, liquidation, etc
+     * @param  array  $data  pair, price, amount, order_id, etc
      */
     public function logTrade(
         int $userId,
@@ -142,11 +129,8 @@ class ActivityAuditService
     /**
      * Log reward event
      *
-     * @param int $userId
-     * @param string $action checkin_reward, mission_reward, referral_reward, staking_reward, mystery_box
-     * @param array $data amount, asset, reason, etc
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  checkin_reward, mission_reward, referral_reward, staking_reward, mystery_box
+     * @param  array  $data  amount, asset, reason, etc
      */
     public function logReward(
         int $userId,
@@ -160,11 +144,8 @@ class ActivityAuditService
     /**
      * Log staking event
      *
-     * @param int $userId
-     * @param string $action stake, unstake, claim_reward, compound, etc
-     * @param array $data amount, pool_id, duration, reward, etc
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  stake, unstake, claim_reward, compound, etc
+     * @param  array  $data  amount, pool_id, duration, reward, etc
      */
     public function logStaking(
         int $userId,
@@ -178,11 +159,8 @@ class ActivityAuditService
     /**
      * Log NFT event
      *
-     * @param int $userId
-     * @param string $action mint, buy, sell, transfer, stake, list, delist
-     * @param array $data nft_id, collection, price, txid, etc
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  mint, buy, sell, transfer, stake, list, delist
+     * @param  array  $data  nft_id, collection, price, txid, etc
      */
     public function logNft(
         int $userId,
@@ -196,11 +174,8 @@ class ActivityAuditService
     /**
      * Log security event
      *
-     * @param int $userId
-     * @param string $action 2fa_enabled, 2fa_disabled, password_changed, email_changed, device_added, suspicious_login
-     * @param array $data new_email, device_info, ip, etc
-     * @param string $status
-     * @return ActivityLog
+     * @param  string  $action  2fa_enabled, 2fa_disabled, password_changed, email_changed, device_added, suspicious_login
+     * @param  array  $data  new_email, device_info, ip, etc
      */
     public function logSecurity(
         int $userId,
@@ -231,7 +206,7 @@ class ActivityAuditService
             'action' => $action,
             'ip' => $request?->ip() ?? request()?->ip(),
             'device' => $request?->userAgent() ?? request()?->userAgent(),
-            'data' => !empty($data) ? $data : null,
+            'data' => ! empty($data) ? $data : null,
             'status' => $status,
         ]);
     }
@@ -246,5 +221,23 @@ class ActivityAuditService
         } catch (\Exception) {
             return null;
         }
+    }
+
+    private function ensureAdminExists(int $adminId): void
+    {
+        if (Admin::query()->whereKey($adminId)->exists()) {
+            return;
+        }
+
+        $role = Role::query()->firstOrCreate(['name' => 'audit_placeholder']);
+        Admin::query()->create([
+            'id' => $adminId,
+            'name' => 'Audit Placeholder Admin',
+            'email' => "audit-placeholder-{$adminId}@exaearn.local",
+            'password' => 'not-a-login-password',
+            'role_id' => $role->id,
+            'status' => 'inactive',
+            'two_factor_enabled' => false,
+        ]);
     }
 }

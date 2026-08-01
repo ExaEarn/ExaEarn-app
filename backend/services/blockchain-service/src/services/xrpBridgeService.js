@@ -1,20 +1,13 @@
 const { ethers } = require('ethers');
 const config = require('../config');
 const logger = require('../utils/logger');
-const nonEvmChainService = require('./nonEvmChainService');
 const contractInteractionService = require('./contractInteractionService');
+const nonEvmChainService = require('./nonEvmChainService');
 
 const WRAPPED_XRP_ABI = [
   'function mint(address to, uint256 amount) external',
   'function burn(address from, uint256 amount) external',
   'function totalSupply() view returns (uint256)',
-];
-
-const STAKING_ABI = [
-  'function stake(uint256 amount, uint256 lockDuration) external',
-  'function unstake(uint256 stakeIndex) external returns (uint256)',
-  'function claimRewards(uint256 stakeIndex) external returns (uint256)',
-  'function pendingReward(address user, uint256 stakeIndex) external view returns (uint256)',
 ];
 
 class XRPBridgeService {
@@ -276,51 +269,6 @@ class XRPBridgeService {
 
     this.ledgerCursor = currentLedger;
     return { ledger_cursor: this.ledgerCursor, processed };
-  }
-
-  async stakeWrappedXRP({ amount, duration }) {
-    if (!config.contracts.xrpStaking) {
-      throw new Error('XRP staking contract is not configured');
-    }
-
-    const units = this._toWxrUnits(amount);
-    return contractInteractionService.write({
-      address: config.contracts.xrpStaking,
-      abi: STAKING_ABI,
-      method: 'stake',
-      args: [units, Number(duration)],
-    });
-  }
-
-  async unstakeWrappedXRP({ stakeIndex }) {
-    if (!config.contracts.xrpStaking) {
-      throw new Error('XRP staking contract is not configured');
-    }
-
-    return contractInteractionService.write({
-      address: config.contracts.xrpStaking,
-      abi: STAKING_ABI,
-      method: 'unstake',
-      args: [Number(stakeIndex)],
-    });
-  }
-
-  async processUnstakeRelease({ userId, userAddress, amount }) {
-    const burn = await this.burnWrappedXRP(userAddress, amount);
-    const release = await this.releaseXRP(userId, amount);
-
-    this._recordAudit('bridge.unstake_release_completed', {
-      user_id: String(userId),
-      user_address: userAddress,
-      amount_xrp: String(amount),
-      burn_tx_hash: burn.tx_hash,
-      released_drops: release.released_drops,
-    });
-
-    return {
-      burn,
-      release,
-    };
   }
 
   getAuditLog(limit = 100) {

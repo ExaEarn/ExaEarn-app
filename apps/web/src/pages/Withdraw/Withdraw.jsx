@@ -1,602 +1,502 @@
-import { useMemo, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  BadgeInfo,
-  Building2,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   Landmark,
+  LoaderCircle,
+  Search,
   ShieldCheck,
   UserRound,
   Wallet,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
-const assets = [
-  { symbol: "USDT", name: "Tether", icon: "US", balance: "4,820.42 USDT" },
-  { symbol: "XRP", name: "Ripple", icon: "XR", balance: "2,840.55 XRP" },
-  { symbol: "BTC", name: "Bitcoin", icon: "BT", balance: "0.146 BTC" },
-  { symbol: "ETH", name: "Ethereum", icon: "ET", balance: "0.820 ETH" },
-];
-
-const networks = ["TRC20", "ERC20", "BEP20"];
-const fiatPayoutMethods = ["Bank Account", "Bank Wire", "Mobile Money"];
-const mobileMoneyProviders = ["MTN MoMo", "Airtel Money", "M-Pesa", "Vodafone Cash"];
-const mobileCountryCodes = ["+234", "+233", "+254", "+1", "+44"];
-
-const methods = [
-  {
-    id: "internal",
-    title: "Internal Transfer",
-    description: "Send to ExaEarn user (email, ID, or username).",
-    icon: UserRound,
-  },
-  {
-    id: "crypto",
-    title: "Crypto Withdrawal",
-    description: "Withdraw to an external wallet address.",
-    icon: Wallet,
-  },
-  {
-    id: "fiat",
-    title: "Fiat Withdrawal",
-    description: "Withdraw to bank account or mobile money.",
-    icon: Landmark,
-  },
-];
-
-function Withdraw({ onBack }) {
-  const [selectedMethod, setSelectedMethod] = useState("crypto");
-  const [asset, setAsset] = useState("USDT");
-  const [network, setNetwork] = useState("TRC20");
-  const [address, setAddress] = useState("");
-  const [amount, setAmount] = useState("");
-  const [internalRecipientType, setInternalRecipientType] = useState("email");
-  const [internalEmail, setInternalEmail] = useState("");
-  const [internalMobileCode, setInternalMobileCode] = useState("+234");
-  const [internalMobile, setInternalMobile] = useState("");
-  const [internalUid, setInternalUid] = useState("");
-  const [internalAmount, setInternalAmount] = useState("");
-  const [fiatAmount, setFiatAmount] = useState("");
-  const [fiatPayoutMethod, setFiatPayoutMethod] = useState("Bank Account");
-  const [bankCode, setBankCode] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [swiftCode, setSwiftCode] = useState("");
-  const [mobileProvider, setMobileProvider] = useState("MTN MoMo");
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [twoFaCode, setTwoFaCode] = useState("");
-  const [formError, setFormError] = useState("");
-  const [formSuccess, setFormSuccess] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
   const { request } = useAuth();
+  const [meta, setMeta] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [activeView, setActiveView] = useState("hub");
+  const [selectedMethod, setSelectedMethod] = useState("crypto");
+  const [selectedAssetSymbol, setSelectedAssetSymbol] = useState("");
+  const [hideZeroBalances, setHideZeroBalances] = useState(false);
+  const [assetSearch, setAssetSearch] = useState("");
+  const [withdrawType, setWithdrawType] = useState("on_chain");
+  const [network, setNetwork] = useState("");
+  const [address, setAddress] = useState("");
+  const [memo, setMemo] = useState("");
+  const [amount, setAmount] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [recipientType, setRecipientType] = useState("email");
+  const [recipientValue, setRecipientValue] = useState("");
+  const [recipientMatch, setRecipientMatch] = useState(null);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [banks, setBanks] = useState([]);
 
-  const selectedAsset = assets.find((item) => item.symbol === asset) || assets[0];
-  const numericAmount = Number.parseFloat(amount || "0");
-  const validAmount = Number.isNaN(numericAmount) ? 0 : numericAmount;
-  const numericInternalAmount = Number.parseFloat(internalAmount || "0");
-  const validInternalAmount = Number.isNaN(numericInternalAmount) ? 0 : numericInternalAmount;
-  const numericFiatAmount = Number.parseFloat(fiatAmount || "0");
-  const validFiatAmount = Number.isNaN(numericFiatAmount) ? 0 : numericFiatAmount;
-  const networkFee = useMemo(() => {
-    if (network === "ERC20") return 4.5;
-    if (network === "BEP20") return 1.2;
-    return 0.8;
-  }, [network]);
+  const unwrap = (payload) => payload?.data ?? payload ?? {};
 
-  const handleSubmit = async () => {
-    setFormError("");
-    setFormSuccess("");
-    setSubmitting(true);
+  const loadMeta = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = unwrap(await request("/api/wallet/withdraw/meta", { method: "GET" }));
+      setMeta(payload);
+      const assets = Array.isArray(payload.assets) ? payload.assets : [];
+      setSelectedAssetSymbol((current) => (current && assets.some((asset) => asset.symbol === current) ? current : assets[0]?.symbol || ""));
+    } catch (loadError) {
+      setError(loadError?.message || "We could not load the withdrawal center right now.");
+    } finally {
+      setLoading(false);
+    }
+  }, [request]);
 
-    if (selectedMethod === "fiat" && fiatPayoutMethod === "Mobile Money") {
-      setFormError("Mobile money withdrawals are not supported yet. Please choose Bank Account or Bank Wire.");
-      setSubmitting(false);
+  useEffect(() => {
+    void loadMeta();
+  }, [loadMeta]);
+
+  const methods = Array.isArray(meta?.methods) ? meta.methods : [];
+  const assets = Array.isArray(meta?.assets) ? meta.assets : [];
+  const selectedAsset = useMemo(() => assets.find((asset) => asset.symbol === selectedAssetSymbol) || null, [assets, selectedAssetSymbol]);
+  const filteredAssets = useMemo(() => {
+    const needle = assetSearch.trim().toLowerCase();
+    return assets.filter((asset) => {
+      if (hideZeroBalances && Number(asset.withdrawableBalance || 0) <= 0) return false;
+      if (!needle) return true;
+      return String(asset.symbol || "").toLowerCase().includes(needle) || String(asset.name || "").toLowerCase().includes(needle);
+    });
+  }, [assetSearch, assets, hideZeroBalances]);
+  const networks = Array.isArray(selectedAsset?.supportedNetworks) ? selectedAsset.supportedNetworks : [];
+  const selectedNetwork = useMemo(() => networks.find((item) => item.id === network) || networks[0] || null, [network, networks]);
+
+  useEffect(() => {
+    if (!networks.length) {
+      setNetwork("");
       return;
     }
+    setNetwork((current) => (networks.some((item) => item.id === current) ? current : networks[0]?.id || ""));
+  }, [networks]);
 
-    const payload = {
-      currency: selectedMethod === "fiat" ? "USD" : asset,
-      amount: selectedMethod === "fiat" ? fiatAmount : amount,
-      destination_type: selectedMethod === "crypto" ? "crypto" : "bank",
-      address: selectedMethod === "crypto" ? address : undefined,
-      network: selectedMethod === "crypto" ? network : undefined,
-      bank_code: selectedMethod === "fiat" ? bankCode : undefined,
-      account_number: selectedMethod === "fiat" ? accountNumber : undefined,
-      account_name: selectedMethod === "fiat" ? accountName : undefined,
-      swift_code: selectedMethod === "fiat" ? swiftCode : undefined,
-      two_factor_code: twoFaCode || undefined,
-    };
-
+  const refreshPreview = useCallback(async () => {
+    if (!selectedAsset?.symbol || !amount || Number(amount) <= 0) {
+      setPreview(null);
+      return;
+    }
+    setPreviewLoading(true);
     try {
-      const response = await request("/api/withdrawals/initiate", {
+      const payload = unwrap(await request("/api/wallet/withdraw/preview", {
         method: "POST",
-        body: payload,
-      });
+        body: JSON.stringify({
+          flow: withdrawType,
+          currency: selectedAsset.symbol,
+          amount,
+          network: withdrawType === "on_chain" ? network : undefined,
+        }),
+      }));
+      setPreview(payload);
+    } catch {
+      setPreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [amount, network, request, selectedAsset?.symbol, withdrawType]);
 
-      setFormSuccess(response.message || "Withdrawal request submitted.");
-      setAmount("");
-      setFiatAmount("");
-      setAddress("");
-      setAccountNumber("");
-      setAccountName("");
-      setBankCode("");
-      setTwoFaCode("");
-    } catch (error) {
-      setFormError(error.message || "Unable to submit withdrawal request.");
+  useEffect(() => {
+    void refreshPreview();
+  }, [refreshPreview]);
+
+  const lookupRecipient = async () => {
+    if (!recipientValue.trim()) return;
+    setLookupBusy(true);
+    setLookupError("");
+    setRecipientMatch(null);
+    try {
+      const payload = unwrap(await request("/api/wallet/withdraw/internal-lookup", {
+        method: "POST",
+        body: JSON.stringify({ identifier_type: recipientType, identifier: recipientValue.trim() }),
+      }));
+      setRecipientMatch(payload);
+    } catch (lookupIssue) {
+      setLookupError(lookupIssue?.message || "We could not verify that ExaEarn recipient.");
+    } finally {
+      setLookupBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedMethod !== "sell_fiat" || banks.length) return;
+    let ignore = false;
+    (async () => {
+      try {
+        const payload = unwrap(await request("/api/wallet/withdraw/fiat/banks", { method: "GET" }));
+        if (!ignore) setBanks(Array.isArray(payload.items) ? payload.items : []);
+      } catch {
+        if (!ignore) setBanks([]);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [banks.length, request, selectedMethod]);
+
+  const resetFormState = () => {
+    setAmount("");
+    setAddress("");
+    setMemo("");
+    setTwoFactorCode("");
+    setRecipientValue("");
+    setRecipientMatch(null);
+    setLookupError("");
+    setPreview(null);
+  };
+
+  const openMethod = (methodId) => {
+    if (methodId === "p2p") {
+      onOpenP2P?.();
+      return;
+    }
+    setSelectedMethod(methodId);
+    setSuccess("");
+    setError("");
+    resetFormState();
+    if (methodId === "crypto") {
+      setActiveView("crypto-list");
+      return;
+    }
+    if (methodId === "sell_fiat") {
+      setActiveView("sell-list");
+      return;
+    }
+    setActiveView(methodId);
+  };
+
+  const useMaxAmount = () => {
+    const balance = Number(selectedAsset?.withdrawableBalance || 0);
+    const fee = Number(preview?.fee || 0);
+    const safeValue = withdrawType === "internal" ? balance : Math.max(balance - fee, 0);
+    setAmount(safeValue > 0 ? String(safeValue) : "0");
+  };
+  const submitOnChain = async () => {
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      const payload = unwrap(await request("/api/wallet/withdraw/on-chain", {
+        method: "POST",
+        body: JSON.stringify({
+          currency: selectedAsset.symbol,
+          network,
+          address: address.trim(),
+          amount,
+          memo: memo.trim() || undefined,
+          two_factor_code: twoFactorCode.trim() || undefined,
+        }),
+      }));
+      setSuccess(payload.reference ? `Withdrawal request submitted. Reference: ${payload.reference}` : "Withdrawal request submitted.");
+      resetFormState();
+      await loadMeta();
+    } catch (submitError) {
+      setError(submitError?.message || "We could not submit this withdrawal safely.");
     } finally {
       setSubmitting(false);
     }
   };
-  const youReceive = Math.max(validAmount - networkFee, 0);
-  const internalFee = 0;
-  const internalYouReceive = Math.max(validInternalAmount - internalFee, 0);
-  const fiatFee = fiatPayoutMethod === "Bank Wire" ? 3.0 : 1.5;
-  const fiatYouReceive = Math.max(validFiatAmount - fiatFee, 0);
-  const canSubmit = useMemo(() => {
-    if (selectedMethod === "crypto") {
-      return Boolean(address.trim()) && validAmount > 0 && Boolean(twoFaCode.trim());
+
+  const submitInternal = async () => {
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      const payload = unwrap(await request("/api/wallet/withdraw/internal-transfer", {
+        method: "POST",
+        body: JSON.stringify({
+          currency: selectedAsset.symbol,
+          amount,
+          identifier_type: recipientType,
+          identifier: recipientValue.trim(),
+          two_factor_code: twoFactorCode.trim() || undefined,
+        }),
+      }));
+      setSuccess(payload.reference ? `Internal transfer completed. Reference: ${payload.reference}` : "Internal transfer completed.");
+      resetFormState();
+      await loadMeta();
+    } catch (submitError) {
+      setError(submitError?.message || "We could not complete the internal transfer.");
+    } finally {
+      setSubmitting(false);
     }
-    if (selectedMethod === "internal") {
-      return false;
-    }
-    if (selectedMethod === "fiat") {
-      if (fiatPayoutMethod === "Mobile Money") {
-        return false;
-      }
-      if (fiatPayoutMethod === "Bank Wire") {
-        return Boolean(bankCode.trim()) && Boolean(accountNumber.trim()) && Boolean(accountName.trim()) && Boolean(swiftCode.trim()) && validFiatAmount > 0 && Boolean(twoFaCode.trim());
-      }
-      return Boolean(bankCode.trim()) && Boolean(accountNumber.trim()) && Boolean(accountName.trim()) && validFiatAmount > 0 && Boolean(twoFaCode.trim());
-    }
-    return false;
-  }, [
-    accountName,
-    accountNumber,
-    address,
-    bankCode,
-    fiatPayoutMethod,
-    selectedMethod,
-    twoFaCode,
-    validAmount,
-    validFiatAmount,
-  ]);
+  };
+
+  const currentFee = preview?.fee ?? (withdrawType === "internal" ? "0" : selectedNetwork?.fee ?? "--");
+  const currentReceived = preview?.amount_received ?? (amount || "0");
+  const canSubmitOnChain = Boolean(selectedAsset?.symbol && network && address.trim() && amount && Number(amount) > 0 && (!selectedNetwork?.memoRequired || memo.trim()));
+  const canSubmitInternal = Boolean(selectedAsset?.symbol && recipientValue.trim() && recipientMatch && amount && Number(amount) > 0);
+
+  if (loading) return <LoadingShell onBack={onBack} />;
 
   return (
-    <main className="min-h-screen bg-linear-to-br from-[#060708] via-[#0c0d11] to-[#15100a] px-4 pb-28 pt-7 text-neutral-100 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-4xl">
-        <header className="mb-6">
-          <div className="flex items-start justify-between gap-4">
+    <main className="min-h-[100dvh] bg-[#05070c] px-3 pb-20 pt-3 text-slate-100 sm:px-4 lg:px-6">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4">
+        <header className="rounded-[24px] border border-white/8 bg-[#0b0f18] px-4 py-4 shadow-[0_22px_55px_rgba(0,0,0,.35)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              {onBack ? (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={onBack}
-                  className="mb-3 inline-flex items-center gap-2 rounded-lg border border-[#d1ab55]/30 bg-black/30 px-3 py-2 text-xs font-semibold text-[#f2d27f] transition hover:border-[#d1ab55]/55 hover:bg-[#d1ab55]/10"
+                  onClick={activeView === "hub" ? onBack : () => setActiveView("hub")}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                  aria-label={activeView === "hub" ? "Go back" : "Back to withdrawal methods"}
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back
                 </button>
-              ) : null}
-              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-neutral-50 sm:text-4xl">Withdraw Funds</h1>
-              <p className="mt-1 text-sm text-neutral-400">Securely transfer your assets from ExaEarn</p>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Assets</p>
+                  <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Withdraw</h1>
+                </div>
+              </div>
+              <p className="mt-3 max-w-2xl text-sm text-slate-400">
+                {activeView === "hub"
+                  ? "Choose a withdrawal route first, then continue into a dedicated page to complete the flow."
+                  : selectedMethod === "sell_fiat"
+                    ? "Pick the asset you want to exit, then continue into the dedicated fiat sell route."
+                    : "Select the asset, review the network or internal transfer details, and confirm securely."}
+              </p>
             </div>
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#d1ab55]/30 bg-black/25 text-[#e9c673] transition hover:border-[#d1ab55]/50 hover:bg-[#d1ab55]/10"
-              aria-label="Withdraw information"
-            >
-              <BadgeInfo className="h-4 w-4" />
-            </button>
+            <div className="rounded-full border border-[#d1ab55]/25 bg-[#d1ab55]/10 px-3 py-2 text-[11px] font-semibold text-[#f4d37d]">
+              Exchange-grade flow
+            </div>
           </div>
         </header>
 
-        <section className="rounded-2xl border border-[#d1ab55]/30 bg-[#121212]/85 p-5 shadow-[0_18px_55px_rgba(0,0,0,.45)]">
-          <p className="text-xs uppercase tracking-[0.16em] text-neutral-500">Available Balance</p>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-3xl font-semibold text-[#f3d58a] sm:text-4xl">$12,450.23</p>
-              <p className="mt-1 text-xs text-neutral-400">Total Balance</p>
+        {error ? <Banner tone="rose">{error}</Banner> : null}
+        {success ? <Banner tone="emerald">{success}</Banner> : null}
+
+        {activeView === "hub" ? (
+          <section className="rounded-[28px] border border-white/8 bg-[#0b0f18] px-4 py-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] sm:px-5 lg:px-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Choose method</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Open the withdrawal route you want to use</h2>
+                <p className="mt-2 text-sm text-slate-400">Each option opens its own dedicated flow instead of stacking everything on one page.</p>
+              </div>
             </div>
-            <div className="rounded-xl border border-[#d1ab55]/25 bg-black/30 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-neutral-800 to-neutral-950 text-[10px] font-bold text-[#f2d27f] ring-1 ring-[#d1ab55]/30">
-                  {selectedAsset.icon}
-                </span>
+            <div className="mt-5 grid gap-3 lg:grid-cols-3">
+              {methods.map((method) => {
+                const Icon = method.id === "crypto" ? Wallet : method.id === "sell_fiat" ? Landmark : UserRound;
+                return (
+                  <button
+                    key={method.id}
+                    type="button"
+                    disabled={!method.enabled}
+                    onClick={() => openMethod(method.id)}
+                    className="flex items-start justify-between gap-3 rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-4 text-left transition hover:border-[#d1ab55]/35 hover:bg-white/[0.04] disabled:opacity-45"
+                  >
+                    <span className="flex items-start gap-3">
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.05] text-slate-200"><Icon className="h-5 w-5" /></span>
+                      <span>
+                        <p className="text-sm font-semibold text-white">{method.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">{method.description}</p>
+                      </span>
+                    </span>
+                    <ChevronRight className="mt-1 h-4 w-4 text-slate-500" />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {activeView === "crypto-list" ? (
+          <section className="rounded-[28px] border border-white/8 bg-[#0b0f18] px-4 py-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] sm:px-5 lg:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Crypto withdrawal</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Choose a coin to open its withdrawal page</h2>
+              </div>
+              <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200">
+                <input type="checkbox" checked={hideZeroBalances} onChange={(event) => setHideZeroBalances(event.target.checked)} className="h-4 w-4 rounded border-white/20 bg-transparent text-amber-300" /> Hide zero balances
+              </label>
+            </div>
+            <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2"><Search className="h-4 w-4 text-slate-500" /><input value={assetSearch} onChange={(event) => setAssetSearch(event.target.value)} placeholder="Search asset" className="h-9 w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /></div>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredAssets.map((asset) => (
+                <button
+                  key={asset.symbol}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAssetSymbol(asset.symbol);
+                    setWithdrawType("on_chain");
+                    resetFormState();
+                    setActiveView("crypto-detail");
+                  }}
+                  className="flex items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-4 text-left transition hover:border-[#d1ab55]/35 hover:bg-white/[0.04]"
+                >
+                  <div className="flex items-center gap-3"><AssetMark symbol={asset.symbol} /><div><p className="text-sm font-semibold text-white">{asset.symbol}</p><p className="text-xs text-slate-400">{asset.name}</p></div></div>
+                  <div className="text-right"><p className="text-sm font-semibold text-white">{formatAsset(asset.withdrawableBalance, asset.symbol)}</p><p className="text-xs text-slate-500">Available</p></div>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+        {activeView === "crypto-detail" && selectedAsset ? (
+          <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="space-y-4">
+              <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Selected asset</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">{selectedAsset.symbol} withdrawal</h2>
+                  </div>
+                  <button type="button" onClick={() => setActiveView("crypto-list")} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]">Change asset</button>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <button type="button" onClick={() => setWithdrawType("on_chain")} className={`flex items-start justify-between rounded-2xl border px-4 py-4 text-left transition ${withdrawType === "on_chain" ? "border-[#d1ab55]/55 bg-[#d1ab55]/10" : "border-white/8 bg-white/[0.02] hover:border-[#d1ab55]/35 hover:bg-white/[0.03]"}`}><div><p className="text-sm font-semibold text-white">Crypto withdrawal</p><p className="mt-1 text-xs leading-5 text-slate-400">Send to an external blockchain address.</p></div><ChevronRight className="h-4 w-4 text-slate-500" /></button>
+                  <button type="button" onClick={() => setWithdrawType("internal")} className={`flex items-start justify-between rounded-2xl border px-4 py-4 text-left transition ${withdrawType === "internal" ? "border-[#d1ab55]/55 bg-[#d1ab55]/10" : "border-white/8 bg-white/[0.02] hover:border-[#d1ab55]/35 hover:bg-white/[0.03]"}`}><div><p className="text-sm font-semibold text-white">Send to ExaEarn user</p><p className="mt-1 text-xs leading-5 text-slate-400">Transfer instantly within ExaEarn.</p></div><ChevronRight className="h-4 w-4 text-slate-500" /></button>
+                </div>
+              </section>
+
+              {withdrawType === "on_chain" ? (
+                <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4">
+                  <div><p className="text-xs uppercase tracking-[0.18em] text-slate-500">Withdrawal details</p><h2 className="mt-1 text-lg font-semibold text-white">External wallet transfer</h2></div>
+                  <div className="mt-4 space-y-4">
+                    <label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Address</span><input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Enter or paste withdrawal address" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-[#d1ab55]/40" /></label>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Network</span><span className="relative block"><select value={network} onChange={(event) => setNetwork(event.target.value)} className="w-full appearance-none rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[#d1ab55]/40">{networks.map((item) => <option key={item.id} value={item.id} className="bg-[#111827] text-white">{item.name} ({item.standard})</option>)}</select><ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /></span></label>
+                      <label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Amount</span><div className="flex items-center gap-2 rounded-2xl border border-white/8 bg-black/20 px-4 py-3"><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" inputMode="decimal" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /><button type="button" onClick={useMaxAmount} className="rounded-full border border-[#d1ab55]/30 bg-[#d1ab55]/10 px-3 py-1 text-xs font-semibold text-[#f4d37d]">MAX</button></div><p className="mt-2 text-xs text-slate-500">Available: {formatAsset(selectedAsset.withdrawableBalance, selectedAsset.symbol)}</p></label>
+                    </div>
+                    {selectedNetwork?.memoRequired ? <label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Destination tag / memo</span><input value={memo} onChange={(event) => setMemo(event.target.value)} placeholder="Enter required memo or destination tag" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-[#d1ab55]/40" /></label> : null}
+                    <label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Security code</span><input value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} placeholder="Enter 2FA or security code" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-[#d1ab55]/40" /></label>
+                  </div>
+                </section>
+              ) : (
+                <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4">
+                  <div><p className="text-xs uppercase tracking-[0.18em] text-slate-500">Transfer details</p><h2 className="mt-1 text-lg font-semibold text-white">Send to another ExaEarn user</h2></div>
+                  <div className="mt-4 space-y-4">
+                    <div><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Recipient type</span><div className="flex flex-wrap gap-2">{(meta?.recipient_types || []).map((type) => <button key={type.id} type="button" onClick={() => setRecipientType(type.id)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${recipientType === type.id ? "border-[#d1ab55]/55 bg-[#d1ab55]/10 text-[#f4d37d]" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-[#d1ab55]/35"}`}>{type.label}</button>)}</div></div>
+                    <div className="grid gap-3 md:grid-cols-[1fr_auto]"><label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Recipient</span><input value={recipientValue} onChange={(event) => setRecipientValue(event.target.value)} placeholder={`Enter recipient ${recipientType.replace("_", " ")}`} className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-[#d1ab55]/40" /></label><button type="button" onClick={() => void lookupRecipient()} disabled={lookupBusy || !recipientValue.trim()} className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-slate-200 transition hover:border-[#d1ab55]/35 disabled:opacity-45">{lookupBusy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}Verify</button></div>
+                    {lookupError ? <Banner tone="rose">{lookupError}</Banner> : null}
+                    {recipientMatch ? <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-4 text-sm text-emerald-100"><p className="font-semibold">Recipient confirmed</p><p className="mt-2">{recipientMatch.display_name}</p><p className="text-xs text-emerald-100/80">{recipientMatch.exaearn_id} - {recipientMatch.masked_email}</p></div> : null}
+                    <div className="grid gap-4 md:grid-cols-2"><label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Amount</span><div className="flex items-center gap-2 rounded-2xl border border-white/8 bg-black/20 px-4 py-3"><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" inputMode="decimal" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /><button type="button" onClick={useMaxAmount} className="rounded-full border border-[#d1ab55]/30 bg-[#d1ab55]/10 px-3 py-1 text-xs font-semibold text-[#f4d37d]">MAX</button></div><p className="mt-2 text-xs text-slate-500">Available: {formatAsset(selectedAsset.withdrawableBalance, selectedAsset.symbol)}</p></label><label className="block"><span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Security code</span><input value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} placeholder="Enter 2FA or security code" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-[#d1ab55]/40" /></label></div>
+                  </div>
+                </section>
+              )}
+            </div>
+
+            <aside className="space-y-4">
+              <section className="rounded-[24px] border border-[#d1ab55]/18 bg-gradient-to-br from-[#14110b] via-[#0d0f14] to-[#0a0d13] p-4">
+                <div className="flex items-center justify-between gap-3"><div><p className="text-xs uppercase tracking-[0.14em] text-slate-500">Summary</p><p className="mt-1 text-base font-semibold text-white">{withdrawType === "internal" ? "Internal Transfer" : `${selectedAsset.symbol} On-Chain`}</p></div><span className="rounded-full border border-[#d1ab55]/20 bg-[#d1ab55]/10 px-2.5 py-1 text-[11px] font-semibold text-[#f4d37d]">{withdrawType === "internal" ? "Zero network fee" : selectedNetwork?.status || "Available"}</span></div>
+                <div className="mt-4 space-y-2 rounded-2xl border border-white/8 bg-black/20 p-4 text-xs text-slate-300">
+                  <Line label="Available" value={formatAsset(selectedAsset.withdrawableBalance, selectedAsset.symbol)} />
+                  {withdrawType === "on_chain" ? <Line label="Network" value={selectedNetwork ? `${selectedNetwork.name} (${selectedNetwork.standard})` : "Select network"} /> : <Line label="Recipient" value={recipientMatch?.display_name || "Verify recipient"} />}
+                  <Line label={withdrawType === "internal" ? "Transfer fee" : "Network fee"} value={previewLoading ? "Calculating..." : formatAsset(currentFee, selectedAsset.symbol)} />
+                  <Line label="Amount received" value={previewLoading ? "Calculating..." : formatAsset(currentReceived, selectedAsset.symbol)} />
+                  <Line label="Daily limit" value={meta?.limits?.daily_limit ? formatAsset(meta.limits.daily_limit, selectedAsset.symbol) : "--"} />
+                </div>
+                <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-xs text-amber-100"><p className="font-semibold">Security note</p><p className="mt-1 leading-5">Withdrawals sent to the wrong address or network may be permanently lost. Review every detail before confirming.</p></div>
+                <button type="button" onClick={() => (withdrawType === "internal" ? submitInternal() : submitOnChain())} disabled={withdrawType === "internal" ? !canSubmitInternal || submitting : !canSubmitOnChain || submitting} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45">{submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}{withdrawType === "internal" ? "Confirm Transfer" : "Confirm Withdrawal"}</button>
+              </section>
+            </aside>
+          </section>
+        ) : null}
+
+        {activeView === "sell-list" ? (
+          <section className="rounded-[28px] border border-white/8 bg-[#0b0f18] px-4 py-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] sm:px-5 lg:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Sell for fiat</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Choose the asset you want to sell</h2>
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-300">Preferred fiat: {meta?.preferred_fiat_currency || "NGN"}</div>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredAssets.map((asset) => (
+                <button key={asset.symbol} type="button" onClick={() => { setSelectedAssetSymbol(asset.symbol); setActiveView("sell-detail"); }} className="flex items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-4 text-left transition hover:border-[#d1ab55]/35 hover:bg-white/[0.04]">
+                  <div className="flex items-center gap-3"><AssetMark symbol={asset.symbol} /><div><p className="text-sm font-semibold text-white">{asset.symbol}</p><p className="text-xs text-slate-400">{asset.name}</p></div></div>
+                  <div className="text-right"><p className="text-sm font-semibold text-white">{formatAsset(asset.withdrawableBalance, asset.symbol)}</p><p className="text-xs text-slate-500">Available</p></div>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {activeView === "sell-detail" && selectedAsset ? (
+          <section className="grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
+            <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs text-neutral-400">Selected Asset</p>
-                  <p className="text-sm font-semibold text-neutral-100">{selectedAsset.symbol} ▼</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Fiat exit</p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">Sell {selectedAsset.symbol} for {meta?.preferred_fiat_currency || "NGN"}</h2>
+                  <p className="mt-2 text-sm text-slate-400">Continue into the dedicated fiat sell route after choosing the asset you want to exit.</p>
+                </div>
+                <button type="button" onClick={() => setActiveView("sell-list")} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]">Change asset</button>
+              </div>
+              <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
+                <div className="flex items-center gap-3"><AssetMark symbol={selectedAsset.symbol} /><div><p className="text-base font-semibold text-white">{selectedAsset.symbol}</p><p className="text-xs text-slate-400">{selectedAsset.name}</p></div></div>
+                <div className="mt-4 space-y-2">
+                  <Line label="Withdrawable balance" value={formatAsset(selectedAsset.withdrawableBalance, selectedAsset.symbol)} />
+                  <Line label="Preferred fiat" value={meta?.preferred_fiat_currency || "NGN"} />
+                  <Line label="Available bank rails" value={banks.length ? `${banks.length} configured` : "Will load in sell route"} />
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-5 rounded-2xl border border-[#d1ab55]/20 bg-[#111111]/80 p-4 sm:p-5">
-          <h2 className="text-base font-semibold text-neutral-100">Withdraw Method</h2>
-          <div className="mt-3 space-y-2">
-            {methods.map((method) => {
-              const Icon = method.icon;
-              const active = selectedMethod === method.id;
-              return (
-                <button
-                  key={method.id}
-                  type="button"
-                  onClick={() => setSelectedMethod(method.id)}
-                  className={`group flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition ${
-                    active
-                      ? "border-[#d1ab55]/70 bg-[#d1ab55]/10"
-                      : "border-neutral-800 bg-black/20 hover:border-[#d1ab55]/35"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${
-                        active ? "bg-[#d1ab55]/20 text-[#efcf7c]" : "bg-neutral-900 text-neutral-300"
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-semibold text-neutral-100">{method.title}</span>
-                      <span className="block text-xs text-neutral-400">{method.description}</span>
-                    </span>
-                  </span>
-                  <ChevronRight className={`h-4 w-4 transition ${active ? "text-[#efcf7c]" : "text-neutral-500"}`} />
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {selectedMethod === "crypto" ? (
-          <section className="mt-5 rounded-2xl border border-[#d1ab55]/20 bg-[#101010]/85 p-4 shadow-[0_14px_36px_rgba(0,0,0,.35)] sm:p-5">
-            <h2 className="text-base font-semibold text-neutral-100">Crypto Withdrawal</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <FieldSelect
-                label="Asset"
-                value={asset}
-                onChange={setAsset}
-                options={assets.map((item) => item.symbol)}
-              />
-              <FieldSelect label="Network" value={network} onChange={setNetwork} options={networks} />
-            </div>
-
-            <div className="mt-3">
-              <label className="mb-2 block text-xs text-neutral-500">Wallet Address</label>
-              <input
-                value={address}
-                onChange={(event) => setAddress(event.target.value)}
-                placeholder="Paste destination wallet address"
-                className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-              />
-            </div>
-
-            <div className="mt-3">
-              <label className="mb-2 block text-xs text-neutral-500">Amount</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  placeholder="0.00"
-                  className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                />
-                <button
-                  type="button"
-                  onClick={() => setAmount("100")}
-                  className="rounded-xl border border-[#d1ab55]/40 bg-[#d1ab55]/10 px-4 py-3 text-xs font-semibold text-[#f2d27f] transition hover:border-[#d1ab55]/70"
-                >
-                  Max
-                </button>
+            </section>
+            <aside className="rounded-[24px] border border-[#d1ab55]/18 bg-gradient-to-br from-[#14110b] via-[#0d0f14] to-[#0a0d13] p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Next step</p>
+              <h3 className="mt-1 text-lg font-semibold text-white">Continue to fiat exit</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-400">You'll complete the sell and payout setup in the dedicated fiat route, following the same exchange-grade flow as the rest of ExaEarn.</p>
+              <div className="mt-4 rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-slate-300">
+                {banks.length ? `Supported payout rails include ${banks.slice(0, 4).map((bank) => bank.name).join(", ")}${banks.length > 4 ? " and more" : ""}.` : "Supported fiat payout rails will appear in the next step when available."}
               </div>
-            </div>
-
-            <div className="mt-3">
-              <label className="mb-2 block text-xs text-neutral-500">2FA Code</label>
-              <input
-                value={twoFaCode}
-                onChange={(event) => setTwoFaCode(event.target.value)}
-                placeholder="Enter 6-digit 2FA code"
-                maxLength={6}
-                className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-              />
-            </div>
-
-            <div className="mt-4 rounded-xl border border-neutral-800 bg-black/30 p-3 text-xs">
-              <LineItem label="Network Fee" value={`${networkFee.toFixed(2)} ${asset}`} />
-              <LineItem label="You Will Receive" value={`${youReceive.toFixed(4)} ${asset}`} />
-              <p className="mt-2 inline-flex items-center gap-1 rounded-md border border-[#d1ab55]/30 bg-[#d1ab55]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#efcf7c]">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Verified Withdrawal Route
-              </p>
-            </div>
+              <button type="button" onClick={() => { try { localStorage.setItem("exaearn_convert_preset", JSON.stringify({ fromCode: selectedAsset.symbol, toCode: meta?.preferred_fiat_currency || "NGN", entry: "withdraw_sell" })); } catch { /* ignore local preset write errors */ } onOpenSwap(); }} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105">Continue to Fiat Exit <ExternalLink className="h-4 w-4" /></button>
+            </aside>
           </section>
         ) : null}
-
-        {selectedMethod === "internal" ? (
-          <section className="mt-5 rounded-2xl border border-[#d1ab55]/20 bg-[#101010]/85 p-4 shadow-[0_14px_36px_rgba(0,0,0,.35)] sm:p-5">
-            <h2 className="text-base font-semibold text-neutral-100">Internal Transfer</h2>
-
-            <div className="mt-3">
-              <p className="mb-2 text-xs text-neutral-500">Recipient Type</p>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: "email", label: "Email" },
-                  { id: "mobile", label: "Mobile" },
-                  { id: "uid", label: "UID" },
-                ].map((recipientType) => {
-                  const active = internalRecipientType === recipientType.id;
-                  return (
-                    <button
-                      key={recipientType.id}
-                      type="button"
-                      onClick={() => setInternalRecipientType(recipientType.id)}
-                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                        active
-                          ? "border-[#d1ab55]/70 bg-[#d1ab55]/12 text-[#f2d27f]"
-                          : "border-neutral-700 bg-black/35 text-neutral-300 hover:border-[#d1ab55]/35"
-                      }`}
-                    >
-                      {recipientType.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-3">
-              {internalRecipientType === "email" ? (
-                <label className="block">
-                  <span className="mb-2 block text-xs text-neutral-500">Recipient Email</span>
-                  <input
-                    type="email"
-                    value={internalEmail}
-                    onChange={(event) => setInternalEmail(event.target.value)}
-                    placeholder="recipient@email.com"
-                    className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                  />
-                </label>
-              ) : null}
-
-              {internalRecipientType === "mobile" ? (
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <FieldSelect label="Country Code" value={internalMobileCode} onChange={setInternalMobileCode} options={mobileCountryCodes} />
-                  <label className="block sm:col-span-2">
-                    <span className="mb-2 block text-xs text-neutral-500">Mobile Number</span>
-                    <input
-                      type="tel"
-                      value={internalMobile}
-                      onChange={(event) => setInternalMobile(event.target.value)}
-                      placeholder="8012345678"
-                      className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                    />
-                  </label>
-                </div>
-              ) : null}
-
-              {internalRecipientType === "uid" ? (
-                <label className="block">
-                  <span className="mb-2 block text-xs text-neutral-500">Recipient UID</span>
-                  <input
-                    value={internalUid}
-                    onChange={(event) => setInternalUid(event.target.value)}
-                    placeholder="Enter user UID"
-                    className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                  />
-                </label>
-              ) : null}
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <FieldSelect
-                label="Asset"
-                value={asset}
-                onChange={setAsset}
-                options={assets.map((item) => item.symbol)}
-              />
-              <label className="block">
-                <span className="mb-2 block text-xs text-neutral-500">Amount</span>
-                <input
-                  type="number"
-                  value={internalAmount}
-                  onChange={(event) => setInternalAmount(event.target.value)}
-                  placeholder="0.00"
-                  className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                />
-              </label>
-            </div>
-
-            <div className="mt-4 rounded-xl border border-neutral-800 bg-black/30 p-3 text-xs">
-              <LineItem label="Transfer Fee" value={`${internalFee.toFixed(2)} ${asset}`} />
-              <LineItem label="Recipient Gets" value={`${internalYouReceive.toFixed(4)} ${asset}`} />
-              <p className="mt-2 inline-flex items-center gap-1 rounded-md border border-[#d1ab55]/30 bg-[#d1ab55]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#efcf7c]">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Instant Internal Settlement
-              </p>
-            </div>
-          </section>
-        ) : null}
-
-        {selectedMethod === "fiat" ? (
-          <section className="mt-5 rounded-2xl border border-[#d1ab55]/20 bg-[#101010]/85 p-4 shadow-[0_14px_36px_rgba(0,0,0,.35)] sm:p-5">
-            <h2 className="text-base font-semibold text-neutral-100">Fiat Withdrawal</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <FieldSelect label="Payout Method" value={fiatPayoutMethod} onChange={setFiatPayoutMethod} options={fiatPayoutMethods} />
-              <label className="block">
-                <span className="mb-2 block text-xs text-neutral-500">Amount (USD)</span>
-                <input
-                  type="number"
-                  value={fiatAmount}
-                  onChange={(event) => setFiatAmount(event.target.value)}
-                  placeholder="0.00"
-                  className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                />
-              </label>
-            </div>
-
-            {fiatPayoutMethod !== "Mobile Money" ? (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className="block sm:col-span-2">
-                  <span className="mb-2 block text-xs text-neutral-500">
-                    {fiatPayoutMethod === "Bank Wire" ? "Wire Bank Code" : "Bank Code"}
-                  </span>
-                  <input
-                    value={bankCode}
-                    onChange={(event) => setBankCode(event.target.value)}
-                    placeholder={fiatPayoutMethod === "Bank Wire" ? "Enter wire bank code" : "Enter bank code"}
-                    className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-xs text-neutral-500">Account Number</span>
-                  <input
-                    value={accountNumber}
-                    onChange={(event) => setAccountNumber(event.target.value)}
-                    placeholder="Enter account number"
-                    className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-xs text-neutral-500">Account Name</span>
-                  <input
-                    value={accountName}
-                    onChange={(event) => setAccountName(event.target.value)}
-                    placeholder="Enter account name"
-                    className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                  />
-                </label>
-                {fiatPayoutMethod === "Bank Wire" && (
-                  <label className="block">
-                    <span className="mb-2 block text-xs text-neutral-500">SWIFT / BIC Code</span>
-                    <input
-                      value={swiftCode}
-                      onChange={(event) => setSwiftCode(event.target.value)}
-                      placeholder="Enter SWIFT code"
-                      className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                    />
-                  </label>
-                )}
-              </div>
-            ) : (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <FieldSelect label="Mobile Money Provider" value={mobileProvider} onChange={setMobileProvider} options={mobileMoneyProviders} />
-                <label className="block">
-                  <span className="mb-2 block text-xs text-neutral-500">Mobile Number</span>
-                  <input
-                    value={mobileNumber}
-                    onChange={(event) => setMobileNumber(event.target.value)}
-                    placeholder="Enter mobile number"
-                    className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-                  />
-                </label>
-              </div>
-            )}
-
-            <div className="mt-4 rounded-xl border border-neutral-800 bg-black/30 p-3 text-xs">
-              <LineItem label="Processing Fee" value={`$${fiatFee.toFixed(2)}`} />
-              <LineItem label="You Will Receive" value={`$${fiatYouReceive.toFixed(2)}`} />
-              <p className="mt-2 inline-flex items-center gap-1 rounded-md border border-[#d1ab55]/30 bg-[#d1ab55]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#efcf7c]">
-                <Building2 className="h-3.5 w-3.5" />
-                Bank & Mobile Money Payout
-              </p>
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-xs text-neutral-500">2FA Code</label>
-              <input
-                value={twoFaCode}
-                onChange={(event) => setTwoFaCode(event.target.value)}
-                placeholder="Enter 6-digit 2FA code"
-                maxLength={6}
-                className="w-full rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-              />
-            </div>
-          </section>
-        ) : null}
-
-        <section className="mt-5 space-y-3">
-          {formError ? (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-100">
-              {formError}
-            </div>
-          ) : null}
-          {formSuccess ? (
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-              {formSuccess}
-            </div>
-          ) : null}
-          <div className="rounded-xl border border-amber-300/30 bg-amber-400/10 p-3 text-xs text-amber-100">
-            Ensure the network matches the destination address. Incorrect transfers may result in permanent loss.
-          </div>
-          <div className="rounded-xl border border-[#d1ab55]/20 bg-black/30 p-3 text-xs text-neutral-300">
-            <p className="flex items-start gap-2">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#efcf7c]" />
-              Withdrawals are protected by ExaEarn security protocols and 2FA verification.
-            </p>
-          </div>
-        </section>
-
-        <div className="mt-5 hidden gap-3 sm:grid sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit || submitting}
-            className="rounded-xl bg-linear-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1b1509] shadow-[0_0_25px_rgba(209,171,85,.35)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {submitting ? "Processing…" : "Withdraw Now"}
-          </button>
-          <button
-            type="button"
-            className="rounded-xl border border-neutral-700 bg-black/35 px-4 py-3 text-sm font-semibold text-neutral-200 transition hover:border-neutral-500"
-          >
-            Cancel
-          </button>
-        </div>
       </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#d1ab55]/20 bg-[#0a0a0a]/95 p-3 backdrop-blur sm:hidden">
-        <button
-          type="button"
-          disabled={!canSubmit}
-          className="w-full rounded-xl bg-linear-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1b1509] shadow-[0_0_25px_rgba(209,171,85,.35)] transition disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          Withdraw Now
-        </button>
+    </main>
+  );
+}
+function LoadingShell({ onBack }) {
+  return (
+    <main className="min-h-[100dvh] bg-[#05070c] px-3 pb-20 pt-3 text-slate-100 sm:px-4 lg:px-6">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4">
+        <header className="rounded-[24px] border border-white/8 bg-[#0b0f18] px-4 py-4">
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={onBack} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100"><ArrowLeft className="h-4 w-4" /></button>
+            <div className="space-y-2"><div className="h-3 w-20 animate-pulse rounded-full bg-white/[0.05]" /><div className="h-8 w-40 animate-pulse rounded-xl bg-white/[0.05]" /></div>
+          </div>
+        </header>
       </div>
     </main>
   );
 }
 
-function FieldSelect({ label, value, onChange, options }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-xs text-neutral-500">{label}</span>
-      <span className="relative block">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="w-full appearance-none rounded-xl border border-neutral-700 bg-black/35 px-3 py-3 text-sm text-neutral-100 outline-none focus:border-[#d1ab55]/70 focus:ring-2 focus:ring-[#d1ab55]/20"
-        >
-          {options.map((item) => (
-            <option key={item} value={item} className="bg-[#111111] text-neutral-100">
-              {item}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-      </span>
-    </label>
-  );
+function AssetMark({ symbol }) {
+  return <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f7df8f] via-[#d1ab55] to-[#8a6823] text-sm font-semibold text-[#191102]">{String(symbol || "?").slice(0, 3)}</span>;
 }
 
-function LineItem({ label, value }) {
-  return (
-    <div className="flex items-center justify-between border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
-      <span className="text-neutral-500">{label}</span>
-      <span className="font-medium text-neutral-100">{value}</span>
-    </div>
-  );
+function Banner({ children, tone = "rose" }) {
+  const styles = tone === "emerald" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100" : "border-rose-400/20 bg-rose-400/10 text-rose-100";
+  return <div className={`rounded-2xl border px-4 py-3 text-sm ${styles}`}>{children}</div>;
+}
+
+function Line({ label, value }) {
+  return <div className="flex items-center justify-between gap-3 border-b border-white/6 pb-2 last:border-0 last:pb-0"><span className="text-slate-500">{label}</span><span className="text-right font-medium text-white">{value || "--"}</span></div>;
+}
+
+function formatAsset(value, symbol) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return symbol ? `-- ${symbol}` : "--";
+  const digits = number >= 1000 ? 2 : number >= 1 ? 4 : 8;
+  const formatted = number.toLocaleString(undefined, { maximumFractionDigits: digits });
+  return symbol ? `${formatted} ${symbol}` : formatted;
 }
 
 export default Withdraw;

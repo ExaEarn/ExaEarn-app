@@ -35,7 +35,6 @@ async function main() {
   const [deployer] = await hre.ethers.getSigners();
   const admin = process.env.TOKEN_ADMIN_ADDRESS || deployer.address;
   const treasury = process.env.TOKEN_TREASURY_ADDRESS || deployer.address;
-  const bridgeOperator = process.env.BRIDGE_OPERATOR_ADDRESS || deployer.address;
   const nftPlatformFeeBps = process.env.NFT_PLATFORM_FEE_BPS || '250';
   const stakingRewardRateBps = process.env.STAKING_REWARD_RATE_BPS || '1200';
   const stakingLockPeriod = process.env.STAKING_LOCK_PERIOD_SECONDS || '2592000';
@@ -49,15 +48,7 @@ async function main() {
   deployment.ExaToken = await deployContract('ExaToken', [admin, treasury]);
   const exaToken = deployment.ExaToken.contract;
 
-  deployment.WrappedXRP = await deployContract('WrappedXRP', [admin, bridgeOperator]);
-
-  deployment.XRPStakingContract = await deployContract('XRPStakingContract', [
-    admin,
-    deployment.WrappedXRP.address,
-    deployment.ExaToken.address,
-  ]);
-
-  const stakingAsset = process.env.STAKING_ASSET_TOKEN_ADDRESS || deployment.WrappedXRP.address;
+  const stakingAsset = process.env.STAKING_ASSET_TOKEN_ADDRESS || deployment.ExaToken.address;
   deployment.ExaStaking = await deployContract('ExaStaking', [
     stakingAsset,
     deployment.ExaToken.address,
@@ -81,8 +72,6 @@ async function main() {
   const stakingRole = await exaToken.STAKING_CONTRACT_ROLE();
   const rewardRole = await exaToken.REWARD_DISTRIBUTOR_ROLE();
 
-  await (await exaToken.grantRole(stakingRole, deployment.XRPStakingContract.address)).wait();
-  await (await exaToken.grantRole(rewardRole, deployment.XRPStakingContract.address)).wait();
   await (await exaToken.grantRole(stakingRole, deployment.ExaStaking.address)).wait();
   await (await exaToken.grantRole(rewardRole, deployment.ExaStaking.address)).wait();
   await (await exaToken.grantRole(rewardRole, deployment.RewardDistributor.address)).wait();

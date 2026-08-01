@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Jobs\AdminApprovalJob;
-use App\Services\GiftcardService;
+use App\Models\GiftcardOrder;
 use App\Services\GiftCard\GiftCardPurchaseService;
+use App\Services\GiftCard\GiftCardRateEngine;
+use App\Services\GiftcardService;
+use App\Services\LedgerService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class GiftCardController extends Controller
@@ -17,8 +21,7 @@ class GiftCardController extends Controller
     public function __construct(
         private readonly GiftcardService $giftcardService,
         private readonly GiftCardPurchaseService $purchaseService
-    ) {
-    }
+    ) {}
 
     public function inventory(Request $request): JsonResponse
     {
@@ -57,7 +60,7 @@ class GiftCardController extends Controller
         $payload = $request->validate([
             'brand' => 'required|string|max:50',
             'card_value' => 'required|numeric|gt:0',
-            'currency' => 'required|string|size:3',
+            'currency' => ['required', 'string', 'max:8', Rule::in($this->supportedCurrencies())],
             'card_code' => 'required|string|min:5|max:500',
             'card_pin' => 'nullable|string|min:3|max:500',
             // Legacy fields for backward compatibility
@@ -129,7 +132,7 @@ class GiftCardController extends Controller
             return response()->json([
                 'data' => $submission->makeHidden(['encrypted_card_code', 'encrypted_card_pin']),
             ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json(['message' => 'Submission not found.'], 404);
         }
     }
@@ -140,7 +143,7 @@ class GiftCardController extends Controller
      */
     public function rates(): JsonResponse
     {
-        $rateEngine = app(\App\Services\GiftCard\GiftCardRateEngine::class);
+        $rateEngine = app(GiftCardRateEngine::class);
         $rates = $rateEngine->getAllRates();
 
         return response()->json([
@@ -154,7 +157,7 @@ class GiftCardController extends Controller
             'brand' => ['required_without:giftcard_id', 'string', 'max:50'],
             'card_value' => ['required_without:giftcard_id', 'numeric', 'gt:0'],
             'quantity' => ['required_without:giftcard_id', 'integer', 'min:1', 'max:100'],
-            'currency' => ['required_without:giftcard_id', 'string', 'size:3'],
+            'currency' => ['required_without:giftcard_id', 'string', 'max:8', Rule::in($this->supportedCurrencies())],
             'payment_method' => ['nullable', 'string', 'max:64'],
             'giftcard_id' => ['nullable', 'integer', 'exists:giftcard_inventory,id'],
             'device_id' => ['nullable', 'string', 'max:255'],
@@ -257,7 +260,7 @@ class GiftCardController extends Controller
     /**
      * POST /api/giftcard/purchase
      * Purchase a gift card with complete fee accounting and ledger tracking.
-     * 
+     *
      * Request:
      * {
      *   "brand": "amazon",
@@ -273,7 +276,7 @@ class GiftCardController extends Controller
             'brand' => 'required|string|in:amazon,apple,steam,google_play',
             'card_value' => 'required|numeric|gt:0|max:10000',
             'delivery_email' => 'required|email|max:255',
-            'currency' => 'required|string|in:USD,USDT,EUR,GBP',
+            'currency' => ['required', 'string', 'max:8', Rule::in($this->supportedCurrencies())],
             'wallet_type' => 'nullable|string|in:funding,spot,savings',
             'metadata' => 'nullable|array',
         ]);
@@ -356,13 +359,13 @@ class GiftCardController extends Controller
         }
 
         $payload = $request->validate([
-            'asset' => 'nullable|string|size:3',
+            'asset' => ['nullable', 'string', 'max:8', Rule::in($this->supportedCurrencies())],
             'from' => 'nullable|date',
             'to' => 'nullable|date',
         ]);
 
         try {
-            $ledgerService = app(\App\Services\LedgerService::class);
+            $ledgerService = app(LedgerService::class);
             $summary = $ledgerService->getPlatformRevenueSummary(
                 $payload['asset'] ?? null,
                 isset($payload['from']) && $payload['from'] !== null ? new \DateTime($payload['from']) : null,
@@ -383,7 +386,7 @@ class GiftCardController extends Controller
      */
     public function getFeeReport(Request $request): JsonResponse
     {
-        $this->authorize('viewAdmin', \App\Models\GiftcardOrder::class);
+        $this->authorize('viewAdmin', GiftcardOrder::class);
 
         $payload = $request->validate([
             'from' => 'nullable|date',
@@ -391,7 +394,7 @@ class GiftCardController extends Controller
             'brand' => 'nullable|string',
         ]);
 
-        $query = \App\Models\GiftcardOrder::query()
+        $query = GiftcardOrder::query()
             ->where('type', 'buy')
             ->where('status', 'completed');
 
@@ -438,5 +441,12 @@ class GiftCardController extends Controller
             'data' => $report,
         ]);
     }
-}
 
+    private function supportedCurrencies(): array
+    {
+        return array_values(array_unique(array_map(
+            static fn (mixed $currency): string => strtoupper((string) $currency),
+            (array) config('giftcard.supported_currencies', ['USD', 'EUR', 'GBP', 'NGN', 'ZAR'])
+        )));
+    }
+}

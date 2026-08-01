@@ -1,10 +1,9 @@
-import { Coins, CreditCard, Wallet } from "lucide-react";
+import { Coins, Wallet } from "lucide-react";
 
 function PaymentPanel({ selectedMethod, onMethodChange }) {
   const methods = [
     { id: "balance", label: "Platform Balance", icon: <Wallet className="h-4 w-4" aria-hidden="true" />, detail: "Available: 1,240.00 USDT" },
     { id: "crypto", label: "Crypto Wallet", icon: <Coins className="h-4 w-4" aria-hidden="true" />, detail: "Connected: 0x4a...0c51" },
-    { id: "token", label: "ExaToken", icon: <CreditCard className="h-4 w-4" aria-hidden="true" />, detail: "Balance: 9,845.00 EXA" },
   ];
 
   return (

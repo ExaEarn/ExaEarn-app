@@ -1,11 +1,30 @@
-import { Star } from "lucide-react";
+﻿import { Star } from "lucide-react";
 import { useRef } from "react";
 import PairDetailsIcon from "./PairDetailsIcon";
 
+function isValidNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function formatPrice(value) {
+  if (!isValidNumber(value)) return "--";
   if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (value >= 1) return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+  if (value > 0) return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+  return "--";
+}
+
+function formatVolume(value) {
+  if (!isValidNumber(value) || value <= 0) return "--";
+  if (value >= 1000000000) return `${(value / 1000000000).toFixed(2)}B`;
+  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(2)}K`;
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function formatChange(value) {
+  if (!isValidNumber(value)) return "--";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
 function PairRow({
@@ -42,8 +61,10 @@ function PairRow({
     }
   };
 
-  const changePositive = item.change24h >= 0;
-  const fiatSymbol = fiat === "NGN" ? "₦" : "$";
+  const changePositive = isValidNumber(item.change24h) ? item.change24h >= 0 : null;
+  const fiatSymbol = fiat === "NGN" ? "NGN " : "$";
+  const stale = Boolean(item.stale);
+  const fiatValue = item.fiat ?? item.last;
 
   return (
     <div style={style} className="px-4 py-1">
@@ -66,7 +87,7 @@ function PairRow({
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">{item.pair}</p>
-                <p className="text-xs text-[#9aa4b2]">Vol {item.volume}</p>
+                <p className="text-xs text-[#9aa4b2]">Vol {formatVolume(item.volume)}</p>
               </div>
             </div>
           </div>
@@ -74,8 +95,7 @@ function PairRow({
           <div className="text-right">
             <p className="text-base font-semibold text-white">{formatPrice(item.last)}</p>
             <p className="text-xs text-[#9aa4b2]">
-              {fiatSymbol}
-              {formatPrice(item.fiat ?? item.last)}
+              {isValidNumber(fiatValue) ? `${fiatSymbol}${formatPrice(fiatValue)}` : "--"}
             </p>
           </div>
         </div>
@@ -85,6 +105,11 @@ function PairRow({
             {item.leverage ? (
               <span className="rounded-md border border-[#6b2cff]/45 bg-[#6b2cff]/15 px-2 py-0.5 text-[10px] font-semibold text-[#d3c0ff]">
                 {item.leverage}
+              </span>
+            ) : null}
+            {stale ? (
+              <span className="rounded-md border border-[#ffb900]/30 bg-[#ffb900]/10 px-2 py-0.5 text-[10px] font-semibold text-[#ffde7a]">
+                Delayed
               </span>
             ) : null}
             <button
@@ -107,11 +132,14 @@ function PairRow({
           <div className="flex items-center gap-2">
             <span
               className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-300 ${
-                changePositive ? "bg-[#18c06c]/20 text-[#6ef3a9]" : "bg-[#ff5b6b]/20 text-[#ff93a0]"
+                changePositive === null
+                  ? "bg-white/10 text-[#9aa4b2]"
+                  : changePositive
+                    ? "bg-[#18c06c]/20 text-[#6ef3a9]"
+                    : "bg-[#ff5b6b]/20 text-[#ff93a0]"
               }`}
             >
-              {changePositive ? "+" : ""}
-              {item.change24h.toFixed(2)}%
+              {formatChange(item.change24h)}
             </span>
             <PairDetailsIcon
               onOpenChart={() => onOpenChart(item)}

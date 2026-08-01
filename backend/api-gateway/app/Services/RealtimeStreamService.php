@@ -39,7 +39,13 @@ class RealtimeStreamService
 
     private function shouldUseRedis(): bool
     {
-        return config('streaming.driver', 'redis') === 'redis';
+        if (config('streaming.driver', 'redis') !== 'redis') {
+            return false;
+        }
+
+        $client = (string) config('database.redis.client', 'phpredis');
+
+        return $client !== 'phpredis' || extension_loaded('redis');
     }
 
     private function publishToRedis(string $channel, array $payload): bool
@@ -71,6 +77,7 @@ class RealtimeStreamService
         $endpoint = match ($channel) {
             $this->getPriceChannel() => 'price',
             $this->getPortfolioChannel() => 'portfolio',
+            $this->getFlightGameChannel() => 'game',
             default => 'market',
         };
 
@@ -99,5 +106,10 @@ class RealtimeStreamService
     private function getPortfolioChannel(): string
     {
         return config('streaming.portfolio_channel', 'portfolio_updates');
+    }
+
+    private function getFlightGameChannel(): string
+    {
+        return config('games.flight.stream_channel', 'exaearn.game.flight');
     }
 }

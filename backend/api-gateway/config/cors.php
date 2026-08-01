@@ -16,6 +16,8 @@ $defaultDevOrigins = [
     'http://127.0.0.1:5176',
     'http://localhost:5177',
     'http://127.0.0.1:5177',
+    'http://localhost:8082',
+    'http://127.0.0.1:8082',
 ];
 
 return [

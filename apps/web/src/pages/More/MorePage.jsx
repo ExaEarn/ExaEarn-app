@@ -141,4 +141,3 @@ function Badge({ type }) {
 }
 
 export default MorePage;
-

@@ -27,7 +27,7 @@ class AuditLogTest extends TestCase
             'password_confirmation' => 'SecurePassword123!',
         ]);
 
-        $response->assertOk();
+        $response->assertCreated();
 
         $this->assertDatabaseHas('activity_logs', [
             'type' => 'auth',
