@@ -22,9 +22,13 @@ function isPublicBrowserOrigin() {
   return !["localhost", "127.0.0.1"].includes(window.location.hostname);
 }
 
-function cleanRuntimeUrl(value) {
+function isRuntimeLocalApiAllowed(runtimeConfig) {
+  return runtimeConfig.ALLOW_LOCAL_API_ON_PUBLIC_ORIGIN === true;
+}
+
+function cleanRuntimeUrl(value, runtimeConfig = {}) {
   const url = cleanUrl(value);
-  if (url && isPublicBrowserOrigin() && isLocalBackendUrl(url)) {
+  if (url && isPublicBrowserOrigin() && isLocalBackendUrl(url) && !isRuntimeLocalApiAllowed(runtimeConfig)) {
     console.warn("Ignoring localhost API URL on a public ExaEarn deployment.");
     return "";
   }
@@ -34,22 +38,22 @@ function cleanRuntimeUrl(value) {
 
 export function getApiBaseUrl() {
   const runtimeConfig = readRuntimeConfig();
-  return cleanRuntimeUrl(runtimeConfig.API_URL) || cleanUrl(import.meta.env.VITE_API_URL);
+  return cleanRuntimeUrl(runtimeConfig.API_URL, runtimeConfig) || cleanUrl(import.meta.env.VITE_API_URL);
 }
 
 export function getAdminApiBaseUrl() {
   const runtimeConfig = readRuntimeConfig();
   return (
-    cleanRuntimeUrl(runtimeConfig.ADMIN_API_URL) ||
+    cleanRuntimeUrl(runtimeConfig.ADMIN_API_URL, runtimeConfig) ||
     cleanUrl(import.meta.env.VITE_ADMIN_API_URL) ||
-    cleanRuntimeUrl(runtimeConfig.API_URL) ||
+    cleanRuntimeUrl(runtimeConfig.API_URL, runtimeConfig) ||
     cleanUrl(import.meta.env.VITE_API_URL)
   );
 }
 
 export function getNodeServiceUrl() {
   const runtimeConfig = readRuntimeConfig();
-  return cleanRuntimeUrl(runtimeConfig.NODE_SERVICE_URL) || cleanUrl(import.meta.env.VITE_NODE_SERVICE_URL);
+  return cleanRuntimeUrl(runtimeConfig.NODE_SERVICE_URL, runtimeConfig) || cleanUrl(import.meta.env.VITE_NODE_SERVICE_URL);
 }
 
 export function isDemoAuthEnabled() {
