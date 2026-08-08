@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AdminActionAuditMiddleware;
 use App\Http\Middleware\AdminSecurityLayer;
+use App\Http\Middleware\AllowPrivateNetworkCors;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\DevAuthBypass;
 use App\Http\Middleware\EnsureUserRole;
@@ -44,6 +45,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(AllowPrivateNetworkCors::class);
+
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return null;
@@ -160,5 +163,6 @@ return Application::configure(basePath: dirname(__DIR__))
             return null;
         });
     })->create();
+
 
 
