@@ -2746,3 +2746,12 @@ html[data-theme="light"] .btn-outline {
   z-index: 7000;
   pointer-events: auto;
 }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

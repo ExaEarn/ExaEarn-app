@@ -288,7 +288,7 @@ function DailyRewardModal({ progress, history, lastReward, onClose, onClaim, onO
 
 const features = [
   { name: "Gift Cards", image: Image.giftcard, icon: Gift, tone: "gold" },
-  { name: "Stake XRP", image: Image.xrp, icon: Coins, tone: "cyan" },
+  { name: "Earn", image: Image.xrp, icon: Coins, tone: "cyan" },
   { name: "Games", image: Image.games, icon: Gamepad2, tone: "violet" },
   { name: "NFT Market", image: Image.nft, icon: Gem, tone: "blue" },
   { name: "Crowdfund", image: Image.crowdfund, icon: HandCoins, tone: "gold" },
@@ -1191,7 +1191,7 @@ export default function App() {
       setCurrentPage("agriculture");
     } else if (featureName === "ExaSkills") {
       setCurrentPage("edtech");
-    } else if (featureName === "Stake XRP") {
+    } else if (featureName === "Earn") {
       setCurrentPage("staking");
     } else if (featureName === "More") {
       setCurrentPage("more");
@@ -1606,3 +1606,4 @@ function NavItem({ icon, label, active, imageIcon = false, onClick }) {
     </button>
   );
 }
+
