@@ -9,8 +9,9 @@ return [
     'portfolio_channel' => env('STREAMING_PORTFOLIO_CHANNEL', 'portfolio_updates'),
 
     'node' => [
-        'url' => env('NODE_SERVICE_URL', 'http://localhost:4000'),
+        'enabled' => filter_var(env('STREAMING_NODE_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'url' => env('NODE_SERVICE_URL', ''),
         'secret' => env('NODE_SERVICE_SECRET', ''),
-        'timeout_seconds' => (int) env('NODE_SERVICE_TIMEOUT', 15),
+        'timeout_seconds' => (float) env('NODE_SERVICE_TIMEOUT', 0.5),
     ],
 ];

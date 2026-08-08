@@ -56,6 +56,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
+Route::get('v1/market/klines', [TradeController::class, 'klines']);
 Route::middleware([
     EncryptCookies::class,
     AddQueuedCookiesToResponse::class,
@@ -257,6 +258,12 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
 
     Route::prefix('trade')->group(function (): void {
         Route::get('markets', [TradeController::class, 'markets']);
+        Route::get('order-book', [TradeController::class, 'orderBookByQuery']);
+        Route::get('trades', [TradeController::class, 'tradesByQuery']);
+        Route::get('candles', [TradeController::class, 'candlesByQuery']);
+        Route::get('klines', [TradeController::class, 'klines']);
+        Route::get('orders', [TradeController::class, 'openOrders']);
+        Route::get('history', [TradeController::class, 'userTrades']);
         Route::post('markets', [TradeController::class, 'createMarket'])->middleware('rate.limit');
         Route::post('orders', [TradeController::class, 'placeOrder'])->middleware('rate.limit');
         Route::delete('orders/{orderUuid}', [TradeController::class, 'cancelOrder'])->middleware('rate.limit');

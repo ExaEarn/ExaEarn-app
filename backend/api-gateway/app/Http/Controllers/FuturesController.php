@@ -44,10 +44,12 @@ class FuturesController extends Controller
     {
         $symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT', 'ADAUSDT', 'DOGEUSDT', 'TRXUSDT', 'DOTUSDT', 'AVAXUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'UNIUSDT', 'ATOMUSDT', 'MATICUSDT', '1000BONKUSDT', 'APTUSDT', 'ARBUSDT', 'SUIUSDT', 'OPUSDT', 'NEARUSDT', 'FILUSDT', 'ETCUSDT', 'XLMUSDT', 'HBARUSDT', 'AAVEUSDT', 'INJUSDT', 'SEIUSDT', 'TIAUSDT', 'WIFUSDT', 'PEPEUSDT'];
         $prices = [];
+        $marketDataTimeout = max(0.5, (float) config('services.market_data.timeout_seconds', 1.5));
+        $marketDataRetries = max(0, (int) config('services.market_data.retries', 0));
 
         try {
-            $exchangeInfo = Http::timeout(6)->retry(1, 150)->get('https://fapi.binance.com/fapi/v1/exchangeInfo');
-            $tickers = Http::timeout(6)->retry(1, 150)->get('https://fapi.binance.com/fapi/v1/ticker/24hr');
+            $exchangeInfo = Http::timeout($marketDataTimeout)->retry($marketDataRetries, 100)->get('https://fapi.binance.com/fapi/v1/exchangeInfo');
+            $tickers = Http::timeout($marketDataTimeout)->retry($marketDataRetries, 100)->get('https://fapi.binance.com/fapi/v1/ticker/24hr');
 
             if ($exchangeInfo->ok() && $tickers->ok()) {
                 $activeSymbols = collect($exchangeInfo->json('symbols', []))

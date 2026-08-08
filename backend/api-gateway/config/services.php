@@ -44,6 +44,11 @@ return [
         'url' => env('FX_API_URL', 'https://open.er-api.com/v6/latest'),
     ],
 
+
+    'market_data' => [
+        'timeout_seconds' => (float) env('MARKET_DATA_TIMEOUT_SECONDS', 1.5),
+        'retries' => (int) env('MARKET_DATA_RETRIES', 0),
+    ],
     'binance' => [
         'url' => env('BINANCE_API_URL', 'https://api.binance.com'),
         'key' => env('BINANCE_API_KEY'),

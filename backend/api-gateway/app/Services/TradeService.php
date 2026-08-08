@@ -102,6 +102,17 @@ class TradeService
         return $payloads->sortBy('symbol')->values();
     }
 
+
+
+    private function marketProviderTimeout(): float
+    {
+        return max(0.5, (float) config('services.market_data.timeout_seconds', 1.5));
+    }
+
+    private function marketProviderRetries(): int
+    {
+        return max(0, (int) config('services.market_data.retries', 0));
+    }
     /**
      * @param  array<int, string>  $symbols
      * @return array<string, array<string, mixed>>
@@ -116,6 +127,7 @@ class TradeService
         return $this->fetchCoinGeckoTickers($symbols);
     }
 
+
     /**
      * @param  array<int, string>  $symbols
      * @return array<string, array<string, mixed>>
@@ -123,8 +135,8 @@ class TradeService
     private function fetchBinanceTickers(array $symbols): array
     {
         try {
-            $response = Http::timeout(5)
-                ->retry(1, 150)
+            $response = Http::timeout($this->marketProviderTimeout())
+                ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/ticker/24hr', [
                     'symbols' => json_encode(array_values(array_unique($symbols)), JSON_THROW_ON_ERROR),
                 ]);
@@ -149,8 +161,8 @@ class TradeService
     private function fetchBinanceDepth(string $symbol, int $depth): array
     {
         try {
-            $response = Http::timeout(5)
-                ->retry(1, 150)
+            $response = Http::timeout($this->marketProviderTimeout())
+                ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/depth', [
                     'symbol' => $symbol,
                     'limit' => max(5, min($depth, 100)),
@@ -186,8 +198,8 @@ class TradeService
     private function fetchBinanceRecentTrades(string $symbol, string $pair, int $limit): array
     {
         try {
-            $response = Http::timeout(5)
-                ->retry(1, 150)
+            $response = Http::timeout($this->marketProviderTimeout())
+                ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/trades', [
                     'symbol' => $symbol,
                     'limit' => max(1, min($limit, 1000)),
@@ -229,8 +241,8 @@ class TradeService
     private function fetchBinanceCandles(string $symbol, string $timeframe, int $limit): array
     {
         try {
-            $response = Http::timeout(5)
-                ->retry(1, 150)
+            $response = Http::timeout($this->marketProviderTimeout())
+                ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/klines', [
                     'symbol' => $symbol,
                     'interval' => $timeframe,
@@ -257,6 +269,7 @@ class TradeService
             return [];
         }
     }
+
 
     /**
      * @param  array<int, string>  $symbols
@@ -291,8 +304,8 @@ class TradeService
 
         try {
             $ids = $bases->map(fn (string $base): string => $coinIds[$base])->implode(',');
-            $response = Http::timeout(5)
-                ->retry(1, 150)
+            $response = Http::timeout($this->marketProviderTimeout())
+                ->retry($this->marketProviderRetries(), 100)
                 ->get('https://api.coingecko.com/api/v3/simple/price', [
                     'ids' => $ids,
                     'vs_currencies' => 'usd',

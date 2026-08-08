@@ -65,12 +65,12 @@ class RealtimeStreamService
 
     private function publishToNode(string $channel, array $payload): void
     {
-        $url = rtrim((string) config('streaming.node.url', 'http://localhost:4000'), '/');
+        $enabled = (bool) config('streaming.node.enabled', false);
+        $url = rtrim((string) config('streaming.node.url', ''), '/');
         $secret = (string) config('streaming.node.secret');
-        $timeout = (int) config('streaming.node.timeout_seconds', 15);
+        $timeout = (float) config('streaming.node.timeout_seconds', 0.5);
 
-        if ($url === '') {
-            Log::warning('Realtime stream publish skipped: node URL is not configured.');
+        if (!$enabled || $url === '' || $secret === '') {
             return;
         }
 
@@ -82,7 +82,7 @@ class RealtimeStreamService
         };
 
         try {
-            Http::timeout($timeout)
+            Http::timeout(max(0.1, $timeout))
                 ->withHeaders([
                     'X-Service-Secret' => $secret,
                     'Accept' => 'application/json',

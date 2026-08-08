@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Decimal from 'decimal.js';
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { isLocalApiPreview } from '../../config/apiConfig';
 import { marketDataService } from '../../services/marketDataService';
 import { onEvent } from '../../services/webSocketService';
 import type { Candle, OrderBookLevel, OrderFormState, RecentTrade, TradingPair, UserOrder, WalletBalance } from '../../types/market';
@@ -163,24 +164,18 @@ export default function TradeTerminal({ onBack, onOpenConvert, onOpenFutures, on
 
     const loadMarketData = async () => {
       setLoadingMarketData(true);
-      setLoadingAccount(true);
+      setLoadingAccount(Boolean(user));
       try {
-        const [nextCandles, depth, trades, orders, userTrades, walletBalances] = await Promise.all([
+        const [nextCandles, depth, trades] = await Promise.all([
           marketDataService.getCandles(request, selectedPair, timeframe, 500),
           marketDataService.getOrderBook(request, selectedPair, 24),
           marketDataService.getRecentTrades(request, selectedPair, 40),
-          user ? marketDataService.getOpenOrders(request, selectedPair) : Promise.resolve([]),
-          user ? marketDataService.getTradeHistory(request, selectedPair) : Promise.resolve([]),
-          user ? marketDataService.getBalances(request) : Promise.resolve([]),
         ]);
 
         setCandles(nextCandles);
         setRecentTrades(trades);
         setBids(normalizeLevels(depth?.bids ?? [], 'buy'));
         setAsks(normalizeLevels(depth?.asks ?? [], 'sell'));
-        setOpenOrders(orders);
-        setTradeHistory(userTrades);
-        setBalances(walletBalances);
         setForm((current) => ({
           ...current,
           price: current.type === 'market' ? '' : current.price || String(nextCandles.at(-1)?.close ?? selectedMarket?.last ?? ''),
@@ -192,6 +187,25 @@ export default function TradeTerminal({ onBack, onOpenConvert, onOpenFutures, on
         setError(safeTradeError(nextError?.message || 'Market unavailable'));
       } finally {
         setLoadingMarketData(false);
+      }
+
+      if (!user) {
+        setLoadingAccount(false);
+        return;
+      }
+
+      try {
+        const [orders, userTrades, walletBalances] = await Promise.all([
+          marketDataService.getOpenOrders(request, selectedPair),
+          marketDataService.getTradeHistory(request, selectedPair),
+          marketDataService.getBalances(request),
+        ]);
+        setOpenOrders(orders);
+        setTradeHistory(userTrades);
+        setBalances(walletBalances);
+      } catch {
+        // Keep market data usable even if private account data is temporarily slow.
+      } finally {
         setLoadingAccount(false);
       }
     };
@@ -220,7 +234,7 @@ export default function TradeTerminal({ onBack, onOpenConvert, onOpenFutures, on
       } catch {
         setConnectionState('reconnecting');
       }
-    }, 8000);
+    }, isLocalApiPreview() ? 15000 : 8000);
 
     return () => window.clearInterval(timer);
   }, [request, selectedPair, timeframe]);

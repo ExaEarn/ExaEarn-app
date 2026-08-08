@@ -1,7 +1,12 @@
+import { isLocalApiPreview } from '../config/apiConfig';
 import type { Candle, RecentTrade, TradingPair, UserOrder, WalletBalance } from '../types/market';
 
 const BINANCE_REST_URL = 'https://data-api.binance.vision';
 const FALLBACK_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT', 'ADAUSDT', 'DOTUSDT', 'AVAXUSDT', 'MATICUSDT', 'ATOMUSDT', 'LINKUSDT'];
+type ApiRequestOptions = RequestInit & { timeoutMs?: number };
+type ApiRequest = (path: string, options?: ApiRequestOptions) => Promise<any>;
+const publicMarketRequestOptions = (): ApiRequestOptions => ({ method: 'GET', timeoutMs: isLocalApiPreview() ? 2500 : 8000 });
+const privateTradingRequestOptions = (): ApiRequestOptions => ({ method: 'GET', timeoutMs: isLocalApiPreview() ? 5000 : 12000 });
 
 const toPairPath = (pair: string) => pair.replace('/', '-');
 const toApiSymbol = (pair: string) => normalizePair(pair).replace('/', '');
@@ -133,9 +138,14 @@ export const marketDataService = {
   normalizePair,
   toApiSymbol,
 
-  async getMarkets(request: (path: string, options?: RequestInit) => Promise<any>): Promise<TradingPair[]> {
-    const payload = await request('/api/trade/markets', { method: 'GET' });
-    const backendMarkets = (Array.isArray(payload?.data) ? payload.data : []).map(normalizeMarket);
+  async getMarkets(request: ApiRequest): Promise<TradingPair[]> {
+    let backendMarkets: TradingPair[] = [];
+    try {
+      const payload = await request('/api/trade/markets', publicMarketRequestOptions());
+      backendMarkets = (Array.isArray(payload?.data) ? payload.data : []).map(normalizeMarket);
+    } catch (error) {
+      console.warn('ExaEarn market snapshot timed out; using public market fallback.', error);
+    }
 
     if (backendMarkets.length > 0 && backendMarkets.some(looksAlive) && backendMarkets.length >= 4) {
       return backendMarkets;
@@ -150,24 +160,28 @@ export const marketDataService = {
   },
 
   async getCandles(
-    request: (path: string, options?: RequestInit) => Promise<any>,
+    request: ApiRequest,
     pair: string,
     interval: string,
     limit = 500,
   ): Promise<Candle[]> {
-    const payload = await request(`/api/v1/market/klines?symbol=${encodeURIComponent(pair)}&interval=${encodeURIComponent(interval)}&limit=${limit}`, { method: 'GET' });
-    const rows = Array.isArray(payload?.data) ? payload.data : [];
-
-    const candles = rows
-      .map((item: any) => ({
-        time: toNumber(item.time),
-        open: toNumber(item.open),
-        high: toNumber(item.high),
-        low: toNumber(item.low),
-        close: toNumber(item.close),
-        volume: toNumber(item.volume),
-      }))
-      .filter((item: Candle) => item.time > 0);
+    let candles: Candle[] = [];
+    try {
+      const payload = await request(`/api/v1/market/klines?symbol=${encodeURIComponent(pair)}&interval=${encodeURIComponent(interval)}&limit=${limit}`, publicMarketRequestOptions());
+      const rows = Array.isArray(payload?.data) ? payload.data : [];
+      candles = rows
+        .map((item: any) => ({
+          time: toNumber(item.time),
+          open: toNumber(item.open),
+          high: toNumber(item.high),
+          low: toNumber(item.low),
+          close: toNumber(item.close),
+          volume: toNumber(item.volume),
+        }))
+        .filter((item: Candle) => item.time > 0);
+    } catch (error) {
+      console.warn('ExaEarn candle endpoint timed out; using public candle fallback.', error);
+    }
 
     if (candles.length > 0) {
       return candles;
@@ -190,9 +204,14 @@ export const marketDataService = {
     }
   },
 
-  async getOrderBook(request: (path: string, options?: RequestInit) => Promise<any>, pair: string, limit = 20) {
-    const payload = await request(`/api/trade/order-book?pair=${encodeURIComponent(pair)}&limit=${limit}`, { method: 'GET' });
-    const backendData = payload?.data ?? { pair, bids: [], asks: [] };
+  async getOrderBook(request: ApiRequest, pair: string, limit = 20) {
+    let backendData = { pair, bids: [], asks: [] };
+    try {
+      const payload = await request(`/api/trade/order-book?pair=${encodeURIComponent(pair)}&limit=${limit}`, publicMarketRequestOptions());
+      backendData = payload?.data ?? backendData;
+    } catch (error) {
+      console.warn('ExaEarn order book endpoint timed out; using public depth fallback.', error);
+    }
 
     if (Array.isArray(backendData?.bids) && backendData.bids.length > 0) {
       return backendData;
@@ -212,9 +231,14 @@ export const marketDataService = {
     }
   },
 
-  async getRecentTrades(request: (path: string, options?: RequestInit) => Promise<any>, pair: string, limit = 50): Promise<RecentTrade[]> {
-    const payload = await request(`/api/trade/trades?pair=${encodeURIComponent(pair)}&limit=${limit}`, { method: 'GET' });
-    const backendTrades = Array.isArray(payload?.data) ? payload.data : [];
+  async getRecentTrades(request: ApiRequest, pair: string, limit = 50): Promise<RecentTrade[]> {
+    let backendTrades: RecentTrade[] = [];
+    try {
+      const payload = await request(`/api/trade/trades?pair=${encodeURIComponent(pair)}&limit=${limit}`, publicMarketRequestOptions());
+      backendTrades = Array.isArray(payload?.data) ? payload.data : [];
+    } catch (error) {
+      console.warn('ExaEarn recent trades endpoint timed out; using public trades fallback.', error);
+    }
 
     if (backendTrades.length > 0) {
       return backendTrades;
@@ -236,28 +260,27 @@ export const marketDataService = {
       return backendTrades;
     }
   },
-
-  async getOpenOrders(request: (path: string, options?: RequestInit) => Promise<any>, pair?: string): Promise<UserOrder[]> {
+  async getOpenOrders(request: ApiRequest, pair?: string): Promise<UserOrder[]> {
     const query = pair ? `?pair=${encodeURIComponent(pair)}` : '';
-    const payload = await request(`/api/trade/orders${query}`, { method: 'GET' });
+    const payload = await request(`/api/trade/orders${query}`, privateTradingRequestOptions());
     const data = payload?.data?.data ?? payload?.data ?? [];
     return Array.isArray(data) ? data : [];
   },
 
-  async getTradeHistory(request: (path: string, options?: RequestInit) => Promise<any>, pair?: string): Promise<RecentTrade[]> {
+  async getTradeHistory(request: ApiRequest, pair?: string): Promise<RecentTrade[]> {
     const query = pair ? `?pair=${encodeURIComponent(pair)}` : '';
-    const payload = await request(`/api/trade/history${query}`, { method: 'GET' });
+    const payload = await request(`/api/trade/history${query}`, privateTradingRequestOptions());
     const data = payload?.data?.data ?? payload?.data ?? [];
     return Array.isArray(data) ? data : [];
   },
 
-  async getBalances(request: (path: string, options?: RequestInit) => Promise<any>): Promise<WalletBalance[]> {
-    const payload = await request('/api/wallet/balances', { method: 'GET' });
+  async getBalances(request: ApiRequest): Promise<WalletBalance[]> {
+    const payload = await request('/api/wallet/balances', privateTradingRequestOptions());
     const data = payload?.data ?? [];
     return Array.isArray(data) ? data : [];
   },
 
-  async placeOrder(request: (path: string, options?: RequestInit) => Promise<any>, body: Record<string, unknown>) {
+  async placeOrder(request: ApiRequest, body: Record<string, unknown>) {
     return request('/api/trade/orders', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -267,7 +290,7 @@ export const marketDataService = {
     });
   },
 
-  async cancelOrder(request: (path: string, options?: RequestInit) => Promise<any>, orderUuid: string) {
+  async cancelOrder(request: ApiRequest, orderUuid: string) {
     return request(`/api/trade/orders/${orderUuid}`, { method: 'DELETE' });
   },
 };
