@@ -173,10 +173,20 @@ function AuthProvider({ children }) {
 
     try {
       const payload = await request("/api/user", { method: "GET" });
-      setUser(payload.user ?? payload.data?.user ?? null);
-    } catch {
-      setUser(null);
-      setToken("");
+      const nextUser = payload.user ?? payload.data?.user ?? null;
+      if (nextUser) {
+        setUser(nextUser);
+      }
+    } catch (error) {
+      if (error?.status === 401 || error?.status === 403) {
+        setUser(null);
+        setToken("");
+      } else {
+        const storedUser = readStoredUser();
+        if (storedUser) {
+          setUser(storedUser);
+        }
+      }
     } finally {
       setAuthReady(true);
     }
