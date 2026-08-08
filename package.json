@@ -22,7 +22,7 @@
     "mobile:dev": "pnpm --filter @exaearn/mobile dev",
     "mobile:android": "pnpm --filter @exaearn/mobile android",
     "mobile:ios": "pnpm --filter @exaearn/mobile ios",
-    "backend:api": "php backend/api-gateway/artisan serve",
+    "backend:api": "php -d extension=gd -d extension=pdo_pgsql -d extension=pgsql backend/api-gateway/artisan serve",
     "legacy:web:build": "pnpm --filter @exaearn/web build"
   },
   "devDependencies": {

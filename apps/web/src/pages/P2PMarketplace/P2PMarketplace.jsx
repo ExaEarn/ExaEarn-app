@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
 import {
   ArrowLeft,
@@ -14,15 +14,24 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
-const assets = [
-  { symbol: "XRP", tone: "from-sky-400 to-blue-500" },
-  { symbol: "USDT", tone: "from-emerald-400 to-green-500" },
-  { symbol: "BTC", tone: "from-amber-300 to-orange-500" },
-  { symbol: "ETH", tone: "from-indigo-300 to-violet-500" },
-];
+const tokenTones = {
+  XRP: "from-sky-400 to-blue-500",
+  USDT: "from-emerald-400 to-green-500",
+  USDC: "from-cyan-300 to-blue-500",
+  BTC: "from-amber-300 to-orange-500",
+  ETH: "from-indigo-300 to-violet-500",
+  SOL: "from-fuchsia-400 to-emerald-400",
+  EXA: "from-amber-200 to-yellow-600",
+};
 
-const paymentOptions = ["All Methods", "Bank Transfer", "Opay", "Airtel Money", "PalmPay"];
-const fiatOptions = ["NGN", "USD", "GHS", "KES", "ZAR"];
+const fallbackAssets = ["USDT", "USDC", "BTC", "ETH", "SOL", "XRP", "EXA"].map((symbol) => ({
+  symbol,
+  name: symbol,
+  tone: tokenTones[symbol] || "from-slate-300 to-slate-600",
+}));
+
+const fallbackPaymentOptions = ["All Methods", "Bank Transfer", "Opay", "Airtel Money", "PalmPay"];
+const fallbackFiatOptions = ["NGN", "USD", "GHS", "KES", "ZAR"];
 
 const defaultAdForm = {
   type: "sell",
@@ -74,18 +83,43 @@ function paymentMethodLabel(method) {
   return method.display_name || [method.bank_name, method.account_name].filter(Boolean).join(" • ") || method.method_type;
 }
 
-function TokenLogo({ symbol, tone }) {
+function TokenLogo({ symbol, tone, iconUrl }) {
   return (
-    <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br ${tone} text-[11px] font-bold text-white shadow-[0_0_18px_rgba(168,85,247,0.35)]`}>
-      {symbol.slice(0, 2)}
+    <span className={`inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ${tone} text-[11px] font-bold text-white shadow-[0_0_18px_rgba(168,85,247,0.35)]`}>
+      {iconUrl ? <img src={iconUrl} alt="" className="h-full w-full object-cover" /> : symbol.slice(0, 2)}
     </span>
   );
 }
 
-function P2PMarketplace({ onBack }) {
+function ProductNav({ onOpenConvert, onOpenFiatGateway }) {
+  const items = [
+    { label: "Convert", onClick: onOpenConvert },
+    { label: "P2P", active: true },
+    { label: "Fiat Gateway", onClick: onOpenFiatGateway },
+  ];
+
+  return (
+    <nav className="flex gap-5 overflow-x-auto border-b border-white/10 px-3 py-2 text-xs font-semibold sm:px-4" aria-label="P2P product navigation">
+      {items.map((item) => (
+        <button
+          key={item.label}
+          type="button"
+          onClick={item.onClick}
+          disabled={!item.onClick && !item.active}
+          className={`relative min-w-fit py-1.5 transition ${item.active ? "text-amber-200" : "text-violet-100/55 hover:text-white disabled:opacity-40"}`}
+        >
+          {item.label}
+          {item.active ? <span className="absolute inset-x-0 -bottom-2 h-0.5 rounded-full bg-amber-300" /> : null}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function P2PMarketplace({ onBack, onOpenConvert, onOpenFiatGateway, initialTradeSide = "buy" }) {
   const { request, user } = useAuth();
   const [tab, setTab] = useState("market");
-  const [tradeSide, setTradeSide] = useState("buy");
+  const [tradeSide, setTradeSide] = useState(initialTradeSide === "sell" ? "sell" : "buy");
   const [selectedAsset, setSelectedAsset] = useState("USDT");
   const [fiatCurrency, setFiatCurrency] = useState("NGN");
   const [paymentMethod, setPaymentMethod] = useState("All Methods");
@@ -104,13 +138,49 @@ function P2PMarketplace({ onBack }) {
   const [createAdOpen, setCreateAdOpen] = useState(false);
   const [paymentMethodOpen, setPaymentMethodOpen] = useState(false);
   const [adForm, setAdForm] = useState(defaultAdForm);
+
+  useEffect(() => {
+    setTradeSide(initialTradeSide === "sell" ? "sell" : "buy");
+    setTab("market");
+  }, [initialTradeSide]);
   const [createAdErrors, setCreateAdErrors] = useState({});
   const [createAdSaving, setCreateAdSaving] = useState(false);
   const [paymentMethodForm, setPaymentMethodForm] = useState(defaultPaymentMethodForm);
   const [paymentMethodErrors, setPaymentMethodErrors] = useState({});
   const [paymentMethodSaving, setPaymentMethodSaving] = useState(false);
+  const [activeTrade, setActiveTrade] = useState(null);
+  const [tradeMessages, setTradeMessages] = useState([]);
+  const [chatMessage, setChatMessage] = useState("");
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
+  const [paymentProofUploading, setPaymentProofUploading] = useState(false);
+  const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
+  const [releaseConfirmOpen, setReleaseConfirmOpen] = useState(false);
+  const [p2pMeta, setP2pMeta] = useState({ assets: [], fiat_currencies: [], payment_method_types: [] });
 
-  const selectedAssetMeta = assets.find((asset) => asset.symbol === selectedAsset) ?? assets[1];
+  const availableAssets = useMemo(() => {
+    const source = Array.isArray(p2pMeta.assets) && p2pMeta.assets.length ? p2pMeta.assets : fallbackAssets;
+    return source.map((asset) => {
+      const symbol = String(asset.symbol || asset).toUpperCase();
+      return {
+        symbol,
+        name: asset.name || symbol,
+        icon_url: asset.icon_url || asset.icon || null,
+        tone: tokenTones[symbol] || "from-slate-300 to-slate-600",
+      };
+    });
+  }, [p2pMeta.assets]);
+
+  const fiatOptions = useMemo(() => {
+    const source = Array.isArray(p2pMeta.fiat_currencies) && p2pMeta.fiat_currencies.length ? p2pMeta.fiat_currencies : fallbackFiatOptions;
+    return source.map((currency) => String(currency).toUpperCase());
+  }, [p2pMeta.fiat_currencies]);
+
+  const paymentOptions = useMemo(() => {
+    const source = Array.isArray(p2pMeta.payment_method_types) && p2pMeta.payment_method_types.length ? p2pMeta.payment_method_types : fallbackPaymentOptions.filter((item) => item !== "All Methods");
+    return ["All Methods", ...source.filter(Boolean)];
+  }, [p2pMeta.payment_method_types]);
+
+  const selectedAssetMeta = availableAssets.find((asset) => asset.symbol === selectedAsset) ?? availableAssets[0];
 
   const query = useMemo(() => {
     const params = new URLSearchParams({
@@ -143,6 +213,7 @@ function P2PMarketplace({ onBack }) {
 
     try {
       const calls = [
+        request("/api/p2p/meta", { method: "GET" }),
         request(`/api/p2p/ads?${query}`, { method: "GET" }),
         request("/api/p2p/ads/mine", { method: "GET" }),
         request("/api/p2p/trades/mine", { method: "GET" }),
@@ -152,7 +223,8 @@ function P2PMarketplace({ onBack }) {
         calls.push(request("/api/p2p/payment-methods", { method: "GET" }));
       }
 
-      const [adsPayload, myAdsPayload, tradesPayload, paymentMethodsPayload] = await Promise.all(calls);
+      const [metaPayload, adsPayload, myAdsPayload, tradesPayload, paymentMethodsPayload] = await Promise.all(calls);
+      setP2pMeta(metaPayload?.data || {});
       setAds(unwrapList(adsPayload));
       setMyAds(unwrapList(myAdsPayload));
       setTrades(unwrapList(tradesPayload));
@@ -167,6 +239,18 @@ function P2PMarketplace({ onBack }) {
   useEffect(() => {
     loadP2P();
   }, [loadP2P]);
+
+  useEffect(() => {
+    if (availableAssets.length && !availableAssets.some((asset) => asset.symbol === selectedAsset)) {
+      setSelectedAsset(availableAssets[0].symbol);
+    }
+  }, [availableAssets, selectedAsset]);
+
+  useEffect(() => {
+    if (fiatOptions.length && !fiatOptions.includes(fiatCurrency)) {
+      setFiatCurrency(fiatOptions[0]);
+    }
+  }, [fiatCurrency, fiatOptions]);
 
   const eligibleCreateAdPaymentMethods = useMemo(() => {
     const desiredFiat = String(adForm.fiat_currency || "").toUpperCase();
@@ -218,6 +302,82 @@ function P2PMarketplace({ onBack }) {
     }));
     setPaymentMethodOpen(true);
   };
+  const openTradeRoom = async (trade) => {
+    if (!trade?.trade_uuid) return;
+    setError("");
+    try {
+      const [tradePayload, messagesPayload] = await Promise.all([
+        request(`/api/p2p/trades/${trade.trade_uuid}`, { method: "GET" }),
+        request(`/api/p2p/trades/${trade.trade_uuid}/messages`, { method: "GET" }),
+      ]);
+      setActiveTrade(tradePayload?.data || trade);
+      setTradeMessages(unwrapList(messagesPayload));
+      setTab("trades");
+    } catch (roomError) {
+      setError(roomError.message || "Unable to open P2P order room.");
+    }
+  };
+
+  const refreshTradeRoom = async () => {
+    if (!activeTrade?.trade_uuid) return;
+    await openTradeRoom(activeTrade);
+  };
+
+  const uploadPaymentProof = async () => {
+    if (!activeTrade?.trade_uuid || !paymentProofFile) return;
+    setPaymentProofUploading(true);
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("proof", paymentProofFile);
+      const payload = await request(`/api/p2p/trades/${activeTrade.trade_uuid}/payment-proof`, {
+        method: "POST",
+        body,
+        timeoutMs: 30000,
+      });
+      setActiveTrade(payload?.data || activeTrade);
+      setPaymentProofFile(null);
+      await refreshTradeRoom();
+      setNotice("Payment proof uploaded. The seller must still verify real receipt before release.");
+    } catch (proofError) {
+      setError(proofError.message || "Unable to upload payment proof.");
+    } finally {
+      setPaymentProofUploading(false);
+    }
+  };
+
+  const confirmPaymentSent = async () => {
+    if (!activeTrade) return;
+    await tradeAction(activeTrade, "payment-sent");
+    setPaymentConfirmOpen(false);
+    await refreshTradeRoom();
+  };
+
+  const confirmRelease = async () => {
+    if (!activeTrade) return;
+    await tradeAction(activeTrade, "release");
+    setReleaseConfirmOpen(false);
+    await refreshTradeRoom();
+  };
+
+  const sendTradeMessage = async () => {
+    if (!activeTrade?.trade_uuid || !chatMessage.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      await request(`/api/p2p/trades/${activeTrade.trade_uuid}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ message: chatMessage.trim() }),
+      });
+      setChatMessage("");
+      await refreshTradeRoom();
+    } catch (messageError) {
+      setError(messageError.message || "Unable to send message.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   const setAdField = (field, value) => {
     setAdForm((current) => ({ ...current, [field]: value }));
@@ -330,7 +490,7 @@ function P2PMarketplace({ onBack }) {
     setError("");
     setNotice("");
     try {
-      await request(`/api/p2p/ads/${selectedAd.id}/trades`, {
+      const payload = await request(`/api/p2p/ads/${selectedAd.id}/trades`, {
         method: "POST",
         body: JSON.stringify({
           fiat_amount: tradeAmount,
@@ -413,46 +573,48 @@ function P2PMarketplace({ onBack }) {
   }, [ads, amount]);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#050509] via-[#13071f] to-[#1a0d2f] px-4 py-8 text-violet-50 sm:px-6 sm:py-10">
+    <main className="relative min-h-screen overflow-hidden bg-[#050509] px-2 py-3 text-violet-50 sm:px-4 sm:py-5">
       <div className="pointer-events-none absolute -left-24 top-24 h-56 w-56 rounded-full bg-purple-500/20 blur-3xl" />
       <div className="pointer-events-none absolute right-0 top-1/3 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
 
-      <section className="mx-auto w-full max-w-7xl rounded-3xl border border-violet-300/15 bg-[#100a1e]/65 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-6 lg:p-8">
-        <header className="rounded-2xl border border-violet-300/15 bg-[#120b22]/80 p-4 shadow-[0_12px_35px_rgba(0,0,0,0.45)] sm:p-6">
-          <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-            <div>
+      <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#08070d]/90 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+        <header className="border-b border-white/10 bg-[#0c0913]/95">
+          <ProductNav onOpenConvert={onOpenConvert} onOpenFiatGateway={onOpenFiatGateway} />
+          <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
+            <div className="flex min-w-0 items-center gap-3">
               {onBack ? (
-                <button type="button" onClick={onBack} className="mb-3 inline-flex items-center gap-2 rounded-xl border border-violet-300/25 bg-violet-950/35 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-amber-300/60 hover:text-amber-200">
+                <button type="button" onClick={onBack} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-violet-100 transition hover:border-amber-300/50 hover:text-amber-200" aria-label="Back">
                   <ArrowLeft className="h-4 w-4" />
-                  Back
                 </button>
               ) : null}
-              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-white sm:text-4xl">P2P Marketplace</h1>
-              <p className="mt-1 text-sm text-violet-100/75">Live escrow-protected buy and sell orders</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate font-['Sora'] text-lg font-semibold text-white sm:text-xl">P2P</h1>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Escrow
+                  </span>
+                </div>
+                <p className="truncate text-xs text-violet-100/60">Buy and sell crypto with verified counterparties.</p>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => loadP2P()} disabled={loading} className="inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1.5 text-xs font-semibold text-violet-100 transition hover:border-amber-300/50">
+            <div className="flex shrink-0 items-center gap-2">
+              <button type="button" onClick={() => loadP2P()} disabled={loading} className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-xs font-semibold text-violet-100 transition hover:border-amber-300/50 disabled:opacity-60">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Refresh
               </button>
-              <button type="button" onClick={openCreateAdModal} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 px-3 py-1.5 text-xs font-bold text-black">
-                <Plus className="h-4 w-4" />
-                Create Ad
+              <button type="button" onClick={openCreateAdModal} className="inline-flex h-9 items-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-yellow-500 px-3 text-xs font-bold text-black">
+                <Plus className="h-4 w-4" /> Post Ad
               </button>
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-200">
-                <ShieldCheck className="h-4 w-4" />
-                Escrow Protected
-              </span>
             </div>
           </div>
 
-          <div className="grid gap-2 rounded-2xl border border-violet-300/20 bg-[#1b112d]/70 p-1.5 sm:grid-cols-3">
+          <div className="flex gap-1 overflow-x-auto border-t border-white/10 px-3 py-2 sm:px-4">
             {[
               ["market", "Marketplace"],
-              ["trades", "My Trades"],
+              ["trades", "My Orders"],
               ["myAds", "My Ads"],
             ].map(([key, label]) => (
-              <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${tab === key ? "bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 text-black" : "text-violet-100/80 hover:bg-violet-400/10 hover:text-white"}`}>
+              <button key={key} type="button" onClick={() => setTab(key)} className={`min-w-fit rounded-lg px-3 py-2 text-xs font-semibold transition ${tab === key ? "bg-amber-300 text-black" : "text-violet-100/70 hover:bg-white/5 hover:text-white"}`}>
                 {label}
               </button>
             ))}
@@ -475,9 +637,9 @@ function P2PMarketplace({ onBack }) {
               </div>
 
               <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
-                {assets.map((asset) => (
+                {availableAssets.map((asset) => (
                   <button key={asset.symbol} type="button" onClick={() => setSelectedAsset(asset.symbol)} className={`inline-flex min-w-fit items-center gap-2 rounded-xl border px-3 py-2 transition ${selectedAsset === asset.symbol ? "border-amber-300/70 bg-amber-300/12" : "border-violet-300/20 bg-violet-950/35 hover:border-violet-200/45"}`}>
-                    <TokenLogo symbol={asset.symbol} tone={asset.tone} />
+                    <TokenLogo symbol={asset.symbol} tone={asset.tone} iconUrl={asset.icon_url} />
                     <span className="text-sm font-semibold text-violet-50">{asset.symbol}</span>
                   </button>
                 ))}
@@ -509,7 +671,7 @@ function P2PMarketplace({ onBack }) {
         {tab === "trades" ? (
           <section className="mt-5 space-y-3">
             {trades.length ? trades.map((trade) => (
-              <TradeCard key={trade.id} trade={trade} userId={user?.id} busy={busy} onAction={tradeAction} />
+              <TradeCard key={trade.id} trade={trade} userId={user?.id} busy={busy} onAction={tradeAction} onOpen={() => openTradeRoom(trade)} />
             )) : <EmptyPanel title="No P2P trades yet" body="Open a marketplace trade and it will appear here." />}
           </section>
         ) : null}
@@ -517,12 +679,48 @@ function P2PMarketplace({ onBack }) {
         {tab === "myAds" ? (
           <section className="mt-5 space-y-3">
             {myAds.length ? myAds.map((ad) => (
-              <AdCard key={ad.id} ad={ad} selectedAssetMeta={assets.find((asset) => asset.symbol === ad.asset) ?? selectedAssetMeta} actionLabel="View" />
+              <AdCard key={ad.id} ad={ad} selectedAssetMeta={availableAssets.find((asset) => asset.symbol === ad.asset) ?? selectedAssetMeta} actionLabel="View" />
             )) : <EmptyPanel title="No ads published yet" body="Create your first buy or sell advert." />}
           </section>
         ) : null}
       </section>
 
+      {activeTrade ? (
+        <BottomSheet title={`P2P Order ${activeTrade.trade_uuid || ''}`} onClose={() => setActiveTrade(null)}>
+          <OrderRoom
+            trade={activeTrade}
+            userId={user?.id}
+            messages={tradeMessages}
+            chatMessage={chatMessage}
+            onChatChange={setChatMessage}
+            onSendMessage={sendTradeMessage}
+            onCopy={copyText}
+            proofFile={paymentProofFile}
+            onProofFile={setPaymentProofFile}
+            onUploadProof={uploadPaymentProof}
+            proofUploading={paymentProofUploading}
+            busy={busy}
+            onConfirmPaid={() => setPaymentConfirmOpen(true)}
+            onConfirmRelease={() => setReleaseConfirmOpen(true)}
+            onCancel={() => tradeAction(activeTrade, "cancel")}
+            onAppeal={() => tradeAction(activeTrade, "disputes", { reason: "User opened a P2P order appeal from the order room.", evidence: [] })}
+          />
+        </BottomSheet>
+      ) : null}
+
+      {paymentConfirmOpen && activeTrade ? (
+        <BottomSheet title="Confirm Payment" onClose={() => setPaymentConfirmOpen(false)} footer={<div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setPaymentConfirmOpen(false)} className="h-11 rounded-xl border border-violet-300/25 bg-violet-950/35 text-sm font-semibold text-violet-100">Cancel</button><button type="button" onClick={confirmPaymentSent} disabled={busy} className="h-11 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-500 text-sm font-bold text-black disabled:opacity-60">Confirm Payment</button></div>}>
+          <p className="text-sm leading-6 text-violet-100/75">You are confirming that you have transferred {formatNumber(activeTrade.fiat_amount, 2)} {activeTrade.fiat_currency} to the seller's payment account shown inside this order.</p>
+          <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100">Do not click Confirm Payment until you have actually completed the transfer. False payment claims may restrict your account.</div>
+        </BottomSheet>
+      ) : null}
+
+      {releaseConfirmOpen && activeTrade ? (
+        <BottomSheet title="Release Crypto" onClose={() => setReleaseConfirmOpen(false)} footer={<div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setReleaseConfirmOpen(false)} className="h-11 rounded-xl border border-violet-300/25 bg-violet-950/35 text-sm font-semibold text-violet-100">Cancel</button><button type="button" onClick={confirmRelease} disabled={busy} className="h-11 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-500 text-sm font-bold text-black disabled:opacity-60">Release Crypto</button></div>}>
+          <p className="text-sm leading-6 text-violet-100/75">Only release {formatNumber(activeTrade.crypto_amount)} {activeTrade.asset} after you have personally confirmed the fiat payment arrived in your real payment account.</p>
+          <div className="mt-4 rounded-2xl border border-rose-300/25 bg-rose-500/10 p-4 text-sm text-rose-100">Screenshots, SMS messages, and chat claims are not enough. Check your bank or payment provider directly.</div>
+        </BottomSheet>
+      ) : null}
       {selectedAd ? (
         <BottomSheet title="Open P2P Trade" onClose={() => setSelectedAd(null)} footer={<div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setSelectedAd(null)} className="h-11 rounded-xl border border-violet-300/25 bg-violet-950/35 text-sm font-semibold text-violet-100">Cancel</button><button type="button" onClick={submitTrade} disabled={busy || !tradeAmount} className="h-11 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-500 text-sm font-bold text-black disabled:opacity-60">{busy ? "Opening..." : "Open Trade"}</button></div>}>
           <p className="text-sm text-violet-100/70">{selectedAd.asset} at {formatNumber(selectedAd.price, 4)} {selectedAd.fiat_currency}</p>
@@ -537,7 +735,7 @@ function P2PMarketplace({ onBack }) {
         <BottomSheet title="Create P2P Ad" onClose={() => !createAdSaving && setCreateAdOpen(false)} footer={<div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setCreateAdOpen(false)} className="h-11 rounded-xl border border-violet-300/25 bg-violet-950/35 text-sm font-semibold text-violet-100">Cancel</button><button type="button" onClick={createAd} disabled={createAdSaving} className="h-11 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-500 text-sm font-bold text-black disabled:opacity-60">{createAdSaving ? "Creating..." : "Create Ad"}</button></div>}>
           <div className="grid gap-3 md:grid-cols-2">
             <SelectField label="Side" value={adForm.type} onChange={(value) => setAdField("type", value)} options={["sell", "buy"]} error={createAdErrors.type} />
-            <SelectField label="Asset" value={adForm.asset} onChange={(value) => setAdField("asset", value)} options={assets.map((asset) => asset.symbol)} error={createAdErrors.asset} />
+            <SelectField label="Asset" value={adForm.asset} onChange={(value) => setAdField("asset", value)} options={availableAssets.map((asset) => asset.symbol)} error={createAdErrors.asset} />
             <SelectField label="Fiat Currency" value={adForm.fiat_currency} onChange={(value) => setAdField("fiat_currency", value)} options={fiatOptions} error={createAdErrors.fiat_currency} />
             <SelectField label="Payment Window" value={String(adForm.payment_time_limit_minutes)} onChange={(value) => setAdField("payment_time_limit_minutes", Number(value))} options={["15", "30", "45", "60"]} error={createAdErrors.payment_time_limit_minutes} />
             <TextField label="Price" value={adForm.price} onChange={(value) => setAdField("price", value)} placeholder="1500" inputMode="decimal" error={createAdErrors.price} />
@@ -612,6 +810,120 @@ function P2PMarketplace({ onBack }) {
   );
 }
 
+function OrderRoom({ trade, userId, messages, chatMessage, onChatChange, onSendMessage, onCopy, proofFile, onProofFile, onUploadProof, proofUploading, busy, onConfirmPaid, onConfirmRelease, onCancel, onAppeal }) {
+  const isBuyer = Number(trade.buyer?.id) === Number(userId);
+  const isSeller = Number(trade.seller?.id) === Number(userId);
+  const paymentDetails = trade.metadata?.seller_payment_details || {};
+  const paymentProof = trade.metadata?.payment_proof || null;
+  const canMarkPaid = isBuyer && trade.status === "pending";
+  const canRelease = isSeller && trade.status === "payment_sent";
+  const canCancel = trade.status === "pending";
+  const canAppeal = ["pending", "payment_sent", "disputed"].includes(trade.status);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="Order Type" value={`${isBuyer ? "Buy" : "Sell"} ${trade.asset}`} />
+        <Metric label="Status" value={String(trade.status || "--").replaceAll("_", " ")} tone="gold" />
+        <Metric label="Crypto Amount" value={`${formatNumber(trade.crypto_amount)} ${trade.asset}`} />
+        <Metric label="Fiat Amount" value={`${formatNumber(trade.fiat_amount, 2)} ${trade.fiat_currency}`} />
+      </div>
+
+      <section className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="rounded-2xl border border-violet-300/15 bg-[#100a1c] p-4">
+          <h3 className="text-sm font-semibold text-white">{isBuyer ? "Pay the Seller" : "Payment Verification"}</h3>
+          <p className="mt-1 text-xs text-violet-100/60">Order {trade.trade_uuid}</p>
+
+          {isBuyer ? (
+            <div className="mt-4 space-y-3">
+              <DetailRow label="Amount to Pay" value={`${formatNumber(trade.fiat_amount, 2)} ${trade.fiat_currency}`} onCopy={() => onCopy(trade.fiat_amount)} />
+              <DetailRow label="Payment Method" value={trade.payment_method} />
+              <DetailRow label="Bank Name" value={paymentDetails.bank_name || paymentDetails.display_name || "Seller details pending"} />
+              <DetailRow label="Account Number" value={paymentDetails.account_number || paymentDetails.masked_account_number || "--"} onCopy={() => onCopy(paymentDetails.account_number)} />
+              <DetailRow label="Account Holder" value={paymentDetails.account_name || "--"} onCopy={() => onCopy(paymentDetails.account_name)} />
+              {paymentDetails.payment_note ? <DetailRow label="Instructions" value={paymentDetails.payment_note} /> : null}
+              <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">Only send payment to the account shown inside this order. Never rely on payment instructions sent outside this order.</div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <DetailRow label="Amount Expected" value={`${formatNumber(trade.fiat_amount, 2)} ${trade.fiat_currency}`} />
+              <DetailRow label="Buyer" value={trade.buyer?.name || "Buyer"} />
+              <DetailRow label="Payment Method" value={trade.payment_method} />
+              <div className="rounded-2xl border border-rose-300/25 bg-rose-500/10 p-3 text-xs leading-5 text-rose-100">Check your bank or payment account directly before releasing crypto. Do not release because of screenshots, SMS notifications or buyer claims.</div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-violet-300/15 bg-[#100a1c] p-4">
+          <h3 className="text-sm font-semibold text-white">Payment Proof</h3>
+          <p className="mt-1 text-xs text-violet-100/60">Supporting evidence only. The seller must still verify receipt.</p>
+          {paymentProof ? (
+            <a href={paymentProof.download_url} target="_blank" rel="noreferrer" className="mt-3 block rounded-2xl border border-emerald-300/25 bg-emerald-400/10 p-3 text-sm text-emerald-100">
+              {paymentProof.file_name || "Payment proof"}
+              <span className="mt-1 block text-xs text-emerald-100/70">Uploaded {paymentProof.uploaded_at ? new Date(paymentProof.uploaded_at).toLocaleString() : "recently"}</span>
+            </a>
+          ) : <div className="mt-3 rounded-2xl border border-dashed border-violet-300/20 p-4 text-sm text-violet-100/60">No payment proof uploaded yet.</div>}
+          {isBuyer && ["pending", "payment_sent", "disputed"].includes(trade.status) ? (
+            <div className="mt-3 space-y-2">
+              <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => onProofFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-violet-300/20 bg-[#0b0713] px-3 py-2 text-xs text-violet-100" />
+              <button type="button" onClick={onUploadProof} disabled={!proofFile || proofUploading} className="h-10 w-full rounded-xl border border-amber-300/40 bg-amber-300/10 text-sm font-semibold text-amber-100 disabled:opacity-60">{proofUploading ? "Uploading..." : "Upload Payment Proof"}</button>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-violet-300/15 bg-[#100a1c] p-4">
+        <h3 className="text-sm font-semibold text-white">Order Timeline</h3>
+        <div className="mt-3 grid gap-2 text-xs text-violet-100/70 sm:grid-cols-4">
+          <Metric label="Created" value={trade.created_at ? new Date(trade.created_at).toLocaleString() : "--"} />
+          <Metric label="Payment Deadline" value={trade.payment_deadline ? new Date(trade.payment_deadline).toLocaleString() : "--"} />
+          <Metric label="Marked Paid" value={trade.payment_sent_at ? new Date(trade.payment_sent_at).toLocaleString() : "--"} />
+          <Metric label="Completed" value={trade.completed_at ? new Date(trade.completed_at).toLocaleString() : "--"} />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-violet-300/15 bg-[#100a1c] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-white">P2P Chat</h3>
+          <span className="text-xs text-violet-100/50">Keep all communication inside ExaEarn.</span>
+        </div>
+        <div className="mt-3 max-h-52 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-3">
+          {messages.length ? messages.map((message) => (
+            <div key={message.id} className="rounded-xl bg-white/[0.04] px-3 py-2 text-sm text-violet-100">
+              <span className="block text-[11px] text-violet-100/45">{message.sender?.name || "System"}</span>
+              {message.message || "Attachment"}
+            </div>
+          )) : <p className="text-sm text-violet-100/55">No messages yet.</p>}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <input value={chatMessage} onChange={(event) => onChatChange(event.target.value)} placeholder="Type a message" className="min-w-0 flex-1 rounded-xl border border-violet-300/20 bg-[#0b0713] px-3 py-2 text-sm text-white outline-none focus:border-amber-300/70" />
+          <button type="button" onClick={onSendMessage} disabled={busy || !chatMessage.trim()} className="rounded-xl bg-amber-300 px-4 text-sm font-bold text-black disabled:opacity-60">Send</button>
+        </div>
+      </section>
+
+      <div className="sticky bottom-0 z-10 grid gap-2 rounded-2xl border border-white/10 bg-[#08070d]/95 p-2 backdrop-blur sm:grid-cols-4">
+        {canMarkPaid ? <button type="button" onClick={onConfirmPaid} className="h-11 rounded-xl bg-amber-300 text-sm font-bold text-black">I Have Paid</button> : null}
+        {canRelease ? <button type="button" onClick={onConfirmRelease} className="h-11 rounded-xl bg-emerald-400 text-sm font-bold text-black">Payment Received - Release Crypto</button> : null}
+        {canCancel ? <button type="button" onClick={onCancel} disabled={busy} className="h-11 rounded-xl border border-violet-300/25 text-sm font-semibold text-violet-100 disabled:opacity-60">Cancel Order</button> : null}
+        {canAppeal ? <button type="button" onClick={onAppeal} disabled={busy} className="h-11 rounded-xl border border-rose-300/35 text-sm font-semibold text-rose-100 disabled:opacity-60">Appeal</button> : null}
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, onCopy }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+      <span className="text-xs text-violet-100/55">{label}</span>
+      <span className="min-w-0 truncate text-right text-sm font-semibold text-white">{value}</span>
+      {onCopy ? <button type="button" onClick={onCopy} className="rounded-lg border border-violet-300/20 px-2 py-1 text-[11px] text-violet-100">Copy</button> : null}
+    </div>
+  );
+}
+
+function Metric({ label, value, tone }) {
+  return <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3"><span className="block text-[11px] text-violet-100/50">{label}</span><strong className={`mt-1 block text-sm capitalize ${tone === "gold" ? "text-amber-200" : "text-white"}`}>{value}</strong></div>;
+}
 function BottomSheet({ title, children, onClose, footer }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 py-4 backdrop-blur-sm sm:items-center">
@@ -662,13 +974,13 @@ function SelectField({ label, value, onChange, options, error }) {
   );
 }
 
-function AdCard({ ad, selectedAssetMeta, actionLabel, onOpen }) {
+function AdCard({ ad, selectedAssetMeta = {}, actionLabel, onOpen }) {
   return (
     <article className="rounded-2xl border border-violet-300/15 bg-[#120c20]/85 p-4 shadow-[0_10px_28px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 hover:border-amber-300/40 sm:p-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <TokenLogo symbol={ad.asset} tone={selectedAssetMeta.tone} />
+            <TokenLogo symbol={ad.asset} tone={selectedAssetMeta.tone} iconUrl={selectedAssetMeta.icon_url} />
             <span className="text-sm font-semibold text-white">{ad.merchant?.name ?? "Merchant"}</span>
             {ad.merchant?.email_verified ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/35 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-200"><BadgeCheck className="h-3.5 w-3.5" />Verified</span> : null}
             <span className="rounded-full border border-violet-300/20 bg-violet-500/10 px-2 py-0.5 text-[11px] uppercase text-violet-100/75">{ad.type}</span>
@@ -686,7 +998,7 @@ function AdCard({ ad, selectedAssetMeta, actionLabel, onOpen }) {
   );
 }
 
-function TradeCard({ trade, userId, busy, onAction }) {
+function TradeCard({ trade, userId, busy, onAction, onOpen }) {
   const isBuyer = Number(trade.buyer?.id) === Number(userId);
   const isSeller = Number(trade.seller?.id) === Number(userId);
   const canMarkPaid = isBuyer && trade.status === "pending";
@@ -707,6 +1019,7 @@ function TradeCard({ trade, userId, busy, onAction }) {
           <p className="mt-1 text-xs text-violet-100/55">Buyer: {trade.buyer?.name ?? "--"} | Seller: {trade.seller?.name ?? "--"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ActionButton disabled={busy} muted onClick={onOpen}>Details</ActionButton>
           {canMarkPaid ? <ActionButton disabled={busy} onClick={() => onAction(trade, "payment-sent")}>Payment Sent</ActionButton> : null}
           {canRelease ? <ActionButton disabled={busy} onClick={() => onAction(trade, "release")}>Release</ActionButton> : null}
           {canCancel ? <ActionButton disabled={busy} muted onClick={() => onAction(trade, "cancel")}>Cancel</ActionButton> : null}

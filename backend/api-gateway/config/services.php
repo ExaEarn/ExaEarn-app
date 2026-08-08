@@ -44,11 +44,18 @@ return [
         'url' => env('FX_API_URL', 'https://open.er-api.com/v6/latest'),
     ],
 
+    'fiat_gateway' => [
+        'primary' => env('FIAT_WITHDRAWAL_PROVIDER', env('FIAT_GATEWAY_PRIMARY', 'sandbox')),
+        'fallback' => env('FIAT_GATEWAY_FALLBACK', 'sandbox'),
+        'sandbox_webhook_secret' => env('FIAT_SANDBOX_WEBHOOK_SECRET'),
+    ],
+
 
     'market_data' => [
-        'timeout_seconds' => (float) env('MARKET_DATA_TIMEOUT_SECONDS', 1.5),
+        'timeout_seconds' => (float) env('MARKET_DATA_TIMEOUT_SECONDS', 0.75),
         'retries' => (int) env('MARKET_DATA_RETRIES', 0),
-        'snapshot_cache_seconds' => (int) env('MARKET_DATA_SNAPSHOT_CACHE_SECONDS', 10),
+        'snapshot_cache_seconds' => (int) env('MARKET_DATA_SNAPSHOT_CACHE_SECONDS', 60),
+        'skip_external_on_local_request' => (bool) env('MARKET_DATA_SKIP_EXTERNAL_ON_LOCAL_REQUEST', true),
     ],
     'binance' => [
         'url' => env('BINANCE_API_URL', 'https://api.binance.com'),
@@ -62,6 +69,7 @@ return [
         'secret_key' => env('FLUTTERWAVE_SECRET_KEY'),
         'payment_url' => env('FLUTTERWAVE_PAYMENT_URL', 'https://api.flutterwave.com/v3/payments'),
         'webhook_secret' => env('FLUTTERWAVE_WEBHOOK_SECRET'),
+        'secret_hash' => env('FLUTTERWAVE_SECRET_HASH', env('FLUTTERWAVE_WEBHOOK_SECRET')),
     ],
 
     'nomba' => [

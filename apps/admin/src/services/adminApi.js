@@ -3,7 +3,7 @@ import { adminHttp } from "./http";
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const defaultModuleActions = {
-  users: ["view profile", "freeze account", "reset 2FA", "review risk", "open wallet"],
+  users: ["view profile", "remove profile image", "suspend profile images", "freeze account", "reset 2FA", "review risk", "open wallet"],
   wallets: ["view ledger", "freeze wallet", "queue sweep", "reconcile"],
   transactions: ["view receipt", "mark reviewed", "flag suspicious", "export trail"],
   trading: ["pause pair", "update limits", "adjust fee", "open order book"],
@@ -56,7 +56,7 @@ const modulePayloads = {
   "/admin/users": {
     headline: "User command center",
     rows: mockUsers,
-    actions: ["view", "freeze", "unfreeze", "adjust balance", "view logs", "view wallets", "view devices", "view rewards", "view staking", "view trades", "view referrals"],
+    actions: ["view", "remove profile image", "suspend profile images", "freeze", "unfreeze", "adjust balance", "view logs", "view wallets", "view devices", "view rewards", "view staking", "view trades", "view referrals"],
   },
   "/admin/wallets": {
     headline: "Wallet liquidity and address management",
@@ -443,6 +443,21 @@ export async function fetchModuleData(path) {
 
 export async function runModuleAction(path, action, row, note = "") {
   try {
+    if (path === "/admin/users" && action === "remove profile image") {
+      const response = await adminHttp.post(`/users/${row.id}/profile-image/remove`, {
+        reason: note || "Removed by administrator.",
+      });
+      return response.data ?? { status: "completed", message: "Profile image removed." };
+    }
+
+    if (path === "/admin/users" && action === "suspend profile images") {
+      const response = await adminHttp.post(`/users/${row.id}/profile-image/suspend`, {
+        days: 30,
+        reason: note || "Profile image privileges suspended by administrator.",
+      });
+      return response.data ?? { status: "completed", message: "Profile image privileges suspended." };
+    }
+
     const response = await adminHttp.post(`${path.replace("/admin", "")}/actions`, {
       action,
       record: row,

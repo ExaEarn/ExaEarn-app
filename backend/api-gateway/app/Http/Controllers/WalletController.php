@@ -134,9 +134,27 @@ class WalletController extends Controller
     public function depositMeta(Request $request): JsonResponse
     {
         $user = $request->user();
+        $userId = (int) $user->id;
+        $assetCodes = collect(config('wallet.assets', []))
+            ->map(fn (array $asset): string => strtoupper((string) ($asset['code'] ?? '')))
+            ->filter()
+            ->unique()
+            ->values();
+        $walletsByCurrency = Wallet::query()
+            ->where('user_id', $userId)
+            ->whereIn('currency', $assetCodes)
+            ->get()
+            ->keyBy(fn (Wallet $wallet): string => strtoupper((string) $wallet->currency));
+        $activeAddressCurrencies = DepositAddress::query()
+            ->where('user_id', $userId)
+            ->where('status', 'active')
+            ->whereIn('currency', $assetCodes)
+            ->pluck('currency')
+            ->map(fn ($currency): string => strtoupper((string) $currency))
+            ->flip();
 
         $assets = collect(config('wallet.assets', []))
-            ->map(fn (array $asset): array => $this->buildDepositAsset($asset, (int) $user->id))
+            ->map(fn (array $asset): array => $this->buildDepositAsset($asset, $walletsByCurrency, $activeAddressCurrencies))
             ->filter(fn (array $asset): bool => (bool) $asset['depositEnabled'])
             ->values()
             ->all();
@@ -190,8 +208,21 @@ class WalletController extends Controller
             ->where('network', $network)
             ->where('status', 'active')
             ->latest('id')
-            ->first();        if (!$address) {
-            $generated = $blockchain->generateDepositAddress((int) $user->id, $currency, $network);
+            ->first();
+
+        if (!$address) {
+            try {
+                $generated = $blockchain->generateDepositAddress((int) $user->id, $currency, $network);
+            } catch (RuntimeException $exception) {
+                report($exception);
+
+                return response()->json([
+                    'success' => false,
+                    'status' => 'error',
+                    'message' => 'Deposit address generation is temporarily unavailable. Please try again shortly.',
+                ], 503);
+            }
+
             $address = DepositAddress::query()->create([
                 'user_id' => $user->id,
                 'currency' => $currency,
@@ -609,12 +640,14 @@ class WalletController extends Controller
         }
 
         return response()->json(['message' => 'Internal transfer completed.']);
-    }    private function buildDepositAsset(array $asset, int $userId): array
+    }
+
+    private function buildDepositAsset(array $asset, $walletsByCurrency, $activeAddressCurrencies): array
     {
         $currency = strtoupper((string) ($asset['code'] ?? ''));
         $networks = $this->networkCatalogForAsset($currency)->values()->all();
-        $wallet = Wallet::query()->where('user_id', $userId)->where('currency', $currency)->first();
-        $hasAddress = DepositAddress::query()->where('user_id', $userId)->where('currency', $currency)->where('status', 'active')->exists();
+        $wallet = $walletsByCurrency->get($currency);
+        $hasAddress = $activeAddressCurrencies->has($currency);
 
         return [
             'symbol' => $currency,

@@ -2591,3 +2591,158 @@ html[data-theme="light"] .btn-outline {
   background: rgba(255, 255, 255, 0.92);
   color: #1f2937;
 }
+
+.profile-identity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 28px rgba(0,0,0,0.32);
+}
+
+.profile-identity img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-identity-mark {
+  max-width: 86%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+}
+
+.avatar-accent .profile-identity {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  box-shadow: none;
+}
+
+.profile-menu {
+  position: relative;
+  z-index: 40;
+}
+
+.profile-dropdown {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 10px);
+  width: min(86vw, 320px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+  background: rgba(9, 7, 18, 0.96);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.58);
+  backdrop-filter: blur(18px);
+  padding: 10px;
+}
+
+.profile-dropdown-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.profile-dropdown-head strong,
+.profile-dropdown-head span,
+.profile-dropdown-head small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dropdown-head strong { color: #fff; font-size: 0.95rem; }
+.profile-dropdown-head span { color: rgba(255,255,255,0.62); font-size: 0.74rem; }
+.profile-dropdown-head small { color: rgba(212,175,55,0.85); font-size: 0.72rem; }
+
+.profile-dropdown-grid {
+  display: grid;
+  gap: 6px;
+  padding: 10px 8px;
+}
+
+.profile-dropdown-grid span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  padding: 7px 9px;
+  color: rgba(255,255,255,0.64);
+  font-size: 0.72rem;
+}
+
+.profile-dropdown-grid b { color: #fff; font-weight: 700; }
+
+.profile-dropdown > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  padding: 10px 9px;
+  color: rgba(255,255,255,0.86);
+  font-size: 0.84rem;
+  text-align: left;
+}
+
+.profile-dropdown > button:hover,
+.profile-dropdown > button:focus-visible {
+  background: rgba(255,255,255,0.07);
+  outline: 1px solid rgba(212,175,55,0.38);
+}
+
+.profile-dropdown > button.danger { color: #fecaca; }
+/* Keep the account menu above dashboard cards and market widgets. */
+.home-main-card,
+.home-profile-card {
+  overflow: visible;
+}
+
+.home-profile-card {
+  position: relative;
+  z-index: 5000;
+  cursor: default;
+}
+
+.home-profile-card.campaign-card:hover,
+.home-profile-card.campaign-card:active {
+  transform: none;
+}
+
+.home-profile-card::before {
+  pointer-events: none;
+}
+
+.home-campaign-card,
+.home-campaign-card.campaign-card {
+  position: relative;
+  z-index: 1;
+}
+
+.profile-menu {
+  position: relative;
+  z-index: 6000;
+}
+
+.profile-dropdown {
+  z-index: 7000;
+  pointer-events: auto;
+}

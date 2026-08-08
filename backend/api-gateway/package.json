@@ -3,8 +3,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "api": "php artisan serve",
-        "queue": "php artisan queue:listen --tries=1 --timeout=0",
+        "api": "php -d extension=gd -d extension=pdo_pgsql -d extension=pgsql artisan serve",
+        "queue": "php -d extension=gd -d extension=pdo_pgsql -d extension=pgsql artisan queue:listen --tries=1 --timeout=0",
         "logs": "php artisan pail --timeout=0",
         "build": "vite build",
         "dev": "vite"

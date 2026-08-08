@@ -36,6 +36,7 @@ use App\Services\AdminAuditService;
 use App\Services\LedgerService;
 use App\Services\NotificationService;
 use App\Services\PermissionService;
+use App\Services\ProfileIdentityService;
 use App\Services\TransactionService;
 use App\Services\Treasury\TreasuryService as CryptoTreasuryService;
 use Illuminate\Http\JsonResponse;
@@ -134,6 +135,57 @@ class AdminPlatformController extends Controller
         return response()->json(['data' => UserReward::query()->where('user_id', $request->query('user_id'))->latest()->paginate(25)]);
     }
 
+    public function profileImageReviewQueue(Request $request): JsonResponse
+    {
+        $status = (string) $request->query('status', 'pending_review');
+        $query = User::query()
+            ->select(['id', 'name', 'email', 'unique_user_id', 'avatar_id', 'profile_display_type', 'profile_visibility', 'profile_image_status', 'profile_image_updated_at', 'profile_image_moderation_note'])
+            ->whereNotNull('profile_image_url');
+
+        if ($status !== 'all') {
+            $query->where('profile_image_status', $status);
+        }
+
+        return response()->json(['data' => $query->latest('profile_image_updated_at')->paginate((int) $request->query('per_page', 25))]);
+    }
+
+    public function userProfileIdentity(int $id, Request $request, ProfileIdentityService $profiles): JsonResponse
+    {
+        $user = User::query()->findOrFail($id);
+
+        return response()->json([
+            'data' => [
+                'user' => $user,
+                'identity' => $profiles->identityFor($user, 'self'),
+                'audit' => AuditLog::query()->where('user_id', $user->id)->where('action', 'like', '%profile%')->latest()->limit(25)->get(),
+            ],
+        ]);
+    }
+
+    public function removeUserProfileImage(int $id, Request $request, ProfileIdentityService $profiles): JsonResponse
+    {
+        $payload = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $user = User::query()->findOrFail($id);
+        $admin = $request->user();
+        $updated = $profiles->removeCustomImage($user, $admin?->id, (string) $payload['reason']);
+        $this->log($request, 'admin.profile_image.remove', ['user_id' => $user->id, 'reason' => $payload['reason']]);
+
+        return response()->json(['message' => 'Profile image removed.', 'data' => $updated]);
+    }
+
+    public function suspendUserProfileImages(int $id, Request $request, ProfileIdentityService $profiles): JsonResponse
+    {
+        $payload = $request->validate([
+            'days' => ['required', 'integer', 'min:1', 'max:3650'],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+        $user = User::query()->findOrFail($id);
+        $admin = $request->user();
+        $updated = $profiles->suspendCustomImages($user, (int) $payload['days'], (string) $payload['reason'], $admin?->id);
+        $this->log($request, 'admin.profile_image.suspend', ['user_id' => $user->id, 'days' => $payload['days'], 'reason' => $payload['reason']]);
+
+        return response()->json(['message' => 'Custom image privileges suspended.', 'data' => $updated]);
+    }
     public function wallets(Request $request): JsonResponse
     {
         return response()->json(['data' => Wallet::query()->latest()->paginate((int) $request->query('per_page', 25))]);

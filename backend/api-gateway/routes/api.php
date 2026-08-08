@@ -27,10 +27,12 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\WithdrawalController;
+use App\Http\Controllers\WithdrawalCenterController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\FiatWithdrawalController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileIdentityController;
 use App\Http\Controllers\KycController;
 use App\Http\Controllers\Admin\KycAdminController;
 use App\Http\Controllers\Admin\AIIntelligenceController;
@@ -82,6 +84,14 @@ Route::middleware([
         Route::post('profile/email/change', [AuthController::class, 'changeEmail']);
         Route::post('profile/2fa/enable', [AuthController::class, 'enable2FA']);
         Route::post('profile/2fa/disable', [AuthController::class, 'disable2FA']);
+        Route::get('profile/identity', [ProfileIdentityController::class, 'identity']);
+        Route::get('profile/avatars', [ProfileIdentityController::class, 'avatars']);
+        Route::post('profile/avatar', [ProfileIdentityController::class, 'selectAvatar'])->middleware('rate.limit');
+        Route::post('profile/initials', [ProfileIdentityController::class, 'useInitials'])->middleware('rate.limit');
+        Route::post('profile/image', [ProfileIdentityController::class, 'upload'])->middleware('rate.limit');
+        Route::delete('profile/image', [ProfileIdentityController::class, 'removeImage'])->middleware('rate.limit');
+        Route::patch('profile/visibility', [ProfileIdentityController::class, 'updateVisibility'])->middleware('rate.limit');
+        Route::get('profile/images/{user}/{variant}', [ProfileIdentityController::class, 'image'])->name('profile.image');
     });
 
     Route::middleware(['auth:sanctum', 'log.activity'])->group(function (): void {
@@ -122,6 +132,7 @@ Route::prefix('webhooks')->group(function (): void {
     // Fiat withdrawal webhooks
     Route::post('fiat/flutterwave', [WebhookController::class, 'flutterwaveWithdrawal']);
     Route::post('fiat/nomba', [WebhookController::class, 'nombaWithdrawal']);
+    Route::post('fiat-withdrawals/{provider}', [FiatWithdrawalController::class, 'webhook']);
 });
 
 Route::prefix('admin')->group(function (): void {
@@ -133,6 +144,10 @@ Route::prefix('admin')->group(function (): void {
 
         // User Management
         Route::get('users', [AdminPlatformController::class, 'users']);
+        Route::get('users/profile-images/review', [AdminPlatformController::class, 'profileImageReviewQueue']);
+        Route::get('users/{id}/profile-identity', [AdminPlatformController::class, 'userProfileIdentity']);
+        Route::post('users/{id}/profile-image/remove', [AdminPlatformController::class, 'removeUserProfileImage']);
+        Route::post('users/{id}/profile-image/suspend', [AdminPlatformController::class, 'suspendUserProfileImages']);
         Route::get('users/{id}', [AdminPlatformController::class, 'user']);
         Route::post('users/{id}/freeze', [AdminPlatformController::class, 'freezeUser']);
         Route::post('users/{id}/unfreeze', [AdminPlatformController::class, 'unfreezeUser']);
@@ -238,9 +253,18 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('transfer', [WalletController::class, 'transfer']);
         Route::post('internal-transfer', [WalletController::class, 'internalTransfer']);
         Route::post('withdraw', [WalletController::class, 'withdraw'])->middleware('rate.limit');
+        Route::get('withdraw/meta', [WithdrawalCenterController::class, 'meta']);
+        Route::get('withdraw/history', [WithdrawalCenterController::class, 'history']);
+        Route::post('withdraw/preview', [WithdrawalCenterController::class, 'preview']);
+        Route::post('withdraw/internal-lookup', [WithdrawalCenterController::class, 'internalLookup']);
+        Route::post('withdraw/internal-transfer', [WithdrawalCenterController::class, 'internalTransfer'])->middleware('rate.limit');
+        Route::post('withdraw/on-chain', [WithdrawalCenterController::class, 'onChain'])->middleware('rate.limit');
+        Route::get('withdraw/fiat/banks', [WithdrawalCenterController::class, 'fiatBanks']);
         Route::get('transactions', [WalletController::class, 'transactions']);
         Route::get('withdrawals', [WalletController::class, 'withdrawals']);
+        Route::get('deposit/meta', [WalletController::class, 'depositMeta']);
         Route::get('deposit/history', [WalletController::class, 'depositHistory']);
+        Route::post('deposit/address', [WalletController::class, 'depositAddress'])->middleware('rate.limit');
         Route::post('deposit/fiat-instructions', [WalletController::class, 'fiatDepositInstructions'])->middleware('rate.limit');
         Route::post('deposit/fiat-intents/{reference}/mark-paid', [WalletController::class, 'markFiatDepositIntentPaid'])->middleware('rate.limit');
         Route::post('deposit/fiat-intents/{reference}/settle', [WalletController::class, 'settleFiatDepositIntent'])->middleware('rate.limit');
@@ -308,6 +332,17 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
     });
 
     Route::prefix('fiat-withdrawals')->group(function (): void {
+        Route::get('meta', [FiatWithdrawalController::class, 'meta']);
+        Route::post('quote', [FiatWithdrawalController::class, 'quote']);
+        Route::post('resolve-account', [FiatWithdrawalController::class, 'resolveAccount'])->middleware('rate.limit');
+        Route::get('beneficiaries', [FiatWithdrawalController::class, 'beneficiaries']);
+        Route::post('beneficiaries', [FiatWithdrawalController::class, 'storeBeneficiary'])->middleware('rate.limit');
+        Route::delete('beneficiaries/{beneficiaryId}', [FiatWithdrawalController::class, 'deleteBeneficiary'])->middleware('rate.limit');
+        Route::post('intents', [FiatWithdrawalController::class, 'createIntent'])->middleware('rate.limit');
+        Route::get('intents/{uuid}', [FiatWithdrawalController::class, 'showIntent']);
+        Route::post('intents/{uuid}/verification-challenges', [FiatWithdrawalController::class, 'createVerificationChallenge'])->middleware('rate.limit');
+        Route::post('intents/{uuid}/verify', [FiatWithdrawalController::class, 'verify'])->middleware('rate.limit');
+        Route::get('history', [FiatWithdrawalController::class, 'history']);
         Route::post('initiate', [FiatWithdrawalController::class, 'initiate']);
         Route::get('banks', [FiatWithdrawalController::class, 'supportedBanks']);
         Route::get('withdrawal/{withdrawalId}/status', [FiatWithdrawalController::class, 'withdrawalStatus']);
@@ -451,6 +486,8 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('ads/{adId}/trades', [P2PController::class, 'openTrade']);
         Route::get('trades/mine', [P2PController::class, 'myTrades']);
         Route::get('trades/{tradeUuid}', [P2PController::class, 'showTrade']);
+        Route::post('trades/{tradeUuid}/payment-proof', [P2PController::class, 'uploadPaymentProof'])->middleware('rate.limit');
+        Route::get('trades/{tradeUuid}/payment-proof', [P2PController::class, 'paymentProof'])->name('p2p.payment-proof');
         Route::post('trades/{tradeUuid}/payment-sent', [P2PController::class, 'markPaymentSent']);
         Route::post('trades/{tradeUuid}/release', [P2PController::class, 'release']);
         Route::post('trades/{tradeUuid}/cancel', [P2PController::class, 'cancel']);
@@ -689,6 +726,10 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
 
         Route::prefix('users')->group(function (): void {
             Route::get('/', [AdminPlatformController::class, 'users'])->middleware('check.permission:users.view');
+            Route::get('profile-images/review', [AdminPlatformController::class, 'profileImageReviewQueue'])->middleware('check.permission:users.view');
+            Route::get('{id}/profile-identity', [AdminPlatformController::class, 'userProfileIdentity'])->middleware('check.permission:users.view');
+            Route::post('{id}/profile-image/remove', [AdminPlatformController::class, 'removeUserProfileImage'])->middleware(['check.permission:users.edit', 'rate.limit']);
+            Route::post('{id}/profile-image/suspend', [AdminPlatformController::class, 'suspendUserProfileImages'])->middleware(['check.permission:users.edit', 'rate.limit']);
             Route::get('{id}', [AdminPlatformController::class, 'user'])->middleware('check.permission:users.view');
             Route::post('freeze', [AdminPlatformController::class, 'freezeUser'])->middleware('check.permission:users.edit');
             Route::post('unfreeze', [AdminPlatformController::class, 'unfreezeUser'])->middleware('check.permission:users.edit');
@@ -784,4 +825,3 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         });
     });
 });
-

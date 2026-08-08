@@ -69,7 +69,9 @@ class TradeService
             ->values()
             ->all();
 
-        $liveTickers = $this->fetchLiveTickers($symbols);
+        $liveTickers = app()->environment('local') && (bool) config('services.market_data.skip_external_on_local_request', true)
+            ? []
+            : $this->fetchLiveTickers($symbols);
 
         $payloads = $markets->mapWithKeys(function (Market $market) use ($liveTickers): array {
             $symbol = $this->toExternalSymbol($market->symbol);
@@ -112,7 +114,7 @@ class TradeService
     }
     private function marketProviderTimeout(): float
     {
-        return max(0.5, (float) config('services.market_data.timeout_seconds', 1.5));
+        return max(0.25, (float) config('services.market_data.timeout_seconds', 0.75));
     }
 
     private function marketProviderRetries(): int
@@ -142,6 +144,7 @@ class TradeService
     {
         try {
             $response = Http::timeout($this->marketProviderTimeout())
+                ->connectTimeout(min(0.5, $this->marketProviderTimeout()))
                 ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/ticker/24hr', [
                     'symbols' => json_encode(array_values(array_unique($symbols)), JSON_THROW_ON_ERROR),
@@ -168,6 +171,7 @@ class TradeService
     {
         try {
             $response = Http::timeout($this->marketProviderTimeout())
+                ->connectTimeout(min(0.5, $this->marketProviderTimeout()))
                 ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/depth', [
                     'symbol' => $symbol,
@@ -205,6 +209,7 @@ class TradeService
     {
         try {
             $response = Http::timeout($this->marketProviderTimeout())
+                ->connectTimeout(min(0.5, $this->marketProviderTimeout()))
                 ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/trades', [
                     'symbol' => $symbol,
@@ -248,6 +253,7 @@ class TradeService
     {
         try {
             $response = Http::timeout($this->marketProviderTimeout())
+                ->connectTimeout(min(0.5, $this->marketProviderTimeout()))
                 ->retry($this->marketProviderRetries(), 100)
                 ->get(rtrim((string) config('services.binance.url', 'https://api.binance.com'), '/').'/api/v3/klines', [
                     'symbol' => $symbol,
@@ -311,6 +317,7 @@ class TradeService
         try {
             $ids = $bases->map(fn (string $base): string => $coinIds[$base])->implode(',');
             $response = Http::timeout($this->marketProviderTimeout())
+                ->connectTimeout(min(0.5, $this->marketProviderTimeout()))
                 ->retry($this->marketProviderRetries(), 100)
                 ->get('https://api.coingecko.com/api/v3/simple/price', [
                     'ids' => $ids,

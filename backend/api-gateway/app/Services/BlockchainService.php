@@ -21,7 +21,7 @@ class BlockchainService
     {
         $this->baseUrl = rtrim((string) config('wallet.node.url', ''), '/');
         $this->secret = (string) config('wallet.node.secret', '');
-        $this->timeout = (int) config('wallet.node.timeout_seconds', 15);
+        $this->timeout = max(1, (int) config('wallet.node.timeout_seconds', 6));
     }
 
     public function healthCheck(): array
@@ -213,6 +213,7 @@ class BlockchainService
         }
 
         return Http::timeout($this->timeout)
+            ->connectTimeout(min(3, $this->timeout))
             ->acceptJson()
             ->withHeaders([
                 'X-Service-Secret' => $this->secret,

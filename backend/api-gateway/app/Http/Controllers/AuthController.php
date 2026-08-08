@@ -11,6 +11,7 @@ use App\Services\AuditLogService;
 use App\Services\FraudDetectionService;
 use App\Services\RateLimiterService;
 use App\Services\ReferralService;
+use App\Services\ProfileIdentityService;
 use App\Services\UserInitializationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -29,9 +30,21 @@ class AuthController extends Controller
         private readonly RateLimiterService $rateLimiter,
         private readonly FraudDetectionService $fraudDetectionService,
         private readonly AuditLogService $auditLogService,
+        private readonly ProfileIdentityService $profileIdentityService,
     ) {
     }
 
+    private function userPayload(User $user): array
+    {
+        return array_merge($user->toArray(), [
+            'profile_identity' => $this->profileIdentityService->identityFor($user, 'self'),
+            'verification' => [
+                'kyc_verified' => (bool) $user->kyc_verified_at,
+                'kyc_level' => (int) ($user->kyc_level ?? 0),
+                'verified_at' => optional($user->kyc_verified_at)->toIso8601String(),
+            ],
+        ]);
+    }
     public function register(Request $request)
     {
         $passwordRegex = (string) config('security.auth.strong_password_regex', '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{10,}$/');
@@ -98,7 +111,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Account created successfully.',
             'token' => $token,
-            'user' => $user->fresh(),
+            'user' => $this->userPayload($user->fresh()),
         ], 201);
     }
 
@@ -280,7 +293,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful.',
             'token' => $user->createToken('auth_token')->plainTextToken,
-            'user' => $user->fresh(),
+            'user' => $this->userPayload($user->fresh()),
             'risk' => $risk,
         ]);
     }
@@ -483,7 +496,7 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json([
-            'user' => $request->user(),
+            'user' => $this->userPayload($request->user()),
         ]);
     }
 

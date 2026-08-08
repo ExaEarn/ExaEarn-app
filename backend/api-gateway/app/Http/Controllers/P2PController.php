@@ -33,8 +33,46 @@ class P2PController extends Controller
             ])
             ->values();
 
+        $configuredAssets = collect((array) config('p2p.supported_assets', []))
+            ->map(fn ($symbol) => strtoupper(trim((string) $symbol)))
+            ->filter()
+            ->values();
+
+        $walletAssets = collect((array) config('wallet.assets', []))
+            ->filter(fn (array $asset): bool => ($asset['type'] ?? 'crypto') !== 'fiat')
+            ->map(fn (array $asset): array => [
+                'symbol' => strtoupper((string) ($asset['symbol'] ?? $asset['currency'] ?? '')),
+                'name' => (string) ($asset['name'] ?? $asset['symbol'] ?? ''),
+                'icon_url' => $asset['icon_url'] ?? $asset['icon'] ?? null,
+            ])
+            ->filter(fn (array $asset): bool => $asset['symbol'] !== '')
+            ->keyBy('symbol');
+
+        $assets = $configuredAssets
+            ->map(fn (string $symbol): array => array_merge([
+                'symbol' => $symbol,
+                'name' => $symbol,
+                'icon_url' => null,
+            ], $walletAssets->get($symbol, [])))
+            ->values();
+
+        $fiatCurrencies = collect((array) config('p2p.supported_fiat', []))
+            ->map(fn ($currency) => strtoupper(trim((string) $currency)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $configuredMethods = collect((array) config('p2p.supported_payment_methods', []))
+            ->map(fn ($method) => trim((string) $method))
+            ->filter()
+            ->unique()
+            ->values();
+
         return response()->json([
             'data' => [
+                'assets' => $assets,
+                'fiat_currencies' => $fiatCurrencies,
+                'payment_method_types' => $configuredMethods,
                 'payment_methods' => $paymentMethods,
             ],
         ]);
@@ -229,6 +267,29 @@ class P2PController extends Controller
         return response()->json(['data' => $trade]);
     }
 
+    public function uploadPaymentProof(Request $request, string $tradeUuid): JsonResponse
+    {
+        $payload = $request->validate([
+            'proof' => ['required', 'file', 'max:5120', 'mimetypes:image/jpeg,image/png,image/webp,application/pdf'],
+        ]);
+
+        try {
+            $trade = $this->p2pService->uploadPaymentProof($request->user(), $tradeUuid, $payload['proof']);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $this->p2pService->showTradeForUser($request->user(), $trade->trade_uuid)]);
+    }
+
+    public function paymentProof(Request $request, string $tradeUuid)
+    {
+        try {
+            return $this->p2pService->paymentProofResponse($request->user(), $tradeUuid);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 404);
+        }
+    }
     public function markPaymentSent(Request $request, string $tradeUuid): JsonResponse
     {
         $payload = $request->validate([

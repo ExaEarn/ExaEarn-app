@@ -19,8 +19,10 @@ use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -308,6 +310,66 @@ class P2PService
         return $trade->fresh(['ad', 'buyer', 'seller']);
     }
 
+    public function uploadPaymentProof(User $user, string $tradeUuid, UploadedFile $file): P2PTrade
+    {
+        $trade = $this->getTradeForUser($user, $tradeUuid);
+        if ((int) $trade->buyer_id !== (int) $user->id) {
+            throw new RuntimeException('Only the buyer can upload payment proof.');
+        }
+
+        if (!in_array($trade->status, ['pending', 'payment_sent', 'disputed'], true)) {
+            throw new RuntimeException('Payment proof cannot be uploaded for this order status.');
+        }
+
+        $extension = strtolower((string) ($file->guessExtension() ?: $file->getClientOriginalExtension() ?: 'bin'));
+        $filename = (string) Str::uuid() . '.' . $extension;
+        $path = $file->storeAs('private/p2p/payment-proofs/' . $trade->trade_uuid, $filename, 'local');
+
+        $proof = [
+            'path' => $path,
+            'file_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'uploaded_by' => $user->id,
+            'uploaded_at' => now()->toISOString(),
+            'download_url' => route('p2p.payment-proof', ['tradeUuid' => $trade->trade_uuid], false),
+        ];
+
+        $trade->metadata = array_merge($trade->metadata ?? [], [
+            'payment_proof' => $proof,
+            'payment_proof_uploaded_at' => $proof['uploaded_at'],
+        ]);
+        $trade->save();
+
+        $this->createSystemMessage($trade, 'Buyer uploaded payment proof. Seller must still verify the real payment account before release.');
+        $this->publishTradeEvent($trade->fresh(['ad', 'buyer', 'seller']), 'payment_proof_uploaded', [
+            'payment_proof' => $this->publicPaymentProof($proof),
+        ]);
+        $this->logAudit($user->id, 'p2p_payment_proof_uploaded', ['trade_uuid' => $trade->trade_uuid]);
+
+        return $trade->fresh(['ad', 'buyer', 'seller']);
+    }
+
+    public function paymentProofResponse(User $user, string $tradeUuid)
+    {
+        $trade = $this->getTradeForUser($user, $tradeUuid);
+        $proof = $trade->metadata['payment_proof'] ?? null;
+        $path = is_array($proof) ? (string) ($proof['path'] ?? '') : '';
+        if ($path === '') {
+            abort(404);
+        }
+
+        $disk = Storage::disk('local');
+        if (!$disk->exists($path)) {
+            abort(404);
+        }
+
+        return response($disk->get($path), 200, [
+            'Content-Type' => (string) ($proof['mime_type'] ?? 'application/octet-stream'),
+            'Content-Disposition' => 'inline; filename="' . addslashes((string) ($proof['file_name'] ?? 'payment-proof')) . '"',
+            'Cache-Control' => 'private, max-age=300',
+        ]);
+    }
     public function releaseTrade(User $user, string $tradeUuid): P2PTrade
     {
         $trade = $this->getTradeForUser($user, $tradeUuid);
@@ -797,6 +859,8 @@ class P2PService
             'payment_method' => $trade->payment_method,
             'payment_window_minutes' => $trade->payment_window_minutes,
             'payment_deadline' => $trade->payment_deadline?->toISOString(),
+            'created_at' => $trade->created_at?->toISOString(),
+            'updated_at' => $trade->updated_at?->toISOString(),
             'payment_sent_at' => $trade->payment_sent_at?->toISOString(),
             'released_at' => $trade->released_at?->toISOString(),
             'completed_at' => $trade->completed_at?->toISOString(),
@@ -814,6 +878,27 @@ class P2PService
         ];
     }
 
+    private function publicTradeMetadata(P2PTrade $trade): array
+    {
+        $metadata = $trade->metadata ?? [];
+        if (isset($metadata['payment_proof']) && is_array($metadata['payment_proof'])) {
+            $metadata['payment_proof'] = $this->publicPaymentProof($metadata['payment_proof']);
+        }
+
+        return $metadata;
+    }
+
+    private function publicPaymentProof(array $proof): array
+    {
+        return [
+            'file_name' => $proof['file_name'] ?? 'payment-proof',
+            'mime_type' => $proof['mime_type'] ?? null,
+            'size' => $proof['size'] ?? null,
+            'uploaded_by' => $proof['uploaded_by'] ?? null,
+            'uploaded_at' => $proof['uploaded_at'] ?? null,
+            'download_url' => $proof['download_url'] ?? null,
+        ];
+    }
     private function transformMessage(P2PMessage $message): array
     {
         return [

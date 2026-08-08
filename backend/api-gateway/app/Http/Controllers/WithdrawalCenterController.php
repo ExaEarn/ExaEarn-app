@@ -88,8 +88,8 @@ class WithdrawalCenterController extends Controller
                     ],
                     [
                         'id' => 'sell_fiat',
-                        'title' => 'Sell for ' . $preferredFiat,
-                        'description' => 'Convert crypto and receive funds through supported fiat payout rails.',
+                        'title' => 'Fiat Withdrawal',
+                        'description' => 'Withdraw fiat from your ExaEarn funding balance to a supported bank or payout destination.',
                         'enabled' => !empty($supportedFiat),
                     ],
                     [

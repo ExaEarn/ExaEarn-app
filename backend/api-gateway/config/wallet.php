@@ -138,7 +138,7 @@ return [
     'node' => [
         'url' => env('NODE_SERVICE_URL', 'http://localhost:4000'),
         'secret' => env('NODE_SERVICE_SECRET', ''),
-        'timeout_seconds' => (int) env('NODE_SERVICE_TIMEOUT', 15),
+        'timeout_seconds' => (int) env('NODE_SERVICE_TIMEOUT', 6),
     ],
 
     'withdrawals' => [
@@ -150,6 +150,16 @@ return [
         'anomaly_threshold' => env('WITHDRAWAL_ANOMALY_THRESHOLD', '5000'),
     ],
 
+    'fiat_withdrawals' => [
+        'minimum' => env('FIAT_WITHDRAWAL_MINIMUM', '10'),
+        'maximum' => env('FIAT_WITHDRAWAL_MAXIMUM', '10000'),
+        'daily_limit' => env('FIAT_WITHDRAWAL_DAILY_LIMIT', env('WITHDRAWAL_DAILY_LIMIT', '25000')),
+        'percent_fee' => env('FIAT_WITHDRAWAL_PERCENT_FEE', '0.005'),
+        'flat_fee' => [
+            'USD' => env('FIAT_WITHDRAWAL_USD_FLAT_FEE', '1'),
+            'NGN' => env('FIAT_WITHDRAWAL_NGN_FLAT_FEE', '100'),
+        ],
+    ],
     'security' => [
         'api_rate_limit' => (int) env('API_RATE_LIMIT', 120),
         'webhook_rate_limit' => (int) env('WEBHOOK_RATE_LIMIT', 240),

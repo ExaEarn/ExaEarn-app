@@ -13,8 +13,28 @@ import {
   Wallet,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+const ROUTE_METHODS = [
+  {
+    id: "crypto",
+    title: "Crypto Withdrawal",
+    description: "Choose a coin and open its dedicated withdrawal page.",
+    enabled: true,
+  },
+  {
+    id: "sell_fiat",
+    title: "Fiat Withdrawal",
+    description: "Withdraw fiat from your Funding Wallet to a supported bank or payout destination.",
+    enabled: true,
+  },
+  {
+    id: "p2p",
+    title: "P2P Trading",
+    description: "Open P2P Sell to sell crypto directly to verified users.",
+    enabled: true,
+  },
+];
 
-function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
+function Withdraw({ onBack, onOpenSwap, onOpenP2P, onOpenFiatWithdrawal }) {
   const { request } = useAuth();
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +67,7 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
     setLoading(true);
     setError("");
     try {
-      const payload = unwrap(await request("/api/wallet/withdraw/meta", { method: "GET" }));
+      const payload = unwrap(await request("/api/wallet/withdraw/meta", { method: "GET", timeoutMs: 30000 }));
       setMeta(payload);
       const assets = Array.isArray(payload.assets) ? payload.assets : [];
       setSelectedAssetSymbol((current) => (current && assets.some((asset) => asset.symbol === current) ? current : assets[0]?.symbol || ""));
@@ -62,7 +82,7 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
     void loadMeta();
   }, [loadMeta]);
 
-  const methods = Array.isArray(meta?.methods) ? meta.methods : [];
+  const methods = Array.isArray(meta?.methods) && meta.methods.length ? meta.methods : ROUTE_METHODS;
   const assets = Array.isArray(meta?.assets) ? meta.assets : [];
   const selectedAsset = useMemo(() => assets.find((asset) => asset.symbol === selectedAssetSymbol) || null, [assets, selectedAssetSymbol]);
   const filteredAssets = useMemo(() => {
@@ -159,7 +179,11 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
 
   const openMethod = (methodId) => {
     if (methodId === "p2p") {
-      onOpenP2P?.();
+      if (onOpenP2P) {
+        onOpenP2P("sell");
+        return;
+      }
+      setError("P2P Sell is temporarily unavailable from this screen.");
       return;
     }
     setSelectedMethod(methodId);
@@ -171,7 +195,11 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
       return;
     }
     if (methodId === "sell_fiat") {
-      setActiveView("sell-list");
+      if (onOpenFiatWithdrawal) {
+        onOpenFiatWithdrawal();
+        return;
+      }
+      setError("Fiat Withdrawal is temporarily unavailable from this screen.");
       return;
     }
     setActiveView(methodId);
@@ -239,8 +267,6 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
   const canSubmitOnChain = Boolean(selectedAsset?.symbol && network && address.trim() && amount && Number(amount) > 0 && (!selectedNetwork?.memoRequired || memo.trim()));
   const canSubmitInternal = Boolean(selectedAsset?.symbol && recipientValue.trim() && recipientMatch && amount && Number(amount) > 0);
 
-  if (loading) return <LoadingShell onBack={onBack} />;
-
   return (
     <main className="min-h-[100dvh] bg-[#05070c] px-3 pb-20 pt-3 text-slate-100 sm:px-4 lg:px-6">
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4">
@@ -265,7 +291,7 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
                 {activeView === "hub"
                   ? "Choose a withdrawal route first, then continue into a dedicated page to complete the flow."
                   : selectedMethod === "sell_fiat"
-                    ? "Pick the asset you want to exit, then continue into the dedicated fiat sell route."
+                    ? "Open the dedicated fiat withdrawal route to send funds to a supported bank or payout destination."
                     : "Select the asset, review the network or internal transfer details, and confirm securely."}
               </p>
             </div>
@@ -282,14 +308,16 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
           <section className="rounded-[28px] border border-white/8 bg-[#0b0f18] px-4 py-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] sm:px-5 lg:px-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Choose method</p>
-                <h2 className="mt-1 text-xl font-semibold text-white">Open the withdrawal route you want to use</h2>
-                <p className="mt-2 text-sm text-slate-400">Each option opens its own dedicated flow instead of stacking everything on one page.</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Withdrawal Center</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Choose how you want to withdraw</h2>
+                <p className="mt-2 text-sm text-slate-400">Crypto withdrawals, fiat payouts, and P2P sell flows now open as dedicated exchange-grade pages.</p>
               </div>
             </div>
             <div className="mt-5 grid gap-3 lg:grid-cols-3">
               {methods.map((method) => {
                 const Icon = method.id === "crypto" ? Wallet : method.id === "sell_fiat" ? Landmark : UserRound;
+                const title = method.id === "sell_fiat" ? "Fiat Withdrawal" : method.title;
+                const description = method.id === "p2p" ? "Open P2P Sell to sell crypto directly to verified users." : method.description;
                 return (
                   <button
                     key={method.id}
@@ -301,8 +329,8 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
                     <span className="flex items-start gap-3">
                       <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.05] text-slate-200"><Icon className="h-5 w-5" /></span>
                       <span>
-                        <p className="text-sm font-semibold text-white">{method.title}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-400">{method.description}</p>
+                        <p className="text-sm font-semibold text-white">{title}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">{description}</p>
                       </span>
                     </span>
                     <ChevronRight className="mt-1 h-4 w-4 text-slate-500" />
@@ -412,7 +440,7 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
           <section className="rounded-[28px] border border-white/8 bg-[#0b0f18] px-4 py-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] sm:px-5 lg:px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Sell for fiat</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Fiat Withdrawal</p>
                 <h2 className="mt-1 text-xl font-semibold text-white">Choose the asset you want to sell</h2>
               </div>
               <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-300">Preferred fiat: {meta?.preferred_fiat_currency || "NGN"}</div>
@@ -433,9 +461,9 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
             <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Fiat exit</p>
-                  <h2 className="mt-1 text-lg font-semibold text-white">Sell {selectedAsset.symbol} for {meta?.preferred_fiat_currency || "NGN"}</h2>
-                  <p className="mt-2 text-sm text-slate-400">Continue into the dedicated fiat sell route after choosing the asset you want to exit.</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Fiat Withdrawal</p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">Withdraw {meta?.preferred_fiat_currency || "NGN"}</h2>
+                  <p className="mt-2 text-sm text-slate-400">Open the dedicated fiat withdrawal page to send funds to a supported bank or payout destination.</p>
                 </div>
                 <button type="button" onClick={() => setActiveView("sell-list")} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]">Change asset</button>
               </div>
@@ -450,12 +478,12 @@ function Withdraw({ onBack, onOpenSwap, onOpenP2P }) {
             </section>
             <aside className="rounded-[24px] border border-[#d1ab55]/18 bg-gradient-to-br from-[#14110b] via-[#0d0f14] to-[#0a0d13] p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Next step</p>
-              <h3 className="mt-1 text-lg font-semibold text-white">Continue to fiat exit</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-400">You'll complete the sell and payout setup in the dedicated fiat route, following the same exchange-grade flow as the rest of ExaEarn.</p>
+              <h3 className="mt-1 text-lg font-semibold text-white">Continue to Fiat Withdrawal</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-400">You'll complete the payout setup in the dedicated fiat withdrawal route, following the same exchange-grade flow as the rest of ExaEarn.</p>
               <div className="mt-4 rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-slate-300">
                 {banks.length ? `Supported payout rails include ${banks.slice(0, 4).map((bank) => bank.name).join(", ")}${banks.length > 4 ? " and more" : ""}.` : "Supported fiat payout rails will appear in the next step when available."}
               </div>
-              <button type="button" onClick={() => { try { localStorage.setItem("exaearn_convert_preset", JSON.stringify({ fromCode: selectedAsset.symbol, toCode: meta?.preferred_fiat_currency || "NGN", entry: "withdraw_sell" })); } catch { /* ignore local preset write errors */ } onOpenSwap(); }} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105">Continue to Fiat Exit <ExternalLink className="h-4 w-4" /></button>
+              <button type="button" onClick={() => { try { localStorage.setItem("exaearn_convert_preset", JSON.stringify({ fromCode: selectedAsset.symbol, toCode: meta?.preferred_fiat_currency || "NGN", entry: "withdraw_sell" })); } catch { /* ignore local preset write errors */ } onOpenSwap(); }} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105">Continue to Fiat Withdrawal <ExternalLink className="h-4 w-4" /></button>
             </aside>
           </section>
         ) : null}

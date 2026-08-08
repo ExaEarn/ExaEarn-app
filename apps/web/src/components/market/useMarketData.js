@@ -1,9 +1,9 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { onEvent } from "../../services/webSocketService";
 import { marketDataService } from "../../services/marketDataService";
 
-const REFRESH_INTERVAL_MS = 8000;
+const REFRESH_INTERVAL_MS = 30000;
 const STALE_AFTER_MS = 30000;
 
 function toNullableNumber(value) {

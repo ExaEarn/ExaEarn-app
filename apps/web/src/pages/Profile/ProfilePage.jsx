@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import ProfileIdentity from '../../components/profile/ProfileIdentity.jsx';
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,17 +16,13 @@ import {
   Users,
 } from "lucide-react";
 
-function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerification, onOpenReferral, onOpenNotifications, onOpenHelpSupport, onOpenAbout, onOpenChangePassword, onOpenLoginDevices, onOpenActivityLogs }) {
+function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerification, onOpenProfileAppearance, onOpenReferral, onOpenNotifications, onOpenHelpSupport, onOpenAbout, onOpenChangePassword, onOpenLoginDevices, onOpenActivityLogs }) {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
 
   const displayName = user?.name?.trim() || "ExaEarn User";
-  const initials = useMemo(() => {
-    const parts = displayName.split(" ").filter(Boolean).slice(0, 2);
-    if (!parts.length) return "EX";
-    return parts.map((part) => part[0].toUpperCase()).join("");
-  }, [displayName]);
 
   const actionItems = [
+    { title: "Profile Appearance", icon: UserCheck, action: onOpenProfileAppearance },
     { title: "Security Settings", icon: ShieldCheck, action: onOpenSettings },
     { title: "Verification (KYC)", icon: UserCheck, action: onOpenVerification },
     { title: "Referral Program", icon: Users, action: onOpenReferral },
@@ -58,27 +56,22 @@ function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerificatio
 
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-auric-300/45 bg-gradient-to-br from-cosmic-500 via-cosmic-600 to-auric-500 text-lg font-semibold text-white shadow-[0_0_24px_rgba(234,185,95,0.38)]">
-                  {user?.picture ? (
-                    <img src={user.picture} alt={`${displayName} avatar`} className="h-full w-full rounded-full object-cover" />
-                  ) : (
-                    initials
-                  )}
-                </div>
+                <ProfileIdentity user={user} size="lg" alt={`${displayName} profile`} className="shadow-[0_0_24px_rgba(234,185,95,0.28)]" />
                 <div>
                   <p className="font-['Sora'] text-lg font-semibold text-white">{displayName}</p>
-                  <p className="text-sm text-violet-100/70">EXA...9K2D</p>
+                  <p className="text-sm text-violet-100/70">{user?.unique_user_id || "UID pending"}</p>
                   <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-auric-300/45 bg-auric-400/10 px-2 py-0.5 text-xs font-semibold text-auric-300">
                     <BadgeCheck className="h-3.5 w-3.5" />
-                    Verified
+                    KYC Level {user?.verification?.kyc_level ?? user?.kyc_level ?? 0}
                   </div>
                 </div>
               </div>
               <button
                 type="button"
+                onClick={onOpenProfileAppearance}
                 className="rounded-xl border border-auric-300/70 bg-gradient-to-r from-cosmic-500 via-cosmic-400 to-auric-500 px-4 py-2 text-sm font-semibold text-cosmic-900 shadow-button-glow transition-all duration-300 hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]"
               >
-                Edit Profile
+                Profile Appearance
               </button>
             </div>
           </section>

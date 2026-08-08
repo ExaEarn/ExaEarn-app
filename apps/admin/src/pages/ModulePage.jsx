@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Download, Eye, Search, ShieldAlert, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Eye, Search, ShieldAlert, UserRound, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { DataTable, GlassPanel, GradientButton, OutlineButton, PageShell, Pill } from "../components/AdminPrimitives";
 import { fetchModuleData, runModuleAction } from "../services/adminApi";
@@ -126,6 +126,7 @@ function buildColumns(rows, moduleKey, { onView, onAction }) {
       { header: "ID", accessorKey: "id" },
       { header: "Email", accessorKey: "email" },
       { header: "Username", accessorKey: "username" },
+      { header: "Profile", accessorKey: "profile_display_type", cell: ({ row }) => <ProfileCell user={row.original} /> },
       { header: "Balance", accessorKey: "balance" },
       { header: "Status", accessorKey: "status", cell: ({ getValue }) => renderStatus(getValue()) },
       { header: "KYC", accessorKey: "kyc" },
@@ -142,6 +143,23 @@ function buildColumns(rows, moduleKey, { onView, onAction }) {
     })),
     actionColumn,
   ];
+}
+
+function ProfileCell({ user }) {
+  const status = user.profile_image_status || "none";
+  const display = user.profile_display_type || (user.avatar_id ? "avatar" : "initials");
+
+  return (
+    <div className="flex min-w-[150px] items-center gap-2">
+      <span className="grid h-8 w-8 place-items-center rounded-full border border-auric-300/30 bg-auric-300/10 text-auric-100">
+        <UserRound className="h-4 w-4" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-semibold capitalize text-white">{display.replace(/_/g, " ")}</span>
+        <span className="block truncate text-[11px] text-violet-100/55">{status.replace(/_/g, " ")}</span>
+      </span>
+    </div>
+  );
 }
 
 function DetailDrawer({ moduleKey, row, onClose, onAction }) {

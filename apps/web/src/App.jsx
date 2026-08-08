@@ -1,4 +1,4 @@
-﻿import React, { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import React, { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowUp,
   BarChart3,
@@ -12,6 +12,9 @@ import {
   HandCoins,
   Handshake,
   Leaf,
+  LogOut,
+  ShieldCheck,
+  UserRound,
   Loader2,
   MoreHorizontal,
   Plus,
@@ -23,6 +26,7 @@ import {
 } from "lucide-react";
 import Image from "./assets/Image";
 import SplashScreen from "./components/SplashScreen";
+import ProfileIdentity from "./components/profile/ProfileIdentity";
 import { useAuth } from "./context/AuthContext";
 import { useWebSocketEvent } from "./services/webSocketService";
 import useMarketData from "./components/market/useMarketData";
@@ -69,6 +73,7 @@ const ForgotAccountAppeal = lazy(() => import("./pages/auth/ForgotAccountAppeal"
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 const AccountRecoveryEntry = lazy(() => import("./pages/auth/AccountRecoveryEntry"));
 const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage"));
+const ProfileAppearance = lazy(() => import("./pages/Profile/ProfileAppearance"));
 const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage"));
 const LanguageRegionPage = lazy(() => import("./pages/Settings/LanguageRegionPage"));
 const CurrencyPreferencePage = lazy(() => import("./pages/Settings/CurrencyPreferencePage"));
@@ -79,6 +84,7 @@ const AddFundsPage = lazy(() => import("./pages/AddFunds/AddFundsPage"));
 const Send = lazy(() => import("./pages/Send/Send"));
 const Swap = lazy(() => import("./pages/Swap/Swap"));
 const Withdraw = lazy(() => import("./pages/Withdraw/Withdraw"));
+const FiatWithdrawalPage = lazy(() => import("./pages/Withdraw/FiatWithdrawalPage"));
 const MorePage = lazy(() => import("./pages/More/MorePage"));
 const AITradingAssistantPage = lazy(() => import("./pages/AI/AITradingAssistantPage"));
 const SupportCenter = lazy(() => import("./pages/Support/SupportCenter"));
@@ -374,6 +380,7 @@ export default function App() {
   const [portfolioCurrency, setPortfolioCurrency] = useState("USDT");
   const [showSplash, setShowSplash] = useState(false);
   const [currentPage, setCurrentPage] = useState("home");
+  const [p2pInitialSide, setP2pInitialSide] = useState("buy");
   const [showGiftcardChoice, setShowGiftcardChoice] = useState(false);
   const [activeNewsIndex, setActiveNewsIndex] = useState(0);
   const [selectedCourseUpload, setSelectedCourseUpload] = useState("web3-fundamentals");
@@ -393,6 +400,7 @@ export default function App() {
   const [lastReward, setLastReward] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationLoading, setNotificationLoading] = useState(false);
   const { pairs: livePairs, setPairs: setLivePairs } = useMarketData();
   const [homeMarketFilter, setHomeMarketFilter] = useState("Top");
@@ -402,6 +410,11 @@ export default function App() {
     () => notifications.filter(isUnreadNotification).length,
     [notifications]
   );
+
+  const openP2PPage = useCallback((side = "buy") => {
+    setP2pInitialSide(side === "sell" ? "sell" : "buy");
+    setCurrentPage("p2pMarketplace");
+  }, []);
 
   const setAuthPage = useCallback((page) => {
     setAuthPageState(page);
@@ -752,7 +765,7 @@ export default function App() {
         onBack={() => setCurrentPage("home")}
         onOpenTrade={() => setCurrentPage("trade")}
         onOpenFutures={() => setCurrentPage("futures")}
-        onOpenP2P={() => setCurrentPage("p2pMarketplace")}
+        onOpenP2P={() => openP2PPage()}
         onOpenCrypto={() => setCurrentPage("cryptoMarkets")}
       />
     );
@@ -929,7 +942,14 @@ export default function App() {
     return <StakingDashboard onBack={() => setCurrentPage("home")} />;
   }
   if (currentPage === "p2pMarketplace") {
-    return <P2PMarketplace onBack={() => setCurrentPage("home")} />;
+    return (
+      <P2PMarketplace
+        onBack={() => setCurrentPage("home")}
+        initialTradeSide={p2pInitialSide}
+        onOpenConvert={() => setCurrentPage("swap")}
+        onOpenFiatGateway={() => setCurrentPage("addFunds")}
+      />
+    );
   }
   if (currentPage === "transactions") {
     return <Transactions onBack={() => setCurrentPage("home")} />;
@@ -988,6 +1008,7 @@ export default function App() {
         onBack={() => setCurrentPage("home")}
         onOpenSettings={() => setCurrentPage("settings")}
         onOpenVerification={() => setCurrentPage("kycVerification")}
+        onOpenProfileAppearance={() => setCurrentPage("profileAppearance")}
         onOpenReferral={() => {
           setReferralReturnPage("profile");
           setCurrentPage("referralProgram");
@@ -1014,6 +1035,10 @@ export default function App() {
       />
     );
   }
+  if (currentPage === "profileAppearance") {
+    return <ProfileAppearance onBack={() => setCurrentPage("profile")} />;
+  }
+
   if (currentPage === "kycVerification") {
     return <KYCVerification onBack={() => setCurrentPage("profile")} />;
   }
@@ -1082,7 +1107,7 @@ export default function App() {
         onOpenSend={() => setCurrentPage("send")}
         onOpenSwap={() => setCurrentPage("swap")}
         onOpenWithdraw={() => setCurrentPage("withdraw")}
-        onOpenP2P={() => setCurrentPage("p2pMarketplace")}
+        onOpenP2P={() => openP2PPage()}
       />
     );
   }
@@ -1093,7 +1118,10 @@ export default function App() {
     return <Swap onBack={() => setCurrentPage("assets")} />;
   }
   if (currentPage === "withdraw") {
-    return <Withdraw onBack={() => setCurrentPage("assets")} />;
+    return <Withdraw onBack={() => setCurrentPage("assets")} onOpenP2P={openP2PPage} onOpenFiatWithdrawal={() => setCurrentPage("fiatWithdrawal")} />;
+  }
+  if (currentPage === "fiatWithdrawal") {
+    return <FiatWithdrawalPage onBack={() => setCurrentPage("withdraw")} />;
   }
   if (currentPage === "more") {
     return (
@@ -1147,12 +1175,9 @@ export default function App() {
 
   const activeNews = campaignNews[activeNewsIndex];
   const userDisplayName = user?.name?.trim() || "ExaEarn User";
-  const userInitials = userDisplayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("") || "EX";
+  const maskedEmail = user?.email ? user.email.replace(/^(.{2}).*(@.*)$/, "$1***$2") : "Email not set";
+  const verificationLevel = user?.verification?.kyc_level ?? user?.kyc_level ?? 0;
+  const securityStatus = user?.two_factor_enabled ? "2FA enabled" : "2FA not enabled";
   const openFeature = (featureName) => {
     if (featureName === "Games") {
       setCurrentPage("game");
@@ -1185,18 +1210,43 @@ export default function App() {
           <div className="home-main-card p-4 shadow-xl glass-card rounded-3xl sm:p-5">
           <header className="home-profile-card flex items-center justify-between mb-4 sm:mb-6 campaign-card">
             <div className="flex items-center min-w-0 gap-3 sm:gap-4">
-              <button
-                type="button"
-                onClick={() => setCurrentPage("profile")}
-                className="avatar-accent"
-                aria-label="Open profile page"
-              >
-                {user?.picture ? (
-                  <img src={user.picture} alt={`${userDisplayName} avatar`} className="avatar-image" />
-                ) : (
-                  <span className="text-xs font-semibold text-violet-100">{userInitials}</span>
-                )}
-              </button>
+              <div className="profile-menu">
+                <button
+                  type="button"
+                  onClick={() => setProfileMenuOpen((open) => !open)}
+                  className="avatar-accent"
+                  aria-label="Open profile menu"
+                  aria-expanded={profileMenuOpen}
+                >
+                  <ProfileIdentity user={user} apiBaseUrl={apiBaseUrl} size="md" alt={`${userDisplayName} profile`} />
+                </button>
+                {profileMenuOpen ? (
+                  <div className="profile-dropdown" role="menu" aria-label="Profile menu">
+                    <div className="profile-dropdown-head">
+                      <ProfileIdentity user={user} apiBaseUrl={apiBaseUrl} size="lg" alt={`${userDisplayName} profile`} />
+                      <div className="min-w-0">
+                        <strong>{userDisplayName}</strong>
+                        <span>UID {user?.unique_user_id || "Pending"}</span>
+                        <small>{maskedEmail}</small>
+                      </div>
+                    </div>
+                    <div className="profile-dropdown-grid">
+                      <span>Verification <b>Level {verificationLevel}</b></span>
+                      <span>Tier <b>{user?.account_tier || "Standard"}</b></span>
+                      <span>Security <b>{securityStatus}</b></span>
+                    </div>
+                    <button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setCurrentPage("profileAppearance"); }}>
+                      <UserRound className="h-4 w-4" /> Profile Settings
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setCurrentPage("settings"); }}>
+                      <ShieldCheck className="h-4 w-4" /> Security Settings
+                    </button>
+                    <button type="button" role="menuitem" className="danger" onClick={() => { setProfileMenuOpen(false); logout(); }}>
+                      <LogOut className="h-4 w-4" /> Sign Out
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold tracking-tight truncate gold-text">Multi-Chain Vault</div>
                 <div className="text-xs text-gray-300 truncate">12 networks secured - 0x4a...0c51</div>

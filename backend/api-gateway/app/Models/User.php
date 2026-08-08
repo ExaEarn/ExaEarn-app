@@ -31,6 +31,15 @@ class User extends Authenticatable
         'reward_suspended_until',
         'reward_risk_flags',
         'preferences',
+        'profile_image_url',
+        'profile_thumbnail_url',
+        'avatar_id',
+        'profile_display_type',
+        'profile_visibility',
+        'profile_image_status',
+        'profile_image_updated_at',
+        'profile_image_privileges_suspended_until',
+        'profile_image_moderation_note',
     ];
 
     protected $hidden = [
@@ -54,6 +63,8 @@ class User extends Authenticatable
             'reward_suspended_until' => 'datetime',
             'reward_risk_flags' => 'array',
             'preferences' => 'array',
+            'profile_image_updated_at' => 'datetime',
+            'profile_image_privileges_suspended_until' => 'datetime',
         ];
     }
 
