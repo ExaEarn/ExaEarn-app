@@ -279,6 +279,8 @@ class FlightGameService
         }
 
         return DB::transaction(function (): FlightGameRound {
+            DB::statement('select pg_advisory_xact_lock(52450471)');
+
             $latest = FlightGameRound::query()->orderByDesc('round_number')->lockForUpdate()->first();
             if ($latest && in_array($latest->status, ['betting', 'running'], true)) {
                 return $latest;
