@@ -56,6 +56,11 @@ export function getNodeServiceUrl() {
   return cleanRuntimeUrl(runtimeConfig.NODE_SERVICE_URL, runtimeConfig) || cleanUrl(import.meta.env.VITE_NODE_SERVICE_URL);
 }
 
+
+export function isLocalApiPreview() {
+  const runtimeConfig = readRuntimeConfig();
+  return isRuntimeLocalApiAllowed(runtimeConfig) && isLocalBackendUrl(runtimeConfig.API_URL);
+}
 export function isDemoAuthEnabled() {
   const runtimeConfig = readRuntimeConfig();
   const rawValue = runtimeConfig.DEMO_AUTH_ENABLED ?? import.meta.env.VITE_DEMO_AUTH_ENABLED;

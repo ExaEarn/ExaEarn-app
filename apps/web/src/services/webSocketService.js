@@ -1,5 +1,6 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { getNodeServiceUrl, isLocalApiPreview } from '../config/apiConfig';
 
 let eventSource = null;
 let socket = null;
@@ -23,7 +24,11 @@ const handleSseMessage = (event) => {
 };
 
 export const initializeWebSocket = (baseUrl) => {
-  const nodeBaseUrl = import.meta.env.VITE_NODE_SERVICE_URL?.trim();
+  const nodeBaseUrl = getNodeServiceUrl();
+
+  if (isLocalApiPreview()) {
+    return;
+  }
 
   if ((socket || eventSource) || (!nodeBaseUrl && !baseUrl)) {
     return;
