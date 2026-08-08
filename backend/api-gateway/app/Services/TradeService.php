@@ -17,6 +17,7 @@ use App\Models\WalletTransaction;
 use App\Repositories\WalletRepository;
 use App\Services\System\SettingService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -50,6 +51,11 @@ class TradeService
 
     public function listMarkets(): Collection
     {
+        $cached = Cache::get('trade:markets:snapshot');
+        if ($cached !== null) {
+            return collect($cached);
+        }
+
         $markets = Market::query()->orderBy('symbol')->get();
         $dbSymbols = $markets
             ->pluck('symbol')
@@ -99,11 +105,11 @@ class TradeService
             ], $liveTickers[$symbol] ?? []));
         }
 
-        return $payloads->sortBy('symbol')->values();
+        $result = $payloads->sortBy('symbol')->values();
+        Cache::put('trade:markets:snapshot', $result->all(), now()->addSeconds((int) config('services.market_data.snapshot_cache_seconds', 10)));
+
+        return $result;
     }
-
-
-
     private function marketProviderTimeout(): float
     {
         return max(0.5, (float) config('services.market_data.timeout_seconds', 1.5));

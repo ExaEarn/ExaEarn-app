@@ -48,6 +48,7 @@ return [
     'market_data' => [
         'timeout_seconds' => (float) env('MARKET_DATA_TIMEOUT_SECONDS', 1.5),
         'retries' => (int) env('MARKET_DATA_RETRIES', 0),
+        'snapshot_cache_seconds' => (int) env('MARKET_DATA_SNAPSHOT_CACHE_SECONDS', 10),
     ],
     'binance' => [
         'url' => env('BINANCE_API_URL', 'https://api.binance.com'),

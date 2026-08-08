@@ -128,7 +128,7 @@ class FlightGameService
             ->latest('round_number')
             ->limit($limit)
             ->get()
-            ->map(fn (FlightGameRound $round): array => $this->transformRound($round, false, true))
+            ->map(fn (FlightGameRound $round): array => $this->transformRound($round, false, true, false))
             ->all();
     }
 
@@ -488,7 +488,7 @@ class FlightGameService
         return $round;
     }
 
-    private function transformRound(FlightGameRound $round, bool $includeServerSeed = false, bool $completed = false): array
+    private function transformRound(FlightGameRound $round, bool $includeServerSeed = false, bool $completed = false, bool $includeStats = true): array
     {
         $now = CarbonImmutable::now();
         $phase = $round->status;
@@ -497,8 +497,10 @@ class FlightGameService
             $currentMultiplier = $this->fmt((string) $round->crash_multiplier);
         }
 
-        $bets = FlightGameBet::query()->where('round_id', $round->id)->count();
-        $totalStake = $this->fmt((string) FlightGameBet::query()->where('round_id', $round->id)->sum('stake'));
+        $bets = $includeStats ? FlightGameBet::query()->where('round_id', $round->id)->count() : 0;
+        $totalStake = $includeStats
+            ? $this->fmt((string) FlightGameBet::query()->where('round_id', $round->id)->sum('stake'))
+            : '0.00000000';
 
         return [
             'round_uuid' => $round->round_uuid,
@@ -550,6 +552,7 @@ class FlightGameService
     {
         return FlightGameBet::query()
             ->where('round_id', $roundId)
+            ->with('round')
             ->latest('id')
             ->limit(20)
             ->get()
