@@ -1,9 +1,15 @@
 ﻿import React, { useMemo, useState } from "react";
-import { Check, ChevronDown, Globe2, Search, X } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { formatLanguageLabel, popularLanguages, searchLanguages, supportedLanguages } from "@exaearn/config";
 import { useLanguage } from "../../context/LanguageContext.jsx";
+import "./LanguageSwitcher.css";
+const languageCountries = {
+  en: ["🇺🇸", "United States"], fr: ["🇫🇷", "France"], es: ["🇪🇸", "Spain"], pt: ["🇧🇷", "Brazil"], de: ["🇩🇪", "Germany"], it: ["🇮🇹", "Italy"], nl: ["🇳🇱", "Netherlands"], pl: ["🇵🇱", "Poland"], ru: ["🇷🇺", "Russia"], uk: ["🇺🇦", "Ukraine"], tr: ["🇹🇷", "Türkiye"], ar: ["🇸🇦", "Saudi Arabia"], hi: ["🇮🇳", "India"], ur: ["🇵🇰", "Pakistan"], bn: ["🇧🇩", "Bangladesh"], id: ["🇮🇩", "Indonesia"], ms: ["🇲🇾", "Malaysia"], vi: ["🇻🇳", "Vietnam"], th: ["🇹🇭", "Thailand"], "zh-CN": ["🇨🇳", "China"], "zh-TW": ["🇹🇼", "Taiwan"], ja: ["🇯🇵", "Japan"], ko: ["🇰🇷", "South Korea"], el: ["🇬🇷", "Greece"], sv: ["🇸🇪", "Sweden"], no: ["🇳🇴", "Norway"], da: ["🇩🇰", "Denmark"], fi: ["🇫🇮", "Finland"], ro: ["🇷🇴", "Romania"], cs: ["🇨🇿", "Czechia"], hu: ["🇭🇺", "Hungary"], bg: ["🇧🇬", "Bulgaria"], he: ["🇮🇱", "Israel"], fa: ["🇮🇷", "Iran"],
+};
+function languageCountry(language) { return languageCountries[language.code] || ["🌐", "International"]; }
 
 function LanguageRow({ language, selected, onSelect }) {
+  const [flag, country] = languageCountry(language);
   return (
     <button
       type="button"
@@ -12,9 +18,10 @@ function LanguageRow({ language, selected, onSelect }) {
       role="option"
       aria-selected={selected}
     >
+      <span className="language-flag" aria-hidden="true">{flag}</span>
       <span className="language-row-copy">
         <strong>{language.englishName}</strong>
-        <small>{language.nativeName} - {language.locale}</small>
+        <small>{language.nativeName} · {country}</small>
       </span>
       <span className="language-row-meta">
         {language.direction.toUpperCase()}
@@ -38,6 +45,7 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
   const results = useMemo(() => searchLanguages(query), [query]);
   const popular = useMemo(() => popularLanguages(), []);
   const hasQuery = query.trim().length > 0;
+  const [activeFlag] = languageCountry(language);
 
   const selectLanguage = async (code) => {
     await setLanguage(code);
@@ -55,13 +63,15 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
         aria-expanded={open}
         aria-label={`${t("language.current")}: ${formatLanguageLabel(language)}`}
       >
-        <Globe2 size={17} aria-hidden="true" />
-        {compact ? <span>{language.code.toUpperCase()}</span> : <span>{language.englishName}</span>}
+        <span className="language-trigger-flag" aria-hidden="true">{activeFlag}</span>
+        <span className="language-trigger-copy"><b>{language.code.split("-")[0].toUpperCase()}</b><small>{language.englishName}</small></span>
         <ChevronDown size={14} aria-hidden="true" />
       </button>
 
       {open ? (
-        <div className="language-popover" role="dialog" aria-label={t("language.title")}>
+        <><button type="button" className="language-backdrop" onClick={() => setOpen(false)} aria-label={t("language.close")} tabIndex={-1} />
+        <div className="language-popover" role="dialog" aria-modal="true" aria-label={t("language.title")}>
+          <div className="language-sheet-handle" aria-hidden="true" />
           <div className="language-popover-head">
             <div>
               <strong>{t("language.title")}</strong>
@@ -74,7 +84,7 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
 
           <label className="language-search">
             <Search size={15} aria-hidden="true" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("language.search")} autoFocus />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("language.search")} inputMode="search" autoFocus />
           </label>
 
           <div className="language-list" role="listbox" aria-label={t("language.all")}>
@@ -102,7 +112,7 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
           <div className="language-note">
             {syncState === "syncing" ? t("language.syncSaving") : syncState === "error" ? t("language.syncError") : t("language.fallback")}
           </div>
-        </div>
+        </div></>
       ) : null}
     </div>
   );
