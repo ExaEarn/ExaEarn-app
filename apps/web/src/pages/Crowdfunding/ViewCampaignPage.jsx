@@ -140,7 +140,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
   ];
 
   return (
-    <main className="min-h-screen exa-bg view-campaign-page text-[#F8F8F8]">
+    <main className="min-h-screen exa-bg view-campaign-page text-[var(--exa-text-primary)]">
       <div className="relative mx-auto w-full max-w-sm px-3 pb-10 pt-4 sm:max-w-lg sm:px-4 md:max-w-3xl lg:max-w-7xl">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <span className="vc-particle vc-p1" />
@@ -149,14 +149,14 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
           <div className="vc-grid" />
         </div>
 
-        <section className="relative rounded-3xl border border-[#D4AF37]/30 bg-[#0B0B0B]/70 p-4 shadow-[0_24px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-6">
-          <header className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/55 p-4 sm:p-6">
+        <section className="relative rounded-3xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl sm:p-6">
+          <header className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {onBack ? (
                 <button
                   type="button"
                   onClick={onBack}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/35 bg-[#0B0B0B]/65 px-3 py-2 text-xs font-semibold text-[#F8F8F8] transition hover:border-[#D4AF37] hover:text-[#D4AF37]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs font-semibold text-[var(--exa-text-primary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
@@ -165,7 +165,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               <button
                 type="button"
                   onClick={() => wallet.connectMetaMask()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37] bg-[#D4AF37]/15 px-3 py-2 text-xs font-semibold text-[#D4AF37]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-3 py-2 text-xs font-semibold text-[var(--exa-gold)]"
                 >
                   <Wallet className="h-4 w-4" />
                   {wallet.isConnected ? wallet.shortAddress : "Connect Wallet"}
@@ -173,90 +173,90 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               </div>
 
             <div className="mt-4 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="relative overflow-hidden rounded-2xl border border-[#D4AF37]/35">
+              <div className="relative overflow-hidden rounded-2xl border border-[var(--exa-border-active)]">
                 <img src={Image.crowdfund} alt={campaign.title} className="h-[260px] w-full object-cover opacity-45 sm:h-[340px]" />
                 <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(11,11,11,0.45),rgba(11,11,11,0.9)),radial-gradient(circle_at_20%_20%,rgba(212,175,55,0.24),transparent_45%)]" />
                 <div className="absolute inset-0 p-5 sm:p-7">
-                  <p className="inline-flex rounded-full border border-[#D4AF37]/55 bg-[#D4AF37]/14 px-3 py-1 text-xs font-semibold text-[#D4AF37]">{campaign.category}</p>
+                  <p className="inline-flex rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-3 py-1 text-xs font-semibold text-[var(--exa-gold)]">{campaign.category}</p>
                   <h1 className="mt-3 max-w-3xl font-['Sora'] text-2xl font-semibold sm:text-4xl">{campaign.title}</h1>
-                  <p className="mt-2 inline-flex items-center gap-2 text-sm text-[#F8F8F8]/86">
+                  <p className="mt-2 inline-flex items-center gap-2 text-sm text-[var(--exa-text-secondary)]">
                     {campaign.founder}
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/55 bg-[#D4AF37]/12 px-2 py-0.5 text-xs text-[#D4AF37]">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2 py-0.5 text-xs text-[var(--exa-gold)]">
                       <BadgeCheck className="h-3.5 w-3.5" />
                       Verified
                     </span>
                   </p>
-                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-[#F8F8F8]/75"><Flag className="h-3.5 w-3.5 text-[#D4AF37]" />{locationById[campaign.id] || "Global"}</p>
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--exa-text-secondary)]"><Flag className="h-3.5 w-3.5 text-[var(--exa-gold)]" />{locationById[campaign.id] || "Global"}</p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="text-xs text-[#F8F8F8]/68">Funding Goal</p>
-                      <p className="mt-1 font-semibold text-[#F8F8F8]">{formatNaira(campaign.target)}</p>
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-xs text-[var(--exa-text-muted)]">Funding Goal</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-text-primary)]">{formatNaira(campaign.target)}</p>
                     </div>
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="text-xs text-[#F8F8F8]/68">Amount Raised</p>
-                      <p className="mt-1 font-semibold text-[#D4AF37]">{formatNaira(campaign.raised)}</p>
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-xs text-[var(--exa-text-muted)]">Amount Raised</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-gold)]">{formatNaira(campaign.raised)}</p>
                     </div>
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="text-xs text-[#F8F8F8]/68">Days Remaining</p>
-                      <p className="mt-1 inline-flex items-center gap-1 font-semibold text-[#D4AF37]"><CalendarClock className="h-4 w-4" />{campaign.daysRemaining}</p>
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-xs text-[var(--exa-text-muted)]">Days Remaining</p>
+                      <p className="mt-1 inline-flex items-center gap-1 font-semibold text-[var(--exa-gold)]"><CalendarClock className="h-4 w-4" />{campaign.daysRemaining}</p>
                     </div>
                   </div>
-                  <div className="mt-3 h-2.5 rounded-full bg-[#F8F8F8]/12">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#f0d375] to-[#D4AF37] vc-progress-fill" style={{ width: `${progress}%` }} />
+                  <div className="mt-3 h-2.5 rounded-full bg-[var(--exa-surface-hover)]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] vc-progress-fill" style={{ width: `${progress}%` }} />
                   </div>
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button
                       type="button"
                       onClick={() => onSupportCampaign?.(campaign.id)}
-                      className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_22px_rgba(212,175,55,0.4)]"
+                      className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]"
                     >
                       Support Campaign
                     </button>
-                    <button className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/65 bg-transparent px-4 py-2 text-sm font-semibold text-[#D4AF37]">
+                    <button className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-transparent px-4 py-2 text-sm font-semibold text-[var(--exa-gold)]">
                       <Share2 className="h-4 w-4" />
                       Share Campaign
                     </button>
-                    <button className="inline-flex items-center gap-2 rounded-xl border border-[#F8F8F8]/35 bg-[#F8F8F8]/8 px-4 py-2 text-sm font-semibold text-[#F8F8F8]">
-                      <Save className="h-4 w-4 text-[#D4AF37]" />
+                    <button className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm font-semibold text-[var(--exa-text-primary)]">
+                      <Save className="h-4 w-4 text-[var(--exa-gold)]" />
                       Save to Watchlist
                     </button>
                   </div>
                 </div>
               </div>
 
-              <aside className="rounded-2xl border border-[#D4AF37]/28 bg-[#0B0B0B]/68 p-4 lg:sticky lg:top-4 lg:h-fit">
+              <aside className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 lg:sticky lg:top-4 lg:h-fit">
                 <h3 className="font-['Sora'] text-lg font-semibold">Funding Summary</h3>
                 <div className="mt-3 space-y-2 text-sm">
                   <p className="vc-stat"><span>Funding Goal</span><span>{formatNaira(campaign.target)}</span></p>
-                  <p className="vc-stat"><span>Amount Raised</span><span className="text-[#D4AF37]">{formatNaira(campaign.raised)}</span></p>
-                  <p className="vc-stat"><span>% Funded</span><span className="text-[#D4AF37]">{progress.toFixed(1)}%</span></p>
+                  <p className="vc-stat"><span>Amount Raised</span><span className="text-[var(--exa-gold)]">{formatNaira(campaign.raised)}</span></p>
+                  <p className="vc-stat"><span>% Funded</span><span className="text-[var(--exa-gold)]">{progress.toFixed(1)}%</span></p>
                   <p className="vc-stat"><span>Total Backers</span><span>{campaign.metrics.backers.toLocaleString()}</span></p>
                   <p className="vc-stat"><span>Time Remaining</span><span>{campaign.daysRemaining} days</span></p>
                   <p className="vc-stat"><span>Campaign Status</span><span>{status}</span></p>
                 </div>
-                <div className="mt-3 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#D4AF37]">
+                <div className="mt-3 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-3 py-2 text-xs font-semibold text-[var(--exa-gold)]">
                   Blockchain Verified
                 </div>
-                <div className="mt-4 rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-[#D4AF37]">AI Credibility Score</p>
-                  <p className="mt-1 text-3xl font-semibold text-[#D4AF37]">{credibilityScore}%</p>
-                  <div className="mt-2 h-2 rounded-full bg-[#F8F8F8]/12">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#f0d375]" style={{ width: `${credibilityScore}%` }} />
+                <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-[var(--exa-gold)]">AI Credibility Score</p>
+                  <p className="mt-1 text-3xl font-semibold text-[var(--exa-gold)]">{credibilityScore}%</p>
+                  <div className="mt-2 h-2 rounded-full bg-[var(--exa-surface-hover)]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)]" style={{ width: `${credibilityScore}%` }} />
                   </div>
-                  <p className="mt-2 text-xs text-[#F8F8F8]/72">Model considers progress, backer momentum, governance structure, and update consistency.</p>
+                  <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Model considers progress, backer momentum, governance structure, and update consistency.</p>
                 </div>
               </aside>
             </div>
           </header>
 
           <section className="mt-6 space-y-5">
-            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <h2 className="font-['Sora'] text-xl font-semibold">Campaign Media</h2>
               <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="relative overflow-hidden rounded-xl border border-[#D4AF37]/35">
+                <div className="relative overflow-hidden rounded-xl border border-[var(--exa-border-active)]">
                   <img src={visibleMedia.image} alt={visibleMedia.label} className="h-56 w-full object-cover transition duration-300 hover:scale-[1.03]" />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/35">
-                    <PlayCircle className="h-14 w-14 text-[#D4AF37]" />
+                    <PlayCircle className="h-14 w-14 text-[var(--exa-gold)]" />
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
@@ -265,7 +265,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                       key={item.id}
                       type="button"
                       onClick={() => setActiveMedia(index)}
-                      className={`overflow-hidden rounded-xl border ${activeMedia === index ? "border-[#D4AF37] shadow-[0_0_16px_rgba(212,175,55,0.25)]" : "border-[#F8F8F8]/16"}`}
+                      className={`overflow-hidden rounded-xl border ${activeMedia === index ? "border-[var(--exa-border-active)] shadow-[var(--exa-shadow-gold)]" : "border-[var(--exa-border)]"}`}
                     >
                       <img src={item.image} alt={item.label} className="h-24 w-full object-cover transition duration-300 hover:scale-105" />
                     </button>
@@ -274,19 +274,19 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               </div>
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <h2 className="font-['Sora'] text-xl font-semibold">Campaign Story</h2>
-              <div className="mt-4 grid gap-3 text-sm text-[#F8F8F8]/85">
-                <p><span className="font-semibold text-[#D4AF37]">Problem Statement:</span> {campaign.story.problem}</p>
-                <p><span className="font-semibold text-[#D4AF37]">Proposed Solution:</span> {campaign.story.solution}</p>
-                <p><span className="font-semibold text-[#D4AF37]">Market Opportunity:</span> {campaign.story.market}</p>
-                <p><span className="font-semibold text-[#D4AF37]">Business Model:</span> Revenue share from project milestones, service subscriptions, and structured distribution logic.</p>
+              <div className="mt-4 grid gap-3 text-sm text-[var(--exa-text-secondary)]">
+                <p><span className="font-semibold text-[var(--exa-gold)]">Problem Statement:</span> {campaign.story.problem}</p>
+                <p><span className="font-semibold text-[var(--exa-gold)]">Proposed Solution:</span> {campaign.story.solution}</p>
+                <p><span className="font-semibold text-[var(--exa-gold)]">Market Opportunity:</span> {campaign.story.market}</p>
+                <p><span className="font-semibold text-[var(--exa-gold)]">Business Model:</span> Revenue share from project milestones, service subscriptions, and structured distribution logic.</p>
               </div>
-              <div className="mt-4 rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-4">
-                <p className="text-sm font-semibold text-[#D4AF37]">Roadmap Timeline</p>
+              <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                <p className="text-sm font-semibold text-[var(--exa-gold)]">Roadmap Timeline</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-4">
                   {["Seed & Setup", "Pilot Launch", "Scale Ops", "Global Expansion"].map((item, index) => (
-                    <div key={item} className="relative rounded-lg border border-[#F8F8F8]/12 bg-[#0B0B0B]/55 p-3 text-xs">
+                    <div key={item} className="relative rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
                       {item}
                       {index < 3 ? <span className="vc-road-connector" /> : null}
                     </div>
@@ -294,8 +294,8 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                 </div>
               </div>
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-4">
-                  <p className="text-sm font-semibold text-[#D4AF37]">Use of Funds</p>
+                <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                  <p className="text-sm font-semibold text-[var(--exa-gold)]">Use of Funds</p>
                   {[
                     { label: "Product & Engineering", value: 36 },
                     { label: "Operations", value: 24 },
@@ -307,19 +307,19 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                         <span>{entry.label}</span>
                         <span>{entry.value}%</span>
                       </div>
-                      <div className="mt-1 h-2 rounded-full bg-[#F8F8F8]/12">
-                        <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#f0d375]" style={{ width: `${entry.value}%` }} />
+                      <div className="mt-1 h-2 rounded-full bg-[var(--exa-surface-hover)]">
+                        <div className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)]" style={{ width: `${entry.value}%` }} />
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-4">
-                  <p className="text-sm font-semibold text-[#D4AF37]">Team Profiles</p>
+                <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                  <p className="text-sm font-semibold text-[var(--exa-gold)]">Team Profiles</p>
                   <div className="mt-3 grid gap-2">
                     {teamProfiles.map((member) => (
-                      <div key={member.name} className="rounded-lg border border-[#F8F8F8]/12 bg-[#0B0B0B]/55 p-3 text-xs">
+                      <div key={member.name} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
                         <p className="font-semibold">{member.name}</p>
-                        <p className="text-[#F8F8F8]/72">{member.role}</p>
+                        <p className="text-[var(--exa-text-muted)]">{member.role}</p>
                       </div>
                     ))}
                   </div>
@@ -327,27 +327,27 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               </div>
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <h2 className="font-['Sora'] text-xl font-semibold">Rewards / Equity Tiers</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 {campaign.rewardTiers.map((tier, idx) => (
                   <div
                     key={tier.id}
-                    className={`rounded-xl border p-4 ${selectedTierId === tier.id ? "border-[#D4AF37]/85 bg-[#D4AF37]/12 shadow-[0_0_18px_rgba(212,175,55,0.22)]" : "border-[#F8F8F8]/14 bg-[#F8F8F8]/[0.03]"}`}
+                    className={`rounded-xl border p-4 ${selectedTierId === tier.id ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] shadow-[var(--exa-shadow-gold)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]"}`}
                   >
                     <p className="text-sm font-semibold">{tier.title}</p>
-                    <p className="mt-1 text-base font-semibold text-[#D4AF37]">{formatNaira(tier.amount)}</p>
-                    <p className="mt-2 text-xs text-[#F8F8F8]/78">{tier.benefit}</p>
-                    <p className="mt-2 text-xs text-[#F8F8F8]/70">Limited Spots: {Math.max(25 - idx * 6, 8)}</p>
-                    <p className="text-xs text-[#F8F8F8]/70">Est. Delivery: {90 + idx * 30} days</p>
-                    <p className="text-xs text-[#F8F8F8]/70">Equity: {idx === 2 ? "2%" : idx === 1 ? "0.5%" : "N/A"}</p>
+                    <p className="mt-1 text-base font-semibold text-[var(--exa-gold)]">{formatNaira(tier.amount)}</p>
+                    <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">{tier.benefit}</p>
+                    <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Limited Spots: {Math.max(25 - idx * 6, 8)}</p>
+                    <p className="text-xs text-[var(--exa-text-muted)]">Est. Delivery: {90 + idx * 30} days</p>
+                    <p className="text-xs text-[var(--exa-text-muted)]">Equity: {idx === 2 ? "2%" : idx === 1 ? "0.5%" : "N/A"}</p>
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedTierId(tier.id);
                         onSupportCampaign?.(campaign.id);
                       }}
-                      className="mt-3 w-full rounded-lg border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-3 py-2 text-xs font-semibold text-[#0B0B0B]"
+                      className="mt-3 w-full rounded-lg border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-3 py-2 text-xs font-semibold text-[var(--exa-gold-contrast)]"
                     >
                       Support This Tier
                     </button>
@@ -356,26 +356,26 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               </div>
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <h2 className="font-['Sora'] text-xl font-semibold">Transparency & Trust</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <p className="vc-trust"><UserCheck className="mb-2 h-4 w-4 text-[#D4AF37]" />Verified Founder Identity</p>
-                <p className="vc-trust"><Blocks className="mb-2 h-4 w-4 text-[#D4AF37]" />Blockchain Recorded Contributions</p>
-                <p className="vc-trust"><ShieldCheck className="mb-2 h-4 w-4 text-[#D4AF37]" />Escrow / Smart Contract Release</p>
-                <p className="vc-trust"><CircleCheckBig className="mb-2 h-4 w-4 text-[#D4AF37]" />KYC Approved</p>
-                <p className="vc-trust"><Flag className="mb-2 h-4 w-4 text-[#D4AF37]" />Risk Disclosure Available</p>
+                <p className="vc-trust"><UserCheck className="mb-2 h-4 w-4 text-[var(--exa-gold)]" />Verified Founder Identity</p>
+                <p className="vc-trust"><Blocks className="mb-2 h-4 w-4 text-[var(--exa-gold)]" />Blockchain Recorded Contributions</p>
+                <p className="vc-trust"><ShieldCheck className="mb-2 h-4 w-4 text-[var(--exa-gold)]" />Escrow / Smart Contract Release</p>
+                <p className="vc-trust"><CircleCheckBig className="mb-2 h-4 w-4 text-[var(--exa-gold)]" />KYC Approved</p>
+                <p className="vc-trust"><Flag className="mb-2 h-4 w-4 text-[var(--exa-gold)]" />Risk Disclosure Available</p>
               </div>
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <h2 className="font-['Sora'] text-xl font-semibold">Spending Governance</h2>
-              <p className="mt-2 text-xs text-[#F8F8F8]/72">Create requests as manager, vote as contributor, finalize after majority approval.</p>
+              <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Create requests as manager, vote as contributor, finalize after majority approval.</p>
 
-              <div className="mt-4 grid gap-3 rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 md:grid-cols-2">
-                <input value={requestTitle} onChange={(event) => setRequestTitle(event.target.value)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Request title" />
-                <input value={vendorWallet} onChange={(event) => setVendorWallet(event.target.value)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Vendor wallet 0x..." />
-                <input type="number" value={requestAmount} onChange={(event) => setRequestAmount(Number(event.target.value) || 0)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Amount" />
-                <input value={requestDescription} onChange={(event) => setRequestDescription(event.target.value)} className="rounded-lg border border-[#F8F8F8]/20 bg-transparent px-3 py-2 text-xs" placeholder="Short description" />
+              <div className="mt-4 grid gap-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 md:grid-cols-2">
+                <input value={requestTitle} onChange={(event) => setRequestTitle(event.target.value)} className="rounded-lg border border-[var(--exa-border)] bg-transparent px-3 py-2 text-xs" placeholder="Request title" />
+                <input value={vendorWallet} onChange={(event) => setVendorWallet(event.target.value)} className="rounded-lg border border-[var(--exa-border)] bg-transparent px-3 py-2 text-xs" placeholder="Vendor wallet 0x..." />
+                <input type="number" value={requestAmount} onChange={(event) => setRequestAmount(Number(event.target.value) || 0)} className="rounded-lg border border-[var(--exa-border)] bg-transparent px-3 py-2 text-xs" placeholder="Amount" />
+                <input value={requestDescription} onChange={(event) => setRequestDescription(event.target.value)} className="rounded-lg border border-[var(--exa-border)] bg-transparent px-3 py-2 text-xs" placeholder="Short description" />
                 <button
                   type="button"
                   onClick={async () => {
@@ -392,7 +392,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                       setGovernanceError(error?.message || "Unable to create request.");
                     }
                   }}
-                  className="rounded-lg border border-[#D4AF37] bg-[#D4AF37]/15 px-3 py-2 text-xs font-semibold text-[#D4AF37]"
+                  className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-3 py-2 text-xs font-semibold text-[var(--exa-gold)]"
                 >
                   Create Spending Request
                 </button>
@@ -401,10 +401,10 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
               <div className="mt-4 space-y-3">
                 {(campaign.spending_requests || []).length ? (
                   campaign.spending_requests.map((request, index) => (
-                    <div key={request.id || `request-${index}`} className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs">
-                      <p className="font-semibold text-[#D4AF37]">{request.title || `Request #${index + 1}`}</p>
-                      <p className="mt-1 text-[#F8F8F8]/80">{request.description || "No description"}</p>
-                      <p className="mt-1 text-[#F8F8F8]/72">Amount: {formatNaira(Number(request.amount || 0))} · Approvals: {request.approval_count || 0}</p>
+                    <div key={request.id || `request-${index}`} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
+                      <p className="font-semibold text-[var(--exa-gold)]">{request.title || `Request #${index + 1}`}</p>
+                      <p className="mt-1 text-[var(--exa-text-secondary)]">{request.description || "No description"}</p>
+                      <p className="mt-1 text-[var(--exa-text-muted)]">Amount: {formatNaira(Number(request.amount || 0))} · Approvals: {request.approval_count || 0}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -423,7 +423,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                         <button
                           type="button"
                           onClick={() => finalizeRequestFlow({ requestId: request.id }).catch((error) => setGovernanceError(error?.message || "Finalize failed."))}
-                          className="rounded-lg border border-[#D4AF37]/65 px-3 py-1 text-[11px] text-[#D4AF37]"
+                          className="rounded-lg border border-[var(--exa-border-active)] px-3 py-1 text-[11px] text-[var(--exa-gold)]"
                         >
                           Finalize & Pay Vendor
                         </button>
@@ -431,7 +431,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-[#F8F8F8]/70">No on-chain spending requests yet.</p>
+                  <p className="text-xs text-[var(--exa-text-muted)]">No on-chain spending requests yet.</p>
                 )}
               </div>
 
@@ -439,7 +439,7 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
                 <button
                   type="button"
                   onClick={() => refundFlow({ campaignId: campaign.id }).catch((error) => setGovernanceError(error?.message || "Refund failed."))}
-                  className="rounded-lg border border-[#F8F8F8]/30 px-3 py-2 text-xs text-[#F8F8F8]/85"
+                  className="rounded-lg border border-[var(--exa-border)] px-3 py-2 text-xs text-[var(--exa-text-secondary)]"
                 >
                   Trigger Refund (if eligible)
                 </button>
@@ -447,70 +447,70 @@ function ViewCampaignPage({ onBack, onSupportCampaign, campaignId }) {
 
               {wallet.error ? <p className="mt-2 text-xs text-rose-300">{wallet.error}</p> : null}
               {governanceError ? <p className="mt-2 text-xs text-rose-300">{governanceError}</p> : null}
-              {txState.status !== "idle" ? <p className="mt-2 text-xs text-[#F8F8F8]/70">Transaction: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</p> : null}
+              {txState.status !== "idle" ? <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Transaction: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</p> : null}
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <h2 className="font-['Sora'] text-xl font-semibold">Community & Updates</h2>
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-[#D4AF37]">Founder Updates Timeline</p>
+                  <p className="text-sm font-semibold text-[var(--exa-gold)]">Founder Updates Timeline</p>
                   {campaign.activity.map((line) => (
-                    <p key={line} className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] px-3 py-2 text-xs">{line}</p>
+                    <p key={line} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs">{line}</p>
                   ))}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#D4AF37]">Backer Comments / Q&A</p>
+                  <p className="text-sm font-semibold text-[var(--exa-gold)]">Backer Comments / Q&A</p>
                   <textarea
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-[#F8F8F8]/20 bg-[#F8F8F8]/[0.03] p-3 text-xs outline-none focus:border-[#D4AF37]"
+                    className="mt-2 w-full rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs outline-none focus:border-[var(--exa-border-active)]"
                     rows={4}
                     placeholder="Post a comment or question..."
                   />
                   <button
                     type="button"
                     onClick={postComment}
-                    className="mt-2 rounded-lg border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-3 py-2 text-xs font-semibold text-[#0B0B0B]"
+                    className="mt-2 rounded-lg border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-3 py-2 text-xs font-semibold text-[var(--exa-gold-contrast)]"
                   >
                     Post Comment
                   </button>
                   <div className="mt-2 space-y-2">
                     {comments.map((item, idx) => (
-                      <p key={`${item}-${idx}`} className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-2 text-xs">{item}</p>
+                      <p key={`${item}-${idx}`} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-2 text-xs">{item}</p>
                     ))}
                   </div>
                 </div>
               </div>
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <h2 className="font-['Sora'] text-xl font-semibold">Impact & Metrics</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <p className="vc-metric">Total Funds Raised on ExaEarn <span className="block text-lg font-semibold text-[#D4AF37]">{formatNaira(globalMetrics.totalRaised)}</span></p>
-                <p className="vc-metric">Successful Campaigns <span className="block text-lg font-semibold text-[#D4AF37]"><Counter value={globalMetrics.successful} /></span></p>
-                <p className="vc-metric">Global Backers <span className="block text-lg font-semibold text-[#D4AF37]"><Counter value={globalMetrics.totalBackers} /></span></p>
-                <p className="vc-metric">Countries Participating <span className="block text-lg font-semibold text-[#D4AF37]"><Counter value={globalMetrics.countries} /></span></p>
+                <p className="vc-metric">Total Funds Raised on ExaEarn <span className="block text-lg font-semibold text-[var(--exa-gold)]">{formatNaira(globalMetrics.totalRaised)}</span></p>
+                <p className="vc-metric">Successful Campaigns <span className="block text-lg font-semibold text-[var(--exa-gold)]"><Counter value={globalMetrics.successful} /></span></p>
+                <p className="vc-metric">Global Backers <span className="block text-lg font-semibold text-[var(--exa-gold)]"><Counter value={globalMetrics.totalBackers} /></span></p>
+                <p className="vc-metric">Countries Participating <span className="block text-lg font-semibold text-[var(--exa-gold)]"><Counter value={globalMetrics.countries} /></span></p>
               </div>
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/35 bg-gradient-to-r from-[#D4AF37]/14 via-[#D4AF37]/6 to-transparent p-6 text-center">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-surface)] via-[var(--exa-surface-elevated)] to-transparent p-6 text-center">
               <h2 className="font-['Sora'] text-3xl font-semibold sm:text-4xl">Back Innovation. Empower Vision. Earn With Purpose.</h2>
               <button
                 type="button"
                 onClick={() => onSupportCampaign?.(campaign.id)}
-                className="mt-4 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-6 py-3 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_24px_rgba(212,175,55,0.36)]"
+                className="mt-4 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-6 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]"
               >
                 Support This Campaign Now
               </button>
-              <p className="mt-2 text-xs text-[#F8F8F8]/66">Secure. Transparent. Community-Driven.</p>
+              <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Secure. Transparent. Community-Driven.</p>
             </article>
 
-            <article className="rounded-2xl border border-[#D4AF37]/22 bg-[#0B0B0B]/58 p-4">
+            <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4">
               <div className="grid gap-3 sm:grid-cols-3">
-                <p className="inline-flex items-center gap-2 text-xs"><Sparkles className="h-4 w-4 text-[#D4AF37]" />Luxury fintech-grade UX</p>
-                <p className="inline-flex items-center gap-2 text-xs"><HandCoins className="h-4 w-4 text-[#D4AF37]" />Web3 escrow-backed funding flows</p>
-                <p className="inline-flex items-center gap-2 text-xs"><Globe2 className="h-4 w-4 text-[#D4AF37]" />Global startup investment access</p>
+                <p className="inline-flex items-center gap-2 text-xs"><Sparkles className="h-4 w-4 text-[var(--exa-gold)]" />Luxury fintech-grade UX</p>
+                <p className="inline-flex items-center gap-2 text-xs"><HandCoins className="h-4 w-4 text-[var(--exa-gold)]" />Web3 escrow-backed funding flows</p>
+                <p className="inline-flex items-center gap-2 text-xs"><Globe2 className="h-4 w-4 text-[var(--exa-gold)]" />Global startup investment access</p>
               </div>
             </article>
           </section>

@@ -154,7 +154,7 @@ function SupportCampaignPage({ onBack, campaignId }) {
   };
 
   return (
-    <main className="min-h-screen exa-bg support-campaign-page text-[#F8F8F8]">
+    <main className="min-h-screen exa-bg support-campaign-page text-[var(--exa-text-primary)]">
       <div className="relative mx-auto w-full max-w-sm px-3 pb-10 pt-4 sm:max-w-lg sm:px-4 md:max-w-3xl lg:max-w-7xl">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <span className="sc-particle sc-p1" />
@@ -163,64 +163,64 @@ function SupportCampaignPage({ onBack, campaignId }) {
           <div className="sc-grid" />
         </div>
 
-        <section className="relative rounded-3xl border border-[#D4AF37]/30 bg-[#0B0B0B]/70 p-4 shadow-[0_24px_58px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-6">
-          <header className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/55 p-4 sm:p-6">
+        <section className="relative rounded-3xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl sm:p-6">
+          <header className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {onBack ? (
                 <button
                   type="button"
                   onClick={onBack}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/35 bg-[#0B0B0B]/65 px-3 py-2 text-xs font-semibold text-[#F8F8F8] transition hover:border-[#D4AF37] hover:text-[#D4AF37]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs font-semibold text-[var(--exa-text-primary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
                 </button>
               ) : null}
-              <p className="text-xs uppercase tracking-[0.24em] text-[#D4AF37]/85">ExaEarn Support Campaign</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-[var(--exa-gold)]">ExaEarn Support Campaign</p>
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-2xl border border-[#D4AF37]/35">
+            <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--exa-border-active)]">
               <div className="relative">
                 <img src={Image.crowdfund} alt={campaign.title} className="h-[250px] w-full object-cover opacity-45 sm:h-[320px]" />
                 <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(11,11,11,0.45),rgba(11,11,11,0.92)),radial-gradient(circle_at_20%_15%,rgba(212,175,55,0.25),transparent_45%)]" />
                 <div className="absolute inset-0 p-5 sm:p-7">
-                  <p className="inline-flex rounded-full border border-[#D4AF37]/55 bg-[#D4AF37]/14 px-3 py-1 text-xs font-semibold text-[#D4AF37]">{campaign.category}</p>
+                  <p className="inline-flex rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-3 py-1 text-xs font-semibold text-[var(--exa-gold)]">{campaign.category}</p>
                   <h1 className="mt-3 max-w-3xl font-['Sora'] text-2xl font-semibold sm:text-4xl">{campaign.title}</h1>
-                  <p className="mt-2 text-sm text-[#F8F8F8]/86">{campaign.description}</p>
-                  <p className="mt-3 inline-flex items-center gap-2 text-sm text-[#F8F8F8]/86">
+                  <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">{campaign.description}</p>
+                  <p className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--exa-text-secondary)]">
                     {campaign.founder}
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/55 bg-[#D4AF37]/12 px-2 py-0.5 text-xs text-[#D4AF37]">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2 py-0.5 text-xs text-[var(--exa-gold)]">
                       <BadgeCheck className="h-3.5 w-3.5" />
                       Verified
                     </span>
                   </p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="text-xs text-[#F8F8F8]/68">Funding Goal</p>
-                      <p className="mt-1 font-semibold text-[#D4AF37]">{formatNaira(campaign.target)}</p>
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-xs text-[var(--exa-text-muted)]">Funding Goal</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-gold)]">{formatNaira(campaign.target)}</p>
                     </div>
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="text-xs text-[#F8F8F8]/68">Amount Raised</p>
-                      <p className="mt-1 font-semibold text-[#D4AF37]">{formatNaira(campaign.raised)}</p>
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-xs text-[var(--exa-text-muted)]">Amount Raised</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-gold)]">{formatNaira(campaign.raised)}</p>
                     </div>
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="text-xs text-[#F8F8F8]/68">Days Remaining</p>
-                      <p className="mt-1 inline-flex items-center gap-1 font-semibold text-[#D4AF37]"><CalendarClock className="h-4 w-4" />{campaign.daysRemaining} days</p>
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-xs text-[var(--exa-text-muted)]">Days Remaining</p>
+                      <p className="mt-1 inline-flex items-center gap-1 font-semibold text-[var(--exa-gold)]"><CalendarClock className="h-4 w-4" />{campaign.daysRemaining} days</p>
                     </div>
                   </div>
-                  <div className="mt-3 h-2.5 rounded-full bg-[#F8F8F8]/12">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#f0d375] to-[#D4AF37]" style={{ width: `${progress}%` }} />
+                  <div className="mt-3 h-2.5 rounded-full bg-[var(--exa-surface-hover)]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)]" style={{ width: `${progress}%` }} />
                   </div>
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button
                       type="button"
                       onClick={submitContribution}
-                      className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_22px_rgba(212,175,55,0.4)]"
+                      className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]"
                     >
                       Support This Campaign
                     </button>
-                    <button className="inline-flex items-center gap-2 rounded-xl border border-[#F8F8F8]/45 bg-[#F8F8F8]/8 px-4 py-2 text-sm font-semibold text-[#F8F8F8]">
-                      <Share2 className="h-4 w-4 text-[#D4AF37]" />
+                    <button className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm font-semibold text-[var(--exa-text-primary)]">
+                      <Share2 className="h-4 w-4 text-[var(--exa-gold)]" />
                       Share Campaign
                     </button>
                   </div>
@@ -231,7 +231,7 @@ function SupportCampaignPage({ onBack, campaignId }) {
 
           <section className="mt-6 grid gap-5 lg:grid-cols-[1.25fr_0.9fr]">
             <div className="space-y-5">
-              <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+              <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
                 <h2 className="font-['Sora'] text-xl font-semibold">Contribution</h2>
                 <div className="mt-4 grid gap-4">
                   <div className="grid gap-2 sm:grid-cols-3">
@@ -241,7 +241,7 @@ function SupportCampaignPage({ onBack, campaignId }) {
                         type="button"
                         onClick={() => setCurrency(item)}
                         className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
-                          currency === item ? "border-[#D4AF37] bg-[#D4AF37]/14 text-[#D4AF37]" : "border-[#F8F8F8]/20 bg-[#F8F8F8]/5 text-[#F8F8F8]/75"
+                          currency === item ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)]"
                         }`}
                       >
                         {item}
@@ -257,8 +257,8 @@ function SupportCampaignPage({ onBack, campaignId }) {
                       className="sc-input"
                     />
                   </label>
-                  <p className="rounded-xl border border-[#D4AF37]/25 bg-[#D4AF37]/10 px-3 py-2 text-xs text-[#F8F8F8]/85">
-                    Payment Mode: <span className="font-semibold text-[#D4AF37]">{currency}</span> selected.
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-gold-surface)] px-3 py-2 text-xs text-[var(--exa-text-secondary)]">
+                    Payment Mode: <span className="font-semibold text-[var(--exa-gold)]">{currency}</span> selected.
                     {currency === "NGN" ? " You are paying in Naira." : null}
                     {currency === "USD" ? " You are paying in US Dollars." : null}
                     {currency === "CRYPTO" ? " You are paying in crypto token (USDT equivalent)." : null}
@@ -270,7 +270,7 @@ function SupportCampaignPage({ onBack, campaignId }) {
                         type="button"
                         onClick={() => setPaymentMethod(method)}
                         className={`rounded-lg border px-3 py-2 text-left text-xs font-semibold ${
-                          paymentMethod === method ? "border-[#D4AF37] bg-[#D4AF37]/14 text-[#D4AF37]" : "border-[#F8F8F8]/20 bg-[#F8F8F8]/5 text-[#F8F8F8]/78"
+                          paymentMethod === method ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)]"
                         }`}
                       >
                         {method}
@@ -323,21 +323,21 @@ function SupportCampaignPage({ onBack, campaignId }) {
                         />
                       </label>
                       {!isCardPaymentValid ? (
-                        <p className="sm:col-span-2 text-[11px] text-[#F8F8F8]/70">
+                        <p className="sm:col-span-2 text-[11px] text-[var(--exa-text-muted)]">
                           Enter a valid 16-digit card number, MM/YY expiry, CVV, and cardholder name.
                         </p>
                       ) : null}
                     </div>
                   ) : null}
                   {paymentMethod === "Local Transfer" || paymentMethod === "Bank Wire" ? (
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="inline-flex items-center gap-2 text-xs text-[#D4AF37]">
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="inline-flex items-center gap-2 text-xs text-[var(--exa-gold)]">
                         <Building2 className="h-4 w-4" />
                         Bank Transfer Instructions
                       </p>
-                      <p className="mt-2 text-xs text-[#F8F8F8]/82">ExaEarn Escrow Bank: Zenith Bank</p>
-                      <p className="text-xs text-[#F8F8F8]/82">Account No: 1023345567</p>
-                      <p className="text-xs text-[#F8F8F8]/82">Reference: {campaign.id.toUpperCase()}-{Date.now().toString().slice(-6)}</p>
+                      <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">ExaEarn Escrow Bank: Zenith Bank</p>
+                      <p className="text-xs text-[var(--exa-text-secondary)]">Account No: 1023345567</p>
+                      <p className="text-xs text-[var(--exa-text-secondary)]">Reference: {campaign.id.toUpperCase()}-{Date.now().toString().slice(-6)}</p>
                     </div>
                   ) : null}
                   {paymentMethod === "Connect Wallet" || paymentMethod === "Pay with Crypto" ? (
@@ -362,41 +362,41 @@ function SupportCampaignPage({ onBack, campaignId }) {
                     </div>
                   ) : null}
                   {paymentMethod === "USSD / Mobile Money" ? (
-                    <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                      <p className="inline-flex items-center gap-2 text-xs text-[#D4AF37]">
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="inline-flex items-center gap-2 text-xs text-[var(--exa-gold)]">
                         <Smartphone className="h-4 w-4" />
                         Mobile Checkout Prompt
                       </p>
-                      <p className="mt-2 text-xs text-[#F8F8F8]/82">You will receive a secure USSD/mobile prompt after clicking confirm.</p>
+                      <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">You will receive a secure USSD/mobile prompt after clicking confirm.</p>
                     </div>
                   ) : null}
-                  <div className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs">
-                    <p className="flex items-center justify-between"><span>Contribution Value</span><span className="text-[#D4AF37]">{formatNaira(conversion.amountInNgn)}</span></p>
+                  <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
+                    <p className="flex items-center justify-between"><span>Contribution Value</span><span className="text-[var(--exa-gold)]">{formatNaira(conversion.amountInNgn)}</span></p>
                     <p className="mt-1 flex items-center justify-between"><span>Equivalent USD</span><span>{formatUsd(conversion.amountInUsd)}</span></p>
                     <p className="mt-1 flex items-center justify-between"><span>Equivalent Crypto</span><span>{formatCrypto(conversion.amountInCrypto)}</span></p>
                     <p className="mt-1 flex items-center justify-between"><span>Platform Fee (1.5%)</span><span>{formatNaira(conversion.platformFee)}</span></p>
-                    <p className="mt-2 flex items-center justify-between border-t border-[#F8F8F8]/12 pt-2 font-semibold"><span>Total Charge</span><span className="text-[#D4AF37]">{formatNaira(conversion.totalNgn)}</span></p>
+                    <p className="mt-2 flex items-center justify-between border-t border-[var(--exa-border)] pt-2 font-semibold"><span>Total Charge</span><span className="text-[var(--exa-gold)]">{formatNaira(conversion.totalNgn)}</span></p>
                   </div>
-                  <div className="rounded-xl border border-[#D4AF37]/25 bg-[#D4AF37]/8 p-3 text-sm text-[#F8F8F8]/85">
-                    Estimated Reward / Equity: <span className="font-semibold text-[#D4AF37]">{estimatedBenefit}</span>
+                  <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-gold-surface)] p-3 text-sm text-[var(--exa-text-secondary)]">
+                    Estimated Reward / Equity: <span className="font-semibold text-[var(--exa-gold)]">{estimatedBenefit}</span>
                   </div>
                   <button
                     disabled={paymentMethod === "Card Payment" && !isCardPaymentValid}
                     type="button"
                     onClick={submitContribution}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_22px_rgba(212,175,55,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Wallet className="h-4 w-4" />
                     Confirm Support
                   </button>
                   {wallet.error ? <p className="text-xs text-rose-300">{wallet.error}</p> : null}
                   {txState.status !== "idle" ? (
-                    <p className="text-xs text-[#F8F8F8]/75">Transaction: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</p>
+                    <p className="text-xs text-[var(--exa-text-secondary)]">Transaction: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</p>
                   ) : null}
                 </div>
               </article>
 
-              <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+              <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
                 <h2 className="font-['Sora'] text-xl font-semibold">Reward / Equity Tiers</h2>
                 <div className="mt-4 grid gap-3">
                   {campaign.rewardTiers.map((tier) => (
@@ -409,49 +409,49 @@ function SupportCampaignPage({ onBack, campaignId }) {
                       }}
                       className={`rounded-xl border p-4 text-left transition ${
                         selectedTierId === tier.id
-                          ? "border-[#D4AF37]/85 bg-[#D4AF37]/12 shadow-[0_0_18px_rgba(212,175,55,0.25)]"
-                          : "border-[#F8F8F8]/14 bg-[#F8F8F8]/[0.03]"
+                          ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] shadow-[var(--exa-shadow-gold)]"
+                          : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]"
                       }`}
                     >
-                      <p className="text-sm font-semibold text-[#F8F8F8]">{tier.title} - <span className="text-[#D4AF37]">{formatNaira(tier.amount)}</span></p>
-                      <p className="mt-1 text-xs text-[#F8F8F8]/78">{tier.benefit}</p>
+                      <p className="text-sm font-semibold text-[var(--exa-text-primary)]">{tier.title} - <span className="text-[var(--exa-gold)]">{formatNaira(tier.amount)}</span></p>
+                      <p className="mt-1 text-xs text-[var(--exa-text-secondary)]">{tier.benefit}</p>
                     </button>
                   ))}
                 </div>
               </article>
 
-              <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+              <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
                 <h2 className="font-['Sora'] text-xl font-semibold">Campaign Story</h2>
-                <div className="mt-4 grid gap-3 text-sm text-[#F8F8F8]/86">
-                  <p><span className="font-semibold text-[#D4AF37]">Problem Statement:</span> {campaign.story.problem}</p>
-                  <p><span className="font-semibold text-[#D4AF37]">Solution:</span> {campaign.story.solution}</p>
-                  <p><span className="font-semibold text-[#D4AF37]">Market Opportunity:</span> {campaign.story.market}</p>
-                  <p><span className="font-semibold text-[#D4AF37]">Roadmap:</span> {campaign.story.roadmap}</p>
-                  <p><span className="font-semibold text-[#D4AF37]">Use of Funds:</span> {campaign.story.useOfFunds}</p>
-                  <p><span className="font-semibold text-[#D4AF37]">Team Introduction:</span> {campaign.story.team}</p>
+                <div className="mt-4 grid gap-3 text-sm text-[var(--exa-text-secondary)]">
+                  <p><span className="font-semibold text-[var(--exa-gold)]">Problem Statement:</span> {campaign.story.problem}</p>
+                  <p><span className="font-semibold text-[var(--exa-gold)]">Solution:</span> {campaign.story.solution}</p>
+                  <p><span className="font-semibold text-[var(--exa-gold)]">Market Opportunity:</span> {campaign.story.market}</p>
+                  <p><span className="font-semibold text-[var(--exa-gold)]">Roadmap:</span> {campaign.story.roadmap}</p>
+                  <p><span className="font-semibold text-[var(--exa-gold)]">Use of Funds:</span> {campaign.story.useOfFunds}</p>
+                  <p><span className="font-semibold text-[var(--exa-gold)]">Team Introduction:</span> {campaign.story.team}</p>
                 </div>
-                <div className="mt-4 relative overflow-hidden rounded-xl border border-[#D4AF37]/30">
+                <div className="mt-4 relative overflow-hidden rounded-xl border border-[var(--exa-border-active)]">
                   <img src={Image.campaigns} alt="Pitch video cover" className="h-44 w-full object-cover opacity-45" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <PlayCircle className="h-12 w-12 text-[#D4AF37]" />
+                    <PlayCircle className="h-12 w-12 text-[var(--exa-gold)]" />
                   </div>
                 </div>
               </article>
 
-              <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4 sm:p-5">
+              <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:p-5">
                 <h2 className="font-['Sora'] text-xl font-semibold">Transparency & Security</h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs"><BadgeCheck className="mb-2 h-4 w-4 text-[#D4AF37]" /> Verified Founder Identity</p>
-                  <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs"><Blocks className="mb-2 h-4 w-4 text-[#D4AF37]" /> Blockchain Recorded Contributions</p>
-                  <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs"><ShieldCheck className="mb-2 h-4 w-4 text-[#D4AF37]" /> Escrow / Smart Contract Distribution</p>
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs"><BadgeCheck className="mb-2 h-4 w-4 text-[var(--exa-gold)]" /> Verified Founder Identity</p>
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs"><Blocks className="mb-2 h-4 w-4 text-[var(--exa-gold)]" /> Blockchain Recorded Contributions</p>
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs"><ShieldCheck className="mb-2 h-4 w-4 text-[var(--exa-gold)]" /> Escrow / Smart Contract Distribution</p>
                 </div>
               </article>
             </div>
 
             <aside className="space-y-5">
-              <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4">
+              <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4">
                 <h3 className="font-['Sora'] text-lg font-semibold">Community Engagement</h3>
-                <div className="mt-3 rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
+                <div className="mt-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
                   <label className="text-xs">Comments, Q&A, Updates</label>
                   <textarea
                     value={comment}
@@ -462,7 +462,7 @@ function SupportCampaignPage({ onBack, campaignId }) {
                   <button
                     type="button"
                     onClick={submitComment}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-3 py-2 text-xs font-semibold text-[#0B0B0B]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-3 py-2 text-xs font-semibold text-[var(--exa-gold-contrast)]"
                   >
                     <MessageCircleMore className="h-4 w-4" />
                     Post Comment
@@ -470,12 +470,12 @@ function SupportCampaignPage({ onBack, campaignId }) {
                 </div>
                 <div className="mt-3 space-y-2">
                   {comments.map((item, idx) => (
-                    <p key={`${item}-${idx}`} className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs text-[#F8F8F8]/84">{item}</p>
+                    <p key={`${item}-${idx}`} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs text-[var(--exa-text-secondary)]">{item}</p>
                   ))}
                 </div>
-                <div className="mt-3 rounded-xl border border-[#D4AF37]/25 bg-[#D4AF37]/8 p-3">
-                  <p className="text-xs font-semibold text-[#D4AF37]">Backer Activity Feed</p>
-                  <ul className="mt-2 space-y-1 text-xs text-[#F8F8F8]/82">
+                <div className="mt-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-gold-surface)] p-3">
+                  <p className="text-xs font-semibold text-[var(--exa-gold)]">Backer Activity Feed</p>
+                  <ul className="mt-2 space-y-1 text-xs text-[var(--exa-text-secondary)]">
                     {campaign.activity.map((line) => (
                       <li key={line}>- {line}</li>
                     ))}
@@ -483,34 +483,34 @@ function SupportCampaignPage({ onBack, campaignId }) {
                 </div>
               </article>
 
-              <article className="rounded-2xl border border-[#D4AF37]/24 bg-[#0B0B0B]/58 p-4">
+              <article className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4">
                 <h3 className="font-['Sora'] text-lg font-semibold">Impact Metrics</h3>
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs">
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
                     Backers
-                    <span className="mt-1 block text-base font-semibold text-[#D4AF37]"><Counter value={campaign.metrics.backers} /></span>
+                    <span className="mt-1 block text-base font-semibold text-[var(--exa-gold)]"><Counter value={campaign.metrics.backers} /></span>
                   </p>
-                  <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs">
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
                     Funds Deployed
-                    <span className="mt-1 block text-base font-semibold text-[#D4AF37]">{formatNaira(campaign.metrics.fundsDeployed)}</span>
+                    <span className="mt-1 block text-base font-semibold text-[var(--exa-gold)]">{formatNaira(campaign.metrics.fundsDeployed)}</span>
                   </p>
-                  <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs">
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
                     Projects Funded
-                    <span className="mt-1 block text-base font-semibold text-[#D4AF37]"><Counter value={campaign.metrics.projectsFunded} /></span>
+                    <span className="mt-1 block text-base font-semibold text-[var(--exa-gold)]"><Counter value={campaign.metrics.projectsFunded} /></span>
                   </p>
-                  <p className="rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs">
+                  <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs">
                     Countries Participating
-                    <span className="mt-1 block text-base font-semibold text-[#D4AF37]"><Counter value={campaign.metrics.countries} /></span>
+                    <span className="mt-1 block text-base font-semibold text-[var(--exa-gold)]"><Counter value={campaign.metrics.countries} /></span>
                   </p>
                 </div>
               </article>
 
-              <article className="rounded-2xl border border-[#D4AF37]/35 bg-gradient-to-r from-[#D4AF37]/14 via-[#D4AF37]/6 to-transparent p-5 text-center">
+              <article className="rounded-2xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-surface)] via-[var(--exa-surface-elevated)] to-transparent p-5 text-center">
                 <h3 className="font-['Sora'] text-xl font-semibold">Your Support Builds Innovation. Your Capital Powers the Future.</h3>
-                <button className="mt-4 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-5 py-3 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_24px_rgba(212,175,55,0.36)]">
+                <button className="mt-4 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-5 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]">
                   Support & Invest Now
                 </button>
-                <p className="mt-2 text-xs text-[#F8F8F8]/66">Secure, Transparent, Community-Driven</p>
+                <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Secure, Transparent, Community-Driven</p>
               </article>
             </aside>
           </section>

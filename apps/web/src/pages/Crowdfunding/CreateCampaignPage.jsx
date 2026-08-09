@@ -125,7 +125,7 @@ function CreateCampaignPage({ onBack }) {
   };
 
   return (
-    <main className="min-h-screen exa-bg create-campaign-page text-[#F8F8F8]">
+    <main className="min-h-screen exa-bg create-campaign-page text-[var(--exa-text-primary)]">
       <div className="relative mx-auto w-full max-w-sm px-3 pb-10 pt-4 sm:max-w-lg sm:px-4 md:max-w-3xl lg:max-w-7xl">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="cc-node cc-node-a" />
@@ -134,15 +134,15 @@ function CreateCampaignPage({ onBack }) {
           <div className="cc-grid" />
         </div>
 
-        <section className="relative rounded-3xl border border-[#D4AF37]/30 bg-[#0B0B0B]/68 p-4 shadow-[0_22px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-6">
-          <header className="rounded-2xl border border-[#D4AF37]/25 bg-[#0B0B0B]/55 p-4 sm:p-6">
+        <section className="relative rounded-3xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl sm:p-6">
+          <header className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs uppercase tracking-[0.25em] text-[#D4AF37]/85">ExaEarn Crowdfunding</p>
+              <p className="text-xs uppercase tracking-[0.25em] text-[var(--exa-gold)]">ExaEarn Crowdfunding</p>
               {onBack ? (
                 <button
                   type="button"
                   onClick={onBack}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/35 bg-[#0B0B0B]/65 px-3 py-2 text-xs font-semibold text-[#F8F8F8] transition hover:border-[#D4AF37] hover:text-[#D4AF37]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs font-semibold text-[var(--exa-text-primary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
@@ -150,20 +150,20 @@ function CreateCampaignPage({ onBack }) {
               ) : null}
             </div>
 
-            <div className="relative mt-4 overflow-hidden rounded-2xl border border-[#D4AF37]/35">
+            <div className="relative mt-4 overflow-hidden rounded-2xl border border-[var(--exa-border-active)]">
               <img src={Image.crowdfund} alt="Futuristic crowdfunding dashboard" className="h-[260px] w-full object-cover opacity-40 sm:h-[320px]" />
               <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(11,11,11,0.45),rgba(11,11,11,0.9)),radial-gradient(circle_at_20%_15%,rgba(212,175,55,0.28),transparent_45%)]" />
               <div className="absolute inset-0 p-5 sm:p-7">
-                <h1 className="max-w-3xl font-['Sora'] text-3xl font-semibold leading-tight text-[#F8F8F8] sm:text-5xl">
-                  <span className="text-[#D4AF37]">Turn Your Idea</span> Into Funded Reality.
+                <h1 className="max-w-3xl font-['Sora'] text-3xl font-semibold leading-tight text-[var(--exa-text-primary)] sm:text-5xl">
+                  <span className="text-[var(--exa-gold)]">Turn Your Idea</span> Into Funded Reality.
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm text-[#F8F8F8]/85 sm:text-base">
+                <p className="mt-3 max-w-2xl text-sm text-[var(--exa-text-secondary)] sm:text-base">
                   Launch your campaign. Raise capital globally. Build with community support.
                 </p>
                 <button
                   type="button"
                   onClick={scrollToWizard}
-                  className="mt-5 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-5 py-3 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_24px_rgba(212,175,55,0.35)]"
+                  className="mt-5 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-5 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]"
                 >
                   Start Creating Campaign
                 </button>
@@ -172,7 +172,7 @@ function CreateCampaignPage({ onBack }) {
           </header>
 
           <section id="campaign-wizard" className="mt-6 grid gap-5 lg:grid-cols-[1.35fr_0.9fr]">
-            <div className="rounded-2xl border border-[#D4AF37]/25 bg-[#0B0B0B]/62 p-4 sm:p-5">
+            <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <div className="mb-5">
                 <div className="grid grid-cols-5 gap-2">
                   {steps.map((label, index) => {
@@ -184,8 +184,8 @@ function CreateCampaignPage({ onBack }) {
                         <div
                           className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold ${
                             done || active
-                              ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#D4AF37]"
-                              : "border-[#F8F8F8]/20 bg-[#F8F8F8]/5 text-[#F8F8F8]/70"
+                              ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold)]"
+                              : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-muted)]"
                           }`}
                         >
                           {stepNo}
@@ -195,7 +195,7 @@ function CreateCampaignPage({ onBack }) {
                     );
                   })}
                 </div>
-                <p className="mt-3 text-sm font-semibold text-[#D4AF37]">Step {step} - {steps[step - 1]}</p>
+                <p className="mt-3 text-sm font-semibold text-[var(--exa-gold)]">Step {step} - {steps[step - 1]}</p>
               </div>
 
               {step === 1 ? (
@@ -264,7 +264,7 @@ function CreateCampaignPage({ onBack }) {
                           type="button"
                           onClick={() => setDurationDays(days)}
                           className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                            durationDays === days ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#D4AF37]" : "border-[#F8F8F8]/20 bg-[#F8F8F8]/5 text-[#F8F8F8]/75"
+                            durationDays === days ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)]"
                           }`}
                         >
                           {days} Days
@@ -281,7 +281,7 @@ function CreateCampaignPage({ onBack }) {
                           type="button"
                           onClick={() => setFundingType(type)}
                           className={`rounded-lg border px-3 py-2 text-left text-xs font-semibold transition ${
-                            fundingType === type ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#D4AF37]" : "border-[#F8F8F8]/20 bg-[#F8F8F8]/5 text-[#F8F8F8]/75"
+                            fundingType === type ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)]"
                           }`}
                         >
                           {type}
@@ -289,15 +289,15 @@ function CreateCampaignPage({ onBack }) {
                       ))}
                     </div>
                   </label>
-                  <div className="rounded-xl border border-[#D4AF37]/25 bg-[#F8F8F8]/[0.03] p-3">
+                  <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
                     <div className="flex items-center justify-between text-xs">
                       <span>Live Goal Preview</span>
-                      <span className="text-[#D4AF37]">{fundingProgress.toFixed(1)}%</span>
+                      <span className="text-[var(--exa-gold)]">{fundingProgress.toFixed(1)}%</span>
                     </div>
-                    <div className="mt-2 h-2.5 rounded-full bg-[#F8F8F8]/12">
-                      <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#f1d57b] to-[#D4AF37]" style={{ width: `${fundingProgress}%` }} />
+                    <div className="mt-2 h-2.5 rounded-full bg-[var(--exa-surface-hover)]">
+                      <div className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)]" style={{ width: `${fundingProgress}%` }} />
                     </div>
-                    <p className="mt-2 text-xs text-[#F8F8F8]/75">{formatNaira(minimumContribution)} minimum against {formatNaira(fundingGoal)} goal</p>
+                    <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">{formatNaira(minimumContribution)} minimum against {formatNaira(fundingGoal)} goal</p>
                   </div>
                 </div>
               ) : null}
@@ -307,11 +307,11 @@ function CreateCampaignPage({ onBack }) {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="cc-dropzone text-sm">
                       Upload Cover Image
-                      <input type="file" className="mt-3 text-xs text-[#F8F8F8]/80" />
+                      <input type="file" className="mt-3 text-xs text-[var(--exa-text-secondary)]" />
                     </label>
                     <label className="cc-dropzone text-sm">
                       Upload Pitch Video
-                      <input type="file" className="mt-3 text-xs text-[#F8F8F8]/80" />
+                      <input type="file" className="mt-3 text-xs text-[var(--exa-text-secondary)]" />
                     </label>
                   </div>
                   <label className="text-sm">
@@ -342,7 +342,7 @@ function CreateCampaignPage({ onBack }) {
               {step === 4 ? (
                 <div className="grid gap-3">
                   {rewards.map((reward, index) => (
-                    <div key={`${reward.amount}-${index}`} className="grid gap-3 rounded-xl border border-[#F8F8F8]/15 bg-[#F8F8F8]/[0.03] p-3 sm:grid-cols-[170px_1fr]">
+                    <div key={`${reward.amount}-${index}`} className="grid gap-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 sm:grid-cols-[170px_1fr]">
                       <input
                         type="number"
                         value={reward.amount}
@@ -360,7 +360,7 @@ function CreateCampaignPage({ onBack }) {
                   <button
                     type="button"
                     onClick={() => setRewards((current) => [...current, { amount: 25000, description: "New Reward Tier" }])}
-                    className="mt-1 inline-flex w-fit items-center gap-2 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B]"
+                    className="mt-1 inline-flex w-fit items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]"
                   >
                     + Add Reward Tier
                   </button>
@@ -372,11 +372,11 @@ function CreateCampaignPage({ onBack }) {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="cc-dropzone text-sm">
                       KYC Verification Upload
-                      <input type="file" className="mt-3 text-xs text-[#F8F8F8]/80" />
+                      <input type="file" className="mt-3 text-xs text-[var(--exa-text-secondary)]" />
                     </label>
                     <label className="cc-dropzone text-sm">
                       Business Registration Upload
-                      <input type="file" className="mt-3 text-xs text-[#F8F8F8]/80" />
+                      <input type="file" className="mt-3 text-xs text-[var(--exa-text-secondary)]" />
                     </label>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -389,28 +389,28 @@ function CreateCampaignPage({ onBack }) {
                       <input value={bankDetails} onChange={(e) => setBankDetails(e.target.value)} className="cc-input" />
                     </label>
                   </div>
-                  <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[#F8F8F8]/15 bg-[#F8F8F8]/[0.03] px-3 py-3 text-sm">
+                  <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-sm">
                     Smart Contract Option
                     <button
                       type="button"
                       onClick={() => setSmartContractEnabled((value) => !value)}
-                      className={`h-6 w-12 rounded-full border p-0.5 transition ${smartContractEnabled ? "border-[#D4AF37] bg-[#D4AF37]/20" : "border-[#F8F8F8]/25 bg-[#F8F8F8]/10"}`}
+                      className={`h-6 w-12 rounded-full border p-0.5 transition ${smartContractEnabled ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-hover)]"}`}
                     >
-                      <span className={`block h-4.5 w-4.5 rounded-full bg-[#D4AF37] transition ${smartContractEnabled ? "translate-x-5" : "translate-x-0"}`} />
+                      <span className={`block h-4.5 w-4.5 rounded-full bg-[var(--exa-gold)] transition ${smartContractEnabled ? "translate-x-5" : "translate-x-0"}`} />
                     </button>
                   </label>
-                  <div className="rounded-xl border border-[#D4AF37]/28 bg-[#D4AF37]/8 p-3 text-sm text-[#F8F8F8]/85">
+                  <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-gold-surface)] p-3 text-sm text-[var(--exa-text-secondary)]">
                     All campaigns are verified and blockchain recorded for transparency.
                   </div>
                 </div>
               ) : null}
 
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#F8F8F8]/12 pt-4">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--exa-border)] pt-4">
                 <button
                   type="button"
                   onClick={prev}
                   disabled={step === 1}
-                  className="rounded-xl border border-[#F8F8F8]/25 bg-[#F8F8F8]/5 px-4 py-2 text-sm font-semibold text-[#F8F8F8] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm font-semibold text-[var(--exa-text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   Previous
                 </button>
@@ -418,7 +418,7 @@ function CreateCampaignPage({ onBack }) {
                   <button
                     type="button"
                     onClick={next}
-                    className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B]"
+                    className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]"
                   >
                     Continue
                   </button>
@@ -426,84 +426,84 @@ function CreateCampaignPage({ onBack }) {
                   <button
                     type="button"
                     onClick={publishCampaign}
-                    className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-4 py-2 text-sm font-semibold text-[#0B0B0B]"
+                    className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]"
                   >
                     Publish Campaign
                   </button>
                 )}
               </div>
-              {published ? <p className="mt-3 text-sm text-[#D4AF37]">Campaign draft published successfully.</p> : null}
+              {published ? <p className="mt-3 text-sm text-[var(--exa-gold)]">Campaign draft published successfully.</p> : null}
               {publishError ? <p className="mt-3 text-sm text-rose-300">{publishError}</p> : null}
               {txState.status !== "idle" ? (
-                <p className="mt-2 text-xs text-[#F8F8F8]/75">
+                <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">
                   Transaction status: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}
                 </p>
               ) : null}
             </div>
 
             <aside className="space-y-4">
-              <article className="rounded-2xl border border-[#D4AF37]/25 bg-[#0B0B0B]/62 p-4 transition duration-300 hover:border-[#D4AF37]/60 hover:shadow-[0_12px_30px_rgba(212,175,55,0.18)]">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#D4AF37]">Real-Time Preview</p>
+              <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 transition duration-300 hover:border-[var(--exa-border-active)] hover:shadow-[var(--exa-shadow-gold)]">
+                <p className="text-xs uppercase tracking-[0.2em] text-[var(--exa-gold)]">Real-Time Preview</p>
                 <h3 className="mt-2 font-['Sora'] text-xl font-semibold">{title.trim() || "Untitled Campaign"}</h3>
-                <p className="mt-2 text-sm text-[#F8F8F8]/75">{description.trim() || "Campaign summary appears here as you type."}</p>
-                <div className="mt-4 rounded-xl border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
+                <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">{description.trim() || "Campaign summary appears here as you type."}</p>
+                <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
                   <div className="flex items-center justify-between text-xs">
                     <span>Funding Goal</span>
-                    <span className="font-semibold text-[#D4AF37]">{formatNaira(fundingGoal)}</span>
+                    <span className="font-semibold text-[var(--exa-gold)]">{formatNaira(fundingGoal)}</span>
                   </div>
-                  <div className="mt-2 h-2.5 rounded-full bg-[#F8F8F8]/12">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#f1d57b] to-[#D4AF37]" style={{ width: `${clamp(successProbability, 5, 100)}%` }} />
+                  <div className="mt-2 h-2.5 rounded-full bg-[var(--exa-surface-hover)]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)]" style={{ width: `${clamp(successProbability, 5, 100)}%` }} />
                   </div>
                 </div>
                 <div className="mt-3 grid gap-2 text-xs">
-                  <p className="flex items-center justify-between rounded-lg border border-[#F8F8F8]/12 px-3 py-2">
+                  <p className="flex items-center justify-between rounded-lg border border-[var(--exa-border)] px-3 py-2">
                     Estimated Success Probability
-                    <span className="font-semibold text-[#D4AF37]">{successProbability}%</span>
+                    <span className="font-semibold text-[var(--exa-gold)]">{successProbability}%</span>
                   </p>
-                  <p className="flex items-center justify-between rounded-lg border border-[#F8F8F8]/12 px-3 py-2">
+                  <p className="flex items-center justify-between rounded-lg border border-[var(--exa-border)] px-3 py-2">
                     Projected Community Reach
-                    <span className="font-semibold text-[#D4AF37]">{projectedReach.toLocaleString()}</span>
+                    <span className="font-semibold text-[var(--exa-gold)]">{projectedReach.toLocaleString()}</span>
                   </p>
-                  <p className="flex items-center justify-between rounded-lg border border-[#F8F8F8]/12 px-3 py-2">
+                  <p className="flex items-center justify-between rounded-lg border border-[var(--exa-border)] px-3 py-2">
                     Funding Type
-                    <span className="font-semibold text-[#D4AF37]">{fundingType}</span>
+                    <span className="font-semibold text-[var(--exa-gold)]">{fundingType}</span>
                   </p>
                 </div>
               </article>
 
-              <article className="rounded-2xl border border-[#D4AF37]/25 bg-[#0B0B0B]/62 p-4">
-                <p className="text-sm font-semibold text-[#D4AF37]">Why Launch on ExaEarn?</p>
+              <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
+                <p className="text-sm font-semibold text-[var(--exa-gold)]">Why Launch on ExaEarn?</p>
             <div className="mt-3 grid gap-2 text-sm">
-              <p className="inline-flex items-center gap-2"><Wallet className="h-4 w-4 text-[#D4AF37]" /> Wallet: {wallet.isConnected ? wallet.shortAddress : "Not connected"}</p>
-              <p className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-[#D4AF37]" /> Global Investor Access</p>
-                  <p className="inline-flex items-center gap-2"><Blocks className="h-4 w-4 text-[#D4AF37]" /> Web3 Smart Contract Integration</p>
-                  <p className="inline-flex items-center gap-2"><FileCheck2 className="h-4 w-4 text-[#D4AF37]" /> Transparent Fund Tracking</p>
-                  <p className="inline-flex items-center gap-2"><Users className="h-4 w-4 text-[#D4AF37]" /> Community Governance</p>
-                  <p className="inline-flex items-center gap-2"><HandCoins className="h-4 w-4 text-[#D4AF37]" /> Cross-border Payments</p>
+              <p className="inline-flex items-center gap-2"><Wallet className="h-4 w-4 text-[var(--exa-gold)]" /> Wallet: {wallet.isConnected ? wallet.shortAddress : "Not connected"}</p>
+              <p className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-[var(--exa-gold)]" /> Global Investor Access</p>
+                  <p className="inline-flex items-center gap-2"><Blocks className="h-4 w-4 text-[var(--exa-gold)]" /> Web3 Smart Contract Integration</p>
+                  <p className="inline-flex items-center gap-2"><FileCheck2 className="h-4 w-4 text-[var(--exa-gold)]" /> Transparent Fund Tracking</p>
+                  <p className="inline-flex items-center gap-2"><Users className="h-4 w-4 text-[var(--exa-gold)]" /> Community Governance</p>
+                  <p className="inline-flex items-center gap-2"><HandCoins className="h-4 w-4 text-[var(--exa-gold)]" /> Cross-border Payments</p>
                 </div>
               </article>
             </aside>
           </section>
 
-          <section className="mt-7 rounded-2xl border border-[#D4AF37]/35 bg-gradient-to-r from-[#D4AF37]/14 via-[#D4AF37]/5 to-transparent p-6 text-center">
-            <h2 className="font-['Sora'] text-3xl font-semibold text-[#F8F8F8] sm:text-4xl">Your Vision Deserves Funding. The World Is Ready.</h2>
+          <section className="mt-7 rounded-2xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-surface)] via-[var(--exa-surface-elevated)] to-transparent p-6 text-center">
+            <h2 className="font-['Sora'] text-3xl font-semibold text-[var(--exa-text-primary)] sm:text-4xl">Your Vision Deserves Funding. The World Is Ready.</h2>
             <button
               type="button"
               onClick={() => {
                 setStep(5);
                 scrollToWizard();
               }}
-              className="mt-5 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-[#e7c766] to-[#be9020] px-7 py-3 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_28px_rgba(212,175,55,0.36)]"
+              className="mt-5 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-7 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]"
             >
               Publish Campaign
             </button>
-            <p className="mt-2 text-xs text-[#F8F8F8]/65">By publishing, you agree to ExaEarn crowdfunding terms & policies.</p>
+            <p className="mt-2 text-xs text-[var(--exa-text-muted)]">By publishing, you agree to ExaEarn crowdfunding terms & policies.</p>
           </section>
 
-          <section className="mt-6 grid gap-3 rounded-2xl border border-[#D4AF37]/22 bg-[#0B0B0B]/58 p-4 sm:grid-cols-3">
-            <p className="inline-flex items-center gap-2 text-xs"><BadgeCheck className="h-4 w-4 text-[#D4AF37]" /> Investor trust architecture</p>
-            <p className="inline-flex items-center gap-2 text-xs"><ShieldCheck className="h-4 w-4 text-[#D4AF37]" /> Compliance-first verification flow</p>
-            <p className="inline-flex items-center gap-2 text-xs"><Wallet className="h-4 w-4 text-[#D4AF37]" /> Fiat and crypto payout rails</p>
+          <section className="mt-6 grid gap-3 rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 sm:grid-cols-3">
+            <p className="inline-flex items-center gap-2 text-xs"><BadgeCheck className="h-4 w-4 text-[var(--exa-gold)]" /> Investor trust architecture</p>
+            <p className="inline-flex items-center gap-2 text-xs"><ShieldCheck className="h-4 w-4 text-[var(--exa-gold)]" /> Compliance-first verification flow</p>
+            <p className="inline-flex items-center gap-2 text-xs"><Wallet className="h-4 w-4 text-[var(--exa-gold)]" /> Fiat and crypto payout rails</p>
           </section>
         </section>
       </div>

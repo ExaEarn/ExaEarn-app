@@ -1,8 +1,8 @@
 .support-campaign-page .sc-grid {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(to right, rgba(212, 175, 55, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--exa-gold) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--exa-gold) 7%, transparent) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: radial-gradient(circle at 30% 8%, rgba(0, 0, 0, 0.95), transparent 72%);
 }
@@ -12,53 +12,32 @@
   width: 11px;
   height: 11px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(212, 175, 55, 0.92), rgba(212, 175, 55, 0));
+  background: radial-gradient(circle, color-mix(in srgb, var(--exa-gold) 75%, transparent), transparent);
   animation: scFloat 10s linear infinite;
 }
 
-.support-campaign-page .sc-p1 {
-  left: 14%;
-  bottom: -14px;
-}
-
-.support-campaign-page .sc-p2 {
-  left: 64%;
-  bottom: -20px;
-  animation-delay: 2s;
-}
-
-.support-campaign-page .sc-p3 {
-  left: 86%;
-  bottom: -28px;
-  animation-delay: 4s;
-}
+.support-campaign-page .sc-p1 { left: 14%; bottom: -14px; }
+.support-campaign-page .sc-p2 { left: 64%; bottom: -20px; animation-delay: 2s; }
+.support-campaign-page .sc-p3 { left: 86%; bottom: -28px; animation-delay: 4s; }
 
 .support-campaign-page .sc-input {
   width: 100%;
   border-radius: 0.7rem;
-  border: 1px solid rgba(248, 248, 248, 0.2);
-  background: rgba(248, 248, 248, 0.03);
-  color: #f8f8f8;
+  border: 1px solid var(--exa-border);
+  background: var(--exa-surface-elevated);
+  color: var(--exa-text-primary);
   padding: 0.62rem 0.75rem;
   outline: none;
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .support-campaign-page .sc-input:focus {
-  border-color: rgba(212, 175, 55, 0.85);
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.22);
+  border-color: var(--exa-border-active);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--exa-gold) 22%, transparent);
 }
 
 @keyframes scFloat {
-  0% {
-    transform: translateY(0) scale(0.8);
-    opacity: 0;
-  }
-  25% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-560px) scale(1.16);
-    opacity: 0;
-  }
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-560px) scale(1.16); opacity: 0; }
 }
