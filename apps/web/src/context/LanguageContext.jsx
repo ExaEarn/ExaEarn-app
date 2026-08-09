@@ -1,4 +1,4 @@
-﻿import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_LANGUAGE_CODE,
   LANGUAGE_STORAGE_KEY,
@@ -79,18 +79,21 @@ export function LanguageProvider({ children }) {
   });
   const [recentLanguages, setRecentLanguages] = useState(() => readRecentLanguages());
   const [syncState, setSyncState] = useState("idle");
+  const appliedUserLanguageRef = useRef(null);
 
   const language = useMemo(() => getLanguageByCode(languageCode), [languageCode]);
   const direction = language.direction;
 
+  const userLanguagePreference = useMemo(() => resolveUserLanguage(user), [user]);
+
   useEffect(() => {
-    const nextUserLanguage = resolveUserLanguage(user);
-    if (!nextUserLanguage) return;
-    const normalized = normalizeLanguageCode(nextUserLanguage);
-    if (normalized && normalized !== languageCode) {
-      setLanguageCodeState(normalized);
-    }
-  }, [languageCode, user]);
+    if (!userLanguagePreference) return;
+    const normalized = normalizeLanguageCode(userLanguagePreference);
+    if (!normalized || appliedUserLanguageRef.current === normalized) return;
+    appliedUserLanguageRef.current = normalized;
+    setLanguageCodeState(normalized);
+    writeStorage(LANGUAGE_STORAGE_KEY, normalized);
+  }, [userLanguagePreference]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -103,6 +106,7 @@ export function LanguageProvider({ children }) {
     async (nextCode, options = {}) => {
       const normalized = normalizeLanguageCode(nextCode);
       const nextLanguage = getLanguageByCode(normalized);
+      appliedUserLanguageRef.current = normalized;
       setLanguageCodeState(normalized);
       writeStorage(LANGUAGE_STORAGE_KEY, normalized);
       setRecentLanguages(addRecentLanguage(normalized));
