@@ -1,6 +1,13 @@
 node_modules
 **/node_modules
 
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
 .git
 .turbo
 .pnpm-store
