@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -289,16 +289,16 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[#06080d] px-3 pb-8 pt-3 text-slate-100 sm:px-4 lg:px-6">
+    <main className="min-h-[100dvh] bg-[var(--exa-bg-primary)] px-3 pb-8 pt-3 text-slate-100 sm:px-4 lg:px-6">
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-4">
-        <header className="rounded-[24px] border border-white/8 bg-[#0b0f18] px-4 py-4 shadow-[0_22px_55px_rgba(0,0,0,.35)]">
+        <header className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] px-4 py-4 shadow-[0_22px_55px_rgba(0,0,0,.35)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={activeView === "hub" ? onBack : () => setActiveView("hub")}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-[#d1ab55]/50 hover:text-[#f4d37d]"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-slate-100 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                   aria-label={activeView === "hub" ? "Go back" : "Back to deposit methods"}
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -320,14 +320,14 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
         <section className="space-y-4">
           {activeView === "hub" ? (
             <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-              <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4 sm:p-5">
+              <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Choose method</p>
                     <h2 className="mt-1 text-xl font-semibold text-white">How do you want to deposit?</h2>
                     <p className="mt-2 text-sm text-slate-400">Select a method to open its dedicated deposit screen.</p>
                   </div>
-                  <span className="rounded-full border border-[#d1ab55]/25 bg-[#d1ab55]/10 px-2.5 py-1 text-[11px] font-semibold text-[#f4d37d]">
+                  <span className="rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--exa-gold-light)]">
                     Exchange flow
                   </span>
                 </div>
@@ -340,10 +340,10 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                         key={method.id}
                         type="button"
                         onClick={() => openMethod(method.id)}
-                        className="flex items-start justify-between gap-4 rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-4 text-left transition hover:border-[#d1ab55]/40 hover:bg-white/[0.05]"
+                        className="flex items-start justify-between gap-4 rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-4 text-left transition hover:border-[var(--exa-border-active)] hover:bg-white/[0.05]"
                       >
                         <div className="flex min-w-0 items-start gap-3">
-                          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.05] text-[#f4d37d]">
+                          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.05] text-[var(--exa-gold-light)]">
                             <Icon className="h-5 w-5" />
                           </span>
                           <div className="min-w-0">
@@ -351,7 +351,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                             <p className="mt-1 text-xs leading-5 text-slate-400">{method.description}</p>
                           </div>
                         </div>
-                        <span className="text-xs font-semibold text-[#f4d37d]">Open</span>
+                        <span className="text-xs font-semibold text-[var(--exa-gold-light)]">Open</span>
                       </button>
                     );
                   })}
@@ -359,7 +359,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
               </section>
 
               <div className="space-y-4">
-                <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4">
+                <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Deposit activity</p>
@@ -374,7 +374,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                         type="button"
                         onClick={() => setHistoryFilter(item)}
                         className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                          historyFilter === item ? "border-[#d1ab55]/60 bg-[#d1ab55]/10 text-[#f4d37d]" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-[#d1ab55]/35"
+                          historyFilter === item ? "border-[#d1ab55]/60 bg-[#d1ab55]/10 text-[var(--exa-gold-light)]" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-[var(--exa-border-active)]"
                         }`}
                       >
                         {item === "completed" ? "Credited" : item.charAt(0).toUpperCase() + item.slice(1)}
@@ -391,7 +391,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                       <EmptyState message="Your deposit history will appear here after ExaEarn detects or credits a deposit." />
                     ) : (
                       history.map((item) => (
-                        <div key={item.id || item.reference || item.tx_hash} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                        <div key={item.id || item.reference || item.tx_hash} className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <div className="flex items-center gap-2">
@@ -418,7 +418,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                   </div>
                 </section>
 
-                <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4">
+                <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Safety</p>
                   <h2 className="mt-1 text-lg font-semibold text-white">Deposit checks</h2>
                   <div className="mt-4 space-y-3 text-sm text-slate-300">
@@ -432,13 +432,13 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
           ) : null}
 
           {activeView === "deposit-crypto-list" ? (
-            <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4 sm:p-5">
+            <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setActiveView("hub")}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-slate-100 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                     aria-label="Back to deposit methods"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -448,14 +448,14 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                     <h2 className="mt-1 text-xl font-semibold text-white">Choose a crypto to open its deposit page</h2>
                   </div>
                 </div>
-                <span className="rounded-full border border-[#d1ab55]/20 bg-[#d1ab55]/10 px-2.5 py-1 text-[11px] font-semibold text-[#f4d37d]">
+                <span className="rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--exa-gold-light)]">
                   {assets.length} assets
                 </span>
               </div>
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
-                  <div className="rounded-2xl border border-white/8 bg-black/20 px-3 py-2">
+                <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                  <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Search className="h-4 w-4 text-slate-500" />
                       <input
@@ -479,7 +479,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                             setSelectedAsset(item);
                             setActiveView("deposit-crypto-detail");
                           }}
-                          className="flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3 text-left transition hover:border-[#d1ab55]/35 hover:bg-white/[0.04]"
+                          className="flex w-full items-center justify-between rounded-2xl border border-[var(--exa-border-subtle)] bg-[var(--exa-surface)] px-4 py-3 text-left transition hover:border-[var(--exa-border-active)] hover:bg-white/[0.04]"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <AssetMark symbol={item.symbol} />
@@ -499,7 +499,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">How this works</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <Metric label="Step 1" value="Pick the asset you want to receive" compact />
@@ -521,13 +521,13 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
           ) : null}
 
           {activeView === "deposit-crypto-detail" ? (
-            <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4 sm:p-5">
+            <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setActiveView("deposit-crypto-list")}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-slate-100 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                     aria-label="Back to crypto list"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -540,7 +540,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 <button
                   type="button"
                   onClick={() => setActiveView("deposit-crypto-list")}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 py-2 text-sm font-semibold text-white transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   Change crypto
                 </button>
@@ -549,7 +549,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="space-y-4">
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <AssetMark symbol={selectedAsset?.symbol} />
@@ -572,7 +572,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                             type="button"
                             onClick={() => setSelectedNetwork(item.id)}
                             className={`rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                              item.id === selectedNetwork ? "border-[#d1ab55]/60 bg-[#d1ab55]/10 text-[#f4d37d]" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-[#d1ab55]/35"
+                              item.id === selectedNetwork ? "border-[#d1ab55]/60 bg-[#d1ab55]/10 text-[var(--exa-gold-light)]" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-[var(--exa-border-active)]"
                             }`}
                           >
                             {item.name}
@@ -598,14 +598,14 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                       type="button"
                       disabled={!selectedAsset?.symbol || !selectedNetwork || addressLoading}
                       onClick={() => void generateAddress()}
-                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
+                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl exa-button-primary px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
                     >
                       {addressLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                       {depositDetails?.address ? "Refresh deposit address" : "Generate deposit address"}
                     </button>
                   </div>
 
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Deposit checklist</p>
                     <div className="mt-3 space-y-2 text-sm text-slate-300">
                       <Line label="Asset" value={selectedAsset?.symbol || "--"} />
@@ -616,7 +616,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                   </div>
                 </div>
 
-                <div className="rounded-[22px] border border-[#d1ab55]/18 bg-gradient-to-br from-[#14110b] via-[#0d0f14] to-[#0a0d13] p-4">
+                <div className="rounded-[22px] border border-[var(--exa-border-active)] bg-[linear-gradient(135deg,var(--exa-gold-surface),var(--exa-surface-elevated)_48%,var(--exa-bg-tertiary))] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Deposit details</p>
@@ -629,15 +629,15 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
 
                   {depositDetails?.address ? (
                     <>
-                      <div className="mt-4 rounded-2xl border border-white/8 bg-black/25 p-4">
+                      <div className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
                         <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-2xl bg-white p-3">
                           <QRCodeSVG value={depositDetails.address} size={192} bgColor="#ffffff" fgColor="#111111" includeMargin />
                         </div>
                       </div>
 
-                      <div className="mt-4 rounded-2xl border border-white/8 bg-black/20 p-4">
+                      <div className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
                         <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Deposit address</p>
-                        <p className="mt-2 break-all font-mono text-sm text-[#f5df9c]">{depositDetails.address}</p>
+                        <p className="mt-2 break-all font-mono text-sm text-[var(--exa-gold-light)]">{depositDetails.address}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <MiniButton onClick={() => void copyValue("address", depositDetails.address)}>
                             {copied === "address" ? "Copied" : "Copy address"}
@@ -653,12 +653,12 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                       {depositDetails.memo ? (
                         <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-100">
                           <p className="font-semibold">{depositDetails.memo_label || "Memo / tag"} required</p>
-                          <p className="mt-1 break-all font-mono text-[#f5df9c]">{depositDetails.memo}</p>
+                          <p className="mt-1 break-all font-mono text-[var(--exa-gold-light)]">{depositDetails.memo}</p>
                           <p className="mt-2 text-xs text-amber-100/80">Include this exactly or your deposit may need manual review before crediting.</p>
                         </div>
                       ) : null}
 
-                      <div className="mt-4 space-y-2 rounded-2xl border border-white/8 bg-black/20 p-4 text-xs text-slate-300">
+                      <div className="mt-4 space-y-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4 text-xs text-slate-300">
                         <Line label="Minimum deposit" value={formatAmount(depositDetails.network?.minimumDeposit, selectedAsset?.symbol)} />
                         <Line label="Deposit confirmations" value={String(depositDetails.network?.depositConfirmations || "--")} />
                         <Line label="Estimated arrival" value={depositDetails.network?.estimatedArrival || "--"} />
@@ -678,13 +678,13 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
           ) : null}
 
           {activeView === "exa-pay" ? (
-            <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4 sm:p-5">
+            <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setActiveView("hub")}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-slate-100 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                     aria-label="Back to deposit methods"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -694,14 +694,14 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                     <h2 className="mt-1 text-xl font-semibold text-white">Show your receive QR for internal transfers</h2>
                   </div>
                 </div>
-                <span className="rounded-full border border-[#d1ab55]/20 bg-[#d1ab55]/10 px-2.5 py-1 text-[11px] font-semibold text-[#f4d37d]">
+                <span className="rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--exa-gold-light)]">
                   Internal transfer
                 </span>
               </div>
 
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[0.88fr_1.12fr]">
-                <div className="rounded-[22px] border border-[#d1ab55]/18 bg-gradient-to-br from-[#14110b] via-[#0d0f14] to-[#0a0d13] p-4">
+                <div className="rounded-[22px] border border-[var(--exa-border-active)] bg-[linear-gradient(135deg,var(--exa-gold-surface),var(--exa-surface-elevated)_48%,var(--exa-bg-tertiary))] p-4">
                   <div className="mx-auto flex h-64 w-64 items-center justify-center rounded-2xl bg-white p-3">
                     <QRCodeSVG value={qrValue || "exaearn"} size={220} bgColor="#ffffff" fgColor="#111111" includeMargin />
                   </div>
@@ -709,7 +709,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Receive details</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <IdentityCard label="ExaEarn UID" value={String(receiveUid)} copied={copied === "receive_uid"} onCopy={() => void copyValue("receive_uid", String(receiveUid))} />
@@ -719,14 +719,14 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                     </div>
                   </div>
 
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">How it works</p>
                     <p className="mt-2 text-sm leading-6 text-slate-300">
                       Let the sender open ExaEarn Pay, scan this QR, or search for you by UID, username, or email. Once they confirm the internal transfer, the funds route directly into your ExaEarn account.
                     </p>
                   </div>
 
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Quick checks</p>
                     <div className="mt-3 space-y-2 text-sm text-slate-300">
                       <Line label="Method" value={currentMethod?.title || "ExaEarn Pay"} />
@@ -741,13 +741,13 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
           ) : null}
 
           {activeView === "deposit-fiat-list" ? (
-            <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4 sm:p-5">
+            <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setActiveView("hub")}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-slate-100 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                     aria-label="Back to deposit methods"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -760,7 +760,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 <button
                   type="button"
                   onClick={onOpenP2P}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 py-2 text-sm font-semibold text-white transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   <Users className="h-4 w-4" />
                   P2P option
@@ -768,7 +768,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
               </div>
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                   <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Funding methods</p>
                   <div className="mt-3 space-y-3">
                     {fiatMethods.map((item) => {
@@ -781,10 +781,10 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                             setSelectedFiatMethodId(key);
                             setActiveView("deposit-fiat-detail");
                           }}
-                          className="w-full rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-4 text-left transition hover:border-[#d1ab55]/35 hover:bg-white/[0.03]"
+                          className="w-full rounded-2xl border border-[var(--exa-border-subtle)] bg-[var(--exa-surface)] px-4 py-4 text-left transition hover:border-[var(--exa-border-active)] hover:bg-white/[0.03]"
                         >
                           <div className="flex items-start gap-3">
-                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.05] text-[#f4d37d]">
+                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.05] text-[var(--exa-gold-light)]">
                               <Building2 className="h-4 w-4" />
                             </span>
                             <div className="min-w-0">
@@ -800,7 +800,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">How fiat funding works</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <Metric label="Step 1" value="Choose the rail you want to fund through" compact />
@@ -822,13 +822,13 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
           ) : null}
 
           {activeView === "deposit-fiat-detail" ? (
-            <section className="rounded-[24px] border border-white/8 bg-[#0b0f18] p-4 sm:p-5">
+            <section className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setActiveView("deposit-fiat-list")}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-slate-100 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                     aria-label="Back to fiat methods"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -841,7 +841,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 <button
                   type="button"
                   onClick={() => setActiveView("deposit-fiat-list")}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 py-2 text-sm font-semibold text-white transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   Change method
                 </button>
@@ -849,7 +849,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
                 <div className="space-y-4">
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Settlement currency</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {fiatCurrencies.map((currency) => (
@@ -858,7 +858,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                           type="button"
                           onClick={() => setFiatCurrency(currency)}
                           className={`rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                            fiatCurrency === currency ? "border-[#d1ab55]/60 bg-[#d1ab55]/10 text-[#f4d37d]" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-[#d1ab55]/35"
+                            fiatCurrency === currency ? "border-[#d1ab55]/60 bg-[#d1ab55]/10 text-[var(--exa-gold-light)]" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-[var(--exa-border-active)]"
                           }`}
                         >
                           {currency}
@@ -868,7 +868,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
 
                     <label className="mt-4 block">
                       <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">Deposit amount</span>
-                      <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
+                      <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-4 py-3">
                         <div className="flex items-center justify-between gap-3">
                           <input
                             type="number"
@@ -888,14 +888,14 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                       type="button"
                       disabled={!canReviewFiat || fiatReviewLoading}
                       onClick={() => void reviewFiatInstructions()}
-                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
+                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl exa-button-primary px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
                     >
                       {fiatReviewLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                       {fiatReviewLoading ? "Preparing instructions" : "Review funding instructions"}
                     </button>
                   </div>
 
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-sm text-slate-300">
                     <p className="font-semibold text-white">What happens next</p>
                     <p className="mt-2 leading-6 text-slate-400">
                       Review the selected funding route, confirm the settlement currency, then follow the fiat payment instructions supplied by ExaEarn before expecting credit into your funding wallet.
@@ -904,18 +904,18 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-[22px] border border-[#d1ab55]/18 bg-gradient-to-br from-[#14110b] via-[#0d0f14] to-[#0a0d13] p-4">
+                  <div className="rounded-[22px] border border-[var(--exa-border-active)] bg-[linear-gradient(135deg,var(--exa-gold-surface),var(--exa-surface-elevated)_48%,var(--exa-bg-tertiary))] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Fiat funding overview</p>
                         <p className="mt-1 text-base font-semibold text-white">{selectedFiatMethod?.name || selectedFiatMethod?.label || "Select fiat method"}</p>
                       </div>
-                      <span className="rounded-full border border-[#d1ab55]/20 bg-[#d1ab55]/10 px-2.5 py-1 text-[11px] font-semibold text-[#f4d37d]">
+                      <span className="rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--exa-gold-light)]">
                         {selectedFiatMethod?.status || "Configured"}
                       </span>
                     </div>
 
-                    <div className="mt-4 space-y-2 rounded-2xl border border-white/8 bg-black/20 p-4 text-xs text-slate-300">
+                    <div className="mt-4 space-y-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4 text-xs text-slate-300">
                       <Line label="Currency" value={fiatCurrency || "Select currency"} />
                       <Line label="Amount" value={fiatAmount ? `${Number(fiatAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${fiatCurrency}` : "Enter amount"} />
                       <Line label="Method status" value={selectedFiatMethod?.status || "Configured"} />
@@ -923,7 +923,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                     </div>
                   </div>
 
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-sm text-slate-300">
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Method details</p>
                     <div className="mt-3 space-y-2 text-sm text-slate-300">
                       <Line label="Method" value={selectedFiatMethod?.name || selectedFiatMethod?.label || "--"} />
@@ -942,7 +942,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
         </section>
 
         {activeView === "deposit-fiat-review" ? (
-          <section className="rounded-[28px] border border-white/8 bg-[#0b0f18] px-4 py-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] sm:px-5 lg:px-6">
+          <section className="rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] px-4 py-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] sm:px-5 lg:px-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Review</p>
@@ -954,7 +954,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
               <button
                 type="button"
                 onClick={() => setActiveView("deposit-fiat-detail")}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 py-2 text-sm font-semibold text-white transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
               >
                 Edit details
               </button>
@@ -963,9 +963,9 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
             <div className="mt-5 grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
               <div className="space-y-4">
                 {fiatReviewLoading && !fiatReviewData ? (
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-5 text-sm text-slate-300">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5 text-sm text-slate-300">
                     <div className="flex items-center gap-3 text-white">
-                      <LoaderCircle className="h-5 w-5 animate-spin text-[#f4d37d]" />
+                      <LoaderCircle className="h-5 w-5 animate-spin text-[var(--exa-gold-light)]" />
                       <span className="font-semibold">Preparing your funding details</span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-slate-400">
@@ -974,7 +974,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                   </div>
                 ) : null}
 
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
+                <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-sm text-slate-300">
                   <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Funding summary</p>
                   <div className="mt-3 space-y-2">
                     <Line label="Funding method" value={fiatReviewData?.method?.name || selectedFiatMethod?.name || selectedFiatMethod?.label || "--"} />
@@ -994,7 +994,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 </div>
 
                 {Array.isArray(fiatReviewData?.disclosures) && fiatReviewData.disclosures.length > 1 ? (
-                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-xs text-slate-400">
+                  <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-xs text-slate-400">
                     <ul className="space-y-2">
                       {fiatReviewData.disclosures.slice(1).map((item) => (
                         <li key={item}>- {item}</li>
@@ -1005,7 +1005,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[22px] border border-white/8 bg-black/20 p-4 text-sm text-slate-300">
+                <div className="rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4 text-sm text-slate-300">
                   <p className="font-semibold text-white">Instruction details</p>
                   <div className="mt-3 space-y-2">
                     <Line label="Bank / Provider" value={fiatReviewData?.instructions?.bank_name || fiatReviewData?.instructions?.provider || fiatReviewData?.method?.name || "--"} />
@@ -1028,7 +1028,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                   <button
                     type="button"
                     onClick={() => setActiveView("deposit-fiat-detail")}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-[#d1ab55]/35"
+                    className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-[var(--exa-border-active)]"
                   >
                     Back to details
                   </button>
@@ -1036,7 +1036,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                     <button
                       type="button"
                       onClick={() => window.location.assign(fiatReviewData.instructions.checkout_url)}
-                      className="rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105"
+                      className="rounded-2xl exa-button-primary px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition hover:brightness-105"
                     >
                       {fiatReviewData?.instructions?.action_label || "Continue to checkout"}
                     </button>
@@ -1045,7 +1045,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                       type="button"
                       onClick={() => void markFiatPaymentSent()}
                       disabled={markPaidLoading || fiatReviewLoading || !fiatReviewData?.reference}
-                      className="rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
+                      className="rounded-2xl exa-button-primary px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
                     >
                       {markPaidLoading ? <LoaderCircle className="mx-auto h-4 w-4 animate-spin" /> : fiatReviewLoading ? "Loading details" : selectedFiatMethod?.id === "card_payment" ? "Waiting for checkout link" : "I've sent payment"}
                     </button>
@@ -1064,12 +1064,12 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Review</p>
                   <h3 className="mt-1 text-lg font-semibold text-white">Fiat funding instructions</h3>
                 </div>
-                <button type="button" onClick={() => setFiatReviewOpen(false)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200">
+                <button type="button" onClick={() => setFiatReviewOpen(false)} className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 py-2 text-xs font-semibold text-slate-200">
                   Close
                 </button>
               </div>
 
-              <div className="mt-4 space-y-2 rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
+              <div className="mt-4 space-y-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-sm text-slate-300">
                 <Line label="Funding method" value={fiatReviewData?.method?.name || selectedFiatMethod?.name || selectedFiatMethod?.label || "--"} />
                 <Line label="Settlement currency" value={fiatReviewData?.currency || fiatCurrency || "--"} />
                 <Line label="Amount" value={fiatReviewData?.amount ? `${Number(fiatReviewData.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${fiatReviewData.currency}` : fiatAmount ? `${Number(fiatAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${fiatCurrency}` : "--"} />
@@ -1087,7 +1087,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 </p>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-slate-300">
+              <div className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4 text-sm text-slate-300">
                 <p className="font-semibold text-white">Instruction details</p>
                 <div className="mt-3 space-y-2 text-sm text-slate-300">
                   <Line label="Bank / Provider" value={fiatReviewData?.instructions?.bank_name || fiatReviewData?.instructions?.provider || fiatReviewData?.method?.name || "--"} />
@@ -1103,7 +1103,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
               </div>
 
               {Array.isArray(fiatReviewData?.disclosures) && fiatReviewData.disclosures.length > 1 ? (
-                <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-xs text-slate-400">
+                <div className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-xs text-slate-400">
                   <ul className="space-y-2">
                     {fiatReviewData.disclosures.slice(1).map((item) => (
                       <li key={item}>- {item}</li>
@@ -1116,7 +1116,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                 <button
                   type="button"
                   onClick={() => setFiatReviewOpen(false)}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-[#d1ab55]/35"
+                  className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-[var(--exa-border-active)]"
                 >
                   Edit details
                 </button>
@@ -1124,7 +1124,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                   <button
                     type="button"
                     onClick={() => window.open(fiatReviewData.instructions.checkout_url, "_blank", "noopener,noreferrer")}
-                    className="rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105"
+                    className="rounded-2xl exa-button-primary px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition hover:brightness-105"
                   >
                     {fiatReviewData?.instructions?.action_label || "Continue to checkout"}
                   </button>
@@ -1133,7 +1133,7 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
                     type="button"
                     onClick={() => void markFiatPaymentSent()}
                     disabled={markPaidLoading}
-                    className="rounded-2xl bg-gradient-to-r from-[#f7df8f] via-[#d1ab55] to-[#ad832a] px-4 py-3 text-sm font-semibold text-[#1d1608] shadow-[0_14px_34px_rgba(209,171,85,.26)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
+                    className="rounded-2xl exa-button-primary px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
                   >
                     {markPaidLoading ? <LoaderCircle className="mx-auto h-4 w-4 animate-spin" /> : "I've sent payment"}
                   </button>
@@ -1149,11 +1149,11 @@ function AddFundsPage({ onBack, onOpenP2P, initialMethod = null, initialView = n
 
 function LoadingShell({ onBack }) {
   return (
-    <main className="min-h-[100dvh] bg-[#06080d] px-3 pb-8 pt-3 text-slate-100 sm:px-4 lg:px-6">
+    <main className="min-h-[100dvh] bg-[var(--exa-bg-primary)] px-3 pb-8 pt-3 text-slate-100 sm:px-4 lg:px-6">
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-4">
-        <header className="rounded-[24px] border border-white/8 bg-[#0b0f18] px-4 py-4">
+        <header className="rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] px-4 py-4">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={onBack} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100">
+            <button type="button" onClick={onBack} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-slate-100">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="space-y-2">
@@ -1210,7 +1210,7 @@ function AssetMark({ symbol, small = false }) {
           }}
         />
       ) : null}
-      <span className={`${logo ? "absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-[#f7df8f] via-[#d1ab55] to-[#8a6823] text-[#191102]" : ""}`}>
+      <span className={`${logo ? "absolute inset-0 hidden items-center justify-center bg-[var(--exa-gold-gradient)] text-[var(--exa-gold-contrast)]" : ""}`}>
         {String(symbol || "?").slice(0, 3)}
       </span>
       {!logo ? String(symbol || "?").slice(0, 3) : null}
@@ -1235,7 +1235,7 @@ function Banner({ children, tone = "rose" }) {
 function EmptyState({ message, icon: Icon = Wallet, tall = false }) {
   return (
     <div className={`rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 ${tall ? "py-8" : "py-5"} text-center`}>
-      <Icon className="mx-auto h-10 w-10 text-[#f4d37d]" />
+      <Icon className="mx-auto h-10 w-10 text-[var(--exa-gold-light)]" />
       <p className="mt-3 text-sm leading-6 text-slate-400">{message}</p>
     </div>
   );
@@ -1252,14 +1252,14 @@ function Line({ label, value }) {
 
 function IdentityCard({ label, value, onCopy, copied }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+    <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
       <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">{label}</p>
       <p className="mt-2 break-all text-sm font-semibold text-white">{value || "--"}</p>
       <button
         type="button"
         onClick={onCopy}
         disabled={!value || value === "--" || value === "Not available"}
-        className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d] disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Copy className="h-3.5 w-3.5" />
         {copied ? "Copied" : "Copy"}
@@ -1271,7 +1271,7 @@ function IdentityCard({ label, value, onCopy, copied }) {
 
 function MiniButton({ children, onClick }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-[#d1ab55]/45 hover:text-[#f4d37d]">
+    <button type="button" onClick={onClick} className="inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]">
       <Copy className="h-3.5 w-3.5" />
       {children}
     </button>
@@ -1280,9 +1280,9 @@ function MiniButton({ children, onClick }) {
 
 function Safety({ icon: Icon, title, body }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+    <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/[0.05] text-[#f4d37d]">
+        <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/[0.05] text-[var(--exa-gold-light)]">
           <Icon className="h-4 w-4" />
         </span>
         <div>
@@ -1333,4 +1333,5 @@ function truncateMiddle(value, head = 8, tail = 6) {
 }
 
 export default AddFundsPage;
+
 
