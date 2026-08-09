@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { StrictMode, useEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import {
@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Coins,
+  Globe2,
   Cpu,
   Disc3,
   Download,
@@ -39,6 +40,7 @@ import {
   Rocket,
   Settings,
   ShieldCheck,
+  Search,
   Smartphone,
   ShoppingBag,
   Sparkles,
@@ -49,6 +51,14 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import {
+  DEFAULT_LANGUAGE_CODE,
+  LANGUAGE_STORAGE_KEY,
+  formatLanguageLabel,
+  getLanguageByCode,
+  resolvePreferredLanguage,
+  searchLanguages,
+} from "@exaearn/config";
 import logo from "./assets/exaearn1.5logo.jpg";
 import "./styles/index.css";
 
@@ -2490,6 +2500,65 @@ function DeferredPageSections({ onOpenDownload, onOpenWallet, isWalletConnected 
   );
 }
 
+function WebsiteLanguageSwitcher() {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [languageCode, setLanguageCode] = useState(() => {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    const browserLanguages = Array.from(navigator.languages || [navigator.language]);
+    return resolvePreferredLanguage([stored, ...browserLanguages, DEFAULT_LANGUAGE_CODE]);
+  });
+
+  const language = getLanguageByCode(languageCode);
+  const results = useMemo(() => searchLanguages(query), [query]);
+
+  useEffect(() => {
+    document.documentElement.lang = language.locale;
+    document.documentElement.dir = language.direction;
+    document.documentElement.dataset.language = language.code;
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language.code);
+  }, [language.code, language.direction, language.locale]);
+
+  const selectLanguage = (code) => {
+    setLanguageCode(getLanguageByCode(code).code);
+    setOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div className="website-language-switcher">
+      <button type="button" className="website-language-trigger" onClick={() => setOpen((value) => !value)} aria-haspopup="dialog" aria-expanded={open}>
+        <Globe2 size={16} />
+        <span>{language.code.toUpperCase()}</span>
+        <ChevronDown size={13} />
+      </button>
+      {open ? (
+        <div className="website-language-panel" role="dialog" aria-label="Select website language">
+          <div className="website-language-head">
+            <div>
+              <strong>Language</strong>
+              <span>{formatLanguageLabel(language)}</span>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close language selector"><X size={15} /></button>
+          </div>
+          <label className="website-language-search">
+            <Search size={14} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search language..." />
+          </label>
+          <div className="website-language-list" role="listbox">
+            {results.map((item) => (
+              <button key={item.code} type="button" onClick={() => selectLanguage(item.code)} className={item.code === language.code ? "is-selected" : ""} role="option" aria-selected={item.code === language.code}>
+                <span><strong>{item.englishName}</strong><small>{item.nativeName} - {item.locale}</small></span>
+                {item.code === language.code ? <Check size={14} /> : null}
+              </button>
+            ))}
+          </div>
+          <p>English copy is used wherever a localized translation is not ready.</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 function App() {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
@@ -2545,6 +2614,7 @@ function App() {
           ))}
         </div>
         <div className="nav-actions">
+          <WebsiteLanguageSwitcher />
           <motion.a className="nav-action primary" href={WEB_APP_SIGNUP_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
             <Rocket size={16} /> Launch App
           </motion.a>
@@ -2574,6 +2644,7 @@ function App() {
               <a href="#features">Features</a>
               <a href="#security">Security</a>
             </div>
+            <WebsiteLanguageSwitcher />
             <div className="mobile-auth-actions" aria-label="Account actions">
               <a href={WEB_APP_LOGIN_URL}>Sign in</a>
               <a href={WEB_APP_SIGNUP_URL}>Sign up</a>
@@ -2612,3 +2683,5 @@ createRoot(document.getElementById("root")).render(
     <App />
   </StrictMode>,
 );
+
+

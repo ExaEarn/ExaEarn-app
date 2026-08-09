@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@exaearn/config": "workspace:^",
     "@vitejs/plugin-react": "^5.1.1",
     "framer-motion": "^12.40.0",
     "lucide-react": "^0.574.0",
@@ -20,14 +21,14 @@
     "vite": "^5.4.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "typescript": "^5.7.2",
-    "@eslint/js": "^9.39.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0"
+    "globals": "^16.5.0",
+    "typescript": "^5.7.2"
   }
 }

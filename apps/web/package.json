@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@exaearn/config": "workspace:^",
     "@heroicons/react": "^2.2.0",
     "@react-oauth/google": "^0.13.4",
     "@tanstack/react-table": "^8.21.3",

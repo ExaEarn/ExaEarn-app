@@ -109,6 +109,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@exaearn/config':
+        specifier: workspace:^
+        version: link:../../packages/config
       '@expo-google-fonts/sora':
         specifier: ^0.2.3
         version: 0.2.3
@@ -188,6 +191,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@exaearn/config':
+        specifier: workspace:^
+        version: link:../../packages/config
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.6)
@@ -282,6 +288,9 @@ importers:
 
   apps/website:
     dependencies:
+      '@exaearn/config':
+        specifier: workspace:^
+        version: link:../../packages/config
       '@vitejs/plugin-react':
         specifier: ^5.1.1
         version: 5.2.0(vite@5.4.21(@types/node@22.19.19)(lightningcss@1.32.0)(terser@5.48.0))

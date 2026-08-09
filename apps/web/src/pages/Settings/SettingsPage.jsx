@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { LANGUAGE_STORAGE_KEY, formatLanguageLabel, getLanguageByCode } from "@exaearn/config";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -90,13 +91,13 @@ function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, 
 
   useEffect(() => {
     try {
+      const currentCode = localStorage.getItem(LANGUAGE_STORAGE_KEY);
       const raw = localStorage.getItem("exaearn-language-region-settings");
       const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed?.language || parsed?.region) {
-        setLanguageRegionSummary(`${parsed.language || "English (Default)"}, ${parsed.region || "Nigeria"}`);
-      }
+      const language = getLanguageByCode(currentCode || parsed?.language_code || parsed?.language || "en");
+      setLanguageRegionSummary(`${formatLanguageLabel(language)}, ${parsed?.region || "Nigeria"}`);
     } catch {
-      setLanguageRegionSummary("English (Default), Nigeria");
+      setLanguageRegionSummary("English, Nigeria");
     }
   }, []);
 
@@ -294,4 +295,5 @@ function ToggleRow({ icon: Icon, title, description, enabled, onToggle, security
 }
 
 export default SettingsPage;
+
 

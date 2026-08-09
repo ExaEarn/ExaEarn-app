@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import Image from "./assets/Image";
 import SplashScreen from "./components/SplashScreen";
+import LanguageSwitcher from "./components/language/LanguageSwitcher.jsx";
 import ProfileIdentity from "./components/profile/ProfileIdentity";
 import { useAuth } from "./context/AuthContext";
 import { useWebSocketEvent } from "./services/webSocketService";
@@ -1264,7 +1265,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <LanguageSwitcher compact />
               <div className="notification-menu">
                 <button
                   type="button"
@@ -1617,4 +1619,6 @@ function NavItem({ icon, label, active, imageIcon = false, onClick }) {
     </button>
   );
 }
+
+
 

@@ -4,6 +4,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./styles/index.css";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
+import { LanguageProvider } from "./context/LanguageContext.jsx";
 
 const App = lazy(() => import("./App.jsx"));
 
@@ -26,11 +27,14 @@ createRoot(document.getElementById("root")).render(
     <GoogleOAuthProvider clientId={googleClientId}>
       <ThemeProvider>
         <AuthProvider>
-          <Suspense fallback={<AppFallback />}>
-            <App />
-          </Suspense>
+          <LanguageProvider>
+            <Suspense fallback={<AppFallback />}>
+              <App />
+            </Suspense>
+          </LanguageProvider>
         </AuthProvider>
       </ThemeProvider>
     </GoogleOAuthProvider>
   </StrictMode>,
 )
+

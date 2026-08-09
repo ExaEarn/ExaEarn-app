@@ -7,6 +7,7 @@ import {
   SpaceGrotesk_600SemiBold,
 } from "@expo-google-fonts/space-grotesk";
 import { Ionicons } from "@expo/vector-icons";
+import { formatLanguageLabel, searchLanguages } from "@exaearn/config";
 import { useFonts } from "expo-font";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
@@ -26,6 +27,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import { LanguageProvider, useLanguage } from "./src/context/LanguageContext";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import GiftcardScreen from "./src/screens/GiftcardScreen";
 import MarketScreen from "./src/screens/MarketScreen";
@@ -46,10 +48,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.fill}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <StatusBar style="light" />
-          <RootShell fontsReady={fontsReady} />
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <StatusBar style="light" />
+            <RootShell fontsReady={fontsReady} />
+          </AuthProvider>
+        </LanguageProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -113,6 +117,10 @@ function AuthScreen({ fontsReady }: { fontsReady: boolean }) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [remember, setRemember] = useState(false);
   const [localMessage, setLocalMessage] = useState("");
+  const { language, languageCode, setLanguageCode } = useLanguage();
+  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
+  const [languageSearch, setLanguageSearch] = useState("");
+  const languageResults = useMemo(() => searchLanguages(languageSearch), [languageSearch]);
 
   const actionTitle = mode === "login" ? "Welcome to ExaEarn" : "Create your ExaEarn account";
   const helperCopy =
@@ -183,6 +191,48 @@ function AuthScreen({ fontsReady }: { fontsReady: boolean }) {
               </View>
               <Text style={styles.authTitle}>{actionTitle}</Text>
               <Text style={styles.authText}>{helperCopy}</Text>
+            </View>
+
+            <View style={styles.languagePickerWrap}>
+              <Pressable style={styles.languagePickerButton} onPress={() => setLanguagePickerOpen((open) => !open)} accessibilityRole="button">
+                <Ionicons name="language-outline" size={16} color={colors.auric300} />
+                <Text style={styles.languagePickerButtonText}>{formatLanguageLabel(language)}</Text>
+                <Ionicons name={languagePickerOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="rgba(245,240,255,0.72)" />
+              </Pressable>
+              {languagePickerOpen ? (
+                <View style={styles.languagePickerPanel}>
+                  <View style={styles.languageSearchRow}>
+                    <Ionicons name="search-outline" size={15} color={colors.auric300} />
+                    <TextInput
+                      value={languageSearch}
+                      onChangeText={setLanguageSearch}
+                      placeholder="Search language..."
+                      placeholderTextColor="rgba(245,240,255,0.42)"
+                      style={styles.languageSearchInput}
+                    />
+                  </View>
+                  <ScrollView style={styles.languageResultList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {languageResults.map((item) => (
+                      <Pressable
+                        key={item.code}
+                        style={[styles.languageResultItem, item.code === languageCode && styles.languageResultItemActive]}
+                        onPress={() => {
+                          setLanguageCode(item.code);
+                          setLanguagePickerOpen(false);
+                          setLanguageSearch("");
+                        }}
+                      >
+                        <View style={styles.languageResultCopy}>
+                          <Text style={styles.languageResultTitle}>{item.englishName}</Text>
+                          <Text style={styles.languageResultMeta}>{item.nativeName} - {item.locale} - {item.direction.toUpperCase()}</Text>
+                        </View>
+                        {item.code === languageCode ? <Ionicons name="checkmark-circle" size={17} color={colors.auric300} /> : null}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                  <Text style={styles.languageFallbackText}>English is used wherever a translation is not ready yet.</Text>
+                </View>
+              ) : null}
             </View>
 
             {mode === "register" ? (
@@ -642,7 +692,94 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 11,
   },
-  errorText: {
+  languagePickerWrap: {
+    marginTop: 16,
+  },
+  languagePickerButton: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(249,226,173,0.28)",
+    backgroundColor: "rgba(15,10,29,0.68)",
+    paddingHorizontal: 14,
+  },
+  languagePickerButtonText: {
+    flex: 1,
+    color: "rgba(245,240,255,0.86)",
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+  },
+  languagePickerPanel: {
+    marginTop: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(249,226,173,0.22)",
+    backgroundColor: "rgba(8,6,18,0.96)",
+    padding: 10,
+  },
+  languageSearchRow: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(196,181,253,0.2)",
+    backgroundColor: "rgba(255,255,255,0.055)",
+    paddingHorizontal: 10,
+  },
+  languageSearchInput: {
+    flex: 1,
+    color: colors.violetText,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    paddingVertical: 9,
+  },
+  languageResultList: {
+    maxHeight: 220,
+    marginTop: 8,
+  },
+  languageResultItem: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "transparent",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  languageResultItemActive: {
+    borderColor: "rgba(249,226,173,0.36)",
+    backgroundColor: "rgba(249,226,173,0.1)",
+  },
+  languageResultCopy: {
+    flex: 1,
+  },
+  languageResultTitle: {
+    color: colors.violetText,
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+  },
+  languageResultMeta: {
+    marginTop: 2,
+    color: "rgba(245,240,255,0.52)",
+    fontFamily: fonts.body,
+    fontSize: 10,
+  },
+  languageFallbackText: {
+    marginTop: 8,
+    color: "rgba(245,240,255,0.5)",
+    fontFamily: fonts.body,
+    fontSize: 10,
+    lineHeight: 15,
+  },  errorText: {
     marginTop: 12,
     color: colors.danger,
     fontFamily: fonts.semibold,
@@ -650,6 +787,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+
+
+
 
 
 

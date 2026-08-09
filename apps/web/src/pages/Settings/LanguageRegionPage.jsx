@@ -1,112 +1,65 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, Globe2, Languages, Search } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
-
-const languages = [
-  "English (Default)",
-  "French",
-  "Spanish",
-  "Arabic",
-  "Chinese",
-  "Hausa",
-  "Yoruba",
-  "Igbo",
-];
+import { formatLanguageLabel, getLanguageByCode, searchLanguages, supportedLanguages } from "@exaearn/config";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 
 const regions = [
-  { name: "Nigeria", flag: "NG", currency: "Naira (NGN)", format: "DD/MM/YYYY - 24h" },
-  { name: "USA", flag: "US", currency: "US Dollar (USD)", format: "MM/DD/YYYY - 12h" },
-  { name: "UK", flag: "GB", currency: "Pound Sterling (GBP)", format: "DD/MM/YYYY - 24h" },
-  { name: "Canada", flag: "CA", currency: "Canadian Dollar (CAD)", format: "YYYY-MM-DD - 12h" },
-  { name: "Ghana", flag: "GH", currency: "Cedi (GHS)", format: "DD/MM/YYYY - 24h" },
+  { name: "Nigeria", code: "NG", currency: "Naira (NGN)", format: "DD/MM/YYYY - 24h", defaultLanguage: "English" },
+  { name: "United States", code: "US", currency: "US Dollar (USD)", format: "MM/DD/YYYY - 12h", defaultLanguage: "English" },
+  { name: "United Kingdom", code: "GB", currency: "Pound Sterling (GBP)", format: "DD/MM/YYYY - 24h", defaultLanguage: "English" },
+  { name: "Canada", code: "CA", currency: "Canadian Dollar (CAD)", format: "YYYY-MM-DD - 12h", defaultLanguage: "English / French" },
+  { name: "European Union", code: "EU", currency: "Euro (EUR)", format: "DD/MM/YYYY - 24h", defaultLanguage: "Country default" },
+  { name: "Ghana", code: "GH", currency: "Cedi (GHS)", format: "DD/MM/YYYY - 24h", defaultLanguage: "English" },
 ];
 
 const storageKey = "exaearn-language-region-settings";
 
 function LanguageRegionPage({ onBack }) {
-  const { request, user } = useAuth();
+  const { languageCode, setLanguage, syncState } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState("English (Default)");
+  const [selectedLanguage, setSelectedLanguage] = useState(languageCode);
   const [selectedRegion, setSelectedRegion] = useState("Nigeria");
-  const [savedSettings, setSavedSettings] = useState({
-    language: "English (Default)",
-    region: "Nigeria",
-  });
+  const [savedSettings, setSavedSettings] = useState({ language: languageCode, region: "Nigeria" });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    async function loadSettings() {
-      try {
-        let parsed = null;
-
-        if (user) {
-          try {
-            const payload = await request("/api/preferences/language-region", { method: "GET" });
-            parsed = payload.data;
-          } catch {
-            parsed = null;
-          }
-        }
-
-        if (!parsed) {
-          const raw = localStorage.getItem(storageKey);
-          parsed = raw ? JSON.parse(raw) : null;
-        }
-
-        if (!mounted) return;
-
-        const nextSettings = {
-          language: parsed?.language || "English (Default)",
-          region: parsed?.region || "Nigeria",
-        };
-
-        setSelectedLanguage(nextSettings.language);
-        setSelectedRegion(nextSettings.region);
-        setSavedSettings(nextSettings);
-      } catch (error) {
-        console.error("Unable to load language settings", error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const nextLanguage = parsed?.language_code || parsed?.language || languageCode;
+      const nextRegion = parsed?.region || "Nigeria";
+      setSelectedLanguage(getLanguageByCode(nextLanguage).code);
+      setSelectedRegion(nextRegion);
+      setSavedSettings({ language: getLanguageByCode(nextLanguage).code, region: nextRegion });
+    } catch (error) {
+      console.error("Unable to load language settings", error);
+    } finally {
+      setLoading(false);
     }
-
-    loadSettings();
-
-    return () => {
-      mounted = false;
-    };
-  }, [request, user]);
+  }, [languageCode]);
 
   const hasChanges = selectedLanguage !== savedSettings.language || selectedRegion !== savedSettings.region;
-
-  const filteredLanguages = useMemo(() => {
-    const key = search.trim().toLowerCase();
-    if (!key) return languages;
-    return languages.filter((item) => item.toLowerCase().includes(key));
-  }, [search]);
-
+  const filteredLanguages = useMemo(() => searchLanguages(search), [search]);
+  const selectedLanguageMeta = getLanguageByCode(selectedLanguage);
   const selectedRegionMeta = regions.find((item) => item.name === selectedRegion) || regions[0];
 
   const saveChanges = async () => {
     if (!hasChanges || saving) return;
     setSaving(true);
     try {
-      const payload = { language: selectedLanguage, region: selectedRegion };
-
-      if (user) {
-        await request("/api/preferences/language-region", {
-          method: "PATCH",
-          body: JSON.stringify(payload),
-        });
-      }
-
+      await setLanguage(selectedLanguage);
+      const payload = {
+        language: formatLanguageLabel(selectedLanguageMeta),
+        language_code: selectedLanguageMeta.code,
+        locale: selectedLanguageMeta.locale,
+        direction: selectedLanguageMeta.direction,
+        region: selectedRegion,
+      };
       localStorage.setItem(storageKey, JSON.stringify(payload));
-      setSavedSettings(payload);
-      setToast("Language & region updated successfully.");
+      setSavedSettings({ language: selectedLanguageMeta.code, region: selectedRegion });
+      setToast("Language and region updated successfully.");
       setTimeout(() => setToast(""), 2200);
     } catch (error) {
       setToast("Unable to save settings.");
@@ -128,12 +81,13 @@ function LanguageRegionPage({ onBack }) {
               type="button"
               onClick={onBack}
               className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-2 text-[var(--exa-text-primary)] hover:border-[var(--exa-border-active)]"
+              aria-label="Back to settings"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
               <h1 className="text-lg font-semibold text-[var(--exa-text-primary)] sm:text-xl">Language & Region</h1>
-              <p className="text-xs text-[var(--exa-text-secondary)] sm:text-sm">Customize your app experience</p>
+              <p className="text-xs text-[var(--exa-text-secondary)] sm:text-sm">Choose your display language, locale direction and regional formats.</p>
             </div>
           </div>
         </div>
@@ -148,46 +102,61 @@ function LanguageRegionPage({ onBack }) {
         ) : (
           <>
             <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Languages className="h-4 w-4 text-[var(--exa-gold-light)]" />
-                <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Language Selection</h2>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Languages className="h-4 w-4 text-[var(--exa-gold-light)]" />
+                  <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Language</h2>
+                </div>
+                <span className="rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--exa-gold-light)]">
+                  {selectedLanguageMeta.code}
+                </span>
               </div>
 
               <label className="mb-3 block">
+                <span className="sr-only">Search language</span>
                 <div className="flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2.5">
                   <Search className="h-4 w-4 text-[var(--exa-gold-light)]" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search language..."
+                    placeholder="Search by language, native name, code or locale..."
                     className="w-full bg-transparent text-sm text-white placeholder:text-[var(--exa-text-muted)] outline-none"
                   />
                 </div>
               </label>
 
-              <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1" role="listbox" aria-label="Supported ExaEarn languages">
                 {filteredLanguages.map((language) => (
                   <button
-                    key={language}
+                    key={language.code}
                     type="button"
-                    onClick={() => setSelectedLanguage(language)}
+                    onClick={() => setSelectedLanguage(language.code)}
                     className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition ${
-                      selectedLanguage === language
+                      selectedLanguage === language.code
                         ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]"
                         : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)] hover:border-[var(--exa-border-active)]"
                     }`}
+                    role="option"
+                    aria-selected={selectedLanguage === language.code}
                   >
-                    <span className="text-sm">{language}</span>
-                    {selectedLanguage === language ? <Check className="h-4 w-4" /> : null}
+                    <span>
+                      <span className="block text-sm font-semibold text-[var(--exa-text-primary)]">{language.englishName}</span>
+                      <span className="block text-xs text-[var(--exa-text-muted)]">{language.nativeName} - {language.locale} - {language.direction.toUpperCase()}</span>
+                    </span>
+                    {selectedLanguage === language.code ? <Check className="h-4 w-4" /> : null}
                   </button>
                 ))}
               </div>
+
+              <p className="mt-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs leading-5 text-[var(--exa-text-muted)]">
+                ExaEarn falls back to English for any untranslated copy. Nigeria uses English by default in this language system.
+              </p>
             </article>
 
             <article className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Globe2 className="h-4 w-4 text-[var(--exa-gold-light)]" />
-                <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Region Selection</h2>
+                <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Region</h2>
               </div>
               <div className="space-y-2">
                 {regions.map((region) => (
@@ -202,8 +171,8 @@ function LanguageRegionPage({ onBack }) {
                     }`}
                   >
                     <div>
-                      <p className="text-sm text-[var(--exa-text-primary)]">{region.name} {flagEmoji(region.flag)}</p>
-                      <p className="text-xs text-[var(--exa-text-muted)]">{region.currency}</p>
+                      <p className="text-sm text-[var(--exa-text-primary)]">{region.name}</p>
+                      <p className="text-xs text-[var(--exa-text-muted)]">{region.currency} - {region.defaultLanguage}</p>
                     </div>
                     {selectedRegion === region.name ? <Check className="h-4 w-4 text-[var(--exa-gold-light)]" /> : null}
                   </button>
@@ -231,7 +200,7 @@ function LanguageRegionPage({ onBack }) {
             onClick={saveChanges}
             className="w-full rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving || syncState === "syncing" ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </section>
@@ -248,33 +217,18 @@ function LanguageRegionPage({ onBack }) {
 function LoadingState() {
   return (
     <div className="space-y-4">
-      <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
-        <div className="mb-3 h-5 w-40 animate-pulse rounded bg-gradient-to-r from-[var(--exa-gold-surface)] to-transparent" />
-        <div className="space-y-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-11 animate-pulse rounded-xl bg-gradient-to-r from-[#1C263A] via-[#243146] to-[#1C263A]" />
-          ))}
-        </div>
-      </article>
-      <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
-        <div className="mb-3 h-5 w-36 animate-pulse rounded bg-gradient-to-r from-[var(--exa-gold-surface)] to-transparent" />
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-12 animate-pulse rounded-xl bg-gradient-to-r from-[#1C263A] via-[#243146] to-[#1C263A]" />
-          ))}
-        </div>
-      </article>
+      {[1, 2].map((card) => (
+        <article key={card} className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
+          <div className="mb-3 h-5 w-40 animate-pulse rounded bg-gradient-to-r from-[var(--exa-gold-surface)] to-transparent" />
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-11 animate-pulse rounded-xl bg-gradient-to-r from-[#1C263A] via-[#243146] to-[#1C263A]" />
+            ))}
+          </div>
+        </article>
+      ))}
     </div>
   );
 }
 
-function flagEmoji(code) {
-  return code
-    .toUpperCase()
-    .split("")
-    .map((char) => String.fromCodePoint(127397 + char.charCodeAt()))
-    .join("");
-}
-
 export default LanguageRegionPage;
-

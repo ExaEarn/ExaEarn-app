@@ -11,8 +11,16 @@ class UserPreferenceController extends Controller
 {
     private const CURRENCIES = ['USD', 'NGN', 'EUR', 'GBP', 'BTC', 'ETH'];
 
+    private const SUPPORTED_LANGUAGE_CODES = [
+        'en', 'fr', 'es', 'pt', 'de', 'it', 'nl', 'pl', 'ru', 'uk', 'tr', 'ar', 'hi', 'ur', 'bn',
+        'id', 'ms', 'vi', 'th', 'zh-CN', 'zh-TW', 'ja', 'ko', 'el', 'sv', 'no', 'da', 'fi', 'ro', 'cs', 'hu', 'bg', 'he', 'fa',
+    ];
+
     private const DEFAULT_LANGUAGE_REGION = [
-        'language' => 'English (Default)',
+        'language' => 'English',
+        'language_code' => 'en',
+        'locale' => 'en',
+        'direction' => 'ltr',
         'region' => 'Nigeria',
     ];
 
@@ -32,7 +40,10 @@ class UserPreferenceController extends Controller
     public function updateLanguageRegion(Request $request): JsonResponse
     {
         $payload = $request->validate([
-            'language' => ['required', 'string', 'max:64'],
+            'language' => ['required', 'string', 'max:96'],
+            'language_code' => ['nullable', 'string', 'in:' . implode(',', self::SUPPORTED_LANGUAGE_CODES)],
+            'locale' => ['nullable', 'string', 'max:16'],
+            'direction' => ['nullable', 'string', 'in:ltr,rtl'],
             'region' => ['required', 'string', 'max:64'],
         ]);
 
@@ -40,6 +51,9 @@ class UserPreferenceController extends Controller
         $preferences = (array) ($user->preferences ?? []);
         $preferences['language_region'] = [
             'language' => $payload['language'],
+            'language_code' => $payload['language_code'] ?? 'en',
+            'locale' => $payload['locale'] ?? ($payload['language_code'] ?? 'en'),
+            'direction' => $payload['direction'] ?? 'ltr',
             'region' => $payload['region'],
         ];
 
@@ -93,6 +107,9 @@ class UserPreferenceController extends Controller
 
         return array_merge(self::DEFAULT_LANGUAGE_REGION, array_filter([
             'language' => $languageRegion['language'] ?? null,
+            'language_code' => $languageRegion['language_code'] ?? null,
+            'locale' => $languageRegion['locale'] ?? null,
+            'direction' => $languageRegion['direction'] ?? null,
             'region' => $languageRegion['region'] ?? null,
         ]));
     }
