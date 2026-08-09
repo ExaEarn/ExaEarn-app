@@ -1,7 +1,7 @@
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import Image from "../../assets/Image";
 import { useAuth } from "../../context/AuthContext";
+import { ExaAuthShell, ExaButton, ExaField } from "../../components/ui";
 
 function ResetPassword({ onBack }) {
   const [email, setEmail] = useState("");
@@ -16,130 +16,43 @@ function ResetPassword({ onBack }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setStatusMessage("");
-    const result = await resetPassword({
-      email,
-      token: resetToken,
-      password,
-      passwordConfirmation: confirmPassword,
-    });
-    if (result.success) {
-      setStatusMessage("Password reset successfully. You can log in now.");
-    }
+    const result = await resetPassword({ email, token: resetToken, password, passwordConfirmation: confirmPassword });
+    if (result.success) setStatusMessage("Password reset successfully. You can log in now.");
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-black via-[#140a24] to-[#220c3d] text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6 sm:px-5 sm:py-8">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-violet-300/25 bg-cosmic-900/65 text-violet-100/80 transition hover:border-auric-300/60 hover:text-auric-200"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+    <ExaAuthShell title="Reset Password" subtitle="Create a new secure password for your ExaEarn account.">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <ExaField id="resetEmail" label="Email Address" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@exaearn.com" autoComplete="email" required />
+        <ExaField id="resetToken" label="Reset Token" type="text" value={resetToken} onChange={(event) => setResetToken(event.target.value)} placeholder="Paste the token from your email" required />
+
+        <ExaField label="New Password">
+          <input id="resetPassword" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="New password" autoComplete="new-password" className="w-full bg-transparent text-sm text-[var(--exa-text-primary)] outline-none placeholder:text-[var(--exa-text-disabled)]" required />
+          <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="ml-3 text-[var(--exa-text-muted)] transition hover:text-[var(--exa-gold-light)] exa-focusable" aria-label={showPassword ? "Hide password" : "Show password"}>
+            {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
           </button>
-          <img src={Image.earn} alt="ExaEarn logo" className="h-7 w-7 object-contain opacity-90" />
-        </div>
+        </ExaField>
 
-        <div className="mt-8">
-          <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-violet-50">Reset Password</h1>
-        </div>
-
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="resetEmail" className="text-xs uppercase tracking-[0.2em] text-auric-300/75">
-              Email Address
-            </label>
-            <input
-              id="resetEmail"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@exaearn.io"
-              className="mt-2 w-full rounded-2xl border border-violet-300/25 bg-cosmic-900/70 px-4 py-3.5 text-sm text-violet-100 outline-none transition-all duration-300 focus:border-violet-300/80 focus:shadow-[0_0_0_3px_rgba(168,85,247,0.25)]"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="resetToken" className="text-xs uppercase tracking-[0.2em] text-auric-300/75">
-              Reset Token
-            </label>
-            <input
-              id="resetToken"
-              type="text"
-              value={resetToken}
-              onChange={(event) => setResetToken(event.target.value)}
-              placeholder="Paste the token from your email"
-              className="mt-2 w-full rounded-2xl border border-violet-300/25 bg-cosmic-900/70 px-4 py-3.5 text-sm text-violet-100 outline-none transition-all duration-300 focus:border-violet-300/80 focus:shadow-[0_0_0_3px_rgba(168,85,247,0.25)]"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="resetPassword" className="text-xs uppercase tracking-[0.2em] text-auric-300/75">
-              New Password
-            </label>
-            <div className="mt-2 flex items-center rounded-2xl border border-violet-300/25 bg-cosmic-900/70 px-4 py-3.5 text-sm text-violet-100 transition-all duration-300 focus-within:border-violet-300/80 focus-within:shadow-[0_0_0_3px_rgba(168,85,247,0.25)]">
-              <input
-                id="resetPassword"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-transparent text-sm text-violet-100 outline-none placeholder:text-violet-100/40"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="ml-2 text-violet-100/60 transition hover:text-auric-300"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="resetConfirmPassword" className="text-xs uppercase tracking-[0.2em] text-auric-300/75">
-              Confirm Password
-            </label>
-            <div className="mt-2 flex items-center rounded-2xl border border-violet-300/25 bg-cosmic-900/70 px-4 py-3.5 text-sm text-violet-100 transition-all duration-300 focus-within:border-violet-300/80 focus-within:shadow-[0_0_0_3px_rgba(168,85,247,0.25)]">
-              <input
-                id="resetConfirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-transparent text-sm text-violet-100 outline-none placeholder:text-violet-100/40"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="ml-2 text-violet-100/60 transition hover:text-auric-300"
-              >
-                {showConfirmPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={authLoading}
-            className="w-full rounded-2xl border border-auric-300/80 bg-gradient-to-r from-violet-500/90 via-fuchsia-500/85 to-auric-400 px-4 py-3 text-sm font-semibold text-white shadow-[0_0_22px_rgba(212,175,55,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_28px_rgba(212,175,55,0.5)] disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none"
-          >
-            {authLoading ? "Resetting..." : "Reset Password"}
+        <ExaField label="Confirm Password">
+          <input id="resetConfirmPassword" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" autoComplete="new-password" className="w-full bg-transparent text-sm text-[var(--exa-text-primary)] outline-none placeholder:text-[var(--exa-text-disabled)]" required />
+          <button type="button" onClick={() => setShowConfirmPassword((prev) => !prev)} className="ml-3 text-[var(--exa-text-muted)] transition hover:text-[var(--exa-gold-light)] exa-focusable" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
+            {showConfirmPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
           </button>
-        </form>
-        {statusMessage ? <p className="mt-3 text-xs text-emerald-300">{statusMessage}</p> : null}
-        {authError ? <p className="mt-2 text-xs text-rose-300">{authError}</p> : null}
+        </ExaField>
 
-        <p className="mt-auto pt-8 text-center text-xs leading-relaxed text-violet-100/55">
-          For your security, ExaEarn will never ask for your password or private keys.
-        </p>
-      </div>
-    </div>
+        <ExaButton type="submit" loading={authLoading} disabled={authLoading} className="w-full">
+          {authLoading ? "Resetting..." : "Reset Password"}
+        </ExaButton>
+      </form>
+
+      {statusMessage ? <p className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">{statusMessage}</p> : null}
+      {authError ? <p className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{authError}</p> : null}
+
+      <ExaButton type="button" variant="secondary" onClick={onBack} className="mt-4 w-full">
+        Back to Login
+      </ExaButton>
+      <p className="mt-6 text-center text-xs leading-relaxed text-[var(--exa-text-muted)]">For your security, ExaEarn will never ask for your password, private keys or recovery phrase.</p>
+    </ExaAuthShell>
   );
 }
 
