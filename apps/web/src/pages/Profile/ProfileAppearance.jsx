@@ -9,7 +9,7 @@ import {
   selectProfileAvatar,
   updateProfileVisibility,
   uploadProfileImage,
-  useProfileInitials,
+  useProfileInitials as saveProfileInitials,
 } from '../../services/profileIdentityApi.js';
 
 const VISIBILITY_OPTIONS = [
@@ -158,7 +158,7 @@ function ProfileAppearance({ onBack }) {
         if (!avatarId) throw new Error('Select an ExaEarn avatar.');
         updatedUser = await selectProfileAvatar(request, { avatarId, visibility });
       } else {
-        updatedUser = await useProfileInitials(request, { visibility });
+        updatedUser = await saveProfileInitials(request, { visibility });
       }
       applyUser(updatedUser);
       setFile(null);

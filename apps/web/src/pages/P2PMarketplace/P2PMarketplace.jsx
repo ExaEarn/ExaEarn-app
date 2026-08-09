@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
 import {
   ArrowLeft,
@@ -179,6 +179,18 @@ function P2PMarketplace({ onBack, onOpenConvert, onOpenFiatGateway, initialTrade
     const source = Array.isArray(p2pMeta.payment_method_types) && p2pMeta.payment_method_types.length ? p2pMeta.payment_method_types : fallbackPaymentOptions.filter((item) => item !== "All Methods");
     return ["All Methods", ...source.filter(Boolean)];
   }, [p2pMeta.payment_method_types]);
+
+  const copyText = useCallback(async (value, label = "Details") => {
+    const text = String(value || "").trim();
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice(`${label} copied.`);
+    } catch {
+      setError("Unable to copy details right now.");
+    }
+  }, []);
 
   const selectedAssetMeta = availableAssets.find((asset) => asset.symbol === selectedAsset) ?? availableAssets[0];
 
