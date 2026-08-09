@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Decimal from "decimal.js";
 import {
   AlertTriangle,
@@ -45,15 +45,15 @@ const statusTone: Record<string, string> = {
   online: "border-emerald-300/30 bg-emerald-400/10 text-emerald-100",
   production: "border-emerald-300/30 bg-emerald-400/10 text-emerald-100",
   testnet: "border-sky-300/30 bg-sky-400/10 text-sky-100",
-  pending: "border-amber-300/30 bg-amber-400/10 text-amber-100",
-  batching: "border-amber-300/30 bg-amber-400/10 text-amber-100",
-  awaiting_signature: "border-amber-300/30 bg-amber-400/10 text-amber-100",
+  pending: "border-amber-300/30 bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]",
+  batching: "border-amber-300/30 bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]",
+  awaiting_signature: "border-amber-300/30 bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]",
   delegation_submitted: "border-sky-300/30 bg-sky-400/10 text-sky-100",
   awaiting_activation: "border-sky-300/30 bg-sky-400/10 text-sky-100",
   unbonding: "border-cyan-300/30 bg-cyan-400/10 text-cyan-100",
   unstaking: "border-cyan-300/30 bg-cyan-400/10 text-cyan-100",
   withdrawable: "border-emerald-300/30 bg-emerald-400/10 text-emerald-100",
-  completed: "border-violet-200/25 bg-violet-400/10 text-violet-100",
+  completed: "border-violet-200/25 bg-violet-400/10 text-[var(--exa-text-secondary)]",
   paused: "border-orange-300/30 bg-orange-400/10 text-orange-100",
   failed: "border-red-300/30 bg-red-400/10 text-red-100",
   slashed: "border-red-300/30 bg-red-400/10 text-red-100",
@@ -183,12 +183,12 @@ function StakingDashboard({ onBack }: StakingDashboardProps) {
 
 function StakingShell({ children, onBack, backLabel, notice }: { children: ReactNode; onBack?: () => void; backLabel: string; notice?: string }) {
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#080612] text-violet-50 exa-bg">
+    <main className="min-h-screen overflow-x-hidden bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)] exa-bg">
       <div className="relative z-[2] mx-auto w-full max-w-[1480px] px-3 pb-24 pt-[max(12px,env(safe-area-inset-top))] sm:px-5 lg:px-6">
-        <div className="rounded-[30px] border border-white/10 bg-[rgba(9,14,24,0.86)] p-3 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
+        <div className="rounded-[30px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3 shadow-[var(--exa-shadow-panel)] backdrop-blur">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           {onBack ? (
-            <button type="button" onClick={onBack} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-violet-200/15 bg-white/[0.04] px-3 text-sm text-violet-100 transition hover:bg-white/[0.07] focus:outline-none focus:ring-2 focus:ring-auric-300">
+            <button type="button" onClick={onBack} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-sm text-[var(--exa-text-secondary)] transition hover:bg-[var(--exa-surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               {backLabel}
             </button>
@@ -210,34 +210,34 @@ function StakingHero({ portfolio, positions, apyHistory, onExplore, onPositions,
   const totals = portfolioTotals(portfolio, positions);
   const averageApy = apyHistory[0]?.amount ?? null;
   return (
-    <section className="relative overflow-hidden rounded-[24px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-4 shadow-cosmic-card lg:p-5">
+    <section className="relative overflow-hidden rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] lg:p-5">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.95fr)] lg:items-start">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-auric-300">ExaEarn Staking</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--exa-gold-light)]">ExaEarn Staking</p>
           <h1 className="mt-2 font-['Sora'] text-[30px] font-semibold leading-[1.1] tracking-normal text-white sm:text-[34px]">Earn rewards with your crypto</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-violet-100/75">
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--exa-text-secondary)]">
             Stake eligible assets from your ExaEarn balance and receive verified network rewards.
           </p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <button type="button" onClick={onExplore} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-auric-500 px-5 text-sm font-semibold text-cosmic-950 transition hover:bg-auric-400 focus:outline-none focus:ring-2 focus:ring-auric-300">
+            <button type="button" onClick={onExplore} className="inline-flex min-h-11 items-center justify-center rounded-lg exa-button-primary px-5 text-sm font-semibold text-[var(--exa-gold-contrast)] transition hover:bg-[var(--exa-gold-light)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]">
               Stake now
             </button>
-            <button type="button" onClick={onPositions} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-violet-200/15 bg-white/[0.04] px-5 text-sm font-semibold text-violet-50 transition hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-auric-300">
+            <button type="button" onClick={onPositions} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-5 text-sm font-semibold text-[var(--exa-text-primary)] transition hover:bg-[var(--exa-surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]">
               My positions
             </button>
-            <button type="button" onClick={onLearn} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-violet-200/15 bg-transparent px-4 text-sm font-semibold text-violet-100 transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-auric-300">
+            <button type="button" onClick={onLearn} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--exa-border)] bg-transparent px-4 text-sm font-semibold text-[var(--exa-text-secondary)] transition hover:bg-[var(--exa-surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]">
               Understand staking
             </button>
           </div>
-          <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+          <div className="mt-4 rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] p-3 text-xs leading-5 text-[var(--exa-gold-light)]">
             APY is variable and not guaranteed. Locked products, validator performance, network fees, unbonding, and slashing can affect outcomes.
           </div>
         </div>
-        <div className="rounded-[18px] border border-white/10 bg-[rgba(255,255,255,0.03)] p-4">
+        <div className="rounded-[18px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-white">Portfolio snapshot</p>
-              <p className="mt-1 text-xs text-violet-100/55">Compact balances for the staking journey</p>
+              <p className="mt-1 text-xs text-[var(--exa-text-muted)]">Compact balances for the staking journey</p>
             </div>
             <StatusBadge status={networkStatus} />
           </div>
@@ -264,7 +264,7 @@ function StakingQuickNav({ onEarn, onPositions, onRewards, onCampaigns }: { onEa
   return (
     <section className="mt-2 flex flex-wrap gap-2">
       {items.map(([label, handler]) => (
-        <button key={label} type="button" onClick={handler} className="min-h-10 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-violet-50 transition hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-auric-300">
+        <button key={label} type="button" onClick={handler} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 text-sm font-semibold text-[var(--exa-text-primary)] transition hover:bg-[var(--exa-surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]">
           {label}
         </button>
       ))}
@@ -290,20 +290,20 @@ function PortfolioSummary({ portfolio, positions, apyHistory, loading, refreshin
   ];
 
   return (
-    <section className="mt-2 rounded-[20px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-3 shadow-cosmic-card">
+    <section className="mt-2 rounded-[20px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3 shadow-[var(--exa-shadow-panel)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-['Sora'] text-xl font-semibold text-white">Portfolio Summary</h2>
-          <p className="mt-1 text-sm text-violet-100/60">Principal, rewards, and claimable balances stay separated.</p>
+          <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Principal, rewards, and claimable balances stay separated.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={currency} onChange={(event) => setCurrency(event.target.value)} className="min-h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-violet-50 focus:outline-none focus:ring-2 focus:ring-auric-300" aria-label="Portfolio currency">
+          <select value={currency} onChange={(event) => setCurrency(event.target.value)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm text-[var(--exa-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" aria-label="Portfolio currency">
             {["USD", "USDT", "EUR", "NGN"].map((item) => <option key={item}>{item}</option>)}
           </select>
-          <button type="button" onClick={() => setHidden((value) => !value)} className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-auric-300" aria-label={hidden ? "Show portfolio values" : "Hide portfolio values"}>
+          <button type="button" onClick={() => setHidden((value) => !value)} className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" aria-label={hidden ? "Show portfolio values" : "Hide portfolio values"}>
             {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
-          <button type="button" onClick={() => void onRefresh()} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300">
+          <button type="button" onClick={() => void onRefresh()} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]">
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             Refresh
           </button>
@@ -314,9 +314,9 @@ function PortfolioSummary({ portfolio, positions, apyHistory, loading, refreshin
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <Metric label="Total staking portfolio value" value={formatFiat(totals.activePrincipal, currency, hidden)} />
             <Metric label="Weighted estimated portfolio APY" value={latestApy ? formatPercent(latestApy) : "Not published"} />
-            {metrics.map(([label, value]) => <Metric key={label} label={label} value={hidden ? "••••••" : value} />)}
+            {metrics.map(([label, value]) => <Metric key={label} label={label} value={hidden ? "â€¢â€¢â€¢â€¢â€¢â€¢" : value} />)}
           </div>
-          <div className="mt-3 min-h-[180px] rounded-[16px] border border-white/10 bg-black/20 p-3">
+          <div className="mt-3 min-h-[180px] rounded-[16px] border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3">
             {chartData.length ? (
               <ResponsiveContainer width="100%" height={180}>
                 <AreaChart data={chartData}>
@@ -329,7 +329,7 @@ function PortfolioSummary({ portfolio, positions, apyHistory, loading, refreshin
               </ResponsiveContainer>
             ) : <EmptyState title="No APY history yet" body="Historical APY appears after backend reconciliation records are available." />}
           </div>
-          <p className="mt-3 text-xs text-violet-100/50">Last updated {lastUpdated ? lastUpdated.toLocaleTimeString() : "not yet"}</p>
+          <p className="mt-3 text-xs text-[var(--exa-text-muted)]">Last updated {lastUpdated ? lastUpdated.toLocaleTimeString() : "not yet"}</p>
         </>
       )}
     </section>
@@ -342,7 +342,7 @@ function FeaturedProducts({ products, assets, balances, onStake, onOpen }: { pro
     <section id="staking-products" className="mt-5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="font-['Sora'] text-xl font-semibold">Featured Staking Products</h2>
-        <span className="text-xs text-violet-100/55">Native rewards and ExaToken bonuses are separate.</span>
+        <span className="text-xs text-[var(--exa-text-muted)]">Native rewards and ExaToken bonuses are separate.</span>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {featured.length ? featured.map((product) => <ProductCard key={product.id} product={product} asset={assets.get(product.staking_asset_id)} availableBalance={balances.get(product.symbol) ?? "0"} onStake={onStake} onOpen={onOpen} featured />) : <EmptyState title="No featured products" body="Products will appear here after the staking backend enables them." />}
@@ -428,24 +428,24 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
   }, [focusedAsset?.amount_precision, focusedBalance, focusedProduct]);
 
   return (
-    <section id="staking-products" className="mt-3 rounded-[24px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-4 shadow-cosmic-card lg:p-5">
+    <section id="staking-products" className="mt-3 rounded-[24px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] lg:p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="font-['Sora'] text-2xl font-semibold text-white">Available staking assets</h2>
-          <p className="mt-1 text-sm text-violet-100/60">Choose an asset, compare the plan, enter an amount, and review estimated rewards before you confirm.</p>
+          <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Choose an asset, compare the plan, enter an amount, and review estimated rewards before you confirm.</p>
         </div>
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_180px_180px]">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-violet-100/45" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search asset or symbol" className="min-h-10 w-full rounded-lg border border-white/10 bg-black/20 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" />
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[var(--exa-text-disabled)]" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search asset or symbol" className="min-h-10 w-full rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" />
           </label>
-          <select value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" aria-label="Filter staking products">
+          <select value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" aria-label="Filter staking products">
             <option value="all">All products</option>
             <option value="flexible">Flexible</option>
             <option value="fixed">Fixed</option>
             <option value="available">Available balance</option>
           </select>
-          <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" aria-label="Sort staking products">
+          <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" aria-label="Sort staking products">
             <option value="apy">Highest APY</option>
             <option value="duration">Shortest lock</option>
             <option value="shortest-unbonding">Shortest unbonding</option>
@@ -463,21 +463,21 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
             <Badge label={`${rows.length} products`} />
             <Badge label={`${networks.length || 0} networks`} />
             <Badge label={`${positions.filter((position) => position.status === "active").length} active positions`} />
-            <button type="button" onClick={() => setNetwork("all")} className={`min-h-9 rounded-lg border px-3 text-sm ${network === "all" ? "border-auric-300 bg-auric-500 text-cosmic-950" : "border-white/10 bg-white/[0.04] text-violet-100"}`}>
+            <button type="button" onClick={() => setNetwork("all")} className={`min-h-9 rounded-lg border px-3 text-sm ${network === "all" ? "border-[var(--exa-border-active)] exa-button-primary text-[var(--exa-gold-contrast)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-[var(--exa-text-secondary)]"}`}>
               All networks
             </button>
             {networks.map((item) => (
-              <button key={item} type="button" onClick={() => setNetwork(item)} className={`min-h-9 rounded-lg border px-3 text-sm ${network === item ? "border-auric-300 bg-auric-500 text-cosmic-950" : "border-white/10 bg-white/[0.04] text-violet-100"}`}>
+              <button key={item} type="button" onClick={() => setNetwork(item)} className={`min-h-9 rounded-lg border px-3 text-sm ${network === item ? "border-[var(--exa-border-active)] exa-button-primary text-[var(--exa-gold-contrast)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-[var(--exa-text-secondary)]"}`}>
                 {item}
               </button>
             ))}
           </div>
 
           <div className="mt-4 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(380px,0.9fr)]">
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/15">
+            <div className="overflow-hidden rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)]">
               <div className="hidden xl:block overflow-x-auto">
                 <table className="w-full min-w-[1280px] text-left text-sm">
-                  <thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-violet-100/45">
+                  <thead className="bg-[var(--exa-surface-elevated)] text-xs uppercase tracking-wide text-[var(--exa-text-disabled)]">
                     <tr>
                       <th className="px-4 py-3">Asset</th>
                       <th className="px-4 py-3">Estimated APY</th>
@@ -499,11 +499,11 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                       const operational = isProductOperational(product, asset);
                       const selected = focusedProductId === product.id;
                       return (
-                        <tr key={product.id} className={`border-t border-white/10 transition ${selected ? "bg-auric-300/8" : "hover:bg-white/[0.03]"}`}>
+                        <tr key={product.id} className={`border-t border-[var(--exa-border)] transition ${selected ? "bg-[var(--exa-gold-surface)]" : "hover:bg-[var(--exa-surface-elevated)]"}`}>
                           <td className="px-4 py-4">
                             <button type="button" onClick={() => { setFocusedProductId(product.id); setCalculatorAmount(""); }} className="text-left">
                               <AssetPill symbol={product.symbol} network={product.network} />
-                              <div className="mt-2 text-xs text-violet-100/45">{product.name}</div>
+                              <div className="mt-2 text-xs text-[var(--exa-text-disabled)]">{product.name}</div>
                             </button>
                           </td>
                           <td className="px-4 py-4">{formatPercent(product.displayed_apy)}</td>
@@ -531,7 +531,7 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                   const available = balances.get(product.symbol) ?? "0";
                   const operational = isProductOperational(product, asset);
                   return (
-                    <article key={product.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                    <article key={product.id} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                       <div className="flex items-start justify-between gap-3">
                         <button type="button" onClick={() => { setFocusedProductId(product.id); setCalculatorAmount(""); }} className="text-left">
                           <AssetPill symbol={product.symbol} network={product.network} />
@@ -550,7 +550,7 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                         <MiniMetric label="Unbonding" value={formatDuration(product.unbonding_period_seconds)} />
                       </div>
                       <div className="mt-4 flex gap-2">
-                        <button type="button" onClick={() => onInspect(product.slug)} className="min-h-10 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-violet-50">
+                        <button type="button" onClick={() => onInspect(product.slug)} className="min-h-10 flex-1 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-sm font-semibold text-[var(--exa-text-primary)]">
                           View details
                         </button>
                         <ActionButton disabled={!operational.ok} label="Stake now" onClick={() => onStake(product)} reason={operational.reason} />
@@ -567,7 +567,7 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                       !products.length
                         ? "No staking products enabled"
                         : !userHasEligibleBalance && filter === "available"
-                          ? "You don’t have an eligible balance yet"
+                          ? "You donâ€™t have an eligible balance yet"
                           : "No staking products are currently available"
                     }
                     body={
@@ -582,17 +582,17 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
               ) : null}
             </div>
 
-            <aside className="h-fit rounded-[22px] border border-white/10 bg-[#111827]/90 p-4 shadow-cosmic-card xl:sticky xl:top-4">
+            <aside className="h-fit rounded-[22px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 shadow-[var(--exa-shadow-panel)] xl:sticky xl:top-4">
               {focusedProduct ? (
                 <>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.24em] text-violet-100/40">Staking workspace</p>
+                      <p className="text-xs uppercase tracking-[0.24em] text-[var(--exa-text-disabled)]">Staking workspace</p>
                       <AssetPill symbol={focusedProduct.symbol} network={focusedProduct.network} />
-                      <button type="button" onClick={() => onInspect(focusedProduct.slug)} className="mt-3 text-left font-['Sora'] text-xl font-semibold text-white hover:text-auric-300">
+                      <button type="button" onClick={() => onInspect(focusedProduct.slug)} className="mt-3 text-left font-['Sora'] text-xl font-semibold text-white hover:text-[var(--exa-gold-light)]">
                         {focusedProduct.name}
                       </button>
-                      <p className="mt-1 text-sm text-violet-100/55">Choose the plan, enter the amount, and confirm from your ExaEarn wallet balance.</p>
+                      <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Choose the plan, enter the amount, and confirm from your ExaEarn wallet balance.</p>
                     </div>
                     <StatusBadge status={focusedOperational.ok ? focusedProduct.status : focusedOperational.reason} />
                   </div>
@@ -607,10 +607,10 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                   </div>
 
                   {focusedFamily.length > 1 ? (
-                    <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                    <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
                       <div className="flex items-center justify-between gap-2">
                         <h3 className="font-semibold text-white">Select staking plan</h3>
-                        <span className="text-xs text-violet-100/50">Flexible and fixed options</span>
+                        <span className="text-xs text-[var(--exa-text-muted)]">Flexible and fixed options</span>
                       </div>
                       <div className="mt-3 grid gap-2">
                         {focusedFamily.map((plan) => (
@@ -623,20 +623,20 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                             }}
                             className={`rounded-xl border p-3 text-left transition ${
                               plan.id === focusedProduct.id
-                                ? "border-auric-300 bg-auric-300/10"
-                                : "border-white/10 bg-white/[0.03] hover:bg-white/[0.05]"
+                                ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]"
+                                : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] hover:bg-[var(--exa-surface-hover)]"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div>
                                 <p className="text-sm font-semibold text-white">{plan.duration_days ? `Fixed - ${plan.duration_days} days` : "Flexible"}</p>
-                                <p className="mt-1 text-xs text-violet-100/55">
+                                <p className="mt-1 text-xs text-[var(--exa-text-muted)]">
                                   {plan.reward_schedule || "Verified settlements"} | {formatDuration(plan.unbonding_period_seconds)} unbonding
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-xs text-violet-100/45">Estimated APY</p>
-                                <p className="mt-1 font-semibold text-auric-300">{formatPercent(plan.displayed_apy)}</p>
+                                <p className="text-xs text-[var(--exa-text-disabled)]">Estimated APY</p>
+                                <p className="mt-1 font-semibold text-[var(--exa-gold-light)]">{formatPercent(plan.displayed_apy)}</p>
                               </div>
                             </div>
                           </button>
@@ -645,10 +645,10 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                     </div>
                   ) : null}
 
-                  <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="font-['Sora'] text-lg font-semibold text-white">Enter stake amount</h3>
-                      <button type="button" onClick={() => setCalculatorAmount(percentageAmount(focusedBalance, 100, focusedAsset?.amount_precision ?? 8))} className="text-sm font-semibold text-auric-300">
+                      <button type="button" onClick={() => setCalculatorAmount(percentageAmount(focusedBalance, 100, focusedAsset?.amount_precision ?? 8))} className="text-sm font-semibold text-[var(--exa-gold-light)]">
                         Max
                       </button>
                     </div>
@@ -664,12 +664,12 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                       <MiniMetric label="Lock duration" value={focusedProduct.duration_days ? `${focusedProduct.duration_days} days` : "Flexible"} />
                       <MiniMetric label="Unbonding" value={formatDuration(focusedProduct.unbonding_period_seconds)} />
                     </div>
-                    <div className="mt-4 rounded-lg border border-amber-300/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+                    <div className="mt-4 rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] p-3 text-xs leading-5 text-[var(--exa-gold-light)]">
                       Estimates use backend-published APY and are not guaranteed. Actual rewards depend on verified network performance, validator commission, fees, and slashing outcomes.
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
                     <h3 className="font-semibold text-white">Product conditions</h3>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                       <MiniMetric label="Product type" value={focusedProduct.duration_days ? "Fixed" : "Flexible"} />
@@ -681,56 +681,56 @@ function AvailableStakingAssets({ loading, error, products, assets, balances, po
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="font-semibold text-white">Review before staking</h3>
-                      <span className="text-xs text-violet-100/50">Estimates only</span>
+                      <span className="text-xs text-[var(--exa-text-muted)]">Estimates only</span>
                     </div>
                     <div className="mt-3 space-y-2 text-sm">
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Asset</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Asset</span>
                         <span className="font-semibold text-white">{focusedProduct.symbol}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Amount to stake</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Amount to stake</span>
                         <span className="font-semibold text-white">{formatAssetAmount(focusedAmount, focusedProduct.symbol)}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Staking plan</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Staking plan</span>
                         <span className="font-semibold text-white">{focusedProduct.duration_days ? `Fixed - ${focusedProduct.duration_days} days` : "Flexible"}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Estimated APY</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Estimated APY</span>
                         <span className="font-semibold text-white">{formatPercent(focusedProduct.displayed_apy)}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Estimated reward</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Estimated reward</span>
                         <span className="font-semibold text-white">{formatAssetAmount(focusedTotal, focusedProduct.symbol)}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Expected activation</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Expected activation</span>
                         <span className="font-semibold text-white">{focusedEstimatedStart}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Estimated maturity</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Estimated maturity</span>
                         <span className="font-semibold text-white">{focusedMaturityDate}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-                        <span className="text-violet-100/55">Unbonding period</span>
+                      <div className="flex items-center justify-between gap-3 border-b border-[var(--exa-border)] pb-2">
+                        <span className="text-[var(--exa-text-muted)]">Unbonding period</span>
                         <span className="font-semibold text-white">{formatDuration(focusedProduct.unbonding_period_seconds)}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-violet-100/55">Source balance</span>
+                        <span className="text-[var(--exa-text-muted)]">Source balance</span>
                         <span className="font-semibold text-white">ExaEarn wallet</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-4 flex flex-col gap-2">
-                    <button type="button" disabled={!focusedOperational.ok || !!focusedAmountError || compareDecimal(calculatorAmount || "0", "0") <= 0} onClick={() => onStake(focusedProduct, calculatorAmount)} className="min-h-11 rounded-lg bg-auric-500 px-4 text-sm font-semibold text-cosmic-950 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-violet-100/40">
+                    <button type="button" disabled={!focusedOperational.ok || !!focusedAmountError || compareDecimal(calculatorAmount || "0", "0") <= 0} onClick={() => onStake(focusedProduct, calculatorAmount)} className="min-h-11 rounded-lg exa-button-primary px-4 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:cursor-not-allowed disabled:bg-[var(--exa-surface-hover)] disabled:text-[var(--exa-text-disabled)]">
                       Confirm plan and stake
                     </button>
-                    <button type="button" onClick={() => onInspect(focusedProduct.slug)} className="min-h-11 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-violet-50">
+                    <button type="button" onClick={() => onInspect(focusedProduct.slug)} className="min-h-11 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 text-sm font-semibold text-[var(--exa-text-primary)]">
                       Review product details
                     </button>
                   </div>
@@ -772,25 +772,25 @@ function StakingMarketplace({ products, assets, balances, positions, onStake, on
   }, [assets, balances, filter, products, query, sort]);
 
   return (
-    <section className="mt-6 rounded-2xl border border-white/10 bg-[#0f1720]/85 p-4 shadow-cosmic-card sm:p-5">
+    <section className="mt-6 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] sm:p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="font-['Sora'] text-xl font-semibold">All Staking Assets</h2>
-          <p className="mt-1 text-sm text-violet-100/60">Unavailable products stay visible with their reason.</p>
+          <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Unavailable products stay visible with their reason.</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-violet-100/45" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search asset, network, or product" className="min-h-10 w-full rounded-lg border border-white/10 bg-black/20 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" />
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[var(--exa-text-disabled)]" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search asset, network, or product" className="min-h-10 w-full rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" />
           </label>
-          <select value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" aria-label="Filter staking products">
+          <select value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" aria-label="Filter staking products">
             <option value="all">All products</option>
             <option value="flexible">Flexible</option>
             <option value="locked">Locked</option>
             <option value="auto">Auto-compound</option>
             <option value="available">Available to stake</option>
           </select>
-          <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" aria-label="Sort staking products">
+          <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" aria-label="Sort staking products">
             <option value="apy">Highest APY</option>
             <option value="duration">Shortest duration</option>
             <option value="minimum">Minimum stake</option>
@@ -800,7 +800,7 @@ function StakingMarketplace({ products, assets, balances, positions, onStake, on
       </div>
       <div className="mt-4 hidden overflow-x-auto lg:block">
         <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left text-sm">
-          <thead className="text-xs uppercase tracking-wide text-violet-100/45">
+          <thead className="text-xs uppercase tracking-wide text-[var(--exa-text-disabled)]">
             <tr><th>Asset</th><th>Product</th><th>Estimated APY</th><th>Commission</th><th>Duration</th><th>Unbonding</th><th>Available</th><th>Status</th><th>Action</th></tr>
           </thead>
           <tbody>
@@ -811,7 +811,7 @@ function StakingMarketplace({ products, assets, balances, positions, onStake, on
               return (
                 <tr key={product.id} className="rounded-lg bg-white/[0.035]">
                   <td className="rounded-l-lg p-3"><AssetPill symbol={product.symbol} network={product.network} /></td>
-                  <td className="p-3"><button type="button" onClick={() => onOpen(product.slug)} className="text-left font-semibold text-white hover:text-auric-300">{product.name}</button><p className="text-xs text-violet-100/45">Staked by you: {formatAssetAmount(totalStaked.toFixed(), product.symbol)}</p></td>
+                  <td className="p-3"><button type="button" onClick={() => onOpen(product.slug)} className="text-left font-semibold text-white hover:text-[var(--exa-gold-light)]">{product.name}</button><p className="text-xs text-[var(--exa-text-disabled)]">Staked by you: {formatAssetAmount(totalStaked.toFixed(), product.symbol)}</p></td>
                   <td className="p-3">{formatPercent(product.displayed_apy)}</td>
                   <td className="p-3">{formatPercent(product.platform_commission_rate)}</td>
                   <td className="p-3">{formatDuration(undefined, product.duration_days)}</td>
@@ -837,7 +837,7 @@ function ProductCard({ product, asset, availableBalance, onStake, onOpen, featur
   const operational = isProductOperational(product, asset);
               const capacity = product.capacity ? decimal(product.total_subscribed).div(Decimal.max(decimal(product.capacity), decimal(1))).times(100).toDecimalPlaces(0).toNumber() : null;
   return (
-    <article className="rounded-xl border border-white/10 bg-[#111827]/80 p-4 shadow-cosmic-card">
+    <article className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 shadow-[var(--exa-shadow-panel)]">
       <div className="flex items-start justify-between gap-3">
         <AssetPill symbol={product.symbol} network={product.network} />
         <div className="flex flex-wrap justify-end gap-2">
@@ -846,7 +846,7 @@ function ProductCard({ product, asset, availableBalance, onStake, onOpen, featur
           {boolish(product.auto_compound_supported) ? <Badge label="Auto" /> : null}
         </div>
       </div>
-      <button type="button" onClick={() => onOpen(product.slug)} className="mt-4 block text-left font-['Sora'] text-lg font-semibold text-white hover:text-auric-300">{product.name}</button>
+      <button type="button" onClick={() => onOpen(product.slug)} className="mt-4 block text-left font-['Sora'] text-lg font-semibold text-white hover:text-[var(--exa-gold-light)]">{product.name}</button>
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <MiniMetric label="Estimated APY" value={formatPercent(product.displayed_apy)} />
         <MiniMetric label="Native reward" value={product.symbol} />
@@ -855,7 +855,7 @@ function ProductCard({ product, asset, availableBalance, onStake, onOpen, featur
         <MiniMetric label="Lock" value={formatDuration(undefined, product.duration_days)} />
         <MiniMetric label="Unbonding" value={formatDuration(product.unbonding_period_seconds)} />
       </div>
-      {capacity !== null ? <div className="mt-4"><div className="mb-1 flex justify-between text-xs text-violet-100/55"><span>Capacity</span><span>{capacity}%</span></div><div className="h-2 rounded-full bg-white/10"><span className="block h-2 rounded-full bg-auric-400" style={{ width: `${Math.min(100, capacity)}%` }} /></div></div> : null}
+      {capacity !== null ? <div className="mt-4"><div className="mb-1 flex justify-between text-xs text-[var(--exa-text-muted)]"><span>Capacity</span><span>{capacity}%</span></div><div className="h-2 rounded-full bg-[var(--exa-surface-hover)]"><span className="block h-2 rounded-full bg-[var(--exa-gold-light)]" style={{ width: `${Math.min(100, capacity)}%` }} /></div></div> : null}
       <div className="mt-4 flex items-center justify-between gap-3">
         <StatusBadge status={operational.ok ? product.status : operational.reason} />
         <ActionButton disabled={!operational.ok} label="Stake" onClick={() => onStake(product)} reason={operational.reason} />
@@ -871,10 +871,10 @@ function ProductDetails({ product, asset, apyHistory, availableBalance, onStake,
   const rows = apyHistory.filter((row) => row.symbol === product.symbol).slice(0, 24).reverse().map((row, index) => ({ name: row.recorded_at ? new Date(row.recorded_at).toLocaleDateString() : `#${index + 1}`, apy: decimal(row.amount).toNumber() }));
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-      <section className="rounded-2xl border border-white/10 bg-[#0f1720]/85 p-5 shadow-cosmic-card">
+      <section className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-5 shadow-[var(--exa-shadow-panel)]">
         <AssetPill symbol={product.symbol} network={product.network} />
         <h1 className="mt-4 font-['Sora'] text-3xl font-semibold">{product.name}</h1>
-        <p className="mt-2 text-sm leading-6 text-violet-100/65">Earn network-generated {product.symbol} rewards from verified staking settlements. ExaToken bonuses, when available, are funded separately.</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--exa-text-muted)]">Earn network-generated {product.symbol} rewards from verified staking settlements. ExaToken bonuses, when available, are funded separately.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Metric label="Estimated net APY" value={formatPercent(product.displayed_apy)} />
           <Metric label="ExaEarn commission" value={formatPercent(product.platform_commission_rate)} />
@@ -885,7 +885,7 @@ function ProductDetails({ product, asset, apyHistory, availableBalance, onStake,
           <Metric label="Reward schedule" value={product.reward_schedule || "Verified settlements"} />
           <Metric label="Terms" value={product.terms_version} />
         </div>
-        <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
+        <div className="mt-5 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
           <h2 className="font-['Sora'] text-lg font-semibold">Historical APY</h2>
           <div className="mt-3 min-h-[220px]">
             {rows.length ? <ResponsiveContainer width="100%" height={220}><AreaChart data={rows}><CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} /><XAxis dataKey="name" tick={{ fill: "rgba(245,240,255,0.55)", fontSize: 11 }} /><YAxis tick={{ fill: "rgba(245,240,255,0.55)", fontSize: 11 }} /><Tooltip contentStyle={{ background: "#111827", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }} /><Area type="monotone" dataKey="apy" stroke="#f9e2ad" fill="rgba(249,226,173,0.16)" /></AreaChart></ResponsiveContainer> : <EmptyState title="No APY chart yet" body="The backend has not published APY history for this product." />}
@@ -893,16 +893,16 @@ function ProductDetails({ product, asset, apyHistory, availableBalance, onStake,
         </div>
         <RewardExplanation product={product} />
       </section>
-      <aside className="h-fit rounded-2xl border border-white/10 bg-[#111827]/90 p-4 shadow-cosmic-card lg:sticky lg:top-4">
+      <aside className="h-fit rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 shadow-[var(--exa-shadow-panel)] lg:sticky lg:top-4">
         <Metric label="Available balance" value={formatAssetAmount(availableBalance, product.symbol)} />
-        <div className="mt-4 space-y-2 text-sm text-violet-100/65">
+        <div className="mt-4 space-y-2 text-sm text-[var(--exa-text-muted)]">
           <p>Network status: <StatusBadge status={operational.ok ? product.status : operational.reason} /></p>
           <p>Auto-compound: {boolish(product.auto_compound_supported) ? "Supported" : "Not supported"}</p>
           <p>Redemption: {product.redemption_type || "Network unbonding"}</p>
           <p>Early redemption: {boolish(product.early_redemption_allowed) ? "Allowed by product rules" : "Unavailable"}</p>
         </div>
-        <button type="button" disabled={!operational.ok} onClick={() => onStake(product)} className="mt-5 min-h-11 w-full rounded-lg bg-auric-500 px-4 font-semibold text-cosmic-950 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-violet-100/40">Stake {product.symbol}</button>
-        <p className="mt-3 text-xs text-violet-100/55">Rewards are subject to validator and network performance, lock-up, unbonding, and slashing risks.</p>
+        <button type="button" disabled={!operational.ok} onClick={() => onStake(product)} className="mt-5 min-h-11 w-full rounded-lg exa-button-primary px-4 font-semibold text-[var(--exa-gold-contrast)] disabled:cursor-not-allowed disabled:bg-[var(--exa-surface-hover)] disabled:text-[var(--exa-text-disabled)]">Stake {product.symbol}</button>
+        <p className="mt-3 text-xs text-[var(--exa-text-muted)]">Rewards are subject to validator and network performance, lock-up, unbonding, and slashing risks.</p>
       </aside>
     </div>
   );
@@ -982,16 +982,16 @@ function StakeModal({ product, productOptions = [], asset, availableBalance, ini
         <div className="space-y-4">
           <ProductActionSummary product={selectedProduct} availableBalance={availableBalance} />
           {siblingProducts.length > 1 ? (
-            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3">
               <p className="text-sm font-semibold text-white">Choose duration</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {siblingProducts.map((item) => (
-                  <button key={item.id} type="button" onClick={() => setSelectedProductId(item.id)} className={`rounded-lg border px-3 py-3 text-left ${item.id === selectedProduct.id ? "border-auric-300 bg-auric-300/10" : "border-white/10 bg-white/[0.03]"}`}>
+                  <button key={item.id} type="button" onClick={() => setSelectedProductId(item.id)} className={`rounded-lg border px-3 py-3 text-left ${item.id === selectedProduct.id ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]"}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-white">{item.duration_days ? `${item.duration_days} days` : "Flexible"}</span>
-                      <span className="text-sm text-auric-300">{formatPercent(item.displayed_apy)}</span>
+                      <span className="text-sm text-[var(--exa-gold-light)]">{formatPercent(item.displayed_apy)}</span>
                     </div>
-                    <p className="mt-1 text-xs text-violet-100/55">{formatDuration(item.unbonding_period_seconds)} unbonding</p>
+                    <p className="mt-1 text-xs text-[var(--exa-text-muted)]">{formatDuration(item.unbonding_period_seconds)} unbonding</p>
                   </button>
                 ))}
               </div>
@@ -1006,7 +1006,7 @@ function StakeModal({ product, productOptions = [], asset, availableBalance, ini
       {step === 2 ? (
         <div className="space-y-4">
           <Toggle label="Auto-compound" description={boolish(selectedProduct.auto_compound_supported) ? "Compound when the network and product allow it." : "This product does not support auto-compounding."} checked={autoCompound} disabled={!boolish(selectedProduct.auto_compound_supported)} onChange={setAutoCompound} />
-          <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-violet-100/65">Reward destination is managed by ExaEarn ledger accounts for this product. Native rewards and ExaToken bonuses remain separated.</div>
+          <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3 text-sm text-[var(--exa-text-muted)]">Reward destination is managed by ExaEarn ledger accounts for this product. Native rewards and ExaToken bonuses remain separated.</div>
           <ModalActions primary="Review" onPrimary={() => setStep(3)} secondary="Back" onSecondary={() => setStep(1)} />
         </div>
       ) : null}
@@ -1031,8 +1031,8 @@ function StakeModal({ product, productOptions = [], asset, availableBalance, ini
           ]} />
           <CheckRow checked={termsAccepted} onChange={setTermsAccepted} label="I accept the staking product terms." />
           <CheckRow checked={riskAccepted} onChange={setRiskAccepted} label="I understand APY is estimated and staking includes lock-up, unbonding, validator, and slashing risks." />
-          <input value={pin} onChange={(event) => setPin(event.target.value)} placeholder="Transaction PIN" type="password" autoComplete="one-time-code" className="min-h-11 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" />
-          <input value={twoFactor} onChange={(event) => setTwoFactor(event.target.value)} placeholder="Two-factor code if required" inputMode="numeric" autoComplete="one-time-code" className="min-h-11 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" />
+          <input value={pin} onChange={(event) => setPin(event.target.value)} placeholder="Transaction PIN" type="password" autoComplete="one-time-code" className="min-h-11 w-full rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" />
+          <input value={twoFactor} onChange={(event) => setTwoFactor(event.target.value)} placeholder="Two-factor code if required" inputMode="numeric" autoComplete="one-time-code" className="min-h-11 w-full rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" />
           {error ? <InlineError message={error} /> : null}
           <ModalActions primary={submitting ? "Submitting..." : "Confirm and stake"} onPrimary={() => void submit()} primaryDisabled={submitting || !termsAccepted || !riskAccepted} secondary="Back" onSecondary={() => setStep(2)} />
         </div>
@@ -1089,9 +1089,9 @@ function UnstakeModal({ position, request, onClose, onDone }: { position: Stakin
         <Metric label="Active principal" value={formatAssetAmount(position.active_principal_amount, position.symbol)} />
         <AmountInput symbol={position.symbol} value={amount} onChange={setAmount} balance={position.active_principal_amount || "0"} precision={8} />
         {invalid ? <InlineError message="Enter an amount above zero and no greater than active principal." /> : null}
-        <div className="rounded-lg border border-amber-300/20 bg-amber-400/10 p-3 text-sm text-amber-100">Unstaking starts a network-specific unbonding process. Funds are not available until the backend verifies withdrawable principal.</div>
-        <input value={pin} onChange={(event) => setPin(event.target.value)} placeholder="Transaction PIN" type="password" className="min-h-11 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" />
-        <input value={twoFactor} onChange={(event) => setTwoFactor(event.target.value)} placeholder="Two-factor code if required" inputMode="numeric" className="min-h-11 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-auric-300" />
+        <div className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] p-3 text-sm text-[var(--exa-gold-light)]">Unstaking starts a network-specific unbonding process. Funds are not available until the backend verifies withdrawable principal.</div>
+        <input value={pin} onChange={(event) => setPin(event.target.value)} placeholder="Transaction PIN" type="password" className="min-h-11 w-full rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" />
+        <input value={twoFactor} onChange={(event) => setTwoFactor(event.target.value)} placeholder="Two-factor code if required" inputMode="numeric" className="min-h-11 w-full rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" />
         {error ? <InlineError message={error} /> : null}
         <ModalActions primary={busy ? "Submitting..." : "Submit unstake request"} onPrimary={() => void submit()} primaryDisabled={busy || invalid} secondary="Cancel" onSecondary={onClose} />
       </div>
@@ -1159,11 +1159,11 @@ function PositionsPage({ positions, rewards, onOpen, onUnstake, onClaim }: { pos
   const [tab, setTab] = useState("all");
   const visible = tab === "all" ? positions : positions.filter((position) => position.status === tab);
   return (
-    <section id="my-positions" className="rounded-2xl border border-white/10 bg-[#0f1720]/85 p-4 shadow-cosmic-card">
+    <section id="my-positions" className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-['Sora'] text-2xl font-semibold">My Staking Positions</h1>
-          <p className="mt-1 text-sm text-violet-100/55">Monitor activation, lock expiry, rewards, and eligible actions from one place.</p>
+          <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Monitor activation, lock expiry, rewards, and eligible actions from one place.</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
           <Metric label="Total positions" value={String(positions.length)} />
@@ -1172,11 +1172,11 @@ function PositionsPage({ positions, rewards, onOpen, onUnstake, onClaim }: { pos
         </div>
       </div>
       <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-        {["all", "pending", "active", "unstaking", "unbonding", "withdrawable", "completed", "failed"].map((item) => <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-lg border px-3 py-2 text-sm ${tab === item ? "border-auric-300 bg-auric-500 text-cosmic-950" : "border-white/10 bg-white/[0.04] text-violet-100"}`}>{positionStatusLabel(item)}</button>)}
+        {["all", "pending", "active", "unstaking", "unbonding", "withdrawable", "completed", "failed"].map((item) => <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-lg border px-3 py-2 text-sm ${tab === item ? "border-[var(--exa-border-active)] exa-button-primary text-[var(--exa-gold-contrast)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-[var(--exa-text-secondary)]"}`}>{positionStatusLabel(item)}</button>)}
       </div>
       <div className="mt-4 hidden overflow-x-auto xl:block">
         <table className="w-full min-w-[1180px] text-left text-sm">
-          <thead className="text-xs uppercase tracking-wide text-violet-100/45">
+          <thead className="text-xs uppercase tracking-wide text-[var(--exa-text-disabled)]">
             <tr>
               <th className="py-3 pr-4">Asset</th>
               <th className="py-3 pr-4">Principal</th>
@@ -1190,11 +1190,11 @@ function PositionsPage({ positions, rewards, onOpen, onUnstake, onClaim }: { pos
           </thead>
           <tbody>
             {visible.map((position) => (
-              <tr key={position.public_id} className="border-t border-white/10">
+              <tr key={position.public_id} className="border-t border-[var(--exa-border)]">
                 <td className="py-4 pr-4">
                   <button type="button" onClick={() => onOpen(position.public_id)} className="text-left">
                     <AssetPill symbol={position.symbol} network={position.network} />
-                    <div className="mt-2 text-xs text-violet-100/45">{position.product_name}</div>
+                    <div className="mt-2 text-xs text-[var(--exa-text-disabled)]">{position.product_name}</div>
                   </button>
                 </td>
                 <td className="py-4 pr-4">{formatAssetAmount(position.principal_amount, position.symbol)}</td>
@@ -1205,9 +1205,9 @@ function PositionsPage({ positions, rewards, onOpen, onUnstake, onClaim }: { pos
                 <td className="py-4 pr-4"><StatusBadge status={position.status} /></td>
                 <td className="py-4 pr-4">
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => onOpen(position.public_id)} className="min-h-9 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-violet-50">View</button>
-                    <button type="button" disabled={position.status !== "active"} onClick={() => onUnstake(position)} className="min-h-9 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-violet-50 disabled:opacity-45">Unstake</button>
-                    <button type="button" onClick={() => onClaim(position, "native")} className="min-h-9 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-violet-50">Claim</button>
+                    <button type="button" onClick={() => onOpen(position.public_id)} className="min-h-9 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-xs font-semibold text-[var(--exa-text-primary)]">View</button>
+                    <button type="button" disabled={position.status !== "active"} onClick={() => onUnstake(position)} className="min-h-9 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-xs font-semibold text-[var(--exa-text-primary)] disabled:opacity-45">Unstake</button>
+                    <button type="button" onClick={() => onClaim(position, "native")} className="min-h-9 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-xs font-semibold text-[var(--exa-text-primary)]">Claim</button>
                   </div>
                 </td>
               </tr>
@@ -1226,10 +1226,10 @@ function PositionsPage({ positions, rewards, onOpen, onUnstake, onClaim }: { pos
 function PositionPreview({ positions, onOpen, onUnstake }: { positions: StakingPosition[]; onOpen: () => void; onUnstake: (position: StakingPosition) => void }) {
   const active = positions.filter((position) => ["active", "pending", "unbonding", "unstaking", "awaiting_activation", "delegation_submitted"].includes(position.status)).slice(0, 4);
   return (
-    <section id="my-positions" className="mt-2 rounded-[20px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-3 shadow-cosmic-card">
+    <section id="my-positions" className="mt-2 rounded-[20px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3 shadow-[var(--exa-shadow-panel)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-['Sora'] text-xl font-semibold">My Active and Pending Positions</h2>
-        <button type="button" onClick={onOpen} className="text-sm text-auric-300">View all</button>
+        <button type="button" onClick={onOpen} className="text-sm text-[var(--exa-gold-light)]">View all</button>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {active.map((position) => <PositionCard key={position.public_id} position={position} compact onOpen={() => undefined} onUnstake={onUnstake} onClaim={() => undefined} />)}
@@ -1249,17 +1249,17 @@ function PositionDetails({ position, rewards, transactions, onUnstake, onClaim, 
   const canUnstake = canUnstakePosition(position);
   const canAutoCompound = canToggleAutoCompound(position);
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#0f1720]/85 p-4 shadow-cosmic-card sm:p-5">
+    <section className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div><AssetPill symbol={position.symbol} network={position.network} /><h1 className="mt-3 font-['Sora'] text-2xl font-semibold">{position.product_name}</h1><p className="mt-1 text-sm text-violet-100/55">Position {position.public_id}</p></div>
+        <div><AssetPill symbol={position.symbol} network={position.network} /><h1 className="mt-3 font-['Sora'] text-2xl font-semibold">{position.product_name}</h1><p className="mt-1 text-sm text-[var(--exa-text-muted)]">Position {position.public_id}</p></div>
         <StatusBadge status={position.status} />
       </div>
-      <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="mt-5 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-violet-100/40">Position control</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--exa-text-disabled)]">Position control</p>
             <h2 className="mt-2 font-['Sora'] text-lg font-semibold text-white">What you can do right now</h2>
-            <p className="mt-1 max-w-2xl text-sm text-violet-100/60">{nextPositionMilestone(position)}</p>
+            <p className="mt-1 max-w-2xl text-sm text-[var(--exa-text-muted)]">{nextPositionMilestone(position)}</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[340px]">
             <MiniMetric label="Claimable native" value={formatAssetAmount(claimableNative, position.symbol)} />
@@ -1283,13 +1283,13 @@ function PositionDetails({ position, rewards, transactions, onUnstake, onClaim, 
       </div>
       <PositionTimeline position={position} />
       <div className="mt-5 grid gap-2 lg:grid-cols-4">
-        <button type="button" disabled={!canUnstake} onClick={() => onUnstake(position)} className="min-h-11 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold disabled:opacity-45">Unstake principal</button>
-        <button type="button" disabled={compareDecimal(claimableNative, "0") <= 0} onClick={() => onClaim(position, "native")} className="min-h-11 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold disabled:opacity-45">Claim native rewards</button>
-        <button type="button" disabled={compareDecimal(claimableExa, "0") <= 0} onClick={() => onClaim(position, "exatoken")} className="min-h-11 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold disabled:opacity-45">Claim ExaToken bonus</button>
-        <button type="button" disabled={!canAutoCompound} onClick={() => onAutoCompound(position)} className="min-h-11 rounded-lg bg-auric-500 px-4 text-sm font-semibold text-cosmic-950 disabled:bg-white/10 disabled:text-violet-100/40">{boolish(position.auto_compound_enabled) ? "Manage auto-compound" : "Enable auto-compound"}</button>
+        <button type="button" disabled={!canUnstake} onClick={() => onUnstake(position)} className="min-h-11 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 text-sm font-semibold disabled:opacity-45">Unstake principal</button>
+        <button type="button" disabled={compareDecimal(claimableNative, "0") <= 0} onClick={() => onClaim(position, "native")} className="min-h-11 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 text-sm font-semibold disabled:opacity-45">Claim native rewards</button>
+        <button type="button" disabled={compareDecimal(claimableExa, "0") <= 0} onClick={() => onClaim(position, "exatoken")} className="min-h-11 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 text-sm font-semibold disabled:opacity-45">Claim ExaToken bonus</button>
+        <button type="button" disabled={!canAutoCompound} onClick={() => onAutoCompound(position)} className="min-h-11 rounded-lg exa-button-primary px-4 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:bg-[var(--exa-surface-hover)] disabled:text-[var(--exa-text-disabled)]">{boolish(position.auto_compound_enabled) ? "Manage auto-compound" : "Enable auto-compound"}</button>
       </div>
       <RewardHistory rewards={relatedRewards} compact />
-      <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4"><h2 className="font-['Sora'] text-lg font-semibold">Transaction History</h2>{relatedTransactions.length ? relatedTransactions.map((tx) => <div key={`${tx.transaction_type}-${tx.created_at}`} className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3 text-sm"><span>{tx.transaction_type.replaceAll("_", " ")}</span><span>{formatAssetAmount(tx.amount, position.symbol)}</span><StatusBadge status={tx.status} /></div>) : <EmptyState title="No transactions yet" body="Position-specific transactions appear after backend records are available." />}</div>
+      <div className="mt-5 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4"><h2 className="font-['Sora'] text-lg font-semibold">Transaction History</h2>{relatedTransactions.length ? relatedTransactions.map((tx) => <div key={`${tx.transaction_type}-${tx.created_at}`} className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--exa-border)] pt-3 text-sm"><span>{tx.transaction_type.replaceAll("_", " ")}</span><span>{formatAssetAmount(tx.amount, position.symbol)}</span><StatusBadge status={tx.status} /></div>) : <EmptyState title="No transactions yet" body="Position-specific transactions appear after backend records are available." />}</div>
     </section>
   );
 }
@@ -1300,12 +1300,12 @@ function PositionCard({ position, rewardCount = 0, compact = false, onOpen, onUn
   const canUnstake = canUnstakePosition(position);
   const hasClaimableNative = compareDecimal(claimableNative, "0") > 0;
   return (
-    <article className="rounded-xl border border-white/10 bg-[#111827]/80 p-4">
+    <article className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
       <div className="flex items-start justify-between gap-3">
         <AssetPill symbol={position.symbol} network={position.network} />
         <StatusBadge status={position.status} />
       </div>
-      <button type="button" onClick={() => onOpen(position.public_id)} className="mt-3 text-left font-semibold text-white hover:text-auric-300">{position.product_name}</button>
+      <button type="button" onClick={() => onOpen(position.public_id)} className="mt-3 text-left font-semibold text-white hover:text-[var(--exa-gold-light)]">{position.product_name}</button>
       <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
         <MiniMetric label="Principal" value={formatAssetAmount(position.principal_amount, position.symbol)} />
         <MiniMetric label="Active" value={formatAssetAmount(position.active_principal_amount, position.symbol)} />
@@ -1314,11 +1314,11 @@ function PositionCard({ position, rewardCount = 0, compact = false, onOpen, onUn
         <MiniMetric label="Claimable now" value={formatAssetAmount(claimableNative, position.symbol)} />
         <MiniMetric label="EXA bonus" value={formatAssetAmount(claimableExa, "EXA")} />
       </div>
-      {!compact ? <p className="mt-3 text-xs text-violet-100/50">{rewardCount} reward records. {nextPositionMilestone(position)} Opened {formatDateTime(position.opened_at)}</p> : null}
+      {!compact ? <p className="mt-3 text-xs text-[var(--exa-text-muted)]">{rewardCount} reward records. {nextPositionMilestone(position)} Opened {formatDateTime(position.opened_at)}</p> : null}
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => onOpen(position.public_id)} className="min-h-10 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm">Details</button>
-        <button type="button" disabled={!canUnstake} onClick={() => onUnstake(position)} className="min-h-10 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm disabled:opacity-45">Unstake</button>
-        <button type="button" disabled={!hasClaimableNative} onClick={() => onClaim(position, "native")} className="min-h-10 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm disabled:opacity-45">Claim</button>
+        <button type="button" onClick={() => onOpen(position.public_id)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-sm">Details</button>
+        <button type="button" disabled={!canUnstake} onClick={() => onUnstake(position)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-sm disabled:opacity-45">Unstake</button>
+        <button type="button" disabled={!hasClaimableNative} onClick={() => onClaim(position, "native")} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-sm disabled:opacity-45">Claim</button>
       </div>
     </article>
   );
@@ -1335,13 +1335,13 @@ function RewardHistory({ rewards, compact = false }: { rewards: StakingReward[];
     pending: filtered.filter((reward) => reward.status !== "distributed").length,
   }), [filtered]);
   return (
-    <section id="staking-rewards" className={`${compact ? "mt-2" : "mt-2"} rounded-[20px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-3 shadow-cosmic-card`}>
+    <section id="staking-rewards" className={`${compact ? "mt-2" : "mt-2"} rounded-[20px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3 shadow-[var(--exa-shadow-panel)]`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-['Sora'] text-xl font-semibold">Reward History</h2>
-          <p className="mt-1 text-sm text-violet-100/55">Native rewards and EXA bonuses stay separated for audit clarity.</p>
+          <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Native rewards and EXA bonuses stay separated for audit clarity.</p>
         </div>
-        <select value={asset} onChange={(event) => setAsset(event.target.value)} className="min-h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm">
+        <select value={asset} onChange={(event) => setAsset(event.target.value)} className="min-h-10 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] px-3 text-sm">
           <option value="all">All assets</option>
           {symbols.map((symbol) => <option key={symbol}>{symbol}</option>)}
         </select>
@@ -1355,8 +1355,8 @@ function RewardHistory({ rewards, compact = false }: { rewards: StakingReward[];
       <div className="mt-4 overflow-x-auto">
         {filtered.length ? (
           <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-violet-100/45"><tr><th>Date</th><th>Asset</th><th>Reward type</th><th>Gross</th><th>Validator fee</th><th>Network cost</th><th>Commission</th><th>Net</th><th>ExaToken</th><th>Status</th></tr></thead>
-            <tbody>{filtered.map((reward) => <tr key={reward.id} className="border-t border-white/10"><td className="py-3">{formatDateTime(reward.distributed_at || reward.period_end)}</td><td>{reward.symbol}</td><td>{compareDecimal(reward.exatoken_bonus_amount || "0", "0") > 0 ? "Native + EXA" : "Native reward"}</td><td>{formatAssetAmount(reward.gross_native_reward, reward.symbol)}</td><td>{formatAssetAmount(reward.validator_fee_share, reward.symbol)}</td><td>{formatAssetAmount(reward.network_fee_share, reward.symbol)}</td><td>{formatAssetAmount(reward.platform_fee, reward.symbol)}</td><td>{formatAssetAmount(reward.net_native_reward, reward.symbol)}</td><td>{formatAssetAmount(reward.exatoken_bonus_amount, "EXA")}</td><td><StatusBadge status={reward.status} /></td></tr>)}</tbody>
+            <thead className="text-xs uppercase tracking-wide text-[var(--exa-text-disabled)]"><tr><th>Date</th><th>Asset</th><th>Reward type</th><th>Gross</th><th>Validator fee</th><th>Network cost</th><th>Commission</th><th>Net</th><th>ExaToken</th><th>Status</th></tr></thead>
+            <tbody>{filtered.map((reward) => <tr key={reward.id} className="border-t border-[var(--exa-border)]"><td className="py-3">{formatDateTime(reward.distributed_at || reward.period_end)}</td><td>{reward.symbol}</td><td>{compareDecimal(reward.exatoken_bonus_amount || "0", "0") > 0 ? "Native + EXA" : "Native reward"}</td><td>{formatAssetAmount(reward.gross_native_reward, reward.symbol)}</td><td>{formatAssetAmount(reward.validator_fee_share, reward.symbol)}</td><td>{formatAssetAmount(reward.network_fee_share, reward.symbol)}</td><td>{formatAssetAmount(reward.platform_fee, reward.symbol)}</td><td>{formatAssetAmount(reward.net_native_reward, reward.symbol)}</td><td>{formatAssetAmount(reward.exatoken_bonus_amount, "EXA")}</td><td><StatusBadge status={reward.status} /></td></tr>)}</tbody>
           </table>
         ) : <EmptyState title="No rewards yet" body="Rewards appear only after verified blockchain or provider settlements are reconciled." />}
       </div>
@@ -1366,14 +1366,14 @@ function RewardHistory({ rewards, compact = false }: { rewards: StakingReward[];
 
 function ExaTokenBonusSection({ campaigns }: { campaigns: ExaTokenCampaign[] }) {
   return (
-    <section id="staking-campaigns" className="mt-2 rounded-[20px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-3 shadow-cosmic-card">
-      <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-auric-300" /><h2 className="font-['Sora'] text-xl font-semibold">Earn More with ExaToken</h2></div>
-      <p className="mt-2 text-sm text-violet-100/65">ExaToken bonuses are promotional rewards funded separately from native blockchain rewards.</p>
+    <section id="staking-campaigns" className="mt-2 rounded-[20px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3 shadow-[var(--exa-shadow-panel)]">
+      <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-[var(--exa-gold-light)]" /><h2 className="font-['Sora'] text-xl font-semibold">Earn More with ExaToken</h2></div>
+      <p className="mt-2 text-sm text-[var(--exa-text-muted)]">ExaToken bonuses are promotional rewards funded separately from native blockchain rewards.</p>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {campaigns.length ? campaigns.map((campaign) => {
           const remaining = decimal(campaign.budget_amount).minus(decimal(campaign.reserved_amount)).minus(decimal(campaign.distributed_amount));
-          return <article key={campaign.id} className="rounded-xl border border-white/10 bg-black/20 p-4"><StatusBadge status={campaign.status} /><h3 className="mt-3 font-semibold text-white">{campaign.name}</h3><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><MiniMetric label="Budget" value={formatAssetAmount(campaign.budget_amount, "EXA")} /><MiniMetric label="Remaining" value={formatAssetAmount(remaining.toFixed(), "EXA")} /><MiniMetric label="Per-user cap" value={campaign.per_user_cap ? formatAssetAmount(campaign.per_user_cap, "EXA") : "Not published"} /><MiniMetric label="Ends" value={formatDateTime(campaign.ends_at)} /></div></article>;
-        }) : <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-4 text-sm text-violet-100/60">No ExaToken bonus campaign is currently active. Standard native staking rewards remain available.</div>}
+          return <article key={campaign.id} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4"><StatusBadge status={campaign.status} /><h3 className="mt-3 font-semibold text-white">{campaign.name}</h3><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><MiniMetric label="Budget" value={formatAssetAmount(campaign.budget_amount, "EXA")} /><MiniMetric label="Remaining" value={formatAssetAmount(remaining.toFixed(), "EXA")} /><MiniMetric label="Per-user cap" value={campaign.per_user_cap ? formatAssetAmount(campaign.per_user_cap, "EXA") : "Not published"} /><MiniMetric label="Ends" value={formatDateTime(campaign.ends_at)} /></div></article>;
+        }) : <div className="rounded-xl border border-dashed border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 text-sm text-[var(--exa-text-muted)]">No ExaToken bonus campaign is currently active. Standard native staking rewards remain available.</div>}
       </div>
     </section>
   );
@@ -1382,7 +1382,7 @@ function ExaTokenBonusSection({ campaigns }: { campaigns: ExaTokenCampaign[] }) 
 function NetworkBanner({ statuses }: { statuses: { symbol: string; status: string; network: string }[] }) {
   const affected = statuses.filter((item) => !["online", "operational", "healthy"].includes(String(item.status).toLowerCase()));
   if (!affected.length) return null;
-  return <div className="mt-5 rounded-xl border border-amber-300/25 bg-amber-400/10 p-4 text-sm text-amber-100"><div className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4" /><p>{affected.length} staking network status requires attention. Affected actions are disabled while historical positions remain available.</p></div></div>;
+  return <div className="mt-5 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] p-4 text-sm text-[var(--exa-gold-light)]"><div className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4" /><p>{affected.length} staking network status requires attention. Affected actions are disabled while historical positions remain available.</p></div></div>;
 }
 
 function RiskAndFaq({ terms }: { terms: { terms_version?: string; native_rewards_source?: string } | null }) {
@@ -1396,15 +1396,15 @@ function RiskAndFaq({ terms }: { terms: { terms_version?: string; native_rewards
   ];
   return (
     <section id="staking-learn" className="mt-2 grid gap-2">
-      <div className="rounded-[20px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-3 shadow-cosmic-card">
+      <div className="rounded-[20px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3 shadow-[var(--exa-shadow-panel)]">
         <h2 className="font-['Sora'] text-xl font-semibold">Understand Staking</h2>
         <div className="mt-3 space-y-2">
-          {["Rewards come from verified blockchain or approved provider settlements.", "APY changes as network conditions, validator commission, and fees change.", "Unbonding means principal may be temporarily unavailable after unstaking.", "Native rewards and ExaToken bonuses are calculated, funded, displayed, and audited separately."].map((text) => <details key={text} className="rounded-lg border border-white/10 bg-black/20 p-3"><summary className="cursor-pointer text-sm font-semibold text-white">{text}</summary><p className="mt-2 text-sm text-violet-100/60">Current terms version: {terms?.terms_version || "staking-v1"}. Source: {terms?.native_rewards_source || "verified settlements only"}.</p></details>)}
+          {["Rewards come from verified blockchain or approved provider settlements.", "APY changes as network conditions, validator commission, and fees change.", "Unbonding means principal may be temporarily unavailable after unstaking.", "Native rewards and ExaToken bonuses are calculated, funded, displayed, and audited separately."].map((text) => <details key={text} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3"><summary className="cursor-pointer text-sm font-semibold text-white">{text}</summary><p className="mt-2 text-sm text-[var(--exa-text-muted)]">Current terms version: {terms?.terms_version || "staking-v1"}. Source: {terms?.native_rewards_source || "verified settlements only"}.</p></details>)}
         </div>
       </div>
-      <div className="rounded-[20px] border border-[rgba(139,167,255,0.16)] bg-[rgba(10,16,28,0.84)] p-3 shadow-cosmic-card">
+      <div className="rounded-[20px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3 shadow-[var(--exa-shadow-panel)]">
         <h2 className="font-['Sora'] text-xl font-semibold">Frequently Asked Questions</h2>
-        <div className="mt-3 space-y-2">{faqs.map(([q, a]) => <details key={q} className="rounded-lg border border-white/10 bg-black/20 p-3"><summary className="cursor-pointer text-sm font-semibold text-white">{q}</summary><p className="mt-2 text-sm text-violet-100/60">{a}</p></details>)}</div>
+        <div className="mt-3 space-y-2">{faqs.map(([q, a]) => <details key={q} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3"><summary className="cursor-pointer text-sm font-semibold text-white">{q}</summary><p className="mt-2 text-sm text-[var(--exa-text-muted)]">{a}</p></details>)}</div>
       </div>
     </section>
   );
@@ -1412,9 +1412,9 @@ function RiskAndFaq({ terms }: { terms: { terms_version?: string; native_rewards
 
 function RewardExplanation({ product }: { product: StakingProduct }) {
   return (
-    <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4">
+    <div className="mt-5 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4">
       <h2 className="font-['Sora'] text-lg font-semibold">How rewards are calculated</h2>
-      <ol className="mt-3 space-y-2 text-sm text-violet-100/65">
+      <ol className="mt-3 space-y-2 text-sm text-[var(--exa-text-muted)]">
         <li>1. Blockchain or approved provider produces verified {product.symbol} rewards.</li>
         <li>2. Network, validator, and provider costs are deducted when applicable.</li>
         <li>3. ExaEarn takes its disclosed commission: {formatPercent(product.platform_commission_rate)}.</li>
@@ -1436,20 +1436,20 @@ function PositionTimeline({ position }: { position: StakingPosition }) {
     ["Unbonding", position.unbonding_ends_at],
     ["Principal released", position.completed_at],
   ];
-  return <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-4"><h2 className="font-['Sora'] text-lg font-semibold">Status Timeline</h2><div className="mt-3 grid gap-2">{steps.map(([label, date]) => <div key={label} className="flex items-center gap-3 text-sm"><span className={`grid h-7 w-7 place-items-center rounded-full border ${date ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-violet-100/45"}`}>{date ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}</span><span className="flex-1">{label}</span><span className="text-violet-100/50">{date ? formatDateTime(String(date)) : "Pending"}</span></div>)}</div></div>;
+  return <div className="mt-5 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4"><h2 className="font-['Sora'] text-lg font-semibold">Status Timeline</h2><div className="mt-3 grid gap-2">{steps.map(([label, date]) => <div key={label} className="flex items-center gap-3 text-sm"><span className={`grid h-7 w-7 place-items-center rounded-full border ${date ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-100" : "border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-[var(--exa-text-disabled)]"}`}>{date ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}</span><span className="flex-1">{label}</span><span className="text-[var(--exa-text-muted)]">{date ? formatDateTime(String(date)) : "Pending"}</span></div>)}</div></div>;
 }
 
 function AmountInput({ symbol, value, onChange, balance, precision }: { symbol: string; value: string; onChange: (value: string) => void; balance: string; precision: number }) {
   const setPercent = (percent: number) => onChange(percentageAmount(balance, percent, precision));
   return (
     <div>
-      <label className="text-sm font-semibold text-violet-100">Amount</label>
-      <div className="mt-2 flex min-h-12 overflow-hidden rounded-lg border border-white/10 bg-black/20 focus-within:ring-2 focus-within:ring-auric-300">
+      <label className="text-sm font-semibold text-[var(--exa-text-secondary)]">Amount</label>
+      <div className="mt-2 flex min-h-12 overflow-hidden rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] focus-within:ring-2 focus-within:ring-auric-300">
         <input value={value} onChange={(event) => onChange(event.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" aria-label={`Stake amount in ${symbol}`} className="min-w-0 flex-1 bg-transparent px-3 text-base outline-none" placeholder="0.00" />
-        <button type="button" onClick={() => onChange(percentageAmount(balance, 100, precision))} className="px-3 text-sm font-semibold text-auric-300">MAX</button>
-        <span className="grid place-items-center border-l border-white/10 px-3 text-sm text-violet-100/60">{symbol}</span>
+        <button type="button" onClick={() => onChange(percentageAmount(balance, 100, precision))} className="px-3 text-sm font-semibold text-[var(--exa-gold-light)]">MAX</button>
+        <span className="grid place-items-center border-l border-[var(--exa-border)] px-3 text-sm text-[var(--exa-text-muted)]">{symbol}</span>
       </div>
-      <div className="mt-2 grid grid-cols-4 gap-2">{[25, 50, 75, 100].map((percent) => <button key={percent} type="button" onClick={() => setPercent(percent)} className="min-h-9 rounded-lg border border-white/10 bg-white/[0.04] text-sm">{percent}%</button>)}</div>
+      <div className="mt-2 grid grid-cols-4 gap-2">{[25, 50, 75, 100].map((percent) => <button key={percent} type="button" onClick={() => setPercent(percent)} className="min-h-9 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-sm">{percent}%</button>)}</div>
     </div>
   );
 }
@@ -1489,7 +1489,7 @@ function ProductActionSummary({ product, availableBalance }: { product: StakingP
 
 function RewardEstimator({ amount, product, daily, monthly, annual }: { amount: string; product: StakingProduct; days: number; daily: string; monthly: string; annual: string }) {
   const maturity = amount ? decimal(amount).plus(decimal(annual || "0")).toFixed() : "0";
-  return <div className="rounded-lg border border-white/10 bg-black/20 p-3"><div className="flex items-center gap-2 text-sm font-semibold"><BarChart3 className="h-4 w-4 text-auric-300" />Estimated reward calculator</div><div className="mt-3 grid grid-cols-2 gap-3 text-sm"><MiniMetric label="Daily" value={formatAssetAmount(daily, product.symbol)} /><MiniMetric label="Monthly" value={formatAssetAmount(monthly, product.symbol)} /><MiniMetric label="Annual" value={formatAssetAmount(annual, product.symbol)} /><MiniMetric label="Reward asset" value={product.symbol} /><MiniMetric label="Estimated maturity value" value={formatAssetAmount(maturity, product.symbol)} /><MiniMetric label="Commission" value={formatPercent(product.platform_commission_rate)} /></div><p className="mt-3 text-xs text-violet-100/50">Estimates use the current displayed APY and never credit rewards. Actual rewards may be higher or lower.</p></div>;
+  return <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3"><div className="flex items-center gap-2 text-sm font-semibold"><BarChart3 className="h-4 w-4 text-[var(--exa-gold-light)]" />Estimated reward calculator</div><div className="mt-3 grid grid-cols-2 gap-3 text-sm"><MiniMetric label="Daily" value={formatAssetAmount(daily, product.symbol)} /><MiniMetric label="Monthly" value={formatAssetAmount(monthly, product.symbol)} /><MiniMetric label="Annual" value={formatAssetAmount(annual, product.symbol)} /><MiniMetric label="Reward asset" value={product.symbol} /><MiniMetric label="Estimated maturity value" value={formatAssetAmount(maturity, product.symbol)} /><MiniMetric label="Commission" value={formatPercent(product.platform_commission_rate)} /></div><p className="mt-3 text-xs text-[var(--exa-text-muted)]">Estimates use the current displayed APY and never credit rewards. Actual rewards may be higher or lower.</p></div>;
 }
 
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose?: () => void }) {
@@ -1502,8 +1502,8 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="staking-modal-title">
-      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-white/10 bg-[#111827] p-4 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3"><h2 id="staking-modal-title" className="font-['Sora'] text-xl font-semibold">{title}</h2>{onClose ? <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/[0.04]" aria-label="Close"><X className="h-4 w-4" /></button> : null}</div>
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3"><h2 id="staking-modal-title" className="font-['Sora'] text-xl font-semibold">{title}</h2>{onClose ? <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)]" aria-label="Close"><X className="h-4 w-4" /></button> : null}</div>
         {children}
       </div>
     </div>
@@ -1523,44 +1523,44 @@ function useLeaveWarning(enabled: boolean) {
 }
 
 function ModalActions({ primary, secondary, onPrimary, onSecondary, primaryDisabled = false }: { primary: string; secondary: string; onPrimary: () => void; onSecondary: () => void; primaryDisabled?: boolean }) {
-  return <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={onSecondary} className="min-h-11 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold">{secondary}</button><button type="button" disabled={primaryDisabled} onClick={onPrimary} className="min-h-11 rounded-lg bg-auric-500 px-4 text-sm font-semibold text-cosmic-950 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-violet-100/40">{primary}</button></div>;
+  return <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={onSecondary} className="min-h-11 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-4 text-sm font-semibold">{secondary}</button><button type="button" disabled={primaryDisabled} onClick={onPrimary} className="min-h-11 rounded-lg exa-button-primary px-4 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:cursor-not-allowed disabled:bg-[var(--exa-surface-hover)] disabled:text-[var(--exa-text-disabled)]">{primary}</button></div>;
 }
 
 function Toggle({ label, description, checked, disabled = false, onChange }: { label: string; description: string; checked: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
-  return <button type="button" disabled={disabled} onClick={() => onChange(!checked)} className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-left disabled:opacity-50"><span><span className="block text-sm font-semibold">{label}</span><span className="mt-1 block text-xs text-violet-100/55">{description}</span></span><span className={`h-6 w-11 rounded-full p-1 transition ${checked ? "bg-auric-500" : "bg-white/15"}`}><span className={`block h-4 w-4 rounded-full bg-white transition ${checked ? "translate-x-5" : ""}`} /></span></button>;
+  return <button type="button" disabled={disabled} onClick={() => onChange(!checked)} className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3 text-left disabled:opacity-50"><span><span className="block text-sm font-semibold">{label}</span><span className="mt-1 block text-xs text-[var(--exa-text-muted)]">{description}</span></span><span className={`h-6 w-11 rounded-full p-1 transition ${checked ? "exa-button-primary" : "bg-[var(--exa-surface-hover)]"}`}><span className={`block h-4 w-4 rounded-full bg-white transition ${checked ? "translate-x-5" : ""}`} /></span></button>;
 }
 
 function CheckRow({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
-  return <label className="flex items-start gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-violet-100/70"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-1 h-4 w-4 accent-auric-500" /><span>{label}</span></label>;
+  return <label className="flex items-start gap-3 rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3 text-sm text-[var(--exa-text-secondary)]"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-1 h-4 w-4 accent-[var(--exa-gold)]" /><span>{label}</span></label>;
 }
 
 function ReviewRows({ rows }: { rows: [string, string][] }) {
-  return <div className="rounded-lg border border-white/10 bg-black/20 p-3">{rows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-4 border-b border-white/10 py-2 last:border-b-0"><span className="text-sm text-violet-100/55">{label}</span><span className="max-w-[58%] text-right text-sm font-semibold text-white break-words">{value}</span></div>)}</div>;
+  return <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3">{rows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-4 border-b border-[var(--exa-border)] py-2 last:border-b-0"><span className="text-sm text-[var(--exa-text-muted)]">{label}</span><span className="max-w-[58%] text-right text-sm font-semibold text-white break-words">{value}</span></div>)}</div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-lg border border-white/10 bg-black/20 p-3"><p className="text-xs text-violet-100/50">{label}</p><p className="mt-2 break-words font-['Sora'] text-lg font-semibold text-white">{value}</p></div>;
+  return <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3"><p className="text-xs text-[var(--exa-text-muted)]">{label}</p><p className="mt-2 break-words font-['Sora'] text-lg font-semibold text-white">{value}</p></div>;
 }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-xs text-violet-100/45">{label}</p><p className="mt-1 break-words font-semibold text-violet-50">{value}</p></div>;
+  return <div><p className="text-xs text-[var(--exa-text-disabled)]">{label}</p><p className="mt-1 break-words font-semibold text-[var(--exa-text-primary)]">{value}</p></div>;
 }
 
 function AssetPill({ symbol, network }: { symbol: string; network: string }) {
-  return <div className="flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-lg border border-auric-300/25 bg-auric-300/10 font-['Sora'] text-sm font-semibold text-auric-300">{symbol.slice(0, 3)}</span><span><span className="block font-semibold text-white">{symbol}</span><span className="block text-xs text-violet-100/50">{network}</span></span></div>;
+  return <div className="flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] font-['Sora'] text-sm font-semibold text-[var(--exa-gold-light)]">{symbol.slice(0, 3)}</span><span><span className="block font-semibold text-white">{symbol}</span><span className="block text-xs text-[var(--exa-text-muted)]">{network}</span></span></div>;
 }
 
 function Badge({ label }: { label: string }) {
-  return <span className="rounded-md border border-auric-300/25 bg-auric-300/10 px-2 py-1 text-xs text-auric-200">{label}</span>;
+  return <span className="rounded-md border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2 py-1 text-xs text-[var(--exa-gold-light)]">{label}</span>;
 }
 
 function StatusBadge({ status }: { status: string }) {
   const key = String(status || "unknown").toLowerCase().replaceAll(" ", "_");
-  return <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs capitalize ${statusTone[key] || "border-white/10 bg-white/[0.04] text-violet-100/65"}`}>{normalizeStatus(status)}</span>;
+  return <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs capitalize ${statusTone[key] || "border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-[var(--exa-text-muted)]"}`}>{normalizeStatus(status)}</span>;
 }
 
 function ActionButton({ disabled, label, reason, onClick }: { disabled: boolean; label: string; reason: string; onClick: () => void }) {
-  return <button type="button" disabled={disabled} title={disabled ? reason : label} onClick={onClick} className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-auric-500 px-3 text-sm font-semibold text-cosmic-950 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-violet-100/40">{label}<ChevronRight className="h-4 w-4" /></button>;
+  return <button type="button" disabled={disabled} title={disabled ? reason : label} onClick={onClick} className="inline-flex min-h-10 items-center gap-1 rounded-lg exa-button-primary px-3 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:cursor-not-allowed disabled:bg-[var(--exa-surface-hover)] disabled:text-[var(--exa-text-disabled)]">{label}<ChevronRight className="h-4 w-4" /></button>;
 }
 
 function InlineError({ message }: { message: string }) {
@@ -1572,15 +1572,16 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => Prom
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
-  return <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-5 text-center"><Info className="mx-auto h-5 w-5 text-violet-100/45" /><h3 className="mt-2 font-semibold text-white">{title}</h3><p className="mt-1 text-sm text-violet-100/55">{body}</p></div>;
+  return <div className="rounded-xl border border-dashed border-[var(--exa-border)] bg-[var(--exa-surface)] p-5 text-center"><Info className="mx-auto h-5 w-5 text-[var(--exa-text-disabled)]" /><h3 className="mt-2 font-semibold text-white">{title}</h3><p className="mt-1 text-sm text-[var(--exa-text-muted)]">{body}</p></div>;
 }
 
 function SuccessState({ title, body, details = [], onClose }: { title: string; body: string; details?: [string, string][]; onClose: () => void }) {
-  return <div className="text-center"><CheckCircle2 className="mx-auto h-10 w-10 text-emerald-300" /><h3 className="mt-3 font-['Sora'] text-xl font-semibold">{title}</h3><p className="mt-2 text-sm text-violet-100/65">{body}</p>{details.length ? <div className="mt-5 text-left"><ReviewRows rows={details} /></div> : null}<button type="button" onClick={onClose} className="mt-5 min-h-11 rounded-lg bg-auric-500 px-4 font-semibold text-cosmic-950">Return to Staking</button></div>;
+  return <div className="text-center"><CheckCircle2 className="mx-auto h-10 w-10 text-emerald-300" /><h3 className="mt-3 font-['Sora'] text-xl font-semibold">{title}</h3><p className="mt-2 text-sm text-[var(--exa-text-muted)]">{body}</p>{details.length ? <div className="mt-5 text-left"><ReviewRows rows={details} /></div> : null}<button type="button" onClick={onClose} className="mt-5 min-h-11 rounded-lg exa-button-primary px-4 font-semibold text-[var(--exa-gold-contrast)]">Return to Staking</button></div>;
 }
 
 function SkeletonGrid() {
-  return <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading staking data">{Array.from({ length: 8 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-lg border border-white/10 bg-white/[0.05]" />)}</div>;
+  return <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading staking data">{Array.from({ length: 8 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)]" />)}</div>;
 }
 
 export default StakingDashboard;
+
