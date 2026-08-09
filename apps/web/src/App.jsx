@@ -774,13 +774,24 @@ export default function App() {
     return <CryptoMarkets onBack={() => setCurrentPage("market")} onOpenTrade={() => setCurrentPage("trade")} />;
   }
   if (currentPage === "trade") {
-    return <Trade onBack={() => setCurrentPage("home")} />;
+    return (
+      <Trade
+        onBack={() => setCurrentPage("home")}
+        onOpenConvert={() => setCurrentPage("swap")}
+        onOpenFutures={() => setCurrentPage("futures")}
+        onOpenOptions={() => setCurrentPage("options")}
+        onOpenTradFi={() => setCurrentPage("smartMoney")}
+      />
+    );
   }
   if (currentPage === "futures") {
     return (
       <Futures
         onBack={() => setCurrentPage("home")}
+        onOpenConvert={() => setCurrentPage("swap")}
+        onOpenSpot={() => setCurrentPage("trade")}
         onOpenOptions={() => setCurrentPage("options")}
+        onOpenTradFi={() => setCurrentPage("smartMoney")}
         onOpenSmart={() => setCurrentPage("smartMoney")}
       />
     );
