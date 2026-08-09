@@ -283,7 +283,7 @@ function AuthProvider({ children }) {
         const payload = await request("/api/login", {
           method: "POST",
           body: JSON.stringify({ email, password }),
-          timeoutMs: localApiPreview ? 4000 : 15000,
+          timeoutMs: localApiPreview ? 4000 : 45000,
         });
 
         const succeeded = payload.success === true || payload.status === "success";
@@ -355,7 +355,7 @@ function AuthProvider({ children }) {
                 }
               : {}),
           }),
-          timeoutMs: localApiPreview ? 4000 : 15000,
+          timeoutMs: localApiPreview ? 4000 : 45000,
         });
 
         return {
@@ -416,7 +416,7 @@ function AuthProvider({ children }) {
             referral_code: referralCode || undefined,
             dashboard_preferences: dashboardPreferences || undefined,
           }),
-          timeoutMs: localApiPreview ? 4000 : 15000,
+          timeoutMs: localApiPreview ? 4000 : 45000,
         });
 
         const succeeded = payload.success === true || payload.status === "success";
