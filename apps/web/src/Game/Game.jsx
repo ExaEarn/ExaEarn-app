@@ -277,40 +277,40 @@ function Game({ onBack }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#050816] px-4 py-5 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[var(--exa-bg-primary)] px-4 py-5 text-[var(--exa-text-primary)] sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-white/10 bg-[#0b1021] px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-surface)] px-4 py-3">
           <div className="flex items-center gap-3">
-            {onBack ? <button type="button" onClick={onBack} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white"><ArrowLeft className="h-4 w-4" /></button> : null}
-            <div><p className="text-xs uppercase tracking-[0.28em] text-[#8a92b2]">ExaEarn Games</p><h1 className="text-xl font-semibold sm:text-2xl">EXAEARN Aviation</h1></div>
+            {onBack ? <button type="button" onClick={onBack} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-primary)]"><ArrowLeft className="h-4 w-4" /></button> : null}
+            <div><p className="text-xs uppercase tracking-[0.28em] text-[var(--exa-text-muted)]">ExaEarn Games</p><h1 className="text-xl font-semibold sm:text-2xl">EXAEARN Aviation</h1></div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[#a7b2d6]">
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Play</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">My Entries</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Round History</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Game Rules</span>
-            <button type="button" onClick={() => fetchState().catch((loadError) => setError(loadError.message || "Unable to refresh the round."))} className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#cfd5f3]"><RefreshCw className="h-4 w-4" /> Refresh</button>
+            <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1.5">Play</span>
+            <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1.5">My Entries</span>
+            <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1.5">Round History</span>
+            <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1.5">Game Rules</span>
+            <button type="button" onClick={() => fetchState().catch((loadError) => setError(loadError.message || "Unable to refresh the round."))} className="inline-flex items-center gap-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-sm text-[var(--exa-text-secondary)]"><RefreshCw className="h-4 w-4" /> Refresh</button>
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_390px]">
-          <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,#1d2f65_0%,#091122_40%,#050816_100%)] p-4 sm:p-6">
+          <section className="overflow-hidden rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="text-xs uppercase tracking-[0.28em] text-[#8a92b2]">Game Balance</p><div className="mt-1 flex items-center gap-2 text-lg font-semibold text-[#f4f7ff]"><Wallet className="h-4 w-4 text-[#6ea8ff]" />{formatMoney(assetBalance, selectedAsset)}</div></div>
-              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2"><select value={selectedAsset} onChange={(event) => setSelectedAsset(event.target.value)} className="bg-transparent text-sm font-medium outline-none">{enabledAssets.map((asset) => <option key={asset} value={asset} className="bg-[#091122] text-white">{asset}</option>)}</select></div>
+              <div><p className="text-xs uppercase tracking-[0.28em] text-[var(--exa-text-muted)]">Game Balance</p><div className="mt-1 flex items-center gap-2 text-lg font-semibold text-[#f4f7ff]"><Wallet className="h-4 w-4 text-[var(--exa-gold)]" />{formatMoney(assetBalance, selectedAsset)}</div></div>
+              <div className="flex items-center gap-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2"><select value={selectedAsset} onChange={(event) => setSelectedAsset(event.target.value)} className="bg-transparent text-sm font-medium outline-none">{enabledAssets.map((asset) => <option key={asset} value={asset} className="bg-[var(--exa-surface-elevated)] text-[var(--exa-text-primary)]">{asset}</option>)}</select></div>
             </div>
 
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1">{history.slice(0, 10).map((item) => <button key={item.round_uuid} type="button" onClick={() => setSelectedHistory(item)} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[#d6dcf7]">{formatMultiplier(item.crash_multiplier || 1)}</button>)}</div>
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1">{history.slice(0, 10).map((item) => <button key={item.round_uuid} type="button" onClick={() => setSelectedHistory(item)} className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1 text-xs text-[var(--exa-text-secondary)]">{formatMultiplier(item.crash_multiplier || 1)}</button>)}</div>
 
-            <div className="relative mt-4 overflow-hidden rounded-[30px] border border-white/10 bg-[#060b17]/70 px-4 py-5 sm:px-6 sm:py-8">
+            <div className="relative mt-4 overflow-hidden rounded-[30px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-5 sm:px-6 sm:py-8">
               <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#0c1430] to-transparent" />
               <div className="absolute inset-0 opacity-70" style={{ backgroundImage: "radial-gradient(circle at 20% 20%, rgba(53,105,255,0.25), transparent 25%), radial-gradient(circle at 80% 10%, rgba(96,255,210,0.12), transparent 20%)" }} />
               <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="rounded-full border border-[#6ea8ff]/30 bg-[#0f1b3b]/80 px-4 py-1 text-xs uppercase tracking-[0.28em] text-[#9ab6ff]">{currentStage}</div>
+                <div className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-1 text-xs uppercase tracking-[0.28em] text-[var(--exa-gold-light)]">{currentStage}</div>
                 <div className="mt-5 text-5xl font-semibold tracking-tight sm:text-7xl">{formatMultiplier(displayMultiplier)}</div>
                 <p className="mt-3 text-sm text-[#9aa7cf]">{roundHeadline(round)}</p>
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-xs text-[#b3bddf]"><span>Round #{round?.round_number ?? "--"}</span><span>Total Entries {round?.players ?? 0}</span><span>Total Entry Value {formatMoney(round?.total_stake || 0, round?.asset || selectedAsset)}</span></div>
                 <FlightStageScene multiplier={displayMultiplier} roundStatus={round?.status} stage={currentStage} />
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-4 py-2 text-sm text-[#d7defb]"><Plane className="h-4 w-4 text-[#6ea8ff]" />EXAEARN server-authoritative round timing</div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm text-[var(--exa-text-secondary)]"><Plane className="h-4 w-4 text-[var(--exa-gold)]" />EXAEARN server-authoritative round timing</div>
               </div>
             </div>
           </section>
@@ -327,24 +327,24 @@ function Game({ onBack }) {
               const cta = liveEntry ? liveEntry.status === "placed" && isRunning ? `Collect ${formatMoney(toNumber(liveEntry.stake) * displayMultiplier, liveEntry.asset)}` : liveEntry.status === "cashed_out" ? "Reward Collected" : liveEntry.status === "lost" ? "Round Ended" : "Entry Confirmed" : !authReady ? "Checking session..." : !user ? "Sign in to enter" : round?.status === "running" ? "Round in flight" : round?.status !== "betting" ? "Next round soon" : "Enter Round";
 
               return (
-                <div key={index} className="rounded-[28px] border border-white/10 bg-[#0b1021] p-4">
-                  <div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-[0.24em] text-[#8a92b2]">Entry {index + 1}</p><h3 className="mt-1 text-lg font-semibold">{selectedAsset}</h3></div><div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-1 text-xs text-[#b7c0e5]">Auto Collect {panel.autoCollect || "--"}Ã—</div></div>
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-[#091122] p-3">
-                    <div className="flex items-center justify-between text-xs text-[#8a92b2]"><span>Entry Amount</span><span>Available {formatMoney(assetBalance, selectedAsset)}</span></div>
+                <div key={index} className="rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
+                  <div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-[0.24em] text-[var(--exa-text-muted)]">Entry {index + 1}</p><h3 className="mt-1 text-lg font-semibold">{selectedAsset}</h3></div><div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1 text-xs text-[var(--exa-text-muted)]">Auto Collect {panel.autoCollect || "--"}Ã—</div></div>
+                  <div className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                    <div className="flex items-center justify-between text-xs text-[var(--exa-text-muted)]"><span>Entry Amount</span><span>Available {formatMoney(assetBalance, selectedAsset)}</span></div>
                     <div className="mt-2 flex items-center gap-2"><input value={panel.amount} onChange={(event) => handlePanelChange(index, "amount", event.target.value)} className="w-full bg-transparent text-2xl font-semibold outline-none" /><span className="text-sm text-[#9fb4ff]">{selectedAsset}</span></div>
-                    <div className="mt-3 flex flex-wrap gap-2">{[1, 5, 10, 50].map((amount) => <button key={amount} type="button" onClick={() => handlePanelChange(index, "amount", String(toNumber(panel.amount || 0) + amount))} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[#d6dcf7]">+{amount}</button>)}</div>
+                    <div className="mt-3 flex flex-wrap gap-2">{[1, 5, 10, 50].map((amount) => <button key={amount} type="button" onClick={() => handlePanelChange(index, "amount", String(toNumber(panel.amount || 0) + amount))} className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1 text-xs text-[var(--exa-text-secondary)]">+{amount}</button>)}</div>
                   </div>
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-[#091122] p-3">
-                    <div className="flex items-center justify-between text-xs text-[#8a92b2]"><span>Auto Collect</span><span>Server-side execution</span></div>
+                  <div className="mt-3 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                    <div className="flex items-center justify-between text-xs text-[var(--exa-text-muted)]"><span>Auto Collect</span><span>Server-side execution</span></div>
                     <div className="mt-2 flex items-center gap-2"><input value={panel.autoCollect} inputMode="decimal" onChange={(event) => handlePanelChange(index, "autoCollect", event.target.value)} className="w-full bg-transparent text-xl font-semibold outline-none" /><span className="text-sm text-[#9fb4ff]">Ã—</span></div>
                   </div>
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-[#091122] p-3 text-sm text-[#dbe2ff]">
-                    <div className="flex items-center justify-between"><span className="text-[#8a92b2]">Potential Reward</span><span>{formatMoney(previewReward, selectedAsset)}</span></div>
-                    <div className="mt-2 flex items-center justify-between"><span className="text-[#8a92b2]">Current Multiplier</span><span>{formatMultiplier(displayMultiplier)}</span></div>
-                    {liveEntry ? <div className="mt-2 flex items-center justify-between"><span className="text-[#8a92b2]">Entry Status</span><span>{displayEntryStatus(liveEntry.status, round?.status)}</span></div> : null}
+                  <div className="mt-3 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-sm text-[var(--exa-text-secondary)]">
+                    <div className="flex items-center justify-between"><span className="text-[var(--exa-text-muted)]">Potential Reward</span><span>{formatMoney(previewReward, selectedAsset)}</span></div>
+                    <div className="mt-2 flex items-center justify-between"><span className="text-[var(--exa-text-muted)]">Current Multiplier</span><span>{formatMultiplier(displayMultiplier)}</span></div>
+                    {liveEntry ? <div className="mt-2 flex items-center justify-between"><span className="text-[var(--exa-text-muted)]">Entry Status</span><span>{displayEntryStatus(liveEntry.status, round?.status)}</span></div> : null}
                   </div>
                   {issue && !liveEntry ? <p className="mt-3 text-xs text-amber-200">{issue}</p> : null}
-                  <button type="button" onClick={() => (liveEntry && liveEntry.status === "placed" && isRunning ? collectReward(liveEntry.bet_uuid) : enterRound(index))} disabled={Boolean(submitting[`entry-${index}`] || (liveEntry && submitting[liveEntry.bet_uuid]) || (!liveEntry && issue))} className={`mt-4 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${liveEntry && liveEntry.status === "placed" && isRunning ? "bg-[#19c37d] text-[#04110b]" : "bg-[linear-gradient(90deg,#5f7cff,#f8c84a)] text-[#08101f]"}`}>
+                  <button type="button" onClick={() => (liveEntry && liveEntry.status === "placed" && isRunning ? collectReward(liveEntry.bet_uuid) : enterRound(index))} disabled={Boolean(submitting[`entry-${index}`] || (liveEntry && submitting[liveEntry.bet_uuid]) || (!liveEntry && issue))} className={`mt-4 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${liveEntry && liveEntry.status === "placed" && isRunning ? "bg-[#19c37d] text-[#04110b]" : "bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] text-[var(--exa-gold-contrast)]"}`}>
                     {submitting[`entry-${index}`] || (liveEntry && submitting[liveEntry.bet_uuid]) ? (liveEntry ? "Collecting..." : "Entering...") : cta}
                   </button>
                 </div>
@@ -355,23 +355,23 @@ function Game({ onBack }) {
 
         {(message || error) ? <div className={`rounded-2xl border px-4 py-3 text-sm ${error ? "border-red-500/30 bg-red-500/10 text-red-200" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"}`}>{error || message}</div> : null}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <section className="rounded-[28px] border border-white/10 bg-[#0b1021] p-4">
-            <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Live Round Activity</h2><span className="text-xs text-[#8a92b2]">Realtime feed</span></div>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-              <div className="grid grid-cols-4 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.18em] text-[#7f88a9]"><span>Player</span><span>Entry</span><span>Collect</span><span>Result</span></div>
-              <div className="divide-y divide-white/5">{liveActivity.map((entry) => <div key={entry.bet_uuid} className="grid grid-cols-4 px-3 py-3 text-sm text-[#dbe2ff]"><span>{entry.player}</span><span>{formatMoney(entry.stake, entry.asset)}</span><span>{entry.cashout_multiplier ? formatMultiplier(entry.cashout_multiplier) : "--"}</span><span>{displayEntryStatus(entry.status, round?.status)}</span></div>)}</div>
+          <section className="rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
+            <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Live Round Activity</h2><span className="text-xs text-[var(--exa-text-muted)]">Realtime feed</span></div>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--exa-border)]">
+              <div className="grid grid-cols-4 bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[var(--exa-text-muted)]"><span>Player</span><span>Entry</span><span>Collect</span><span>Result</span></div>
+              <div className="divide-y divide-white/5">{liveActivity.map((entry) => <div key={entry.bet_uuid} className="grid grid-cols-4 px-3 py-3 text-sm text-[var(--exa-text-secondary)]"><span>{entry.player}</span><span>{formatMoney(entry.stake, entry.asset)}</span><span>{entry.cashout_multiplier ? formatMultiplier(entry.cashout_multiplier) : "--"}</span><span>{displayEntryStatus(entry.status, round?.status)}</span></div>)}</div>
             </div>
 
             <div className="mt-4">
               <h3 className="text-base font-semibold">My Entries</h3>
-              <div className="mt-3 grid gap-2">{myEntries.map((entry) => <div key={entry.bet_uuid} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm"><div className="flex items-center justify-between"><span>Round #{entry.round_number}</span><span className="text-[#8a92b2]">{displayEntryStatus(entry.status, round?.status)}</span></div><div className="mt-2 grid gap-1 text-[#cfd5f3] sm:grid-cols-2"><span>Entry Amount: {formatMoney(entry.stake, entry.asset)}</span><span>Collect Multiplier: {entry.cashout_multiplier ? formatMultiplier(entry.cashout_multiplier) : "--"}</span><span>Reward: {formatMoney(entry.payout, entry.asset)}</span><span>Time: {formatTime(entry.settled_at || entry.placed_at)}</span></div></div>)}</div>
+              <div className="mt-3 grid gap-2">{myEntries.map((entry) => <div key={entry.bet_uuid} className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-sm"><div className="flex items-center justify-between"><span>Round #{entry.round_number}</span><span className="text-[var(--exa-text-muted)]">{displayEntryStatus(entry.status, round?.status)}</span></div><div className="mt-2 grid gap-1 text-[var(--exa-text-secondary)] sm:grid-cols-2"><span>Entry Amount: {formatMoney(entry.stake, entry.asset)}</span><span>Collect Multiplier: {entry.cashout_multiplier ? formatMultiplier(entry.cashout_multiplier) : "--"}</span><span>Reward: {formatMoney(entry.payout, entry.asset)}</span><span>Time: {formatTime(entry.settled_at || entry.placed_at)}</span></div></div>)}</div>
             </div>
           </section>
 
-          <section className="space-y-4 rounded-[28px] border border-white/10 bg-[#0b1021] p-4">
+          <section className="space-y-4 rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
             <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-[#8fe3b8]" /><h2 className="text-lg font-semibold">Fairness Verification</h2></div>
             <p className="text-sm text-[#9aa7cf]">Each round publishes a server-seed hash before takeoff and reveals the seed after completion so completed rounds can be verified independently.</p>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-[#dbe2ff]"><div className="flex items-center justify-between"><span>Round</span><span>#{historySelection?.round_number ?? round?.round_number ?? "--"}</span></div><div className="mt-2 flex items-center justify-between"><span>Hash</span><span className="max-w-[180px] truncate">{historySelection?.server_seed_hash || round?.server_seed_hash || "--"}</span></div><div className="mt-2 flex items-center justify-between"><span>Multiplier</span><span>{historySelection?.crash_multiplier ? formatMultiplier(historySelection.crash_multiplier) : "Pending"}</span></div><div className="mt-2 flex items-center justify-between"><span>Completed</span><span>{formatTime(historySelection?.settled_at)}</span></div></div>
+            <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-sm text-[var(--exa-text-secondary)]"><div className="flex items-center justify-between"><span>Round</span><span>#{historySelection?.round_number ?? round?.round_number ?? "--"}</span></div><div className="mt-2 flex items-center justify-between"><span>Hash</span><span className="max-w-[180px] truncate">{historySelection?.server_seed_hash || round?.server_seed_hash || "--"}</span></div><div className="mt-2 flex items-center justify-between"><span>Multiplier</span><span>{historySelection?.crash_multiplier ? formatMultiplier(historySelection.crash_multiplier) : "Pending"}</span></div><div className="mt-2 flex items-center justify-between"><span>Completed</span><span>{formatTime(historySelection?.settled_at)}</span></div></div>
             <button
               type="button"
               onClick={async () => {
@@ -384,7 +384,7 @@ function Game({ onBack }) {
                   setError(verificationError.message || "Unable to verify the selected round.");
                 }
               }}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#d6dcf7]"
+              className="inline-flex items-center gap-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-sm text-[var(--exa-text-secondary)]"
             >
               <History className="h-4 w-4" /> Verify selected round
             </button>

@@ -6,28 +6,28 @@ function LandCard({ parcel, onAcquireShare }) {
   };
 
   return (
-    <article className="w-full rounded-2xl border border-violet-300/20 bg-cosmic-900/70 p-3 shadow-cosmic-card">
+    <article className="w-full rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 shadow-[var(--exa-shadow-soft)]">
       <div className={`h-20 sm:h-24 w-full rounded-xl bg-gradient-to-br ${themeClasses[parcel.theme] || themeClasses.violet}`} />
       <div className="mt-3">
-        <p className="text-sm font-semibold text-violet-50">{parcel.name}</p>
-        <p className="mt-1 text-xs text-violet-100/70">
+        <p className="text-sm font-semibold text-[var(--exa-text-primary)]">{parcel.name}</p>
+        <p className="mt-1 text-xs text-[var(--exa-text-muted)]">
           {parcel.size} · {parcel.location}
         </p>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs">
-        <span className="text-violet-100/60">Available</span>
-        <span className="font-semibold text-auric-300">{parcel.availability}%</span>
+        <span className="text-[var(--exa-text-secondary)]">Available</span>
+        <span className="font-semibold text-[var(--exa-gold)]">{parcel.availability}%</span>
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-cosmic-800/80">
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--exa-surface-elevated)]">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-auric-300 via-auric-400 to-auric-500"
+          className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)]"
           style={{ width: `${parcel.availability}%` }}
         />
       </div>
       <button
         type="button"
         onClick={() => onAcquireShare?.(parcel.id)}
-        className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-auric-300/60 bg-gradient-to-r from-auric-300 via-auric-400 to-auric-500 px-3 py-2 text-xs font-semibold text-cosmic-900 transition-all duration-300 hover:scale-[1.01] hover:shadow-button-glow"
+        className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-3 py-2 text-xs font-semibold text-[var(--exa-gold-contrast)] transition-all duration-300 hover:scale-[1.01] hover:shadow-[var(--exa-shadow-gold)]"
       >
         Acquire Share
       </button>

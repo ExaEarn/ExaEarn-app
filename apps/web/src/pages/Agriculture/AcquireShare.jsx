@@ -84,7 +84,7 @@ function mapProject(project) {
 
 function ImpactCounter({ value, suffix }) {
   return (
-    <p className="mt-2 text-3xl font-semibold text-[#D4AF37] sm:text-4xl">
+    <p className="mt-2 text-3xl font-semibold text-[var(--exa-gold)] sm:text-4xl">
       {Number(value || 0).toLocaleString()}
       {suffix}
     </p>
@@ -292,7 +292,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
   };
 
   return (
-    <div className="min-h-screen text-[#F8F8F8] exa-bg app-shell acquire-share-page">
+    <div className="min-h-screen text-[var(--exa-text-primary)] bg-[var(--exa-bg-primary)]  acquire-share-page">
       <div className="relative mx-auto w-full max-w-sm px-3 pb-10 pt-4 sm:max-w-lg sm:px-4 md:max-w-2xl lg:max-w-5xl xl:max-w-6xl">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="network-orb orb-one" />
@@ -300,15 +300,15 @@ function AcquireShare({ onBack, initialProjectId = null }) {
           <div className="network-grid" />
         </div>
 
-        <div className="relative rounded-3xl border border-[#D4AF37]/30 bg-[#0B0B0B]/70 p-4 shadow-[0_24px_56px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-6">
+        <div className="relative rounded-3xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl sm:p-6">
           <header className="mb-8">
             <div className="flex items-center justify-between">
-              <div className="text-xs uppercase tracking-[0.26em] text-[#D4AF37]/85">ExaEarn Acquire Share</div>
+              <div className="text-xs uppercase tracking-[0.26em] text-[var(--exa-gold)]">ExaEarn Acquire Share</div>
               {onBack ? (
                 <button
                   type="button"
                   onClick={onBack}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/40 bg-[#0B0B0B]/65 px-3 py-2 text-xs font-medium text-[#F8F8F8] transition-all hover:border-[#D4AF37] hover:text-[#D4AF37]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs font-medium text-[var(--exa-text-primary)] transition-all hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold)]"
                 >
                   <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                   Back
@@ -316,7 +316,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
               ) : null}
             </div>
 
-            <section className="relative mt-5 overflow-hidden rounded-3xl border border-[#D4AF37]/35 hero-panel">
+            <section className="relative mt-5 overflow-hidden rounded-3xl border border-[var(--exa-border-active)] hero-panel">
               <img
                 src={Image.agriculture}
                 alt="Farm landscape with Web3 overlays"
@@ -328,28 +328,28 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                   <Landmark className="h-4 w-4" aria-hidden="true" />
                   Real Asset Fractional Ownership
                 </div>
-                <h1 className="mt-4 max-w-3xl font-['Sora'] text-3xl font-semibold leading-tight text-[#F8F8F8] sm:text-5xl">
-                  <span className="text-[#D4AF37]">Invest in Agriculture.</span> Own Real Assets. Earn Real Returns.
+                <h1 className="mt-4 max-w-3xl font-['Sora'] text-3xl font-semibold leading-tight text-[var(--exa-text-primary)] sm:text-5xl">
+                  <span className="text-[var(--exa-gold)]">Invest in Agriculture.</span> Own Real Assets. Earn Real Returns.
                 </h1>
-                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#F8F8F8]/85 sm:text-base">
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--exa-text-secondary)] sm:text-base">
                   Acquire fractional shares in verified agricultural projects across Africa. Track growth. Monitor
                   harvest cycles. Earn transparently.
                 </p>
-                <p className="mt-3 text-xs text-[#F8F8F8]/70">
+                <p className="mt-3 text-xs text-[var(--exa-text-secondary)]">
                   {loading ? "Loading live project catalog..." : `${projects.length} projects synced from the Agri API.`}
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={scrollToProjects}
-                    className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] to-[#f0d16e] px-5 py-3 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_24px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-0.5"
+                    className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-5 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition-all hover:-translate-y-0.5"
                   >
                     Acquire Shares Now
                   </button>
                   <button
                     type="button"
                     onClick={scrollToProjects}
-                    className="rounded-xl border border-[#F8F8F8]/60 bg-[#F8F8F8]/8 px-5 py-3 text-sm font-semibold text-[#F8F8F8] backdrop-blur-sm transition-all hover:border-[#D4AF37]/75 hover:text-[#D4AF37]"
+                    className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-5 py-3 text-sm font-semibold text-[var(--exa-text-primary)] backdrop-blur-sm transition-all hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold)]"
                   >
                     View Active Farms
                   </button>
@@ -360,8 +360,8 @@ function AcquireShare({ onBack, initialProjectId = null }) {
 
           <section id="active-farms" className="mb-8">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="font-['Sora'] text-2xl font-semibold text-[#F8F8F8]">Available Farm Projects</h2>
-              <div className="rounded-full border border-[#D4AF37]/45 px-3 py-1 text-xs text-[#D4AF37]">
+              <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Available Farm Projects</h2>
+              <div className="rounded-full border border-[var(--exa-border-active)] px-3 py-1 text-xs text-[var(--exa-gold)]">
                 Verified Opportunities
               </div>
             </div>
@@ -369,46 +369,46 @@ function AcquireShare({ onBack, initialProjectId = null }) {
               {projects.map((project) => (
                 <article
                   key={project.id}
-                  className="group rounded-2xl border border-[#D4AF37]/20 bg-[#0B0B0B]/65 p-5 shadow-[0_14px_28px_rgba(0,0,0,0.3)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-[#D4AF37]/45 hover:shadow-[0_18px_34px_rgba(212,175,55,0.14)]"
+                  className="group rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5 shadow-[var(--exa-shadow-soft)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-[var(--exa-border-active)] hover:shadow-[var(--exa-shadow-gold)]"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="font-['Sora'] text-lg font-semibold text-[#F8F8F8]">{project.name}</h3>
-                    <span className="rounded-full border border-[#D4AF37]/35 px-3 py-1 text-xs text-[#D4AF37]">
+                    <h3 className="font-['Sora'] text-lg font-semibold text-[var(--exa-text-primary)]">{project.name}</h3>
+                    <span className="rounded-full border border-[var(--exa-border-active)] px-3 py-1 text-xs text-[var(--exa-gold)]">
                       {project.crop}
                     </span>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.04] p-3">
-                      <p className="text-[#F8F8F8]/65">Expected ROI</p>
-                      <p className="mt-1 font-semibold text-[#D4AF37]">
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-[var(--exa-text-secondary)]">Expected ROI</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-gold)]">
                         {project.roiMin}% - {project.roiMax}%
                       </p>
                     </div>
-                    <div className="rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.04] p-3">
-                      <p className="text-[#F8F8F8]/65">Duration</p>
-                      <p className="mt-1 font-semibold text-[#F8F8F8]">{project.durationMonths} months</p>
+                    <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-[var(--exa-text-secondary)]">Duration</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-text-primary)]">{project.durationMonths} months</p>
                     </div>
-                    <div className="col-span-2 rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.04] p-3">
-                      <p className="text-[#F8F8F8]/65">Minimum Share Price</p>
-                      <p className="mt-1 font-semibold text-[#F8F8F8]">
+                    <div className="col-span-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-[var(--exa-text-secondary)]">Minimum Share Price</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-text-primary)]">
                         {formatCurrency(project.sharePriceNgn)} or ${project.sharePriceUsd}
                       </p>
                     </div>
-                    <div className="col-span-2 rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.04] p-3">
-                      <p className="text-[#F8F8F8]/65">Location / Yield</p>
-                      <p className="mt-1 font-semibold text-[#F8F8F8]">
+                    <div className="col-span-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                      <p className="text-[var(--exa-text-secondary)]">Location / Yield</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-text-primary)]">
                         {project.location} • {project.expectedYield.toLocaleString()} expected yield
                       </p>
                     </div>
                   </div>
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#F8F8F8]/70">Funding Progress</span>
-                      <span className="font-semibold text-[#D4AF37]">{project.funding}% Complete</span>
+                      <span className="text-[var(--exa-text-secondary)]">Funding Progress</span>
+                      <span className="font-semibold text-[var(--exa-gold)]">{project.funding}% Complete</span>
                     </div>
-                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#F8F8F8]/12">
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--exa-surface-hover)]">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#eed48a] to-[#D4AF37]"
+                        className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)]"
                         style={{ width: `${project.funding}%` }}
                       />
                     </div>
@@ -419,35 +419,35 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                       setSelectedProjectId(project.id);
                       scrollToCalculator();
                     }}
-                    className="mt-5 w-full rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] to-[#f2d67a] px-4 py-3 text-sm font-semibold text-[#0B0B0B] transition-all group-hover:shadow-[0_0_20px_rgba(212,175,55,0.35)]"
+                    className="mt-5 w-full rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] transition-all group-hover:shadow-[var(--exa-shadow-gold)]"
                   >
                     Acquire Share
                   </button>
                 </article>
               ))}
             </div>
-            {loading ? <p className="mt-4 text-sm text-[#F8F8F8]/70">Loading active farm projects...</p> : null}
+            {loading ? <p className="mt-4 text-sm text-[var(--exa-text-secondary)]">Loading active farm projects...</p> : null}
             {!loading && !projects.length ? (
-              <p className="mt-4 text-sm text-[#F8F8F8]/70">No tokenized farm projects are available yet.</p>
+              <p className="mt-4 text-sm text-[var(--exa-text-secondary)]">No tokenized farm projects are available yet.</p>
             ) : null}
           </section>
 
           <section
             id="investment-calculator"
-            className="mb-8 rounded-2xl border border-[#D4AF37]/25 bg-[#F8F8F8]/[0.03] p-5 backdrop-blur-lg"
+            className="mb-8 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5 backdrop-blur-lg"
           >
-            <div className="flex items-center gap-2 text-[#D4AF37]">
+            <div className="flex items-center gap-2 text-[var(--exa-gold)]">
               <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />
               <h2 className="font-['Sora'] text-xl font-semibold">Investment Calculator</h2>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="space-y-4 rounded-xl border border-[#F8F8F8]/12 bg-[#0B0B0B]/55 p-4">
-                <label className="block text-sm text-[#F8F8F8]/85">
+              <div className="space-y-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                <label className="block text-sm text-[var(--exa-text-secondary)]">
                   Select Farm Project
                   <select
                     value={selectedProjectId}
                     onChange={(event) => setSelectedProjectId(event.target.value)}
-                    className="mt-2 w-full rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] px-3 py-2 text-sm text-[#F8F8F8] outline-none transition-all focus:border-[#D4AF37]"
+                    className="mt-2 w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-sm text-[var(--exa-text-primary)] outline-none transition-all focus:border-[var(--exa-border-active)]"
                   >
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>
@@ -456,7 +456,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                     ))}
                   </select>
                 </label>
-                <label className="block text-sm text-[#F8F8F8]/85">
+                <label className="block text-sm text-[var(--exa-text-secondary)]">
                   Number of Shares
                   <input
                     type="number"
@@ -464,31 +464,31 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                     max={Math.max(1, selectedProject?.sharesAvailable || 1)}
                     value={shareCount}
                     onChange={(event) => setShareCount(Math.max(1, Number(event.target.value) || 1))}
-                    className="mt-2 w-full rounded-lg border border-[#D4AF37]/35 bg-[#0B0B0B] px-3 py-2 text-sm text-[#F8F8F8] outline-none transition-all focus:border-[#D4AF37]"
+                    className="mt-2 w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-sm text-[var(--exa-text-primary)] outline-none transition-all focus:border-[var(--exa-border-active)]"
                   />
                 </label>
-                <div className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3 text-xs text-[#F8F8F8]/75">
+                <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs text-[var(--exa-text-secondary)]">
                   Shares available: {Number(selectedProject?.sharesAvailable || 0).toLocaleString()} /{" "}
                   {Number(selectedProject?.totalShares || 0).toLocaleString()}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 rounded-xl border border-[#D4AF37]/25 bg-[#0B0B0B]/60 p-4">
-                <div className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                  <p className="text-xs text-[#F8F8F8]/70">Projected Return</p>
-                  <p className="mt-2 text-base font-semibold text-[#D4AF37]">{formatCurrency(projection.grossReturn)}</p>
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
+                <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                  <p className="text-xs text-[var(--exa-text-secondary)]">Projected Return</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--exa-gold)]">{formatCurrency(projection.grossReturn)}</p>
                 </div>
-                <div className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                  <p className="text-xs text-[#F8F8F8]/70">Estimated Profit</p>
-                  <p className="mt-2 text-base font-semibold text-[#D4AF37]">{formatCurrency(projection.profit)}</p>
+                <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                  <p className="text-xs text-[var(--exa-text-secondary)]">Estimated Profit</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--exa-gold)]">{formatCurrency(projection.profit)}</p>
                 </div>
-                <div className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                  <p className="text-xs text-[#F8F8F8]/70">Capital Invested</p>
-                  <p className="mt-2 text-base font-semibold text-[#F8F8F8]">{formatCurrency(projection.investmentNgn)}</p>
+                <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                  <p className="text-xs text-[var(--exa-text-secondary)]">Capital Invested</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--exa-text-primary)]">{formatCurrency(projection.investmentNgn)}</p>
                 </div>
-                <div className="rounded-lg border border-[#F8F8F8]/12 bg-[#F8F8F8]/[0.03] p-3">
-                  <p className="text-xs text-[#F8F8F8]/70">Maturity Date</p>
-                  <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[#F8F8F8]">
-                    <CalendarClock className="h-4 w-4 text-[#D4AF37]" aria-hidden="true" />
+                <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                  <p className="text-xs text-[var(--exa-text-secondary)]">Maturity Date</p>
+                  <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--exa-text-primary)]">
+                    <CalendarClock className="h-4 w-4 text-[var(--exa-gold)]" aria-hidden="true" />
                     {projection.maturityDate}
                   </p>
                 </div>
@@ -499,7 +499,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                 type="button"
                 onClick={handleAcquireShares}
                 disabled={isSubmitting || loading || !selectedProject?.id}
-                className="rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] to-[#f2d67a] px-4 py-3 text-sm font-semibold text-[#0B0B0B] disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? "Processing..." : "Confirm Share Purchase"}
               </button>
@@ -508,48 +508,48 @@ function AcquireShare({ onBack, initialProjectId = null }) {
             </div>
           </section>
 
-          <section className="mb-8 rounded-2xl border border-[#D4AF37]/20 bg-[#0B0B0B]/65 p-5">
-            <h2 className="font-['Sora'] text-2xl font-semibold text-[#F8F8F8]">Live Farm Progress</h2>
+          <section className="mb-8 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Live Farm Progress</h2>
             <div className="mt-4 grid gap-3">
               {latestProgress.length ? (
                 latestProgress.map((entry) => (
-                  <article key={entry.id} className="rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.03] p-4">
+                  <article key={entry.id} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold capitalize text-[#D4AF37]">{entry.growth_stage}</p>
-                      <p className="text-xs text-[#F8F8F8]/60">{new Date(entry.recorded_at).toLocaleDateString("en-NG")}</p>
+                      <p className="text-sm font-semibold capitalize text-[var(--exa-gold)]">{entry.growth_stage}</p>
+                      <p className="text-xs text-[var(--exa-text-secondary)]">{new Date(entry.recorded_at).toLocaleDateString("en-NG")}</p>
                     </div>
-                    <p className="mt-2 text-sm text-[#F8F8F8]/80">{entry.update_description}</p>
-                    <p className="mt-2 text-xs text-[#F8F8F8]/60">Verification: {entry.verification_status}</p>
+                    <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">{entry.update_description}</p>
+                    <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">Verification: {entry.verification_status}</p>
                   </article>
                 ))
               ) : (
-                <p className="text-sm text-[#F8F8F8]/70">No farm progress reports have been published for this project yet.</p>
+                <p className="text-sm text-[var(--exa-text-secondary)]">No farm progress reports have been published for this project yet.</p>
               )}
             </div>
           </section>
 
           <section className="mb-8">
-            <h2 className="font-['Sora'] text-2xl font-semibold text-[#F8F8F8]">Transparency & Security</h2>
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Transparency & Security</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {transparencyItems.map((item) => (
                 <article
                   key={item.title}
-                  className="rounded-2xl border border-[#D4AF37]/20 bg-[#F8F8F8]/[0.03] p-4 backdrop-blur-md"
+                  className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 backdrop-blur-md"
                 >
-                  <item.icon className="h-6 w-6 text-[#D4AF37]" aria-hidden="true" />
-                  <h3 className="mt-3 text-lg font-semibold text-[#F8F8F8]">{item.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-[#F8F8F8]/75">{item.description}</p>
+                  <item.icon className="h-6 w-6 text-[var(--exa-gold)]" aria-hidden="true" />
+                  <h3 className="mt-3 text-lg font-semibold text-[var(--exa-text-primary)]">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--exa-text-secondary)]">{item.description}</p>
                 </article>
               ))}
             </div>
           </section>
 
-          <section className="mb-8 rounded-2xl border border-[#D4AF37]/20 bg-[#0B0B0B]/65 p-5">
-            <h2 className="font-['Sora'] text-2xl font-semibold text-[#F8F8F8]">Community Impact</h2>
+          <section className="mb-8 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Community Impact</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {impactStats.map((stat) => (
-                <article key={stat.label} className="rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.03] p-4">
-                  <p className="text-xs uppercase tracking-[0.14em] text-[#F8F8F8]/65">{stat.label}</p>
+                <article key={stat.label} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-[var(--exa-text-secondary)]">{stat.label}</p>
                   <ImpactCounter value={stat.value} suffix={stat.suffix} />
                 </article>
               ))}
@@ -557,41 +557,41 @@ function AcquireShare({ onBack, initialProjectId = null }) {
           </section>
 
           <section className="mb-8">
-            <h2 className="font-['Sora'] text-2xl font-semibold text-[#F8F8F8]">How It Works</h2>
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">How It Works</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-5">
               {steps.map((step, index) => (
-                <div key={step} className="relative rounded-xl border border-[#D4AF37]/20 bg-[#F8F8F8]/[0.03] p-4">
-                  <p className="text-xs text-[#D4AF37]">Step {index + 1}</p>
-                  <p className="mt-2 text-sm font-semibold text-[#F8F8F8]">{step}</p>
+                <div key={step} className="relative rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                  <p className="text-xs text-[var(--exa-gold)]">Step {index + 1}</p>
+                  <p className="mt-2 text-sm font-semibold text-[var(--exa-text-primary)]">{step}</p>
                   {index < steps.length - 1 ? <span className="timeline-connector" aria-hidden="true" /> : null}
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="mb-8 overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#0B0B0B]/65 p-5">
-            <h2 className="font-['Sora'] text-2xl font-semibold text-[#F8F8F8]">Web3 Integration</h2>
+          <section className="mb-8 overflow-hidden rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Web3 Integration</h2>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-[#F8F8F8]/10 bg-[#F8F8F8]/[0.03] p-4">
-                <p className="text-sm text-[#F8F8F8]/80">Connect your wallet and fund with crypto or local payment rails.</p>
+              <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+                <p className="text-sm text-[var(--exa-text-secondary)]">Connect your wallet and fund with crypto or local payment rails.</p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => setWalletConnected((current) => !current)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] to-[#f1d57a] px-4 py-2 text-sm font-semibold text-[#0B0B0B]"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]"
                   >
                     <Wallet className="h-4 w-4" aria-hidden="true" />
                     {walletConnected ? "Wallet Connected" : "Connect Wallet"}
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl border border-[#F8F8F8]/50 bg-[#F8F8F8]/10 px-4 py-2 text-sm font-semibold text-[#F8F8F8] transition-all hover:border-[#D4AF37]/70 hover:text-[#D4AF37]"
+                    className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm font-semibold text-[var(--exa-text-primary)] transition-all hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold)]"
                   >
                     Fund via Crypto or Local Payment
                   </button>
                 </div>
               </div>
-              <div className="network-canvas rounded-xl border border-[#D4AF37]/20 bg-[#F8F8F8]/[0.03] p-4">
+              <div className="network-canvas rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                 <div className="network-node node-a" />
                 <div className="network-node node-b" />
                 <div className="network-node node-c" />
@@ -604,19 +604,19 @@ function AcquireShare({ onBack, initialProjectId = null }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#D4AF37]/15 via-[#D4AF37]/5 to-transparent p-6 text-center">
+          <section className="rounded-2xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-surface)] via-[var(--exa-surface-elevated)] to-transparent p-6 text-center">
             <div className="mx-auto max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/45 bg-[#0B0B0B]/65 px-3 py-1 text-xs uppercase tracking-[0.16em] text-[#D4AF37]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-1 text-xs uppercase tracking-[0.16em] text-[var(--exa-gold)]">
                 <Sprout className="h-4 w-4" aria-hidden="true" />
                 Build Prosperity
               </div>
-              <h2 className="mt-4 font-['Sora'] text-3xl font-semibold text-[#F8F8F8] sm:text-4xl">
+              <h2 className="mt-4 font-['Sora'] text-3xl font-semibold text-[var(--exa-text-primary)] sm:text-4xl">
                 Grow Your Wealth While Growing Communities.
               </h2>
               <button
                 type="button"
                 onClick={scrollToProjects}
-                className="mt-5 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37] to-[#f2d57a] px-6 py-3 text-sm font-semibold text-[#0B0B0B] shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all hover:-translate-y-0.5"
+                className="mt-5 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-6 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition-all hover:-translate-y-0.5"
               >
                 Start Acquiring Shares Today
               </button>
@@ -625,16 +625,16 @@ function AcquireShare({ onBack, initialProjectId = null }) {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-[#D4AF37]/20 bg-[#0B0B0B]/55 p-3 text-center text-xs text-[#F8F8F8]/75">
-            <UsersRound className="mx-auto h-4 w-4 text-[#D4AF37]" aria-hidden="true" />
+          <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-center text-xs text-[var(--exa-text-secondary)]">
+            <UsersRound className="mx-auto h-4 w-4 text-[var(--exa-gold)]" aria-hidden="true" />
             Community-first investment rails
           </div>
-          <div className="rounded-xl border border-[#D4AF37]/20 bg-[#0B0B0B]/55 p-3 text-center text-xs text-[#F8F8F8]/75">
-            <Blocks className="mx-auto h-4 w-4 text-[#D4AF37]" aria-hidden="true" />
+          <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-center text-xs text-[var(--exa-text-secondary)]">
+            <Blocks className="mx-auto h-4 w-4 text-[var(--exa-gold)]" aria-hidden="true" />
             Auditable blockchain proofs
           </div>
-          <div className="rounded-xl border border-[#D4AF37]/20 bg-[#0B0B0B]/55 p-3 text-center text-xs text-[#F8F8F8]/75">
-            <ShieldCheck className="mx-auto h-4 w-4 text-[#D4AF37]" aria-hidden="true" />
+          <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-center text-xs text-[var(--exa-text-secondary)]">
+            <ShieldCheck className="mx-auto h-4 w-4 text-[var(--exa-gold)]" aria-hidden="true" />
             Institutional-grade security posture
           </div>
         </div>

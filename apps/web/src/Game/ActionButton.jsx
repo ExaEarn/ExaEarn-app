@@ -6,7 +6,7 @@ function ActionButton({ isLoading, disabled, onClick, loadingText = "Picking..."
       type="button"
       onClick={onClick}
       disabled={disabled || isLoading}
-      className="game-primary-btn mx-auto flex min-h-14 w-full max-w-xs items-center justify-center gap-3 rounded-full px-6 py-3 text-xl font-semibold text-cosmic-900 transition-all duration-300 hover:scale-[1.02] hover:shadow-button-glow active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none sm:max-w-sm"
+      className="game-primary-btn mx-auto flex min-h-14 w-full max-w-xs items-center justify-center gap-3 rounded-full px-6 py-3 text-xl font-semibold text-[var(--exa-gold-contrast)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[var(--exa-shadow-gold)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none sm:max-w-sm"
     >
       {isLoading ? (
         <>
