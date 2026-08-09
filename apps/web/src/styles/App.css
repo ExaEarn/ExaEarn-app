@@ -2873,3 +2873,133 @@ html[data-theme="light"] .btn-outline {
   box-shadow: var(--exa-focus-ring);
   outline: none;
 }
+/* Platform-wide ExaEarn refinement overrides */
+.exa-bg {
+  background-image:
+    radial-gradient(circle at 18% 0%, rgba(214,178,75,0.09), transparent 28%),
+    radial-gradient(circle at 84% 8%, rgba(56,189,248,0.04), transparent 24%),
+    linear-gradient(180deg, rgba(255,255,255,0.018), transparent 18%);
+}
+
+.exa-bg::before {
+  height: 96px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), transparent 72%);
+  box-shadow: none;
+}
+
+.glass-card,
+.home-main-card,
+.notification-tray,
+.reward-modal,
+.profile-menu {
+  border-color: var(--exa-border-subtle) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.014)), var(--exa-surface-glass) !important;
+  box-shadow: var(--exa-shadow-sm) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.glass-card::before,
+.reward-modal::before {
+  background: linear-gradient(90deg, transparent, rgba(214,178,75,0.28), transparent) !important;
+}
+
+.app-title {
+  color: var(--exa-text-primary);
+  text-shadow: none;
+}
+
+.gold-text,
+.icon-gold {
+  color: var(--exa-gold-light) !important;
+  text-shadow: none !important;
+}
+
+.avatar-accent,
+.notification-trigger,
+.market-add-main,
+.exchange-row,
+.feature-card,
+.bottom-nav-fixed,
+.bottom-nav-shell {
+  border-color: var(--exa-border-subtle) !important;
+  background-color: rgba(255,255,255,0.035) !important;
+  box-shadow: none !important;
+}
+
+.avatar-accent:hover,
+.notification-trigger:hover,
+.exchange-row:hover,
+.feature-card:hover,
+.feature-card:focus-visible {
+  border-color: var(--exa-border-active) !important;
+  background-color: var(--exa-gold-surface) !important;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.28) !important;
+}
+
+.btn-gold,
+.reward-primary-action,
+.onboarding-primary,
+.submit-account {
+  border: 1px solid rgba(255,248,223,0.18) !important;
+  background: linear-gradient(135deg, var(--exa-gold-300), var(--exa-gold-500) 52%, var(--exa-gold-700)) !important;
+  color: #07080a !important;
+  box-shadow: var(--exa-shadow-gold) !important;
+}
+
+.reward-secondary-action,
+.onboarding-secondary,
+.onboarding-skip-action {
+  border-color: var(--exa-border) !important;
+  background: rgba(255,255,255,0.045) !important;
+  color: var(--exa-text-secondary) !important;
+  box-shadow: none !important;
+}
+
+.feature-card {
+  animation: none !important;
+  border-radius: var(--exa-radius-lg) !important;
+}
+
+.feature-cyan,
+.feature-violet,
+.feature-blue,
+.feature-green {
+  background-image: linear-gradient(145deg, rgba(255,255,255,0.052), rgba(255,255,255,0.018)) !important;
+}
+
+.feature-card::after,
+.feature-card::before {
+  opacity: 0.55;
+}
+
+.feature-name,
+.notification-copy strong,
+.reward-modal h2,
+.reward-modal h3 {
+  color: var(--exa-text-primary) !important;
+}
+
+.notification-copy small,
+.notification-item time,
+.reward-modal p,
+.profile-menu small,
+.label-muted {
+  color: var(--exa-text-muted) !important;
+}
+
+input,
+select,
+textarea,
+button {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
