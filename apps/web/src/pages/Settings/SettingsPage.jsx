@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -144,24 +144,24 @@ function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, 
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#07050f] via-[#130a23] to-[#1d1134] text-violet-50">
+    <div className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
       <div className="mx-auto w-full max-w-sm px-3 pb-8 pt-4 sm:max-w-lg sm:px-4 sm:pt-6 md:max-w-2xl lg:max-w-4xl">
-        <div className="rounded-3xl border border-violet-200/10 bg-cosmic-900/65 p-4 shadow-cosmic-card backdrop-blur-xl sm:p-5">
-          <header className="relative mb-5 overflow-hidden rounded-2xl border border-violet-200/15 bg-gradient-to-r from-cosmic-900/95 via-cosmic-800/90 to-cosmic-700/90 p-4 sm:mb-6 sm:p-5">
-            <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-auric-400/10 blur-2xl" />
-            <span className="pointer-events-none absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-cosmic-500/20 blur-2xl" />
+        <div className="rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl sm:p-5">
+          <header className="relative mb-5 overflow-hidden rounded-2xl border border-[var(--exa-border)] bg-gradient-to-r from-[var(--exa-surface)] via-[var(--exa-surface-elevated)] to-[var(--exa-bg-tertiary)] p-4 sm:mb-6 sm:p-5">
+            <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[var(--exa-gold-surface)] blur-2xl" />
+            <span className="pointer-events-none absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-[var(--exa-surface-hover)] blur-2xl" />
             <div className="relative flex items-center gap-3">
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-xl border border-violet-200/20 bg-cosmic-800/70 p-2 text-violet-100 transition-all duration-300 hover:border-auric-300/65 hover:text-auric-300 active:scale-95"
+                className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] p-2 text-[var(--exa-text-secondary)] transition-all duration-300 hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)] active:scale-95"
                 aria-label="Back"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-violet-100/60">Preferences</p>
-                <h1 className="font-['Sora'] text-xl font-semibold text-violet-50 sm:text-2xl">Settings</h1>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--exa-text-muted)]">Preferences</p>
+                <h1 className="font-['Sora'] text-xl font-semibold text-[var(--exa-text-primary)] sm:text-2xl">Settings</h1>
               </div>
             </div>
           </header>
@@ -232,8 +232,8 @@ function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, 
 
 function Section({ title, children }) {
   return (
-    <section className="mb-5 rounded-2xl border border-violet-200/10 bg-cosmic-800/55 p-2 sm:p-3">
-      <h2 className="px-2 pb-2 pt-1 font-['Sora'] text-xs font-semibold uppercase tracking-[0.12em] text-violet-100/65">{title}</h2>
+    <section className="mb-5 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-2 sm:p-3">
+      <h2 className="px-2 pb-2 pt-1 font-['Sora'] text-xs font-semibold uppercase tracking-[0.12em] text-[var(--exa-text-muted)]">{title}</h2>
       <div className="space-y-1">{children}</div>
     </section>
   );
@@ -244,24 +244,24 @@ function SettingsRow({ icon: Icon, title, description, securityAccent = false, o
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-all duration-300 hover:bg-cosmic-700/65 hover:shadow-[0_0_24px_rgba(127,70,212,0.24)] active:scale-[0.99]"
+      className="group flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-all duration-300 hover:bg-[var(--exa-surface-hover)] hover:shadow-[var(--exa-shadow-soft)] active:scale-[0.99]"
     >
       <div className="flex items-center gap-3">
         <span
-          className={`flex h-9 w-9 items-center justify-center rounded-lg border bg-cosmic-500/15 transition-colors duration-300 ${
+          className={`flex h-9 w-9 items-center justify-center rounded-lg border bg-[var(--exa-surface-hover)] transition-colors duration-300 ${
             securityAccent
-              ? "border-auric-300/45 text-auric-300"
-              : "border-cosmic-400/45 text-cosmic-400 group-hover:border-auric-300/50 group-hover:text-auric-300"
+              ? "border-[var(--exa-border-active)] text-[var(--exa-gold-light)]"
+              : "border-[var(--exa-border)] text-[var(--exa-text-secondary)] group-hover:border-[var(--exa-border-active)] group-hover:text-[var(--exa-gold-light)]"
           }`}
         >
           <Icon className="h-4 w-4" />
         </span>
         <span>
-          <span className="block text-sm font-medium text-violet-100">{title}</span>
-          {description ? <span className="block text-xs text-violet-100/55">{description}</span> : null}
+          <span className="block text-sm font-medium text-[var(--exa-text-secondary)]">{title}</span>
+          {description ? <span className="block text-xs text-[var(--exa-text-muted)]">{description}</span> : null}
         </span>
       </div>
-      <ArrowRight className="h-4 w-4 text-violet-200/55 transition-all duration-300 group-hover:translate-x-1 group-hover:text-auric-300" />
+      <ArrowRight className="h-4 w-4 text-[var(--exa-text-muted)] transition-all duration-300 group-hover:translate-x-1 group-hover:text-[var(--exa-gold-light)]" />
     </button>
   );
 }
@@ -271,22 +271,22 @@ function ToggleRow({ icon: Icon, title, description, enabled, onToggle, security
     <button
       type="button"
       onClick={onToggle}
-      className="group flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-all duration-300 hover:bg-cosmic-700/65 hover:shadow-[0_0_24px_rgba(127,70,212,0.24)] active:scale-[0.99]"
+      className="group flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-all duration-300 hover:bg-[var(--exa-surface-hover)] hover:shadow-[var(--exa-shadow-soft)] active:scale-[0.99]"
     >
       <div className="flex items-center gap-3">
         <span
-          className={`flex h-9 w-9 items-center justify-center rounded-lg border bg-cosmic-500/15 ${
-            securityAccent ? "border-auric-300/45 text-auric-300" : "border-cosmic-400/45 text-cosmic-400"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg border bg-[var(--exa-surface-hover)] ${
+            securityAccent ? "border-[var(--exa-border-active)] text-[var(--exa-gold-light)]" : "border-[var(--exa-border)] text-[var(--exa-text-secondary)]"
           }`}
         >
           <Icon className="h-4 w-4" />
         </span>
         <span>
-          <span className="block text-sm font-medium text-violet-100">{title}</span>
-          {description ? <span className="block text-xs text-violet-100/55">{description}</span> : null}
+          <span className="block text-sm font-medium text-[var(--exa-text-secondary)]">{title}</span>
+          {description ? <span className="block text-xs text-[var(--exa-text-muted)]">{description}</span> : null}
         </span>
       </div>
-      <span className={`relative h-6 w-11 rounded-full transition-colors duration-300 ${enabled ? "bg-gradient-to-r from-cosmic-500 to-auric-500" : "bg-violet-200/20"}`}>
+      <span className={`relative h-6 w-11 rounded-full transition-colors duration-300 ${enabled ? "bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold)]" : "bg-[var(--exa-surface-hover)]"}`}>
         <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all duration-300 ${enabled ? "left-6" : "left-1"}`} />
       </span>
     </button>
@@ -294,3 +294,4 @@ function ToggleRow({ icon: Icon, title, description, enabled, onToggle, security
 }
 
 export default SettingsPage;
+
