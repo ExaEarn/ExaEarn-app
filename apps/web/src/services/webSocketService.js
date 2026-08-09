@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { getNodeServiceUrl, isLocalApiPreview } from '../config/apiConfig';
+import { getNodeServiceUrl, isLaravelSseEnabled, isLocalApiPreview } from '../config/apiConfig';
 
 let eventSource = null;
 let socket = null;
@@ -31,6 +31,10 @@ export const initializeWebSocket = (baseUrl) => {
   }
 
   if ((socket || eventSource) || (!nodeBaseUrl && !baseUrl)) {
+    return;
+  }
+
+  if (!nodeBaseUrl && !isLaravelSseEnabled()) {
     return;
   }
 

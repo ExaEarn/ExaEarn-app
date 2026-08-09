@@ -56,6 +56,12 @@ export function getNodeServiceUrl() {
   return cleanRuntimeUrl(runtimeConfig.NODE_SERVICE_URL, runtimeConfig) || cleanUrl(import.meta.env.VITE_NODE_SERVICE_URL);
 }
 
+export function isLaravelSseEnabled() {
+  const runtimeConfig = readRuntimeConfig();
+  const rawValue = runtimeConfig.ENABLE_LARAVEL_SSE ?? import.meta.env.VITE_ENABLE_LARAVEL_SSE;
+  return rawValue === true || String(rawValue || "").toLowerCase() === "true";
+}
+
 
 export function isLocalApiPreview() {
   const runtimeConfig = readRuntimeConfig();
