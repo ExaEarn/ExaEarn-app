@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+﻿import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_LANGUAGE_CODE,
   LANGUAGE_STORAGE_KEY,
@@ -10,25 +10,11 @@ import {
   resolvePreferredLanguage,
 } from "@exaearn/config";
 import { useAuth } from "./AuthContext.jsx";
+import { getTranslationValue } from "../i18n/resources.js";
 
 const LanguageContext = createContext(null);
 const RECENT_LANGUAGES_KEY = "exaearn.language.recent";
 
-const resources = {
-  en: {
-    "common.loading": "Loading ExaEarn...",
-    "language.title": "Language",
-    "language.search": "Search language or locale...",
-    "language.popular": "Popular languages",
-    "language.recent": "Recently used",
-    "language.all": "All supported languages",
-    "language.current": "Current language",
-    "language.saved": "Language updated.",
-    "language.native": "Native name",
-    "language.direction": "Writing direction",
-    "language.fallback": "English is used where a translation is not ready yet.",
-  },
-};
 
 function readStorage(key, fallback = null) {
   try {
@@ -149,7 +135,7 @@ export function LanguageProvider({ children }) {
 
   const t = useCallback(
     (key, values = {}) => {
-      const phrase = resources[languageCode]?.[key] || resources.en[key] || key;
+      const phrase = getTranslationValue(languageCode, key);
       return Object.entries(values).reduce((text, [name, value]) => text.replace(new RegExp(`{{${name}}}`, "g"), String(value)), phrase);
     },
     [languageCode],
@@ -170,3 +156,4 @@ export function useLanguage() {
   }
   return context;
 }
+

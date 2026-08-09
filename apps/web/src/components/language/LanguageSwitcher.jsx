@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { Check, ChevronDown, Globe2, Search, X } from "lucide-react";
 import { formatLanguageLabel, popularLanguages, searchLanguages, supportedLanguages } from "@exaearn/config";
 import { useLanguage } from "../../context/LanguageContext.jsx";
@@ -61,13 +61,13 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
       </button>
 
       {open ? (
-        <div className="language-popover" role="dialog" aria-label="Select language">
+        <div className="language-popover" role="dialog" aria-label={t("language.title")}>
           <div className="language-popover-head">
             <div>
               <strong>{t("language.title")}</strong>
               <span>{formatLanguageLabel(language)}</span>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close language selector">
+            <button type="button" onClick={() => setOpen(false)} aria-label={t("language.close")}>
               <X size={16} aria-hidden="true" />
             </button>
           </div>
@@ -77,7 +77,7 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("language.search")} autoFocus />
           </label>
 
-          <div className="language-list" role="listbox" aria-label="Supported languages">
+          <div className="language-list" role="listbox" aria-label={t("language.all")}>
             {!hasQuery && recent.length ? (
               <section>
                 <p>{t("language.recent")}</p>
@@ -93,14 +93,14 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
             ) : null}
 
             <section>
-              <p>{hasQuery ? "Search results" : t("language.all")}</p>
+              <p>{hasQuery ? t("common.searchResults") : t("language.all")}</p>
               {results.map((item) => <LanguageRow key={item.code} language={item} selected={item.code === languageCode} onSelect={selectLanguage} />)}
-              {!results.length ? <div className="language-empty">No language found.</div> : null}
+              {!results.length ? <div className="language-empty">{t("language.noLanguage")}</div> : null}
             </section>
           </div>
 
           <div className="language-note">
-            {syncState === "syncing" ? "Saving preference..." : syncState === "error" ? "Saved on this device. Backend sync will retry later." : t("language.fallback")}
+            {syncState === "syncing" ? t("language.syncSaving") : syncState === "error" ? t("language.syncError") : t("language.fallback")}
           </div>
         </div>
       ) : null}
@@ -109,3 +109,5 @@ function LanguageSwitcher({ compact = false, align = "right" }) {
 }
 
 export default LanguageSwitcher;
+
+

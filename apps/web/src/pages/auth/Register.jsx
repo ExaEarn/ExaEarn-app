@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import {
   BarChart3,
   Check,
@@ -22,7 +22,9 @@ import {
   Wallet,
 } from "lucide-react";
 import Image from "../../assets/Image";
+import LanguageSwitcher from "../../components/language/LanguageSwitcher.jsx";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 import "./Register.css";
 
 const ONBOARDING_STORAGE_KEY = "exaearn_onboarding_preferences";
@@ -109,6 +111,7 @@ function Register({ onLogin, onSuccess }) {
   const [expandedFeature, setExpandedFeature] = useState("trading");
   const [personalization, setPersonalization] = useState("guided");
   const { register, checkAccountAvailability, authLoading, authError } = useAuth();
+  const { t } = useLanguage();
 
   const passwordsMatch = useMemo(() => {
     if (!password || !confirmPassword) {
@@ -193,6 +196,7 @@ function Register({ onLogin, onSuccess }) {
 
   return (
     <div className="register-onboarding-shell">
+      <div className="register-language-switcher"><LanguageSwitcher compact /></div>
       <div className="onboarding-chain-bg" aria-hidden="true">
         {Array.from({ length: 18 }).map((_, index) => (
           <span key={index} style={{ "--i": index }} />
@@ -235,6 +239,7 @@ function Register({ onLogin, onSuccess }) {
               authError={authError}
               onSubmit={handleFormSubmit}
               onLogin={onLogin}
+              t={t}
             />
           ) : null}
 
@@ -519,34 +524,35 @@ function AccountForm({
   authError,
   onSubmit,
   onLogin,
+  t,
 }) {
   const strongPasswordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{10,}$";
 
   return (
     <div className="account-setup-screen">
       <ScreenHeading
-        eyebrow="Secure Account Setup"
-        title="Create Your ExaEarn Account"
-        description="Add your login details first. Once they are valid, ExaEarn will guide you through a short intelligent onboarding before opening your dashboard."
+        eyebrow={t("auth.registerEyebrow")}
+        title={t("auth.registerTitle")}
+        description={t("auth.registerDescription")}
       />
       <form onSubmit={onSubmit} className="premium-register-form">
         <label>
-          <span>Full Name</span>
-          <input type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Satoshi Nakamoto" required />
+          <span>{t("auth.fullName")}</span>
+          <input type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder={t("auth.fullNamePlaceholder")} required />
         </label>
 
         <label>
-          <span>Email Address</span>
+          <span>{t("auth.emailAddress")}</span>
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@exaearn.io" required />
         </label>
 
         <label>
-          <span>Referral Code <em>Optional</em></span>
-          <input type="text" value={referralCode} onChange={(event) => setReferralCode(event.target.value)} placeholder="EXA-REF-2026" />
+          <span>{t("auth.referralCode")} <em>{t("common.optional")}</em></span>
+          <input type="text" value={referralCode} onChange={(event) => setReferralCode(event.target.value)} placeholder={t("auth.referralPlaceholder")} />
         </label>
 
         <label>
-          <span>Password</span>
+          <span>{t("auth.password")}</span>
           <div className="password-field">
             <LockKeyhole size={16} aria-hidden="true" />
             <input
@@ -556,17 +562,17 @@ function AccountForm({
               placeholder="********"
               minLength={10}
               pattern={strongPasswordPattern}
-              title="Use at least 10 characters with uppercase, lowercase, number, and symbol."
+              title={t("auth.passwordTitle")}
               required
             />
-            <button type="button" onClick={() => setShowPassword((prev) => !prev)} aria-label={showPassword ? "Hide password" : "Show password"}>
+            <button type="button" onClick={() => setShowPassword((prev) => !prev)} aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}>
               {showPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
             </button>
           </div>
         </label>
 
         <label>
-          <span>Confirm Password</span>
+          <span>{t("auth.confirmPassword")}</span>
           <div className="password-field">
             <LockKeyhole size={16} aria-hidden="true" />
             <input
@@ -576,24 +582,24 @@ function AccountForm({
               placeholder="********"
               minLength={10}
               pattern={strongPasswordPattern}
-              title="Use at least 10 characters with uppercase, lowercase, number, and symbol."
+              title={t("auth.passwordTitle")}
               required
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword((prev) => !prev)}
-              aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+              aria-label={showConfirmPassword ? t("auth.hidePassword") : t("auth.showPassword")}
             >
               {showConfirmPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
             </button>
           </div>
           <small className={isSubmitted && !passwordsMatch ? "form-error" : ""}>
-            {isSubmitted && !passwordsMatch ? "Passwords do not match." : "Use 10+ characters with uppercase, lowercase, number, and symbol."}
+            {isSubmitted && !passwordsMatch ? t("auth.passwordMismatch") : t("auth.passwordHelp")}
           </small>
         </label>
 
         <button type="submit" className="onboarding-primary submit-account" disabled={authLoading}>
-          {authLoading ? "Creating..." : "Create Account"}
+          {authLoading ? t("auth.creating") : t("auth.createAccount")}
           <Wallet size={17} aria-hidden="true" />
         </button>
       </form>
@@ -601,9 +607,9 @@ function AccountForm({
       {authError ? <p className="auth-error">{authError}</p> : null}
 
       <p className="login-switch">
-        Already have an account?{" "}
+        {t("auth.alreadyAccount")}{" "}
         <button type="button" onClick={onLogin}>
-          Login
+          {t("auth.login")}
         </button>
       </p>
     </div>
@@ -611,3 +617,5 @@ function AccountForm({
 }
 
 export default Register;
+
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, Globe2, Languages, Search } from "lucide-react";
 import { formatLanguageLabel, getLanguageByCode, searchLanguages, supportedLanguages } from "@exaearn/config";
 import { useLanguage } from "../../context/LanguageContext.jsx";
@@ -15,7 +15,7 @@ const regions = [
 const storageKey = "exaearn-language-region-settings";
 
 function LanguageRegionPage({ onBack }) {
-  const { languageCode, setLanguage, syncState } = useLanguage();
+  const { languageCode, setLanguage, syncState, t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(languageCode);
@@ -59,10 +59,10 @@ function LanguageRegionPage({ onBack }) {
       };
       localStorage.setItem(storageKey, JSON.stringify(payload));
       setSavedSettings({ language: selectedLanguageMeta.code, region: selectedRegion });
-      setToast("Language and region updated successfully.");
+      setToast(t("language.updated"));
       setTimeout(() => setToast(""), 2200);
     } catch (error) {
-      setToast("Unable to save settings.");
+      setToast(t("language.unableToSave"));
       setTimeout(() => setToast(""), 2200);
     } finally {
       setSaving(false);
@@ -81,13 +81,13 @@ function LanguageRegionPage({ onBack }) {
               type="button"
               onClick={onBack}
               className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-2 text-[var(--exa-text-primary)] hover:border-[var(--exa-border-active)]"
-              aria-label="Back to settings"
+              aria-label={t("common.back")}
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
-              <h1 className="text-lg font-semibold text-[var(--exa-text-primary)] sm:text-xl">Language & Region</h1>
-              <p className="text-xs text-[var(--exa-text-secondary)] sm:text-sm">Choose your display language, locale direction and regional formats.</p>
+              <h1 className="text-lg font-semibold text-[var(--exa-text-primary)] sm:text-xl">{t("settings.languageRegion")}</h1>
+              <p className="text-xs text-[var(--exa-text-secondary)] sm:text-sm">{t("settings.languageRegionDescription")}</p>
             </div>
           </div>
         </div>
@@ -105,7 +105,7 @@ function LanguageRegionPage({ onBack }) {
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Languages className="h-4 w-4 text-[var(--exa-gold-light)]" />
-                  <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Language</h2>
+                  <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">{t("language.title")}</h2>
                 </div>
                 <span className="rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--exa-gold-light)]">
                   {selectedLanguageMeta.code}
@@ -113,19 +113,19 @@ function LanguageRegionPage({ onBack }) {
               </div>
 
               <label className="mb-3 block">
-                <span className="sr-only">Search language</span>
+                <span className="sr-only">{t("language.search")}</span>
                 <div className="flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2.5">
                   <Search className="h-4 w-4 text-[var(--exa-gold-light)]" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by language, native name, code or locale..."
+                    placeholder={t("language.searchSettings")}
                     className="w-full bg-transparent text-sm text-white placeholder:text-[var(--exa-text-muted)] outline-none"
                   />
                 </div>
               </label>
 
-              <div className="max-h-72 space-y-2 overflow-y-auto pr-1" role="listbox" aria-label="Supported ExaEarn languages">
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1" role="listbox" aria-label={t("language.all")}>
                 {filteredLanguages.map((language) => (
                   <button
                     key={language.code}
@@ -149,14 +149,14 @@ function LanguageRegionPage({ onBack }) {
               </div>
 
               <p className="mt-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs leading-5 text-[var(--exa-text-muted)]">
-                ExaEarn falls back to English for any untranslated copy. Nigeria uses English by default in this language system.
+                {t("language.nigeriaEnglish")}
               </p>
             </article>
 
             <article className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Globe2 className="h-4 w-4 text-[var(--exa-gold-light)]" />
-                <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Region</h2>
+                <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">{t("language.regionTitle")}</h2>
               </div>
               <div className="space-y-2">
                 {regions.map((region) => (
@@ -180,9 +180,9 @@ function LanguageRegionPage({ onBack }) {
               </div>
 
               <div className="mt-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                <p className="text-xs text-[var(--exa-text-muted)]">Region-specific info</p>
-                <p className="mt-1 text-sm text-[var(--exa-text-secondary)]">Default Currency: {selectedRegionMeta.currency}</p>
-                <p className="text-sm text-[var(--exa-text-secondary)]">Local Format: {selectedRegionMeta.format}</p>
+                <p className="text-xs text-[var(--exa-text-muted)]">{t("language.regionInfo")}</p>
+                <p className="mt-1 text-sm text-[var(--exa-text-secondary)]">{t("language.defaultCurrency")}: {selectedRegionMeta.currency}</p>
+                <p className="text-sm text-[var(--exa-text-secondary)]">{t("language.localFormat")}: {selectedRegionMeta.format}</p>
               </div>
             </article>
           </>
@@ -200,7 +200,7 @@ function LanguageRegionPage({ onBack }) {
             onClick={saveChanges}
             className="w-full rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {saving || syncState === "syncing" ? "Saving..." : "Save Changes"}
+            {saving || syncState === "syncing" ? t("common.saving") : t("common.saveChanges")}
           </button>
         </div>
       </section>
@@ -232,3 +232,5 @@ function LoadingState() {
 }
 
 export default LanguageRegionPage;
+
+

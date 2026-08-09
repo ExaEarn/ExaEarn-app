@@ -1078,3 +1078,17 @@
     min-height: 40px;
   }
 }
+
+.register-language-switcher {
+  position: fixed;
+  right: 16px;
+  top: max(16px, env(safe-area-inset-top));
+  z-index: 80;
+}
+
+@media (max-width: 520px) {
+  .register-language-switcher {
+    right: 12px;
+    top: max(12px, env(safe-area-inset-top));
+  }
+}
