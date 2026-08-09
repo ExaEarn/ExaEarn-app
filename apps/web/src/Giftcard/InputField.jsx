@@ -11,7 +11,7 @@ function InputField({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-sm font-medium tracking-wide text-violet-100/85">
+      <label htmlFor={id} className="mb-2 block text-sm font-medium tracking-wide text-[var(--exa-text-secondary)]">
         {label}
       </label>
       <div className={`gift-input-wrap flex items-center gap-2 rounded-xl px-4 py-3 ${error ? "gift-input-error" : ""}`}>
@@ -21,7 +21,7 @@ function InputField({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full bg-transparent text-base text-violet-50 outline-none placeholder:text-violet-200/45"
+          className="w-full bg-transparent text-base text-[var(--exa-text-primary)] outline-none placeholder:text-[var(--exa-text-muted)]"
           {...rest}
         />
         {children}

@@ -159,7 +159,7 @@ export default function NFTMarketplace({ onBack }) {
             { label: "Earnings", value: `${fmt(summary.earnings_generated_exa)} EXA`, tone: "bg-sky-400/15 text-sky-200", icon: TrendingUp },
             { label: "Fees Captured", value: `${fmt(summary.platform_fees_paid_exa)} EXA`, tone: "bg-amber-400/15 text-amber-200", icon: BarChart3 },
             { label: "Positions", value: String(summary.active_positions || 0), tone: "bg-fuchsia-400/15 text-fuchsia-200", icon: Sparkles },
-            { label: "Listings", value: String(summary.active_listings || 0), tone: "bg-violet-400/15 text-violet-200", icon: ShieldCheck },
+            { label: "Listings", value: String(summary.active_listings || 0), tone: "bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]", icon: ShieldCheck },
           ].map((metric) => { const IconComponent = metric.icon; return (
             <div key={metric.label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
               <div className="flex items-center gap-3">

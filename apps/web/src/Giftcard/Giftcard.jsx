@@ -147,12 +147,12 @@ function Giftcard({ onBack }) {
           ) : null}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-3xl">
-              <h1 className="font-['Sora'] text-4xl font-semibold tracking-tight text-violet-50 sm:text-5xl">Giftcard Conversion</h1>
-              <p className="mt-3 text-sm leading-relaxed text-violet-100/75 sm:text-base">
+              <h1 className="font-['Sora'] text-4xl font-semibold tracking-tight text-[var(--exa-text-primary)] sm:text-5xl">Giftcard Conversion</h1>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--exa-text-secondary)] sm:text-base">
                 Redeem or convert your supported giftcards securely within the ExaEarn ecosystem.
               </p>
             </div>
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-auric-400/60 bg-cosmic-900/70 text-auric-300 shadow-button-glow">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] text-[var(--exa-gold-light)] shadow-[var(--exa-shadow-gold)]">
               <ArrowRightLeft className="h-7 w-7" aria-hidden="true" />
             </div>
           </div>
@@ -160,7 +160,7 @@ function Giftcard({ onBack }) {
 
         <section className="mt-6 grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
           <article className="gift-card rounded-2xl p-5 sm:p-6">
-            <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Giftcard Input Panel</h2>
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Giftcard Input Panel</h2>
             <div className="mt-5 grid gap-4">
               <InputField
                 id="giftCode"
@@ -171,11 +171,11 @@ function Giftcard({ onBack }) {
                 placeholder="Enter card code"
                 error={touched.code ? errors.code : ""}
               >
-                <CreditCard className="h-4 w-4 text-violet-200/70" aria-hidden="true" />
+                <CreditCard className="h-4 w-4 text-[var(--exa-text-muted)]" aria-hidden="true" />
               </InputField>
 
               <div>
-                <label htmlFor="giftProvider" className="mb-2 block text-sm font-medium tracking-wide text-violet-100/85">
+                <label htmlFor="giftProvider" className="mb-2 block text-sm font-medium tracking-wide text-[var(--exa-text-secondary)]">
                   Giftcard Type / Provider
                 </label>
                 <div className="gift-input-wrap rounded-xl px-4 py-3">
@@ -183,10 +183,10 @@ function Giftcard({ onBack }) {
                     id="giftProvider"
                     value={provider}
                     onChange={(event) => setProvider(event.target.value)}
-                    className="w-full bg-transparent text-base text-violet-50 outline-none"
+                    className="w-full bg-transparent text-base text-[var(--exa-text-primary)] outline-none"
                   >
                     {providerOptions.map((option) => (
-                      <option key={option} value={option} className="bg-cosmic-900 text-violet-50">
+                      <option key={option} value={option} className="bg-[var(--exa-surface)] text-[var(--exa-text-primary)]">
                         {option}
                       </option>
                     ))}
@@ -207,11 +207,11 @@ function Giftcard({ onBack }) {
                   step="0.01"
                   error={touched.amount ? errors.amount : ""}
                 >
-                  <BadgeDollarSign className="h-4 w-4 text-violet-200/70" aria-hidden="true" />
+                  <BadgeDollarSign className="h-4 w-4 text-[var(--exa-text-muted)]" aria-hidden="true" />
                 </InputField>
 
                 <div>
-                  <label htmlFor="giftCurrency" className="mb-2 block text-sm font-medium tracking-wide text-violet-100/85">
+                  <label htmlFor="giftCurrency" className="mb-2 block text-sm font-medium tracking-wide text-[var(--exa-text-secondary)]">
                     Currency
                   </label>
                   <div className="gift-input-wrap rounded-xl px-4 py-3">
@@ -219,10 +219,10 @@ function Giftcard({ onBack }) {
                       id="giftCurrency"
                       value={currency}
                       onChange={(event) => setCurrency(event.target.value)}
-                      className="w-full bg-transparent text-base text-violet-50 outline-none"
+                      className="w-full bg-transparent text-base text-[var(--exa-text-primary)] outline-none"
                     >
                       {giftcardCurrencies.map((option) => (
-                        <option key={option} value={option} className="bg-cosmic-900">
+                        <option key={option} value={option} className="bg-[var(--exa-surface)]">
                           {option}
                         </option>
                       ))}
@@ -247,13 +247,13 @@ function Giftcard({ onBack }) {
               type="button"
               onClick={handleOpenConfirmation}
               disabled={hasError || isSubmitting}
-              className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-auric-300/80 bg-gradient-to-r from-auric-300 via-auric-400 to-auric-500 px-4 py-3 text-lg font-semibold text-cosmic-900 transition-all duration-300 hover:scale-[1.01] hover:shadow-button-glow active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+              className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-3 text-lg font-semibold text-[var(--exa-gold-contrast)] transition-all duration-300 hover:scale-[1.01] hover:shadow-[var(--exa-shadow-gold)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
             >
               <Gift className="h-5 w-5" aria-hidden="true" />
               {isSubmitting ? "Processing..." : loadingRate ? "Fetching best rate..." : "Convert / Redeem Giftcard"}
             </button>
             {rateLock && isLocked ? (
-              <p className="mt-3 text-sm text-auric-300">Rate locked for {formatLockTime(secondsRemaining)}</p>
+              <p className="mt-3 text-sm text-[var(--exa-gold-light)]">Rate locked for {formatLockTime(secondsRemaining)}</p>
             ) : null}
             {rateError ? <p className="mt-3 text-sm text-rose-300">{rateError}</p> : null}
             {statusMessage ? <p className="mt-3 text-sm text-emerald-300">{statusMessage}</p> : null}
@@ -274,8 +274,8 @@ function Giftcard({ onBack }) {
         </section>
 
         <section className="mt-6 gift-card rounded-2xl p-5 sm:p-6">
-          <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Supported Giftcards</h2>
-          <p className="mt-2 text-sm text-violet-100/70">Providers currently available for secure conversion.</p>
+          <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Supported Giftcards</h2>
+          <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">Providers currently available for secure conversion.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             {supportedProviders.map((providerItem) => (
               <ProviderBadge key={providerItem.name} icon={providerItem.icon} name={providerItem.name} />
@@ -285,13 +285,13 @@ function Giftcard({ onBack }) {
         {confirmationLock ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
             <div className="gift-card w-full max-w-md rounded-2xl p-6">
-              <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Confirm Locked Rate</h2>
-              <div className="mt-4 space-y-3 text-sm text-violet-100/85">
+              <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Confirm Locked Rate</h2>
+              <div className="mt-4 space-y-3 text-sm text-[var(--exa-text-secondary)]">
                 <p>Brand: {confirmationLock.brand_label}</p>
                 <p>Value: ${Number(confirmationLock.card_value).toFixed(2)}</p>
                 <p>Rate Used: {formatNaira(confirmationLock.rates?.buy_rate)}/$</p>
                 <p>You Receive: {formatNaira(confirmationLock.rates?.payout)}</p>
-                <p className="text-auric-300">Rate locked for {formatLockTime(secondsRemaining)}</p>
+                <p className="text-[var(--exa-gold-light)]">Rate locked for {formatLockTime(secondsRemaining)}</p>
               </div>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <button type="button" className="btn-outline rounded-xl px-4 py-3" onClick={() => setConfirmationLock(null)}>
@@ -299,7 +299,7 @@ function Giftcard({ onBack }) {
                 </button>
                 <button
                   type="button"
-                  className="rounded-xl border border-auric-300/80 bg-auric-400 px-4 py-3 font-semibold text-cosmic-900 disabled:opacity-60"
+                  className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-gold)] px-4 py-3 font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-60"
                   disabled={!isLocked || isSubmitting}
                   onClick={handleSubmitSafe}
                 >

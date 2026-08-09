@@ -8,8 +8,8 @@ function PaymentPanel({ selectedMethod, onMethodChange }) {
 
   return (
     <article className="buy-card rounded-2xl p-5 sm:p-6">
-      <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Payment Panel</h2>
-      <p className="mt-2 text-sm text-violet-100/70">Choose your payment source for this purchase.</p>
+      <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Payment Panel</h2>
+      <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">Choose your payment source for this purchase.</p>
       <div className="mt-5 grid gap-3">
         {methods.map((method) => {
           const active = selectedMethod === method.id;
@@ -19,19 +19,19 @@ function PaymentPanel({ selectedMethod, onMethodChange }) {
               key={method.id}
               onClick={() => onMethodChange(method.id)}
               className={`buy-method w-full rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
-                active ? "border-auric-300/75 bg-auric-300/10 shadow-button-glow" : "border-violet-300/25 bg-cosmic-900/55"
+                active ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] shadow-[var(--exa-shadow-gold)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]"
               }`}
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-violet-50">
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-auric-300/45 bg-cosmic-800/80 text-auric-300">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--exa-text-primary)]">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold-light)]">
                     {method.icon}
                   </span>
                   {method.label}
                 </span>
-                {active ? <span className="text-xs font-semibold text-auric-300">Selected</span> : null}
+                {active ? <span className="text-xs font-semibold text-[var(--exa-gold-light)]">Selected</span> : null}
               </div>
-              <p className="mt-2 text-xs text-violet-100/70">{method.detail}</p>
+              <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">{method.detail}</p>
             </button>
           );
         })}

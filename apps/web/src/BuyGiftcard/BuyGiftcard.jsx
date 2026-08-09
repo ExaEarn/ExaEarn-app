@@ -216,8 +216,8 @@ function BuyGiftcard({ onBack }) {
               </button>
             </div>
           ) : null}
-          <h1 className="font-['Sora'] text-4xl font-semibold tracking-tight text-violet-50 sm:text-5xl">Buy Giftcards</h1>
-          <p className="mt-3 text-sm leading-relaxed text-violet-100/75 sm:text-base">
+          <h1 className="font-['Sora'] text-4xl font-semibold tracking-tight text-[var(--exa-text-primary)] sm:text-5xl">Buy Giftcards</h1>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--exa-text-secondary)] sm:text-base">
             Purchase digital giftcards securely within the ExaEarn ecosystem.
           </p>
         </header>
@@ -245,14 +245,14 @@ function BuyGiftcard({ onBack }) {
                 type="button"
                 onClick={handleOpenConfirmation}
                 disabled={isDisabled}
-                className="w-full rounded-xl border border-auric-300/80 bg-gradient-to-r from-auric-300 via-auric-400 to-auric-500 px-4 py-3 text-lg font-semibold text-cosmic-900 transition-all duration-300 hover:scale-[1.01] hover:shadow-button-glow active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                className="w-full rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-3 text-lg font-semibold text-[var(--exa-gold-contrast)] transition-all duration-300 hover:scale-[1.01] hover:shadow-[var(--exa-shadow-gold)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
               >
                 {isBuying ? "Processing Purchase..." : loadingRate ? "Updating price..." : "Buy Giftcard"}
               </button>
               {rateLock && isLocked ? (
-                <p className="mt-3 text-sm text-auric-300">Rate locked for {formatLockTime(secondsRemaining)}</p>
+                <p className="mt-3 text-sm text-[var(--exa-gold-light)]">Rate locked for {formatLockTime(secondsRemaining)}</p>
               ) : null}
-              {loadingInventory ? <p className="mt-3 text-sm text-violet-100/70">Loading live giftcard inventory...</p> : null}
+              {loadingInventory ? <p className="mt-3 text-sm text-[var(--exa-text-secondary)]">Loading live giftcard inventory...</p> : null}
               {rateError ? <p className="mt-3 text-sm text-rose-300">{rateError}</p> : null}
               {statusMessage ? <p className="mt-3 text-sm text-emerald-300">{statusMessage}</p> : null}
               {errorMessage ? <p className="mt-3 text-sm text-rose-300">{errorMessage}</p> : null}
@@ -271,8 +271,8 @@ function BuyGiftcard({ onBack }) {
                 </p>
               </div>
               {latestOrder ? (
-                <div className="mt-4 rounded-xl border border-violet-300/20 bg-cosmic-900/55 p-4 text-sm text-violet-100/80">
-                  <p className="font-semibold text-violet-50">Latest Order Status</p>
+                <div className="mt-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-sm text-[var(--exa-text-secondary)]">
+                  <p className="font-semibold text-[var(--exa-text-primary)]">Latest Order Status</p>
                   <p className="mt-2">Reference: {latestOrder.reference}</p>
                   <p className="mt-1">Status: {latestOrder.status}</p>
                   <p className="mt-1">Risk Level: {latestOrder.risk_level}</p>
@@ -299,12 +299,12 @@ function BuyGiftcard({ onBack }) {
         </section>
 
         <section className="mt-6 buy-card rounded-2xl p-5 sm:p-6">
-          <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Supported Giftcards</h2>
-          <p className="mt-2 text-sm text-violet-100/70">Trusted partners available from current ExaEarn inventory.</p>
+          <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Supported Giftcards</h2>
+          <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">Trusted partners available from current ExaEarn inventory.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             {providerOptions.map((item) => (
-              <span key={item} className="buy-provider inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-cosmic-900/60 px-3 py-2 text-sm text-violet-100/85">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-auric-300/45 bg-cosmic-800/80 text-auric-300">
+              <span key={item} className="buy-provider inline-flex items-center gap-2 rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface)] px-3 py-2 text-sm text-[var(--exa-text-secondary)]">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold-light)]">
                   {providerIcons[item] || <Gift className="h-3.5 w-3.5" aria-hidden="true" />}
                 </span>
                 {item}
@@ -315,13 +315,13 @@ function BuyGiftcard({ onBack }) {
         {confirmationLock ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
             <div className="buy-card w-full max-w-md rounded-2xl p-6">
-              <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Confirm Locked Price</h2>
-              <div className="mt-4 space-y-3 text-sm text-violet-100/85">
+              <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Confirm Locked Price</h2>
+              <div className="mt-4 space-y-3 text-sm text-[var(--exa-text-secondary)]">
                 <p>Brand: {confirmationLock.brand_label}</p>
                 <p>Value: ${Number(confirmationLock.card_value).toFixed(2)}</p>
                 <p>Rate Used: {formatNaira(confirmationLock.rates?.sell_rate)}/$</p>
                 <p>Price: {formatNaira(confirmationLock.rates?.price)}</p>
-                <p className="text-auric-300">Rate locked for {formatLockTime(secondsRemaining)}</p>
+                <p className="text-[var(--exa-gold-light)]">Rate locked for {formatLockTime(secondsRemaining)}</p>
               </div>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <button type="button" className="btn-outline rounded-xl px-4 py-3" onClick={() => setConfirmationLock(null)}>
@@ -329,7 +329,7 @@ function BuyGiftcard({ onBack }) {
                 </button>
                 <button
                   type="button"
-                  className="rounded-xl border border-auric-300/80 bg-auric-400 px-4 py-3 font-semibold text-cosmic-900 disabled:opacity-60"
+                  className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-gold)] px-4 py-3 font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-60"
                   disabled={!isLocked || isBuying}
                   onClick={handleBuySafe}
                 >

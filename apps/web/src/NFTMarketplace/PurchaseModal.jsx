@@ -21,9 +21,9 @@ function PurchaseModal({ item, onClose }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-4">
       <div className="nft-modal w-full max-w-md rounded-2xl p-5 sm:p-6">
-        <h3 className="font-['Sora'] text-2xl font-semibold text-violet-50">Confirm Purchase</h3>
-        <img src={item.image} alt={item.name} className="mt-4 h-44 w-full rounded-xl border border-violet-300/25 object-cover" />
-        <p className="mt-4 text-base font-semibold text-violet-50">{item.name}</p>
+        <h3 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Confirm Purchase</h3>
+        <img src={item.image} alt={item.name} className="mt-4 h-44 w-full rounded-xl border border-[var(--exa-border)] object-cover" />
+        <p className="mt-4 text-base font-semibold text-[var(--exa-text-primary)]">{item.name}</p>
         <div className="mt-4 space-y-2">
           <Row label="NFT Price" value={`${item.priceEth.toFixed(2)} ETH`} />
           <Row label="Marketplace Fee" value={`${fee.toFixed(3)} ETH`} />
@@ -33,7 +33,7 @@ function PurchaseModal({ item, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-violet-300/30 bg-cosmic-900/70 px-3 py-2.5 text-sm font-semibold text-violet-50 transition hover:border-violet-200/60"
+            className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--exa-text-primary)] transition hover:border-[var(--exa-border-active)]"
           >
             Cancel
           </button>
@@ -41,7 +41,7 @@ function PurchaseModal({ item, onClose }) {
             type="button"
             onClick={handleConfirm}
             disabled={isLoading}
-            className="rounded-xl border border-auric-300/80 bg-gradient-to-r from-auric-300 via-auric-400 to-auric-500 px-3 py-2.5 text-sm font-semibold text-cosmic-900 transition-all duration-300 hover:shadow-button-glow disabled:opacity-60"
+            className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-3 py-2.5 text-sm font-semibold text-[var(--exa-gold-contrast)] transition-all duration-300 hover:shadow-[var(--exa-shadow-gold)] disabled:opacity-60"
           >
             {isLoading ? "Processing..." : "Confirm Purchase"}
           </button>
@@ -53,9 +53,9 @@ function PurchaseModal({ item, onClose }) {
 
 function Row({ label, value, emphasize = false }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-violet-300/20 bg-cosmic-900/55 px-3 py-2.5">
-      <span className="text-xs text-violet-100/70">{label}</span>
-      <span className={`text-sm font-semibold ${emphasize ? "text-auric-300" : "text-violet-50"}`}>{value}</span>
+    <div className="flex items-center justify-between rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2.5">
+      <span className="text-xs text-[var(--exa-text-secondary)]">{label}</span>
+      <span className={`text-sm font-semibold ${emphasize ? "text-[var(--exa-gold-light)]" : "text-[var(--exa-text-primary)]"}`}>{value}</span>
     </div>
   );
 }
