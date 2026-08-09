@@ -204,41 +204,41 @@ function ProfileAppearance({ onBack }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#07050f] via-[#130a23] to-[#1d1134] text-violet-50">
+    <div className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
       <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-3 pb-6 pt-4 sm:px-5 sm:pt-6">
         <header className="mb-4 flex items-center gap-3">
-          <button type="button" onClick={onBack} className="rounded-xl border border-white/15 bg-white/5 p-2 text-white hover:border-auric-300" aria-label="Back to profile">
+          <button type="button" onClick={onBack} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-2 text-[var(--exa-text-primary)] hover:border-[var(--exa-border-active)]" aria-label="Back to profile">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-[0.2em] text-auric-200/75">Profile Settings</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--exa-gold-light)]">Profile Settings</p>
             <h1 className="font-['Sora'] text-xl font-semibold sm:text-2xl">Profile Appearance</h1>
           </div>
         </header>
 
         <main className="grid flex-1 gap-4 lg:grid-cols-[320px_1fr]">
-          <aside className="rounded-3xl border border-white/10 bg-black/30 p-4 shadow-cosmic-card backdrop-blur-xl">
-            <p className="text-sm font-semibold text-white">Preview</p>
-            <div className="mt-5 flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center">
+          <aside className="rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl">
+            <p className="text-sm font-semibold text-[var(--exa-text-primary)]">Preview</p>
+            <div className="mt-5 flex flex-col items-center rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5 text-center">
               <ProfileIdentity user={user} identity={previewIdentity} apiBaseUrl={apiBaseUrl} size="xl" />
-              <p className="mt-3 text-lg font-semibold text-white">{user?.name || 'ExaEarn User'}</p>
-              <p className="text-xs text-violet-200/65">UID {user?.unique_user_id || 'Pending'}</p>
-              <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs text-violet-100/70">
-                <Shield className="h-3.5 w-3.5 text-auric-300" /> KYC level {user?.verification?.kyc_level ?? user?.kyc_level ?? 0}
+              <p className="mt-3 text-lg font-semibold text-[var(--exa-text-primary)]">{user?.name || 'ExaEarn User'}</p>
+              <p className="text-xs text-[var(--exa-text-muted)]">UID {user?.unique_user_id || 'Pending'}</p>
+              <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-[var(--exa-border)] px-2 py-1 text-xs text-[var(--exa-text-secondary)]">
+                <Shield className="h-3.5 w-3.5 text-[var(--exa-gold-light)]" /> KYC level {user?.verification?.kyc_level ?? user?.kyc_level ?? 0}
               </div>
             </div>
-            <p className="mt-4 rounded-2xl border border-auric-300/25 bg-auric-300/10 p-3 text-xs leading-5 text-auric-100/90">
+            <p className="mt-4 rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] p-3 text-xs leading-5 text-[var(--exa-gold-light)]">
               Your profile picture is separate from identity verification. Verified badges come only from ExaEarn KYC status.
             </p>
           </aside>
 
-          <section className="rounded-3xl border border-white/10 bg-black/30 p-4 shadow-cosmic-card backdrop-blur-xl sm:p-5">
+          <section className="rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl sm:p-5">
             {loading ? (
-              <div className="flex min-h-[360px] items-center justify-center text-violet-100/70"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading appearance...</div>
+              <div className="flex min-h-[360px] items-center justify-center text-[var(--exa-text-secondary)]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading appearance...</div>
             ) : (
               <div className="space-y-5">
                 <section>
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-violet-100/70">Display Method</h2>
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--exa-text-secondary)]">Display Method</h2>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <ChoiceButton active={displayType === 'initials'} icon={UserRound} label="Use initials" onClick={() => setDisplayType('initials')} />
                     <ChoiceButton active={displayType === 'avatar'} icon={ImagePlus} label="ExaEarn avatar" onClick={activateAvatarMode} />
@@ -247,23 +247,23 @@ function ProfileAppearance({ onBack }) {
                 </section>
 
                 {displayType === 'custom_image' ? (
-                  <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <section className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold text-white">Upload profile picture</h3>
-                        <p className="text-xs text-violet-100/60">JPG, PNG or WebP. Max 5 MB. Images are re-encoded to WebP server-side.</p>
+                        <h3 className="font-semibold text-[var(--exa-text-primary)]">Upload profile picture</h3>
+                        <p className="text-xs text-[var(--exa-text-muted)]">JPG, PNG or WebP. Max 5 MB. Images are re-encoded to WebP server-side.</p>
                       </div>
                       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={selectFile} />
-                      <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-auric-300/50 px-3 py-2 text-sm font-semibold text-auric-200">
+                      <button type="button" onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] px-3 py-2 text-sm font-semibold text-[var(--exa-gold-light)]">
                         <Upload className="h-4 w-4" /> Choose image
                       </button>
                     </div>
                     {previewUrl ? (
                       <div className="mt-4 grid gap-4 sm:grid-cols-[180px_1fr]">
-                        <div className="aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+                        <div className="aspect-square overflow-hidden rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)]">
                           <img src={previewUrl} alt="Profile upload preview" className="h-full w-full object-cover" style={{ transform: `scale(${zoom})` }} />
                         </div>
-                        <label className="text-sm text-violet-100/80">
+                        <label className="text-sm text-[var(--exa-text-secondary)]">
                           Crop zoom
                           <input type="range" min="1" max="2" step="0.05" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} className="mt-3 w-full accent-amber-400" />
                         </label>
@@ -281,15 +281,15 @@ function ProfileAppearance({ onBack }) {
                   <section className="space-y-4">
                     {visibleAvatarGroups.map((group) => (
                       <div key={group.category}>
-                        <h3 className="mb-2 text-sm font-semibold text-violet-100/80">{group.category}</h3>
+                        <h3 className="mb-2 text-sm font-semibold text-[var(--exa-text-secondary)]">{group.category}</h3>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                           {(group.avatars || []).map((avatar) => (
-                            <button key={avatar.id} type="button" onClick={() => setSelectedAvatar(avatar.id)} className={`rounded-2xl border p-3 text-left transition ${selectedAvatar === avatar.id ? 'border-auric-300 bg-auric-300/10' : 'border-white/10 bg-white/[0.03] hover:border-white/25'}`}>
+                            <button key={avatar.id} type="button" onClick={() => setSelectedAvatar(avatar.id)} className={`rounded-2xl border p-3 text-left transition ${selectedAvatar === avatar.id ? 'border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]' : 'border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] hover:border-[var(--exa-border-active)]'}`}>
                               <span className="flex items-center gap-3">
                                 <span className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold" style={{ background: avatar.background, color: avatar.accent }}>{avatar.mark}</span>
                                 <span className="min-w-0">
-                                  <span className="block truncate text-sm font-semibold text-white">{avatar.name}</span>
-                                  <span className="text-xs text-violet-100/55">{avatar.category}</span>
+                                  <span className="block truncate text-sm font-semibold text-[var(--exa-text-primary)]">{avatar.name}</span>
+                                  <span className="text-xs text-[var(--exa-text-muted)]">{avatar.category}</span>
                                 </span>
                               </span>
                             </button>
@@ -301,13 +301,13 @@ function ProfileAppearance({ onBack }) {
                 ) : null}
 
                 <section>
-                  <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-violet-100/70"><Eye className="h-4 w-4" /> Privacy</h2>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--exa-text-secondary)]"><Eye className="h-4 w-4" /> Privacy</h2>
                   <div className="mt-3 grid gap-2">
                     {VISIBILITY_OPTIONS.map((option) => (
-                      <button key={option.key} type="button" onClick={() => setVisibility(option.key)} className={`rounded-2xl border p-3 text-left ${visibility === option.key ? 'border-auric-300 bg-auric-300/10' : 'border-white/10 bg-white/[0.03]'}`}>
+                      <button key={option.key} type="button" onClick={() => setVisibility(option.key)} className={`rounded-2xl border p-3 text-left ${visibility === option.key ? 'border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]' : 'border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]'}`}>
                         <span className="flex items-start gap-3">
-                          <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border ${visibility === option.key ? 'border-auric-300 bg-auric-300 text-black' : 'border-white/25'}`}>{visibility === option.key ? <Check className="h-3 w-3" /> : null}</span>
-                          <span><span className="block text-sm font-semibold text-white">{option.label}</span><span className="mt-1 block text-xs leading-5 text-violet-100/60">{option.description}</span></span>
+                          <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border ${visibility === option.key ? 'border-[var(--exa-border-active)] bg-[var(--exa-gold)] text-[var(--exa-gold-contrast)]' : 'border-[var(--exa-border)]'}`}>{visibility === option.key ? <Check className="h-3 w-3" /> : null}</span>
+                          <span><span className="block text-sm font-semibold text-[var(--exa-text-primary)]">{option.label}</span><span className="mt-1 block text-xs leading-5 text-[var(--exa-text-muted)]">{option.description}</span></span>
                         </span>
                       </button>
                     ))}
@@ -317,9 +317,9 @@ function ProfileAppearance({ onBack }) {
                 {message ? <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-100">{message}</div> : null}
                 {error ? <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-100">{error}</div> : null}
 
-                <div className="sticky bottom-3 z-10 flex gap-2 rounded-2xl border border-white/10 bg-[#0a0613]/95 p-2 shadow-2xl backdrop-blur-xl">
-                  <button type="button" onClick={onBack} className="flex-1 rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-white"><X className="mr-2 inline h-4 w-4" /> Cancel</button>
-                  <button type="button" onClick={save} disabled={saving} className="flex-1 rounded-xl bg-gradient-to-r from-auric-300 to-amber-500 px-4 py-3 text-sm font-bold text-black disabled:opacity-60">
+                <div className="sticky bottom-3 z-10 flex gap-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-2 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl">
+                  <button type="button" onClick={onBack} className="flex-1 rounded-xl border border-[var(--exa-border)] px-4 py-3 text-sm font-semibold text-[var(--exa-text-primary)] hover:border-[var(--exa-border-active)]"><X className="mr-2 inline h-4 w-4" /> Cancel</button>
+                  <button type="button" onClick={save} disabled={saving} className="flex-1 rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-3 text-sm font-bold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] disabled:opacity-60">
                     {saving ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Saving...</> : 'Save Appearance'}
                   </button>
                 </div>
@@ -334,7 +334,7 @@ function ProfileAppearance({ onBack }) {
 
 function ChoiceButton({ active, icon: Icon, label, onClick }) {
   return (
-    <button type="button" onClick={onClick} className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-semibold ${active ? 'border-auric-300 bg-auric-300/10 text-auric-100' : 'border-white/10 bg-white/[0.03] text-violet-100/75'}`}>
+    <button type="button" onClick={onClick} className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-semibold ${active ? 'border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]' : 'border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)]'}`}>
       <Icon className="h-4 w-4" /> {label}
     </button>
   );
