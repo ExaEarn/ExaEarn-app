@@ -29,6 +29,7 @@ import SplashScreen from "./components/SplashScreen";
 import LanguageSwitcher from "./components/language/LanguageSwitcher.jsx";
 import ProfileIdentity from "./components/profile/ProfileIdentity";
 import { useAuth } from "./context/AuthContext";
+import { useLanguage } from "./context/LanguageContext.jsx";
 import { useWebSocketEvent } from "./services/webSocketService";
 import useMarketData from "./components/market/useMarketData";
 import newsData from "./data/news.json";
@@ -375,6 +376,7 @@ function getAuthUrl(page) {
 
 export default function App() {
   const { user, setUser, logout, apiBaseUrl, request } = useAuth();
+  const { t } = useLanguage();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [authPage, setAuthPageState] = useState(getAuthPageFromLocation);
   const [portfolioValue, setPortfolioValue] = useState("0");
@@ -1187,9 +1189,27 @@ export default function App() {
 
   const activeNews = campaignNews[activeNewsIndex];
   const userDisplayName = user?.name?.trim() || "ExaEarn User";
-  const maskedEmail = user?.email ? user.email.replace(/^(.{2}).*(@.*)$/, "$1***$2") : "Email not set";
+  const maskedEmail = user?.email ? user.email.replace(/^(.{2}).*(@.*)$/, "$1***$2") : t("dashboard.emailNotSet");
   const verificationLevel = user?.verification?.kyc_level ?? user?.kyc_level ?? 0;
-  const securityStatus = user?.two_factor_enabled ? "2FA enabled" : "2FA not enabled";
+  const securityStatus = user?.two_factor_enabled ? t("dashboard.security2faEnabled") : t("dashboard.security2faNotEnabled");
+  const featureLabel = (featureName) => {
+    const keys = {
+      "Gift Cards": "dashboard.featureGiftCards",
+      Earn: "dashboard.featureEarn",
+      Games: "dashboard.featureGames",
+      "NFT Market": "dashboard.featureNftMarket",
+      Crowdfund: "dashboard.featureCrowdfund",
+      Agritech: "dashboard.featureAgritech",
+      ExaSkills: "dashboard.featureExaSkills",
+      More: "dashboard.featureMore",
+    };
+    return t(keys[featureName] || featureName);
+  };
+
+  const marketTabLabel = (tab) => {
+    const keys = { Top: "dashboard.top", Gainers: "dashboard.gainers", Fav: "dashboard.favorites" };
+    return t(keys[tab] || tab);
+  };
   const openFeature = (featureName) => {
     if (featureName === "Games") {
       setCurrentPage("game");
@@ -1227,41 +1247,41 @@ export default function App() {
                   type="button"
                   onClick={() => setProfileMenuOpen((open) => !open)}
                   className="avatar-accent"
-                  aria-label="Open profile menu"
+                  aria-label={t("dashboard.openProfileMenu")}
                   aria-expanded={profileMenuOpen}
                 >
                   <ProfileIdentity user={user} apiBaseUrl={apiBaseUrl} size="md" alt={`${userDisplayName} profile`} />
                 </button>
                 {profileMenuOpen ? (
-                  <div className="profile-dropdown" role="menu" aria-label="Profile menu">
+                  <div className="profile-dropdown" role="menu" aria-label={t("dashboard.profileMenu")}>
                     <div className="profile-dropdown-head">
                       <ProfileIdentity user={user} apiBaseUrl={apiBaseUrl} size="lg" alt={`${userDisplayName} profile`} />
                       <div className="min-w-0">
                         <strong>{userDisplayName}</strong>
-                        <span>UID {user?.unique_user_id || "Pending"}</span>
+                        <span>UID {user?.unique_user_id || t("dashboard.uidPending")}</span>
                         <small>{maskedEmail}</small>
                       </div>
                     </div>
                     <div className="profile-dropdown-grid">
-                      <span>Verification <b>Level {verificationLevel}</b></span>
-                      <span>Tier <b>{user?.account_tier || "Standard"}</b></span>
-                      <span>Security <b>{securityStatus}</b></span>
+                      <span>{t("dashboard.verification")} <b>{t("dashboard.level")} {verificationLevel}</b></span>
+                      <span>{t("dashboard.tier")} <b>{user?.account_tier || t("dashboard.standard")}</b></span>
+                      <span>{t("dashboard.security")} <b>{securityStatus}</b></span>
                     </div>
                     <button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setCurrentPage("profileAppearance"); }}>
-                      <UserRound className="h-4 w-4" /> Profile Settings
+                      <UserRound className="h-4 w-4" /> {t("dashboard.profileSettings")}
                     </button>
                     <button type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); setCurrentPage("settings"); }}>
-                      <ShieldCheck className="h-4 w-4" /> Security Settings
+                      <ShieldCheck className="h-4 w-4" /> {t("dashboard.securitySettings")}
                     </button>
                     <button type="button" role="menuitem" className="danger" onClick={() => { setProfileMenuOpen(false); logout(); }}>
-                      <LogOut className="h-4 w-4" /> Sign Out
+                      <LogOut className="h-4 w-4" /> {t("dashboard.signOut")}
                     </button>
                   </div>
                 ) : null}
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-semibold tracking-tight truncate gold-text">Multi-Chain Vault</div>
-                <div className="text-xs text-gray-300 truncate">12 networks secured - 0x4a...0c51</div>
+                <div className="text-sm font-semibold tracking-tight truncate gold-text">{t("dashboard.vaultTitle")}</div>
+                <div className="text-xs text-gray-300 truncate">{t("dashboard.vaultSubtitle")}</div>
               </div>
             </div>
 
@@ -1272,7 +1292,7 @@ export default function App() {
                   type="button"
                   onClick={openNotifications}
                   className="notification-trigger"
-                  aria-label="Open notifications"
+                  aria-label={t("dashboard.openNotifications")}
                   aria-expanded={notificationOpen}
                 >
                   <Bell size={18} className="icon-muted" />
@@ -1281,13 +1301,13 @@ export default function App() {
                   ) : null}
                 </button>
                 {notificationOpen ? (
-                  <div className="notification-tray" role="menu" aria-label="Notifications">
+                  <div className="notification-tray" role="menu" aria-label={t("dashboard.notifications")}>
                     <div className="notification-tray-head">
                       <div>
-                        <strong>Notifications</strong>
-                        <span>{unreadNotificationCount} unread</span>
+                        <strong>{t("dashboard.notifications")}</strong>
+                        <span>{t("dashboard.unread", { count: unreadNotificationCount })}</span>
                       </div>
-                      <button type="button" onClick={() => setNotificationOpen(false)} aria-label="Close notifications">
+                      <button type="button" onClick={() => setNotificationOpen(false)} aria-label={t("dashboard.closeNotifications")}>
                         <X size={15} />
                       </button>
                     </div>
@@ -1307,15 +1327,15 @@ export default function App() {
                             >
                               <span className="notification-dot" aria-hidden="true" />
                               <span className="notification-copy">
-                                <strong>{notification.title || "Notification"}</strong>
-                                <small>{notification.message || "New update available."}</small>
+                                <strong>{notification.title || t("dashboard.notificationFallbackTitle")}</strong>
+                                <small>{notification.message || t("dashboard.notificationFallbackMessage")}</small>
                               </span>
                               <time>{formatNotificationTime(notification.created_at)}</time>
                             </button>
                           );
                         })
                       ) : (
-                        <div className="notification-empty">No notifications yet.</div>
+                        <div className="notification-empty">{t("dashboard.noNotifications")}</div>
                       )}
                     </div>
                   </div>
@@ -1335,9 +1355,9 @@ export default function App() {
           <section className="home-campaign-card mb-4 campaign-hero-card" onClick={() => setCurrentPage("campaigns")}>
             <div className="campaign-hero-orbit" aria-hidden="true" />
             <div className="campaign-hero-copy">
-              <span className="campaign-hero-kicker">Live Growth Engine</span>
-              <strong>Run Campaign</strong>
-              <p>{activeNews ? activeNews.title : "Launch targeted Web3 campaigns instantly."}</p>
+              <span className="campaign-hero-kicker">{t("dashboard.liveGrowthEngine")}</span>
+              <strong>{t("dashboard.runCampaign")}</strong>
+              <p>{activeNews ? activeNews.title : t("dashboard.campaignFallback")}</p>
             </div>
             <div className="campaign-hero-metrics" aria-hidden="true">
               <span>AI</span>
@@ -1348,7 +1368,7 @@ export default function App() {
           <section className="home-portfolio-card mb-4 campaign-card">
             <div className="flex flex-col gap-4 sm:items-center sm:flex-row sm:justify-between">
               <div>
-                <div className="label-muted">Est. Portfolio Value</div>
+                <div className="label-muted">{t("dashboard.portfolioValue")}</div>
                 <div className="balance-wrapper">
                   <div className="balance">
                     <AnimatedCounter end={portfolioValue} duration={0.8} />
@@ -1360,12 +1380,12 @@ export default function App() {
                     <ArrowUp size={12} className="arrow-animate" />
                     <span>+4.2% (24h)</span>
                   </div>
-                  <div className="text-gray-400">- Today&apos;s PNL</div>
+                  <div className="text-gray-400">- {t("dashboard.todayPnl")}</div>
                 </div>
               </div>
 
               <div className="flex flex-col items-stretch gap-2 sm:items-end">
-                <button type="button" onClick={() => setCurrentPage("addFunds")} className="w-full btn-gold sm:w-auto">Add Funds</button>
+                <button type="button" onClick={() => setCurrentPage("addFunds")} className="w-full btn-gold sm:w-auto">{t("dashboard.addFunds")}</button>
                 <DailyRewardCard
                   progress={rewardProgress}
                   loading={rewardLoading}
@@ -1383,8 +1403,8 @@ export default function App() {
           <section className="home-features-card mb-4 campaign-card">
             <div className="feature-grid-header">
               <div>
-                <span>Super-App Access</span>
-                <h2>Core Web3 Modules</h2>
+                <span>{t("dashboard.superAppAccess")}</span>
+                <h2>{t("dashboard.coreModules")}</h2>
               </div>
               <Sparkles size={17} aria-hidden="true" />
             </div>
@@ -1400,7 +1420,7 @@ export default function App() {
                     <img src={feature.image} alt={feature.name} className="feature-image" />
                     <feature.icon size={17} className="feature-lucide" aria-hidden="true" />
                   </div>
-                  <div className="feature-name">{feature.name}</div>
+                  <div className="feature-name">{featureLabel(feature.name)}</div>
                 </button>
               ))}
             </div>
@@ -1409,12 +1429,12 @@ export default function App() {
           <section className="market-intel-section">
             <div className="market-section-head">
               <div>
-                <span>Live Market</span>
-                <h2>Exchange Markets</h2>
+                <span>{t("dashboard.liveMarket")}</span>
+                <h2>{t("dashboard.exchangeMarkets")}</h2>
               </div>
               <button type="button" className="market-add-main" onClick={() => setCurrentPage("market")}>
                 <Plus size={14} aria-hidden="true" />
-                Add Crypto
+                {t("dashboard.addCrypto")}
               </button>
             </div>
 
@@ -1440,16 +1460,16 @@ export default function App() {
                       className={homeMarketFilter === tab ? "active" : ""}
                       onClick={() => setHomeMarketFilter(tab)}
                     >
-                      {tab}
+                      {marketTabLabel(tab)}
                     </button>
                   ))}
                 </div>
-                <span className="live-market-badge">Live</span>
+                <span className="live-market-badge">{t("dashboard.live")}</span>
               </div>
 
               <div className="exchange-table-head">
-                <span>Pair</span>
-                <span>Last Price</span>
+                <span>{t("dashboard.pair")}</span>
+                <span>{t("dashboard.lastPrice")}</span>
                 <span>24h</span>
               </div>
 
@@ -1475,7 +1495,7 @@ export default function App() {
                       </div>
                       <div className="exchange-price">
                         <strong>${formatMarketPrice(pair.last)}</strong>
-                        <small>Vol {pair.volume}</small>
+                        <small>{t("dashboard.volume")} {pair.volume}</small>
                       </div>
                       <div className={`exchange-change ${positive ? "positive" : "negative"}`}>
                         {positive ? "+" : ""}{Number(pair.change24h).toFixed(2)}%
@@ -1491,7 +1511,7 @@ export default function App() {
               </div>
 
               <div className="quick-add-crypto">
-                <span>Quick add</span>
+                <span>{t("dashboard.quickAdd")}</span>
                 <div>
                   {["BTC", "ETH", "XRP", "SOL"].map((symbol) => (
                     <button type="button" key={symbol} onClick={() => setCurrentPage("market")}>
@@ -1504,8 +1524,8 @@ export default function App() {
             </div>
 
             <div className="market-ai-strip">
-              <span>AI Signal</span>
-              <strong>87% Bullish</strong>
+              <span>{t("dashboard.aiSignal")}</span>
+              <strong>{t("dashboard.bullish")}</strong>
               <div>
                 <i style={{ width: "87%" }} />
               </div>
@@ -1521,19 +1541,19 @@ export default function App() {
           <nav className="bottom-nav bottom-nav-fixed">
             <NavItem
               icon={<img src={Image.earn} alt="Home" className="nav-image nav-image-home" />}
-              label="Home"
+              label={t("dashboard.home")}
               active
               imageIcon
               onClick={() => setCurrentPage("home")}
             />
             <NavItem
               icon={<BarChart3 size={21} />}
-              label="Market"
+              label={t("dashboard.market")}
               onClick={() => setCurrentPage("market")}
             />
-            <NavItem icon={<Gem size={21} />} label="Trade" onClick={() => setCurrentPage("trade")} />
-            <NavItem icon={<Handshake size={21} />} label="P2P" onClick={() => setCurrentPage("p2pMarketplace")} />
-            <NavItem icon={<Wallet size={21} />} label="Assets" onClick={() => setCurrentPage("assets")} />
+            <NavItem icon={<Gem size={21} />} label={t("dashboard.trade")} onClick={() => setCurrentPage("trade")} />
+            <NavItem icon={<Handshake size={21} />} label={t("dashboard.p2p")} onClick={() => setCurrentPage("p2pMarketplace")} />
+            <NavItem icon={<Wallet size={21} />} label={t("dashboard.assets")} onClick={() => setCurrentPage("assets")} />
           </nav>
         </div>
       </div>
@@ -1544,7 +1564,7 @@ export default function App() {
           onClick={() => setCurrentPage("aiAssistant")}
           className="fixed bottom-24 right-5 z-40 rounded-full border border-[#D4AF37]/60 bg-[#111827] px-4 py-2 text-xs font-semibold text-[#F3E8C8] shadow-lg"
         >
-          AI Assistant
+          {t("dashboard.aiAssistant")}
         </button>
       ) : null}
 
@@ -1566,8 +1586,8 @@ export default function App() {
           <div className="w-full max-w-md rounded-2xl border border-auric-300/35 bg-linear-to-br from-cosmic-900/95 to-cosmic-800/95 p-5 shadow-cosmic-glow backdrop-blur-xl sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">Giftcard Actions</h2>
-                <p className="mt-2 text-sm text-violet-100/75">Choose what you want to do with giftcards.</p>
+                <h2 className="font-['Sora'] text-2xl font-semibold text-violet-50">{t("dashboard.giftcardActions")}</h2>
+                <p className="mt-2 text-sm text-violet-100/75">{t("dashboard.giftcardActionsDescription")}</p>
               </div>
               <button
                 type="button"
@@ -1587,7 +1607,7 @@ export default function App() {
                 }}
                 className="rounded-xl border border-auric-300/75 bg-linear-to-r from-auric-300 via-auric-400 to-auric-500 px-4 py-3 text-base font-semibold text-cosmic-900 transition-all duration-300 hover:scale-[1.01] hover:shadow-button-glow active:scale-[0.99]"
               >
-                Buy Giftcard
+                {t("dashboard.buyGiftcard")}
               </button>
               <button
                 type="button"
@@ -1597,7 +1617,7 @@ export default function App() {
                 }}
                 className="rounded-xl border border-violet-300/35 bg-cosmic-900/65 px-4 py-3 text-base font-semibold text-violet-50 transition-all duration-300 hover:-translate-y-0.5 hover:border-auric-300/65 hover:text-auric-200"
               >
-                Sell Giftcard
+                {t("dashboard.sellGiftcard")}
               </button>
             </div>
           </div>
