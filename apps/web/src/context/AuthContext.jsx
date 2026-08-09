@@ -386,7 +386,7 @@ function AuthProvider({ children }) {
   );
 
   const register = useCallback(
-    async ({ name, email, password, passwordConfirmation, referralCode }) => {
+    async ({ name, email, password, passwordConfirmation, referralCode, dashboardPreferences }) => {
       setAuthError("");
       setAuthLoading(true);
       try {
@@ -414,6 +414,7 @@ function AuthProvider({ children }) {
             password,
             password_confirmation: passwordConfirmation,
             referral_code: referralCode || undefined,
+            dashboard_preferences: dashboardPreferences || undefined,
           }),
           timeoutMs: localApiPreview ? 4000 : 15000,
         });

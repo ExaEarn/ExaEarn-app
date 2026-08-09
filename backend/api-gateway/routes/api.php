@@ -29,6 +29,7 @@ use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\WithdrawalController;
 use App\Http\Controllers\WithdrawalCenterController;
 use App\Http\Controllers\CampaignController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\FiatWithdrawalController;
 use App\Http\Controllers\NotificationController;
@@ -107,6 +108,10 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
     Route::patch('preferences/language-region', [UserPreferenceController::class, 'updateLanguageRegion']);
     Route::get('preferences/currency', [UserPreferenceController::class, 'currencyPreference']);
     Route::patch('preferences/currency', [UserPreferenceController::class, 'updateCurrencyPreference']);
+    Route::get('preferences/dashboard', [UserPreferenceController::class, 'dashboard']);
+    Route::put('preferences/dashboard', [UserPreferenceController::class, 'updateDashboard'])->middleware('throttle:20,1');
+    Route::delete('preferences/dashboard', [UserPreferenceController::class, 'resetDashboard'])->middleware('throttle:20,1');
+    Route::get('dashboard', [DashboardController::class, 'show']);
 });
 
 Route::get('exaskills/verify/{credential}', [ExaSkillsController::class, 'verifyCredential']);
@@ -141,6 +146,7 @@ Route::prefix('admin')->group(function (): void {
     Route::middleware(['auth:sanctum', 'admin.security', 'admin.audit'])->group(function (): void {
         Route::post('logout', [AdminAuthController::class, 'logout']);
         Route::get('me', [AdminAuthController::class, 'me']);
+        Route::get('dashboard-personalization/insights', [DashboardController::class, 'insights']);
 
         // User Management
         Route::get('users', [AdminPlatformController::class, 'users']);

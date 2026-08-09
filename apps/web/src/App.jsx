@@ -35,6 +35,11 @@ import useMarketData from "./components/market/useMarketData";
 import newsData from "./data/news.json";
 import Register from "./pages/auth/Register";
 import { isLocalApiPreview } from "./config/apiConfig";
+import DashboardComposer from "./features/dashboard/DashboardComposer";
+import DashboardCustomizer from "./features/dashboard/DashboardCustomizer";
+import { defaultDashboardPreferences, loadDashboard, resetDashboard, saveDashboard } from "./features/dashboard/dashboardApi";
+import "./features/dashboard/dashboard.css";
+import "./features/dashboard/criticalAlerts.css";
 import "./styles/App.css";
 
 const Game = lazy(() => import("./Game/Game"));
@@ -405,6 +410,11 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [dashboardPreferences, setDashboardPreferences] = useState(defaultDashboardPreferences);
+  const [dashboardState, setDashboardState] = useState({});
+  const [dashboardCriticalAlerts, setDashboardCriticalAlerts] = useState([]);
+  const [dashboardCustomizerOpen, setDashboardCustomizerOpen] = useState(false);
+  const [dashboardPreferenceBusy, setDashboardPreferenceBusy] = useState(false);
   const localApiPreview = isLocalApiPreview();
   const [notificationLoading, setNotificationLoading] = useState(false);
   const { pairs: livePairs, setPairs: setLivePairs } = useMarketData();
@@ -415,6 +425,36 @@ export default function App() {
     () => notifications.filter(isUnreadNotification).length,
     [notifications]
   );
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    loadDashboard(request, Boolean(user?.demo)).then((payload) => {
+      if (active) {
+        setDashboardPreferences(payload?.preferences || defaultDashboardPreferences);
+        setDashboardState(payload?.state || {});
+        setDashboardCriticalAlerts(payload?.critical_alerts || []);
+      }
+    });
+    return () => { active = false; };
+  }, [isAuthenticated, request, user?.demo]);
+
+  const persistDashboardPreferences = async (next) => {
+    setDashboardPreferenceBusy(true);
+    try {
+      const saved = await saveDashboard(request, next, Boolean(user?.demo));
+      setDashboardPreferences(saved);
+      setDashboardCustomizerOpen(false);
+    } finally { setDashboardPreferenceBusy(false); }
+  };
+
+  const restoreDefaultDashboard = async () => {
+    setDashboardPreferenceBusy(true);
+    try {
+      setDashboardPreferences(await resetDashboard(request, Boolean(user?.demo)));
+      setDashboardCustomizerOpen(false);
+    } finally { setDashboardPreferenceBusy(false); }
+  };
 
   const openP2PPage = useCallback((side = "buy") => {
     setP2pInitialSide(side === "sell" ? "sell" : "buy");
@@ -1295,6 +1335,10 @@ export default function App() {
 
             <div className="flex items-center gap-2 sm:gap-3">
               <LanguageSwitcher compact />
+              <button type="button" className="dashboard-personalize-trigger" onClick={() => setDashboardCustomizerOpen(true)}>
+                <Sparkles size={15} aria-hidden="true" />
+                <span>Personalize</span>
+              </button>
               <div className="notification-menu">
                 <button
                   type="button"
@@ -1407,6 +1451,10 @@ export default function App() {
               </div>
             </div>
           </section>
+
+          {dashboardCriticalAlerts.length ? <section className="dashboard-critical-alerts" aria-label="Important account alerts"><strong>Needs your attention</strong>{dashboardCriticalAlerts.map((alert) => <button type="button" key={alert.id} onClick={() => setCurrentPage(alert.kind === "security" ? "settings" : "transactions")}><span>{alert.title}</span><small>{alert.message}</small></button>)}</section> : null}
+
+          <DashboardComposer preferences={dashboardPreferences} state={dashboardState} onOpen={setCurrentPage} />
 
           <section className="home-features-card mb-4 campaign-card">
             <div className="feature-grid-header">
@@ -1588,6 +1636,15 @@ export default function App() {
           onRedeem={redeemReward}
         />
       ) : null}
+
+      <DashboardCustomizer
+        open={dashboardCustomizerOpen}
+        preferences={dashboardPreferences}
+        busy={dashboardPreferenceBusy}
+        onClose={() => setDashboardCustomizerOpen(false)}
+        onSave={persistDashboardPreferences}
+        onReset={restoreDefaultDashboard}
+      />
 
       {showGiftcardChoice ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">

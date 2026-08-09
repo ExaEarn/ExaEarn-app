@@ -6,6 +6,7 @@ import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable } from "../components/AnimatedPressable";
+import { DashboardPersonalization } from "../components/DashboardPersonalization";
 import { apiHelpText } from "../config/apiConfig";
 import { useAuth } from "../context/AuthContext";
 import { colors, fonts } from "../theme/colors";
@@ -604,6 +605,8 @@ export default function DashboardScreen({ fontsReady, onOpenGiftcard, onOpenMark
               </Text>
           </View>
           ) : null}
+
+          <DashboardPersonalization request={request} onOpenPanel={setActivePanel} />
 
           <View style={styles.featuresCard}>
             <View className="mb-2 flex-row items-center justify-between">

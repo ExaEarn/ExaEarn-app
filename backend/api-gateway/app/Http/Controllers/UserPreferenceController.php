@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
+use App\Services\DashboardExperienceRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class UserPreferenceController extends Controller
 {
@@ -28,6 +31,53 @@ class UserPreferenceController extends Controller
         'displayCurrency' => 'USD',
         'transactionCurrency' => 'USD',
     ];
+
+    public function dashboard(Request $request): JsonResponse
+    {
+        return response()->json(['status' => 'success', 'data' => $this->dashboardPayload($request)]);
+    }
+
+    public function updateDashboard(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'mode' => ['required', Rule::in(['all', 'personalized'])],
+            'primary_interest' => ['nullable', Rule::in(DashboardExperienceRegistry::KEYS)],
+            'selected_interests' => ['array', 'max:3'],
+            'selected_interests.*' => ['distinct', Rule::in(DashboardExperienceRegistry::KEYS)],
+            'hidden_widgets' => ['sometimes', 'array'],
+            'hidden_widgets.*' => ['string', 'max:64'],
+            'widget_order' => ['sometimes', 'array'],
+            'widget_order.*' => ['string', 'max:64'],
+            'onboarding_completed' => ['sometimes', 'boolean'],
+        ]);
+        $selected = array_values($payload['selected_interests'] ?? []);
+        if (($payload['primary_interest'] ?? null) && !in_array($payload['primary_interest'], $selected, true)) {
+            return response()->json(['status' => 'error', 'message' => 'Primary interest must be selected.'], 422);
+        }
+        if ($payload['mode'] === 'personalized' && $selected === []) {
+            return response()->json(['status' => 'error', 'message' => 'Choose at least one interest for a personalized dashboard.'], 422);
+        }
+        $user = $request->user();
+        $preferences = (array) ($user->preferences ?? []);
+        $preferences['dashboard'] = array_merge($this->dashboardPayload($request), $payload, [
+            'selected_interests' => $selected,
+            'primary_interest' => $payload['mode'] === 'all' ? null : ($payload['primary_interest'] ?? $selected[0] ?? null),
+            'updated_at' => now()->toIso8601String(),
+        ]);
+        $user->forceFill(['preferences' => $preferences])->save();
+        AuditLog::create(['user_id' => $user->id, 'action' => 'dashboard.personalized', 'ip_address' => $request->ip(), 'device' => (string) $request->userAgent(), 'metadata' => ['mode' => $payload['mode'], 'primary_interest' => $preferences['dashboard']['primary_interest'], 'selected_interests' => $selected], 'created_at' => now()]);
+        return response()->json(['status' => 'success', 'message' => 'Dashboard preferences updated.', 'data' => $preferences['dashboard']]);
+    }
+
+    public function resetDashboard(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $preferences = (array) ($user->preferences ?? []);
+        unset($preferences['dashboard']);
+        $user->forceFill(['preferences' => $preferences])->save();
+        AuditLog::create(['user_id' => $user->id, 'action' => 'dashboard.reset', 'ip_address' => $request->ip(), 'device' => (string) $request->userAgent(), 'metadata' => ['mode' => 'all'], 'created_at' => now()]);
+        return response()->json(['status' => 'success', 'message' => 'Dashboard reset.', 'data' => $this->dashboardPayload($request)]);
+    }
 
     public function languageRegion(Request $request): JsonResponse
     {
@@ -123,5 +173,14 @@ class UserPreferenceController extends Controller
             'displayCurrency' => $currencyPreference['display_currency'] ?? null,
             'transactionCurrency' => $currencyPreference['transaction_currency'] ?? null,
         ]));
+    }
+
+    private function dashboardPayload(Request $request): array
+    {
+        $preferences = (array) ($request->user()->preferences ?? []);
+        return array_merge([
+            'mode' => 'all', 'primary_interest' => null, 'selected_interests' => [],
+            'hidden_widgets' => [], 'widget_order' => [], 'onboarding_completed' => false,
+        ], (array) ($preferences['dashboard'] ?? []));
     }
 }

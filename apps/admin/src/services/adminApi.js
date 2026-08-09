@@ -294,7 +294,7 @@ const modulePayloads = {
 
 export async function fetchAdminBootstrap() {
   try {
-    const [me, users, _LOGS, rewards, staking, nft, agri, trading, settings] = await Promise.all([
+    const [me, users, _LOGS, rewards, staking, nft, agri, trading, settings, personalization] = await Promise.all([
       adminHttp.get("/me"),
       adminHttp.get("/users"),
       adminHttp.get("/logs"),
@@ -304,6 +304,7 @@ export async function fetchAdminBootstrap() {
       adminHttp.get("/agritech"),
       adminHttp.get("/trading"),
       adminHttp.get("/settings"),
+      adminHttp.get("/dashboard-personalization/insights"),
     ]);
 
     const userRows = users.data?.data ?? users.data ?? [];
@@ -311,10 +312,14 @@ export async function fetchAdminBootstrap() {
     const nftRows = nft.data?.data ?? nft.data ?? [];
     const agriRows = agri.data?.data ?? agri.data ?? [];
     const tradingRows = trading.data?.data ?? trading.data ?? [];
+    const personalizationData = personalization.data?.data ?? personalization.data ?? {};
+    const topPrimary = Object.entries(personalizationData.primary_experiences ?? {}).sort((left, right) => Number(right[1]) - Number(left[1]))[0]?.[0] ?? "None";
 
     return {
       admin: me.data?.data ?? me.data ?? { name: "Admin", email: "admin@exaearn.com", role: "admin" },
       stats: [
+        { label: "Personalized Dashboards", value: `${personalizationData.completion_rate ?? 0}%`, change: `${personalizationData.personalized_users ?? 0} users` },
+        { label: "Top Primary Experience", value: topPrimary.replaceAll("_", " "), change: "preferences" },
         { label: "Users Count", value: `${userRows.length || 0}`, change: "+live" },
         { label: "Active Users", value: `${userRows.filter?.((row) => row.status === "active").length || 0}`, change: "synced" },
         { label: "Total Deposits", value: settings.data?.totals?.deposits ?? "$0", change: "api" },

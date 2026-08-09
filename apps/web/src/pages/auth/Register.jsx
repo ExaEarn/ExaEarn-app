@@ -30,14 +30,15 @@ import "./Register.css";
 const ONBOARDING_STORAGE_KEY = "exaearn_onboarding_preferences";
 
 const interestOptions = [
-  { id: "trading", label: "Trading & Analytics", icon: BarChart3, text: "Market tools, signals and digital asset opportunities." },
+  { id: "crypto_exchange", label: "Crypto Exchange", icon: BarChart3, text: "Spot and futures markets, conversion, orders, and P2P access." },
+  { id: "exaai", label: "ExaAI", icon: Sparkles, text: "Subscriptions, strategies, allocations, sessions, and performance." },
   { id: "giftcards", label: "Giftcard Exchange", icon: Gift, text: "Secure conversion flows for supported giftcards." },
-  { id: "passive", label: "Passive Earnings", icon: Coins, text: "Staking and reward paths built for steady discovery." },
-  { id: "agritech", label: "Agritech Investment", icon: Leaf, text: "Real-world agriculture powered by community participation." },
-  { id: "nft", label: "NFT Marketplace", icon: Gem, text: "Digital ownership, creator assets and marketplace access." },
-  { id: "education", label: "Learning Web3", icon: GraduationCap, text: "Guided finance and blockchain education inside the app." },
-  { id: "gaming", label: "Gaming Rewards", icon: Gamepad2, text: "Play, compete and earn ecosystem rewards." },
-  { id: "crowdfunding", label: "Crowdfunding Opportunities", icon: HandCoins, text: "Support innovative projects and community ideas." },
+  { id: "earn", label: "Earn", icon: Coins, text: "Supported staking positions, rewards, claiming, and unstaking." },
+  { id: "agritech", label: "Agritech", icon: Leaf, text: "Agricultural projects, project participation, and produce progress." },
+  { id: "nft_marketplace", label: "NFT Marketplace", icon: Gem, text: "Collections, minting, ownership, listings, auctions, and discovery." },
+  { id: "exaskills", label: "ExaSkills", icon: GraduationCap, text: "Courses, credentials, challenges, and open opportunities." },
+  { id: "games", label: "Games", icon: Gamepad2, text: "Play the live Flight game and review your bet activity." },
+  { id: "crowdfund", label: "Crowdfund", icon: HandCoins, text: "Discover and support community campaigns." },
 ];
 
 const experienceOptions = [
@@ -132,6 +133,14 @@ function Register({ onLogin, onSuccess }) {
 
   const savePreferences = () => {
     try {
+      const dashboardPreferences = selectedInterests.length ? {
+        mode: "personalized",
+        primary_interest: selectedInterests[0],
+        selected_interests: selectedInterests,
+        hidden_widgets: [],
+        widget_order: [],
+        onboarding_completed: true,
+      } : { mode: "all", primary_interest: null, selected_interests: [], hidden_widgets: [], widget_order: [], onboarding_completed: false };
       localStorage.setItem(
         ONBOARDING_STORAGE_KEY,
         JSON.stringify({
@@ -142,6 +151,7 @@ function Register({ onLogin, onSuccess }) {
           completedAt: new Date().toISOString(),
         })
       );
+      localStorage.setItem("exaearn_dashboard_preferences", JSON.stringify(dashboardPreferences));
     } catch {
       // Preference persistence is best-effort.
     }
@@ -185,6 +195,14 @@ function Register({ onLogin, onSuccess }) {
       password,
       passwordConfirmation: confirmPassword,
       referralCode,
+      dashboardPreferences: selectedInterests.length ? {
+        mode: "personalized",
+        primary_interest: selectedInterests[0],
+        selected_interests: selectedInterests,
+        hidden_widgets: [],
+        widget_order: [],
+        onboarding_completed: true,
+      } : undefined,
     });
 
     if (result.success && onSuccess) {
@@ -260,7 +278,7 @@ function Register({ onLogin, onSuccess }) {
                     key={option.id}
                     option={option}
                     active={selectedInterests.includes(option.id)}
-                    onClick={() => setSelectedInterests((values) => toggleValue(values, option.id))}
+                    onClick={() => setSelectedInterests((values) => values.includes(option.id) ? values.filter((value) => value !== option.id) : values.length < 3 ? [...values, option.id] : values)}
                   />
                 ))}
               </div>

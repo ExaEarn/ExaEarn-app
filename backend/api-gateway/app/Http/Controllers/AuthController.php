@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\LoginDevice;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\DashboardExperienceRegistry;
 use App\Services\FraudDetectionService;
 use App\Services\RateLimiterService;
 use App\Services\ReferralService;
@@ -54,6 +55,11 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:10', 'regex:' . $passwordRegex, 'confirmed'],
             'referral_code' => ['nullable', 'string', 'max:32'],
+            'dashboard_preferences' => ['nullable', 'array'],
+            'dashboard_preferences.mode' => ['required_with:dashboard_preferences', 'in:all,personalized'],
+            'dashboard_preferences.primary_interest' => ['nullable', 'in:' . implode(',', DashboardExperienceRegistry::KEYS)],
+            'dashboard_preferences.selected_interests' => ['array', 'max:3'],
+            'dashboard_preferences.selected_interests.*' => ['distinct', 'in:' . implode(',', DashboardExperienceRegistry::KEYS)],
         ]);
 
         $email = strtolower(trim((string) $validated['email']));
@@ -73,6 +79,7 @@ class AuthController extends Controller
                     'email' => $email,
                     'password' => Hash::make($validated['password']),
                     'unique_user_id' => $this->generateUniqueUserId(),
+                    'preferences' => !empty($validated['dashboard_preferences']) ? ['dashboard' => $validated['dashboard_preferences']] : null,
                 ]);
 
                 $this->referralService->ensureReferralCode($user);
