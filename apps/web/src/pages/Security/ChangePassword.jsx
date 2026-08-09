@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Eye,
@@ -120,9 +120,9 @@ function ChangePassword({ onBack, onBackToSettings }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#070B14] text-white">
+    <main className="min-h-screen bg-[var(--exa-bg-primary)] text-white">
       <header
-        className="sticky top-0 z-30 border-b border-[#D4AF37]/20 bg-gradient-to-r from-[#121A2A]/95 via-[#0E1524]/95 to-[#0A0F1D]/95 backdrop-blur"
+        className="sticky top-0 z-30 border-b border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] backdrop-blur"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto w-full max-w-2xl px-4 pb-3 pt-3 sm:px-6">
@@ -130,13 +130,13 @@ function ChangePassword({ onBack, onBackToSettings }) {
             <button
               type="button"
               onClick={onBack}
-              className="rounded-xl border border-white/15 bg-[#111827] p-2 text-[#E6EAF2] hover:border-[#D4AF37]/60"
+              className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] p-2 text-[var(--exa-text-secondary)] hover:border-[var(--exa-border-active)]"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
-              <h1 className="text-lg font-semibold text-[#F8F1DE] sm:text-xl">Change Password</h1>
-              <p className="text-xs text-[#B8C0CF] sm:text-sm">Update your account password securely</p>
+              <h1 className="text-lg font-semibold text-[var(--exa-text-primary)] sm:text-xl">Change Password</h1>
+              <p className="text-xs text-[var(--exa-text-muted)] sm:text-sm">Update your account password securely</p>
             </div>
           </div>
         </div>
@@ -144,9 +144,9 @@ function ChangePassword({ onBack, onBackToSettings }) {
 
       <section className="mx-auto w-full max-w-2xl px-4 pb-8 pt-5 sm:px-6">
         <div className="mb-4 space-y-2">
-          <div className="rounded-2xl border border-[#D4AF37]/25 bg-[#0C1424] p-3 text-sm text-[#D7DDEA]">
+          <div className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] p-3 text-sm text-[var(--exa-text-secondary)]">
             <p className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[#D4AF37]" />
+              <ShieldCheck className="h-4 w-4 text-[var(--exa-gold-light)]" />
               For your security, choose a strong and unique password.
             </p>
           </div>
@@ -158,7 +158,7 @@ function ChangePassword({ onBack, onBackToSettings }) {
           </div>
         </div>
 
-        <form onSubmit={submitChange} className="rounded-2xl border border-white/10 bg-[#101827]/85 p-4 shadow-[0_14px_28px_rgba(0,0,0,0.3)]">
+        <form onSubmit={submitChange} className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)]">
           <PasswordField
             label="Current Password"
             value={form.currentPassword}
@@ -184,14 +184,14 @@ function ChangePassword({ onBack, onBackToSettings }) {
             error={errors.confirmPassword}
           />
 
-          <section className="mb-4 rounded-xl border border-white/10 bg-[#0C1424] p-3">
+          <section className="mb-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3">
             <div className="mb-2 flex items-center justify-between text-sm">
-              <p className="text-[#D7DDEA]">Password Strength</p>
+              <p className="text-[var(--exa-text-secondary)]">Password Strength</p>
               <p className={`${strength.score >= 3 ? "text-[#86EFAC]" : strength.score >= 2 ? "text-[#FDE68A]" : "text-[#FCA5A5]"}`}>
                 {strength.label}
               </p>
             </div>
-            <div className="mb-3 h-2 overflow-hidden rounded-full bg-[#1F2937]">
+            <div className="mb-3 h-2 overflow-hidden rounded-full bg-[var(--exa-surface-hover)]">
               <div
                 className={`h-full transition-all ${
                   strength.score >= 3 ? "bg-[#22C55E]" : strength.score >= 2 ? "bg-[#F59E0B]" : "bg-[#EF4444]"
@@ -199,7 +199,7 @@ function ChangePassword({ onBack, onBackToSettings }) {
                 style={{ width: `${(strength.score / 4) * 100}%` }}
               />
             </div>
-            <ul className="space-y-1 text-xs text-[#AEB7C7]">
+            <ul className="space-y-1 text-xs text-[var(--exa-text-muted)]">
               <RequirementRow ok={requirements.minLength} label="Minimum 8 characters" />
               <RequirementRow ok={requirements.upperCase} label="At least one uppercase letter" />
               <RequirementRow ok={requirements.number} label="At least one number" />
@@ -208,22 +208,22 @@ function ChangePassword({ onBack, onBackToSettings }) {
           </section>
 
           {twoFactorEnabled ? (
-            <section className="mb-4 rounded-xl border border-white/10 bg-[#0C1424] p-3">
-              <p className="mb-2 text-sm text-[#D7DDEA]">2FA Verification</p>
+            <section className="mb-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-bg-tertiary)] p-3">
+              <p className="mb-2 text-sm text-[var(--exa-text-secondary)]">2FA Verification</p>
               <div className="flex gap-2">
                 <input
                   value={form.twoFactorCode}
                   onChange={(e) => updateField("twoFactorCode", e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="Enter 6-digit code"
-                  className={`h-10 flex-1 rounded-xl border bg-[#111827] px-3 text-sm outline-none ${
-                    errors.twoFactorCode ? "border-[#EF4444]/65" : "border-white/15 focus:border-[#D4AF37]/60"
+                  className={`h-10 flex-1 rounded-xl border bg-[var(--exa-surface-hover)] px-3 text-sm outline-none ${
+                    errors.twoFactorCode ? "border-[#EF4444]/65" : "border-[var(--exa-border)] focus:border-[var(--exa-border-active)]"
                   }`}
                 />
                 <button
                   type="button"
                   onClick={sendTwoFactorCode}
                   disabled={codeCountdown > 0}
-                  className="rounded-xl border border-white/15 bg-[#111827] px-3 text-xs text-[#D7DDEA] disabled:opacity-50"
+                  className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] px-3 text-xs text-[var(--exa-text-secondary)] disabled:opacity-50"
                 >
                   {codeCountdown > 0 ? `Resend ${codeCountdown}s` : "Send Code"}
                 </button>
@@ -232,7 +232,7 @@ function ChangePassword({ onBack, onBackToSettings }) {
             </section>
           ) : null}
 
-          <label className="mb-4 flex items-center gap-2 text-sm text-[#C4CCD9]">
+          <label className="mb-4 flex items-center gap-2 text-sm text-[var(--exa-text-muted)]">
             <input
               type="checkbox"
               checked={autoLogoutAllSessions}
@@ -246,7 +246,7 @@ function ChangePassword({ onBack, onBackToSettings }) {
           <button
             type="submit"
             disabled={!canSubmit}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] py-3 text-sm font-semibold text-[#111827] shadow-[0_10px_24px_rgba(212,175,55,0.28)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl exa-button-primary py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] disabled:cursor-not-allowed disabled:opacity-45"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
             {submitting ? "Updating..." : "Save Changes"}
@@ -256,17 +256,17 @@ function ChangePassword({ onBack, onBackToSettings }) {
 
       {showSuccess ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-[#D4AF37]/35 bg-[#0E1524] p-5 text-center">
-            <ShieldCheck className="mx-auto h-8 w-8 text-[#D4AF37]" />
-            <h3 className="mt-2 text-lg font-semibold text-[#F8F1DE]">Password Updated Successfully</h3>
-            <p className="mt-1 text-sm text-[#C4CCD9]">If this wasn&apos;t you, contact support immediately.</p>
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 text-center">
+            <ShieldCheck className="mx-auto h-8 w-8 text-[var(--exa-gold-light)]" />
+            <h3 className="mt-2 text-lg font-semibold text-[var(--exa-text-primary)]">Password Updated Successfully</h3>
+            <p className="mt-1 text-sm text-[var(--exa-text-muted)]">If this wasn&apos;t you, contact support immediately.</p>
             <button
               type="button"
               onClick={() => {
                 setShowSuccess(false);
                 onBackToSettings?.();
               }}
-              className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] py-2.5 text-sm font-semibold text-[#111827]"
+              className="mt-4 w-full rounded-xl exa-button-primary py-2.5 text-sm font-semibold text-[var(--exa-gold-contrast)]"
             >
               Back to Settings
             </button>
@@ -280,15 +280,15 @@ function ChangePassword({ onBack, onBackToSettings }) {
 function PasswordField({ label, value, onChange, visible, onToggle, error }) {
   return (
     <label className="mb-3 block">
-      <span className="mb-1.5 block text-sm text-[#D7DDEA]">{label}</span>
-      <div className={`flex items-center rounded-xl border bg-[#111827] px-3 ${error ? "border-[#EF4444]/65" : "border-white/15 focus-within:border-[#D4AF37]/60"}`}>
+      <span className="mb-1.5 block text-sm text-[var(--exa-text-secondary)]">{label}</span>
+      <div className={`flex items-center rounded-xl border bg-[var(--exa-surface-hover)] px-3 ${error ? "border-[#EF4444]/65" : "border-[var(--exa-border)] focus-within:border-[var(--exa-border-active)]"}`}>
         <input
           type={visible ? "text" : "password"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="h-10 flex-1 bg-transparent text-sm outline-none"
         />
-        <button type="button" onClick={onToggle} className="text-[#9BA5B7] hover:text-[#E6EAF2]">
+        <button type="button" onClick={onToggle} className="text-[var(--exa-text-muted)] hover:text-[var(--exa-text-secondary)]">
           {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
@@ -299,7 +299,7 @@ function PasswordField({ label, value, onChange, visible, onToggle, error }) {
 
 function RequirementRow({ ok, label }) {
   return (
-    <li className={`flex items-center gap-1 ${ok ? "text-[#86EFAC]" : "text-[#AEB7C7]"}`}>
+    <li className={`flex items-center gap-1 ${ok ? "text-[#86EFAC]" : "text-[var(--exa-text-muted)]"}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-[#22C55E]" : "bg-[#6B7280]"}`} />
       {label}
     </li>
@@ -361,3 +361,4 @@ function addSecurityLog(entry) {
 }
 
 export default ChangePassword;
+
