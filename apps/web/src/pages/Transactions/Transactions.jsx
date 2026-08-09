@@ -13,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 import { fetchUserTransactions } from "../../services/transactionApi";
 
 const filterTabs = ["All", "Deposits", "Withdrawals", "Rewards", "P2P"];
@@ -179,6 +180,7 @@ function mapApiTransaction(tx, userId) {
 
 function Transactions({ onBack }) {
   const { apiBaseUrl, token, user } = useAuth();
+  const { t } = useLanguage();
   const userId = user?.id ?? user?.user_id ?? null;
   const [activeTab, setActiveTab] = useState("All");
   const [query, setQuery] = useState("");
@@ -186,6 +188,40 @@ function Transactions({ onBack }) {
   const [selectedTx, setSelectedTx] = useState(transactionsSeed[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const typeLabel = (type) => {
+    const keys = {
+      Deposit: "transactions.deposit",
+      Withdrawal: "transactions.withdrawal",
+      Reward: "transactions.reward",
+      Trade: "transactions.trade",
+      Staking: "transactions.staking",
+      NFT: "transactions.nft",
+      Lottery: "transactions.lottery",
+      Activity: "transactions.activity",
+      P2P: "transactions.p2p",
+    };
+    return t(keys[type] || "transactions.activity");
+  };
+
+  const statusLabel = (status) => {
+    const keys = {
+      Completed: "transactions.completed",
+      Pending: "transactions.pending",
+      Failed: "transactions.failed",
+    };
+    return t(keys[status] || "transactions.pending");
+  };
+
+  const tabLabel = (tab) => {
+    const keys = {
+      All: "transactions.all",
+      Deposits: "transactions.deposits",
+      Withdrawals: "transactions.withdrawals",
+      Rewards: "transactions.rewards",
+      P2P: "transactions.p2p",
+    };
+    return t(keys[tab] || tab);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -207,7 +243,7 @@ function Transactions({ onBack }) {
         }
       } catch (err) {
         if (isMounted) {
-          setError(err?.message || "Unable to load transactions.");
+          setError(err?.message || t("transactions.unableToLoad"));
         }
       } finally {
         if (isMounted) {
@@ -238,12 +274,12 @@ function Transactions({ onBack }) {
     const rewards = transactions.filter((tx) => tx.type === "Reward").length;
     const pending = transactions.filter((tx) => tx.status === "Pending").length;
     return [
-      { label: "Total Deposits", value: deposits, tone: "from-emerald-400/20 to-emerald-300/5" },
-      { label: "Total Withdrawals", value: withdrawals, tone: "from-rose-400/20 to-rose-300/5" },
-      { label: "Rewards Earned", value: rewards, tone: "from-amber-400/20 to-amber-300/5" },
-      { label: "Pending Transactions", value: pending, tone: "from-[var(--exa-gold-surface)] to-transparent" },
+      { label: t("transactions.totalDeposits"), value: deposits, tone: "from-emerald-400/20 to-emerald-300/5" },
+      { label: t("transactions.totalWithdrawals"), value: withdrawals, tone: "from-rose-400/20 to-rose-300/5" },
+      { label: t("transactions.rewardsEarned"), value: rewards, tone: "from-amber-400/20 to-amber-300/5" },
+      { label: t("transactions.pendingTransactions"), value: pending, tone: "from-[var(--exa-gold-surface)] to-transparent" },
     ];
-  }, [transactions]);
+  }, [t, transactions]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--exa-bg-primary)] px-4 py-8 text-[var(--exa-text-primary)] sm:px-6 sm:py-10">
@@ -258,16 +294,16 @@ function Transactions({ onBack }) {
                   className="mb-3 inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs font-semibold text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back
+                  {t("common.back")}
                 </button>
               ) : null}
-              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-[var(--exa-text-primary)] sm:text-4xl">Transactions</h1>
-              <p className="mt-1 text-sm text-[var(--exa-text-secondary)]">Track your activity and history</p>
+              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-[var(--exa-text-primary)] sm:text-4xl">{t("transactions.title")}</h1>
+              <p className="mt-1 text-sm text-[var(--exa-text-secondary)]">{t("transactions.subtitle")}</p>
             </div>
             <div className="flex items-center gap-2">
               <button className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 text-sm font-semibold text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]">
                 <Download className="h-4 w-4" />
-                Export
+                {t("transactions.export")}
               </button>
               <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]">
                 <Filter className="h-4 w-4" />
@@ -302,7 +338,7 @@ function Transactions({ onBack }) {
                 onClick={() => setActiveTab(tab)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeTab === tab ? "bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]" : "border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)] hover:border-[var(--exa-border-active)] hover:text-[var(--exa-text-primary)]"}`}
               >
-                {tab}
+                {tabLabel(tab)}
               </button>
             ))}
           </div>
@@ -311,7 +347,7 @@ function Transactions({ onBack }) {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by TxID, asset, or reference"
+              placeholder={t("transactions.searchPlaceholder")}
               className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] py-2.5 pl-10 pr-3 text-sm text-white outline-none transition focus:border-[var(--exa-border-active)]"
             />
           </div>
@@ -322,8 +358,8 @@ function Transactions({ onBack }) {
             {loading ? (
               <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-12 text-center">
                 <Shuffle className="mx-auto h-10 w-10 text-[var(--exa-text-muted)]" />
-                <p className="mt-3 text-base font-semibold text-[var(--exa-text-primary)]">Loading Transactions</p>
-                <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Fetching latest ledger activity...</p>
+                <p className="mt-3 text-base font-semibold text-[var(--exa-text-primary)]">{t("transactions.loadingTitle")}</p>
+                <p className="mt-1 text-sm text-[var(--exa-text-muted)]">{t("transactions.loadingBody")}</p>
               </div>
             ) : filteredTransactions.length ? (
               filteredTransactions.map((tx) => {
@@ -341,9 +377,9 @@ function Transactions({ onBack }) {
                           <TypeIcon className={`h-4.5 w-4.5 ${config.color}`} />
                         </span>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[var(--exa-text-primary)]">{tx.type}</p>
+                          <p className="text-sm font-semibold text-[var(--exa-text-primary)]">{typeLabel(tx.type)}</p>
                           <p className="text-xs text-[var(--exa-text-muted)]">{tx.asset}  |  {tx.ref}</p>
-                          <p className="mt-1 text-xs text-[var(--exa-text-muted)]">{tx.date} at {tx.time}</p>
+                          <p className="mt-1 text-xs text-[var(--exa-text-muted)]">{tx.date} {t("transactions.at")} {tx.time}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -351,7 +387,7 @@ function Transactions({ onBack }) {
                         <p className="text-xs text-[var(--exa-text-muted)]">{tx.amountFiat}</p>
                         <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClasses(tx.status)}`}>
                           <StatusDot status={tx.status} />
-                          {tx.status}
+                          {statusLabel(tx.status)}
                         </span>
                       </div>
                     </div>
@@ -361,44 +397,44 @@ function Transactions({ onBack }) {
             ) : (
               <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-12 text-center">
                 <Shuffle className="mx-auto h-10 w-10 text-[var(--exa-text-muted)]" />
-                <p className="mt-3 text-base font-semibold text-[var(--exa-text-primary)]">No Transactions Yet</p>
-                <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Your activity will appear here</p>
+                <p className="mt-3 text-base font-semibold text-[var(--exa-text-primary)]">{t("transactions.emptyTitle")}</p>
+                <p className="mt-1 text-sm text-[var(--exa-text-muted)]">{t("transactions.emptyBody")}</p>
               </div>
             )}
           </div>
 
           <aside className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-soft)] sm:p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-['Sora'] text-lg font-semibold text-[var(--exa-text-primary)]">Transaction Detail</h2>
+              <h2 className="font-['Sora'] text-lg font-semibold text-[var(--exa-text-primary)]">{t("transactions.detailTitle")}</h2>
               <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClasses(selectedTx.status)}`}>
                 <StatusDot status={selectedTx.status} />
-                {selectedTx.status}
+                {statusLabel(selectedTx.status)}
               </span>
             </div>
 
             <div className="space-y-2 text-sm">
               <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                <p className="text-xs text-[var(--exa-text-muted)]">Type / Asset</p>
-                <p className="font-semibold text-[var(--exa-text-primary)]">{selectedTx.type}  |  {selectedTx.asset}</p>
+                <p className="text-xs text-[var(--exa-text-muted)]">{t("transactions.typeAsset")}</p>
+                <p className="font-semibold text-[var(--exa-text-primary)]">{typeLabel(selectedTx.type)}  |  {selectedTx.asset}</p>
               </div>
               <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                <p className="text-xs text-[var(--exa-text-muted)]">Amount</p>
+                <p className="text-xs text-[var(--exa-text-muted)]">{t("transactions.amount")}</p>
                 <p className="font-semibold text-[var(--exa-text-primary)]">{selectedTx.amount} {selectedTx.asset}</p>
               </div>
               <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                <p className="text-xs text-[var(--exa-text-muted)]">Network / Confirmations</p>
+                <p className="text-xs text-[var(--exa-text-muted)]">{t("transactions.networkConfirmations")}</p>
                 <p className="font-semibold text-[var(--exa-text-primary)]">{selectedTx.network}  |  {selectedTx.confirmations}</p>
               </div>
               <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                <p className="text-xs text-[var(--exa-text-muted)]">Date & Time</p>
-                <p className="font-semibold text-[var(--exa-text-primary)]">{selectedTx.date} at {selectedTx.time}</p>
+                <p className="text-xs text-[var(--exa-text-muted)]">{t("transactions.dateTime")}</p>
+                <p className="font-semibold text-[var(--exa-text-primary)]">{selectedTx.date} {t("transactions.at")} {selectedTx.time}</p>
               </div>
               <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                <p className="text-xs text-[var(--exa-text-muted)]">Fee / Reference</p>
+                <p className="text-xs text-[var(--exa-text-muted)]">{t("transactions.feeReference")}</p>
                 <p className="font-semibold text-[var(--exa-text-primary)]">{selectedTx.fee}  |  {selectedTx.ref}</p>
               </div>
               <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                <p className="text-xs text-[var(--exa-text-muted)]">Blockchain TxID Viewer</p>
+                <p className="text-xs text-[var(--exa-text-muted)]">{t("transactions.blockchainViewer")}</p>
                 <a
                   href="#"
                   onClick={(event) => event.preventDefault()}
@@ -413,7 +449,7 @@ function Transactions({ onBack }) {
         </section>
 
         <p className="mt-6 text-center text-xs text-[var(--exa-text-muted)]">
-          All ExaEarn transactions are securely recorded and verifiable.
+          {t("transactions.secureRecorded")}
         </p>
       </section>
 

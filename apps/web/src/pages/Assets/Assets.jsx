@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext.jsx";
 import { useWebSocketEvent } from "../../services/webSocketService";
 import TransferModal from "../../components/TransferModal";
 
@@ -191,6 +192,7 @@ function buildAccountRows(accountPayload, mergedAssets) {
 
 function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw, onOpenTransactions, onOpenTrade }) {
   const { request, user } = useAuth();
+  const { t } = useLanguage();
   const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem("exaearn_assets_privacy") === "hidden");
   const [displayCurrency, setDisplayCurrency] = useState(() => localStorage.getItem("exaearn_assets_currency") || "USD");
   const [hideZeroBalances, setHideZeroBalances] = useState(() => localStorage.getItem("exaearn_assets_hide_zero") === "true");
@@ -225,7 +227,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
       setPortfolio(sanitizePortfolio(safeValue(portfolioPayload)));
       setAccounts(buildAccountRows(safeValue(accountsPayload), mergeAssets(Array.isArray(balancesPayload?.data) ? balancesPayload.data : [], sanitizePortfolio(safeValue(portfolioPayload)))));
     } catch (loadError) {
-      setError(loadError?.message || "Unable to load balances.");
+      setError(loadError?.message || t("assets.unableToLoadBalances"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -294,7 +296,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
       setShowTransferModal(false);
       await loadAssets("refresh");
     } catch (transferError) {
-      setError(transferError?.message || "Unable to complete transfer.");
+      setError(transferError?.message || t("assets.unableToCompleteTransfer"));
       throw transferError;
     }
   };
@@ -321,15 +323,15 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
               </button>
             ) : null}
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">{user?.name || "Assets"}</p>
-              <p className="text-xs text-[var(--exa-text-muted)]">Assets</p>
+              <p className="truncate text-sm font-semibold text-white">{user?.name || t("assets.title")}</p>
+              <p className="text-xs text-[var(--exa-text-muted)]">{t("assets.title")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label="Toggle balance privacy" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
+            <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label={t("assets.toggleBalancePrivacy")} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
               {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
-            <button type="button" onClick={onOpenTransactions} aria-label="Open transaction history" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
+            <button type="button" onClick={onOpenTransactions} aria-label={t("assets.openTransactionHistory")} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
               <History className="h-4 w-4" />
             </button>
           </div>
@@ -339,7 +341,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
           <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
             <div className="flex items-start justify-between gap-3">
               <span>{error}</span>
-              <button type="button" onClick={() => loadAssets("refresh")} className="font-semibold text-rose-100">Retry</button>
+              <button type="button" onClick={() => loadAssets("refresh")} className="font-semibold text-rose-100">{t("assets.retry")}</button>
             </div>
           </div>
         ) : null}
@@ -348,8 +350,8 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-500">
-                <span>Total Assets</span>
-                <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label="Toggle balance privacy" className="text-[var(--exa-text-muted)]">
+                <span>{t("assets.totalAssets")}</span>
+                <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label={t("assets.toggleBalancePrivacy")} className="text-[var(--exa-text-muted)]">
                   {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
@@ -359,42 +361,42 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
                   {portfolioCurrency}
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
-                {btcEquivalent ? <span>{privacyMode ? "approx •••••• BTC" : `approx ${formatAmount(btcEquivalent, 5)} BTC`}</span> : null}
+                {btcEquivalent ? <span>{privacyMode ? t("assets.approxHiddenBtc") : t("assets.approxBtc").replace("{{value}}", formatAmount(btcEquivalent, 5))}</span> : null}
               </div>
             </div>
-            {refreshing ? <div className="text-xs text-[var(--exa-text-muted)]">Refreshing...</div> : null}
+            {refreshing ? <div className="text-xs text-[var(--exa-text-muted)]">{t("assets.refreshing")}</div> : null}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <SummaryMetric label="Available" value={formatDisplayValue(totals.available, portfolioCurrency, privacyMode)} loading={loading} />
-            <SummaryMetric label="In Use" value={formatDisplayValue(totals.locked, portfolioCurrency, privacyMode)} loading={loading} />
-            <SummaryMetric label="Assets" value={privacyMode ? "••••" : String(mergedAssets.filter((item) => item.total > 0).length)} loading={loading} />
-            <SummaryMetric label="P&L" value="--" hint="Shown when real performance data is available" loading={false} />
+            <SummaryMetric label={t("assets.available")} value={formatDisplayValue(totals.available, portfolioCurrency, privacyMode)} loading={loading} />
+            <SummaryMetric label={t("assets.inUse")} value={formatDisplayValue(totals.locked, portfolioCurrency, privacyMode)} loading={loading} />
+            <SummaryMetric label={t("assets.assets")} value={privacyMode ? "••••" : String(mergedAssets.filter((item) => item.total > 0).length)} loading={loading} />
+            <SummaryMetric label={t("assets.pnl")} value="--" hint={t("assets.pnlHint")} loading={false} />
           </div>
         </section>
 
         <section className="exa-surface grid grid-cols-4 gap-2 rounded-2xl px-3 py-3 sm:gap-3">
-          <QuickAction icon={ArrowDownToLine} label="Deposit" onClick={onOpenAddFunds} />
-          <QuickAction icon={ArrowUpFromLine} label="Withdraw" onClick={onOpenWithdraw} />
-          <QuickAction icon={Repeat2} label="Transfer" onClick={() => setShowTransferModal(true)} />
-          <QuickAction icon={Repeat2} label="Convert" onClick={onOpenSwap} />
+          <QuickAction icon={ArrowDownToLine} label={t("assets.deposit")} onClick={onOpenAddFunds} />
+          <QuickAction icon={ArrowUpFromLine} label={t("assets.withdraw")} onClick={onOpenWithdraw} />
+          <QuickAction icon={Repeat2} label={t("assets.transfer")} onClick={() => setShowTransferModal(true)} />
+          <QuickAction icon={Repeat2} label={t("assets.convert")} onClick={onOpenSwap} />
         </section>
 
         <section className="exa-surface overflow-hidden rounded-2xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
             <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
               <button type="button" onClick={() => setActiveTab("assets")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "assets" ? "bg-[var(--exa-gold)] text-slate-950" : "text-[var(--exa-text-muted)]"}`}>
-                Asset
+                {t("assets.asset")}
               </button>
               <button type="button" onClick={() => setActiveTab("accounts")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "accounts" ? "bg-[var(--exa-gold)] text-slate-950" : "text-[var(--exa-text-muted)]"}`}>
-                Account
+                {t("assets.account")}
               </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-300">
                 <Search className="h-4 w-4 text-slate-500" />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={activeTab === "assets" ? "Search assets" : "Search accounts"} className="w-36 bg-transparent outline-none placeholder:text-slate-500 sm:w-44" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={activeTab === "assets" ? t("assets.searchAssets") : t("assets.searchAccounts")} className="w-36 bg-transparent outline-none placeholder:text-slate-500 sm:w-44" />
               </div>
               <button type="button" onClick={() => setShowFilters((value) => !value)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300">
                 <Settings2 className="h-4 w-4" />
@@ -407,13 +409,13 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
               <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
                 {ASSET_FILTERS.map((filter) => (
                   <button key={filter} type="button" onClick={() => setAssetFilter(filter)} className={`rounded-full px-3 py-1.5 ${assetFilter === filter ? "bg-[var(--exa-gold)] text-slate-950" : "text-[var(--exa-text-muted)]"}`}>
-                    {filter === "all" ? "All" : filter === "crypto" ? "Crypto" : "Fiat"}
+                    {filter === "all" ? t("assets.all") : filter === "crypto" ? t("assets.crypto") : t("assets.fiat")}
                   </button>
                 ))}
               </div>
               <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-slate-300">
                 <input type="checkbox" checked={hideZeroBalances} onChange={(event) => setHideZeroBalances(event.target.checked)} />
-                Hide zero balances
+                {t("assets.hideZeroBalances")}
               </label>
               <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-slate-200 outline-none">
                 {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -424,9 +426,9 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
           {activeTab === "assets" ? (
             <div>
               <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 border-b border-white/8 px-4 py-3 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
-                <span>Asset</span>
-                <span className="text-right">Balance</span>
-                <span className="text-right">Value</span>
+                <span>{t("assets.asset")}</span>
+                <span className="text-right">{t("assets.balance")}</span>
+                <span className="text-right">{t("assets.value")}</span>
               </div>
               {loading ? (
                 <div className="space-y-3 p-4">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-white/[0.04]" />)}</div>
@@ -443,26 +445,26 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
                       </div>
                       <div className="text-left lg:text-right">
                         <p className="text-sm font-medium text-white">{privacyMode ? `•••• ${asset.code}` : `${formatAmount(asset.total, asset.decimals || 8)} ${asset.code}`}</p>
-                        <p className="mt-1 text-xs text-slate-500">Available {privacyMode ? "••••" : formatAmount(asset.available, asset.decimals || 8)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{t("assets.available")} {privacyMode ? "••••" : formatAmount(asset.available, asset.decimals || 8)}</p>
                       </div>
                       <div className="text-left lg:text-right">
                         <p className="text-sm font-medium text-white">{formatDisplayValue(asset.totalValue, portfolioCurrency, privacyMode)}</p>
-                        <p className="mt-1 text-xs text-slate-500">In use {privacyMode ? "••••" : formatAmount(asset.locked, asset.decimals || 8)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{t("assets.inUseSentence")} {privacyMode ? "••••" : formatAmount(asset.locked, asset.decimals || 8)}</p>
                       </div>
                     </button>
                   ))}
                 </div>
               ) : (
-                <EmptyState title="No assets found" body="Try changing the filters or add funds to start building your portfolio." />
+                <EmptyState title={t("assets.noAssetsFound")} body={t("assets.noAssetsBody")} />
               )}
             </div>
           ) : (
             <div>
               <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 border-b border-white/8 px-4 py-3 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
-                <span>Account</span>
-                <span className="text-right">Transferable</span>
-                <span className="text-right">In Use</span>
-                <span className="text-right">Equity</span>
+                <span>{t("assets.account")}</span>
+                <span className="text-right">{t("assets.transferable")}</span>
+                <span className="text-right">{t("assets.inUse")}</span>
+                <span className="text-right">{t("assets.equity")}</span>
               </div>
               {loading ? (
                 <div className="space-y-3 p-4">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-white/[0.04]" />)}</div>
@@ -472,7 +474,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
                     <div key={account.key} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
                       <div>
                         <p className="text-sm font-semibold text-[var(--exa-text-primary)]">{account.label}</p>
-                        <p className="mt-1 text-xs text-slate-500">Real backend account balance</p>
+                        <p className="mt-1 text-xs text-slate-500">{t("assets.realBackendAccountBalance")}</p>
                       </div>
                       <p className="text-left text-sm text-white lg:text-right">{privacyMode ? "••••" : formatAmount(account.available, 8)}</p>
                       <p className="text-left text-sm text-white lg:text-right">{privacyMode ? "••••" : formatAmount(account.locked, 8)}</p>
@@ -481,7 +483,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
                   ))}
                 </div>
               ) : (
-                <EmptyState title="Account breakdown unavailable" body="This account view will populate as account balance data becomes available for your profile." />
+                <EmptyState title={t("assets.accountBreakdownUnavailable")} body={t("assets.accountBreakdownBody")} />
               )}
             </div>
           )}
@@ -489,12 +491,12 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
       </div>
 
       {showCurrencySelector ? (
-        <Sheet title="Display currency" onClose={() => setShowCurrencySelector(false)}>
+        <Sheet title={t("assets.displayCurrency")} onClose={() => setShowCurrencySelector(false)}>
           <div className="space-y-2">
             {DISPLAY_CURRENCIES.map((currency) => (
               <button key={currency} type="button" onClick={() => { setDisplayCurrency(currency); setShowCurrencySelector(false); }} className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left ${displayCurrency === currency ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : "border-white/10 bg-white/[0.03] text-slate-200"}`}>
                 <span>{currency}</span>
-                {displayCurrency === currency ? <span className="text-xs font-semibold">Selected</span> : null}
+                {displayCurrency === currency ? <span className="text-xs font-semibold">{t("assets.selected")}</span> : null}
               </button>
             ))}
           </div>
@@ -513,19 +515,19 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
                 </div>
               </div>
               <dl className="mt-4 space-y-3 text-sm">
-                <DetailRow label="Total" value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.total, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
-                <DetailRow label="Available" value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.available, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
-                <DetailRow label="In Use" value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.locked, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
-                <DetailRow label="Value" value={formatDisplayValue(selectedAssetRow.totalValue, portfolioCurrency, privacyMode)} />
+                <DetailRow label={t("assets.total")} value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.total, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
+                <DetailRow label={t("assets.available")} value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.available, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
+                <DetailRow label={t("assets.inUse")} value={privacyMode ? `•••• ${selectedAssetRow.code}` : `${formatAmount(selectedAssetRow.locked, selectedAssetRow.decimals || 8)} ${selectedAssetRow.code}`} />
+                <DetailRow label={t("assets.value")} value={formatDisplayValue(selectedAssetRow.totalValue, portfolioCurrency, privacyMode)} />
               </dl>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <ActionPill label="Deposit" onClick={onOpenAddFunds} />
-              <ActionPill label="Withdraw" onClick={onOpenWithdraw} />
-              <ActionPill label="Transfer" onClick={() => setShowTransferModal(true)} />
-              <ActionPill label="Convert" onClick={onOpenSwap} />
-              {onOpenTrade ? <ActionPill label="Trade" onClick={onOpenTrade} /> : null}
-              {onOpenSend ? <ActionPill label="Send" onClick={onOpenSend} /> : null}
+              <ActionPill label={t("assets.deposit")} onClick={onOpenAddFunds} />
+              <ActionPill label={t("assets.withdraw")} onClick={onOpenWithdraw} />
+              <ActionPill label={t("assets.transfer")} onClick={() => setShowTransferModal(true)} />
+              <ActionPill label={t("assets.convert")} onClick={onOpenSwap} />
+              {onOpenTrade ? <ActionPill label={t("assets.trade")} onClick={onOpenTrade} /> : null}
+              {onOpenSend ? <ActionPill label={t("assets.send")} onClick={onOpenSend} /> : null}
             </div>
           </div>
         </Sheet>
