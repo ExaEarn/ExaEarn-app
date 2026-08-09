@@ -231,14 +231,14 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#0F1115] text-white">
+    <main className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
       <div className="mx-auto w-full max-w-7xl px-4 pb-16 pt-7 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {onBack ? (
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/30 bg-[#111827] px-4 py-2 text-sm font-semibold text-[#F4D03F] transition duration-300 hover:border-[#D4AF37]/60 hover:shadow-lg hover:shadow-[#D4AF37]/20"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-light)] transition duration-300 hover:border-[var(--exa-border-active)] hover:shadow-lg hover:shadow-[var(--exa-shadow-gold)]"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to EdTech
@@ -247,45 +247,45 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <button
               type="button"
-              className="rounded-xl border border-[#D4AF37]/35 bg-transparent px-5 py-3 text-sm font-semibold text-[#F4D03F] transition duration-300 hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10"
+              className="rounded-xl border border-[var(--exa-border-active)] bg-transparent px-5 py-3 text-sm font-semibold text-[var(--exa-gold-light)] transition duration-300 hover:border-[var(--exa-border-active)] hover:bg-[var(--exa-gold-surface)]"
             >
               Save Draft
             </button>
             <button
               type="button"
-              className="rounded-xl bg-gradient-to-r from-[#C9A227] via-[#D4AF37] to-[#F4D03F] px-5 py-3 text-sm font-semibold text-[#15100A] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[#D4AF37]/40"
+              className="rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-5 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[var(--exa-shadow-gold)]"
             >
               Publish Course
             </button>
           </div>
         </div>
 
-        <header className="mt-6 rounded-3xl border border-[#D4AF37]/20 bg-gradient-to-br from-[#111827] via-[#0F1115] to-[#151922] px-6 py-10 sm:px-8">
-          <h1 className="text-3xl font-semibold text-white sm:text-4xl">Upload New Course</h1>
-          <p className="mt-3 max-w-2xl text-sm text-[#9CA3AF] sm:text-base">
+        <header className="mt-6 rounded-3xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-6 py-10 sm:px-8">
+          <h1 className="text-3xl font-semibold text-[var(--exa-text-primary)] sm:text-4xl">Upload New Course</h1>
+          <p className="mt-3 max-w-2xl text-sm text-[var(--exa-text-muted)] sm:text-base">
             Structure lessons, quizzes, and gated progression for Web3 education.
           </p>
-          <p className="mt-4 text-sm font-semibold text-[#D4AF37]">Editing: {config.title}</p>
+          <p className="mt-4 text-sm font-semibold text-[var(--exa-gold)]">Editing: {config.title}</p>
         </header>
 
-        <section className="mt-8 rounded-2xl border border-[#D4AF37]/20 bg-[#1A1D24] p-5 shadow-lg sm:p-6">
-          <h2 className="text-xl font-semibold text-white">Course Information</h2>
+        <section className="mt-8 rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 shadow-lg sm:p-6">
+          <h2 className="text-xl font-semibold text-[var(--exa-text-primary)]">Course Information</h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <Field label="Course Title">
               <input
                 value={courseTitle}
                 onChange={(e) => setCourseTitle(e.target.value)}
-                className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
               />
             </Field>
             <Field label="Category">
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
               >
                 {categories.map((item) => (
-                  <option key={item} value={item} className="bg-[#111827] text-white">
+                  <option key={item} value={item} className="bg-[var(--exa-surface-elevated)] text-[var(--exa-text-primary)]">
                     {item}
                   </option>
                 ))}
@@ -295,10 +295,10 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
               <select
                 value={skillLevel}
                 onChange={(e) => setSkillLevel(e.target.value)}
-                className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
               >
                 {levelOptions.map((level) => (
-                  <option key={level} value={level} className="bg-[#111827] text-white">
+                  <option key={level} value={level} className="bg-[var(--exa-surface-elevated)] text-[var(--exa-text-primary)]">
                     {level}
                   </option>
                 ))}
@@ -308,7 +308,7 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
               <input
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
               />
             </Field>
           </div>
@@ -318,32 +318,32 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
               rows={4}
               value={courseDescription}
               onChange={(e) => setCourseDescription(e.target.value)}
-              className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+              className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
             />
           </Field>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Thumbnail Upload">
-              <div className="rounded-lg border border-dashed border-[#D4AF37]/35 bg-[#111827] px-4 py-5 text-sm text-[#9CA3AF]">
+              <div className="rounded-lg border border-dashed border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-5 text-sm text-[var(--exa-text-muted)]">
                 Upload course thumbnail (UI placeholder)
               </div>
             </Field>
             <Field label="NFT Certificate">
-              <div className="flex h-full items-center rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3">
+              <div className="flex h-full items-center rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3">
                 <button
                   type="button"
                   onClick={() => setNftCertificate((prev) => !prev)}
                   className={`relative inline-flex h-7 w-14 items-center rounded-full border transition duration-300 ${
-                    nftCertificate ? "border-[#D4AF37]/50 bg-[#D4AF37]/25" : "border-neutral-700 bg-neutral-800"
+                    nftCertificate ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-hover)]"
                   }`}
                 >
                   <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-gradient-to-r from-[#C9A227] to-[#F4D03F] transition ${
+                    className={`inline-block h-5 w-5 transform rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] transition ${
                       nftCertificate ? "translate-x-8" : "translate-x-1"
                     }`}
                   />
                 </button>
-                <span className="ml-3 text-sm text-[#9CA3AF]">{nftCertificate ? "Enabled" : "Disabled"}</span>
+                <span className="ml-3 text-sm text-[var(--exa-text-muted)]">{nftCertificate ? "Enabled" : "Disabled"}</span>
               </div>
             </Field>
           </div>
@@ -352,11 +352,11 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
         <section className="mt-8 grid gap-6 lg:grid-cols-[1.55fr_0.85fr]">
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-2xl font-semibold text-white">Course Lessons</h2>
+              <h2 className="text-2xl font-semibold text-[var(--exa-text-primary)]">Course Lessons</h2>
               <button
                 type="button"
                 onClick={addLesson}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/35 bg-transparent px-4 py-2 text-sm font-semibold text-[#F4D03F] transition duration-300 hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10"
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-transparent px-4 py-2 text-sm font-semibold text-[var(--exa-gold-light)] transition duration-300 hover:border-[var(--exa-border-active)] hover:bg-[var(--exa-gold-surface)]"
               >
                 <Plus className="h-4 w-4" />
                 Add New Lesson
@@ -367,24 +367,24 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
               {lessons.map((lesson, index) => (
                 <article
                   key={lesson.id}
-                  className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-4 shadow-lg transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/45"
+                  className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 shadow-lg transition duration-300 hover:-translate-y-0.5 hover:border-[var(--exa-border-active)]"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-[#C9A227] to-[#F4D03F] text-sm font-bold text-[#16110A]">
+                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] text-sm font-bold text-[var(--exa-gold-contrast)]">
                       {String(index + 1).padStart(2, "0")}
                     </span>
 
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-white">Lesson {index + 1}</p>
+                        <p className="text-sm font-semibold text-[var(--exa-text-primary)]">Lesson {index + 1}</p>
                         <div className="flex items-center gap-2">
-                          <button type="button" className="cursor-grab rounded-lg border border-[#D4AF37]/20 p-2 text-[#D4AF37]">
+                          <button type="button" className="cursor-grab rounded-lg border border-[var(--exa-border-active)] p-2 text-[var(--exa-gold)]">
                             <GripVertical className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => toggleLesson(lesson.id)}
-                            className="rounded-lg border border-[#D4AF37]/20 p-2 text-[#D4AF37]"
+                            className="rounded-lg border border-[var(--exa-border-active)] p-2 text-[var(--exa-gold)]"
                           >
                             {lesson.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </button>
@@ -397,7 +397,7 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
                             <input
                               value={lesson.title}
                               onChange={(e) => updateLesson(lesson.id, "title", e.target.value)}
-                              className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                              className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
                             />
                           </Field>
                           <Field label="Lesson Description">
@@ -405,12 +405,12 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
                               rows={3}
                               value={lesson.description}
                               onChange={(e) => updateLesson(lesson.id, "description", e.target.value)}
-                              className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                              className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
                             />
                           </Field>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <Field label="Video Upload">
-                              <div className="rounded-lg border border-dashed border-[#D4AF37]/35 bg-[#111827] px-4 py-4 text-sm text-[#9CA3AF]">
+                              <div className="rounded-lg border border-dashed border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-4 text-sm text-[var(--exa-text-muted)]">
                                 Upload lesson video (UI placeholder)
                               </div>
                             </Field>
@@ -419,7 +419,7 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
                                 value={lesson.resource}
                                 onChange={(e) => updateLesson(lesson.id, "resource", e.target.value)}
                                 placeholder="https://resource-link"
-                                className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 placeholder:text-[#9CA3AF]/80 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                                className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 placeholder:text-[var(--exa-text-muted)] focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
                               />
                             </Field>
                           </div>
@@ -427,17 +427,17 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
                             <input
                               value={lesson.duration}
                               onChange={(e) => updateLesson(lesson.id, "duration", e.target.value)}
-                              className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                              className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
                             />
                           </Field>
 
-                          <div className="rounded-xl border border-[#D4AF37]/20 border-l-2 border-l-[#D4AF37]/70 bg-[#111827]/65 p-4">
+                          <div className="rounded-xl border border-[var(--exa-border-active)] border-l-2 border-l-[var(--exa-gold)]/70 bg-[var(--exa-surface-elevated)] p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
-                              <h3 className="text-sm font-semibold text-white">Lesson Quiz (Required to Unlock Next Lesson)</h3>
+                              <h3 className="text-sm font-semibold text-[var(--exa-text-primary)]">Lesson Quiz (Required to Unlock Next Lesson)</h3>
                               <button
                                 type="button"
                                 onClick={() => addQuestion(lesson.id)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-[#D4AF37]/35 px-3 py-1.5 text-xs font-semibold text-[#F4D03F] transition duration-300 hover:bg-[#D4AF37]/10"
+                                className="inline-flex items-center gap-1 rounded-lg border border-[var(--exa-border-active)] px-3 py-1.5 text-xs font-semibold text-[var(--exa-gold-light)] transition duration-300 hover:bg-[var(--exa-gold-surface)]"
                               >
                                 <Plus className="h-3.5 w-3.5" />
                                 Add Question
@@ -446,31 +446,31 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
 
                             <div className="space-y-3">
                               {lesson.quiz.questions.map((question, qIndex) => (
-                                <div key={question.id} className="rounded-lg border border-[#D4AF37]/15 bg-[#0F1115] p-3">
-                                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90">
+                                <div key={question.id} className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-bg-primary)] p-3">
+                                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--exa-gold)]">
                                     Question {qIndex + 1}
                                   </p>
                                   <input
                                     value={question.prompt}
                                     onChange={(e) => updateQuestion(lesson.id, question.id, "prompt", e.target.value)}
                                     placeholder="Enter quiz question"
-                                    className="w-full rounded-lg border border-[#D4AF37]/20 bg-[#111827] px-3 py-2 text-sm text-white outline-none transition duration-300 placeholder:text-[#9CA3AF]/80 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                                    className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 placeholder:text-[var(--exa-text-muted)] focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
                                   />
                                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                                     {question.options.map((option, optionIndex) => {
                                       const optionLabel = String.fromCharCode(65 + optionIndex);
                                       const isCorrect = question.correct === optionIndex;
                                       return (
-                                        <div key={`${question.id}-${optionLabel}`} className="rounded-md border border-[#D4AF37]/15 bg-[#111827] p-2">
+                                        <div key={`${question.id}-${optionLabel}`} className="rounded-md border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-2">
                                           <div className="mb-1 flex items-center justify-between">
-                                            <span className="text-xs font-semibold text-[#D4AF37]">Option {optionLabel}</span>
-                                            <label className="inline-flex items-center gap-1 text-[11px] text-[#9CA3AF]">
+                                            <span className="text-xs font-semibold text-[var(--exa-gold)]">Option {optionLabel}</span>
+                                            <label className="inline-flex items-center gap-1 text-[11px] text-[var(--exa-text-muted)]">
                                               <input
                                                 type="radio"
                                                 name={`correct-${lesson.id}-${question.id}`}
                                                 checked={isCorrect}
                                                 onChange={() => updateQuestion(lesson.id, question.id, "correct", optionIndex)}
-                                                className="h-3.5 w-3.5 border-[#D4AF37]/40 bg-[#111827] text-[#D4AF37] focus:ring-[#D4AF37]/30"
+                                                className="h-3.5 w-3.5 border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold)] focus:ring-[var(--exa-gold)]"
                                               />
                                               Correct
                                             </label>
@@ -479,7 +479,7 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
                                             value={option}
                                             onChange={(e) => updateQuestionOption(lesson.id, question.id, optionIndex, e.target.value)}
                                             placeholder={`Choice ${optionLabel}`}
-                                            className="w-full rounded-md border border-[#D4AF37]/20 bg-[#0F1115] px-2 py-2 text-xs text-white outline-none transition duration-300 placeholder:text-[#9CA3AF]/80 focus:border-[#D4AF37]/60 focus:ring-1 focus:ring-[#D4AF37]/25"
+                                            className="w-full rounded-md border border-[var(--exa-border-active)] bg-[var(--exa-bg-primary)] px-2 py-2 text-xs text-[var(--exa-text-primary)] outline-none transition duration-300 placeholder:text-[var(--exa-text-muted)] focus:border-[var(--exa-border-active)] focus:ring-1 focus:ring-[var(--exa-gold)]"
                                           />
                                         </div>
                                       );
@@ -495,22 +495,22 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
                                   type="number"
                                   value={lesson.quiz.passingScore}
                                   onChange={(e) => updateQuiz(lesson.id, "passingScore", Number(e.target.value || 0))}
-                                  className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-2.5 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                                  className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-2.5 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
                                 />
                               </Field>
                               <Field label="Unlock Rule">
-                                <label className="flex h-full items-center gap-2 rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-3 py-2.5 text-xs text-[#9CA3AF]">
+                                <label className="flex h-full items-center gap-2 rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2.5 text-xs text-[var(--exa-text-muted)]">
                                   <input
                                     type="checkbox"
                                     checked={lesson.quiz.requireUnlock}
                                     onChange={(e) => updateQuiz(lesson.id, "requireUnlock", e.target.checked)}
-                                    className="h-4 w-4 rounded border-[#D4AF37]/40 bg-[#111827] text-[#D4AF37] focus:ring-[#D4AF37]/30"
+                                    className="h-4 w-4 rounded border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold)] focus:ring-[var(--exa-gold)]"
                                   />
                                   Require quiz completion before next lesson unlocks
                                 </label>
                               </Field>
                             </div>
-                            <p className="mt-1 text-xs text-[#9CA3AF]">
+                            <p className="mt-1 text-xs text-[var(--exa-text-muted)]">
                               Students must pass this quiz before proceeding to the next lesson.
                             </p>
                           </div>
@@ -524,31 +524,31 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
           </div>
 
           <aside className="space-y-4">
-            <div className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-4 shadow-lg">
-              <h3 className="text-base font-semibold text-white">Lesson Flow Preview</h3>
+            <div className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 shadow-lg">
+              <h3 className="text-base font-semibold text-[var(--exa-text-primary)]">Lesson Flow Preview</h3>
               <div className="mt-4 space-y-3">
                 {lessons.map((lesson, index) => (
-                  <div key={`preview-${lesson.id}`} className="rounded-lg border border-[#D4AF37]/15 bg-[#111827] p-3">
+                  <div key={`preview-${lesson.id}`} className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-white">{lesson.title || `Lesson ${index + 1}`}</p>
+                      <p className="text-sm text-[var(--exa-text-primary)]">{lesson.title || `Lesson ${index + 1}`}</p>
                       {index === 0 ? (
-                        <CheckCircle2 className="h-4 w-4 text-[#D4AF37]" />
+                        <CheckCircle2 className="h-4 w-4 text-[var(--exa-gold)]" />
                       ) : (
-                        <Lock className="h-4 w-4 text-[#9CA3AF]" />
+                        <Lock className="h-4 w-4 text-[var(--exa-text-muted)]" />
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-[#9CA3AF]">{index === 0 ? "Quiz required to unlock next lesson" : "Locked until previous quiz passed"}</p>
+                    <p className="mt-1 text-xs text-[var(--exa-text-muted)]">{index === 0 ? "Quiz required to unlock next lesson" : "Locked until previous quiz passed"}</p>
                   </div>
                 ))}
-                <div className="rounded-lg border border-[#D4AF37]/15 bg-[#111827] p-3 text-sm font-semibold text-[#D4AF37]">
+                <div className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-3 text-sm font-semibold text-[var(--exa-gold)]">
                   Completed
                 </div>
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-4 shadow-lg">
-              <h3 className="text-base font-semibold text-white">Course Completion Requirements</h3>
-              <div className="mt-3 divide-y divide-[#D4AF37]/15 text-sm text-[#9CA3AF]">
+            <div className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 shadow-lg">
+              <h3 className="text-base font-semibold text-[var(--exa-text-primary)]">Course Completion Requirements</h3>
+              <div className="mt-3 divide-y divide-[var(--exa-border)] text-sm text-[var(--exa-text-muted)]">
                 <p className="py-2">All lessons completed</p>
                 <p className="py-2">All quizzes passed</p>
                 <p className="py-2">Minimum passing average achieved</p>
@@ -557,18 +557,18 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
           </aside>
         </section>
 
-        <section className="mt-10 rounded-2xl border border-[#D4AF37]/20 bg-[#1A1D24] p-6 text-center shadow-lg">
+        <section className="mt-10 rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-6 text-center shadow-lg">
           <button
             type="button"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C9A227] via-[#D4AF37] to-[#F4D03F] px-6 py-4 text-base font-semibold text-[#15100A] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[#D4AF37]/40 sm:w-auto sm:min-w-[280px]"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-6 py-4 text-base font-semibold text-[var(--exa-gold-contrast)] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[var(--exa-shadow-gold)] sm:w-auto sm:min-w-[280px]"
           >
             <Upload className="h-4 w-4" />
             Publish Course
           </button>
-          <p className="mx-auto mt-3 max-w-3xl text-xs text-[#9CA3AF]">
+          <p className="mx-auto mt-3 max-w-3xl text-xs text-[var(--exa-text-muted)]">
             Once published, students will progress lesson-by-lesson and must pass each quiz before unlocking the next module.
           </p>
-          <p className="mt-3 inline-flex items-center gap-2 rounded-md border border-[#D4AF37]/25 bg-[#111827] px-3 py-1.5 text-[11px] text-[#D4AF37]">
+          <p className="mt-3 inline-flex items-center gap-2 rounded-md border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-1.5 text-[11px] text-[var(--exa-gold)]">
             <ShieldCheck className="h-3.5 w-3.5" />
             Structured, gated progression enabled for blockchain-grade learning integrity.
           </p>
@@ -581,7 +581,7 @@ function CourseUpload({ onBack, courseKey = "web3-fundamentals" }) {
 function Field({ label, className = "", children }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-2 block text-sm font-medium text-white">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-[var(--exa-text-primary)]">{label}</span>
       {children}
     </label>
   );

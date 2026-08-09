@@ -54,28 +54,28 @@ const quickActions = [
 
 function InstructorDashboard({ onBack }) {
   return (
-    <main className="min-h-screen bg-[#0F1115] text-white">
-      <header className="sticky top-0 z-30 border-b border-[#D4AF37]/20 bg-[#0F1115]/95 backdrop-blur">
+    <main className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
+      <header className="sticky top-0 z-30 border-b border-[var(--exa-border-active)] bg-[var(--exa-bg-primary)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div>
-            <h1 className="text-2xl font-semibold text-white">Instructor Dashboard</h1>
-            <p className="text-sm text-[#9CA3AF]">Monitor performance, revenue, and student engagement.</p>
+            <h1 className="text-2xl font-semibold text-[var(--exa-text-primary)]">Instructor Dashboard</h1>
+            <p className="text-sm text-[var(--exa-text-muted)]">Monitor performance, revenue, and student engagement.</p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <button
               type="button"
-              className="rounded-xl bg-gradient-to-r from-[#C9A227] via-[#D4AF37] to-[#F4D03F] px-4 py-2.5 text-sm font-semibold text-[#15100A] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[#D4AF37]/40"
+              className="rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2.5 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[var(--exa-shadow-gold)]"
             >
               + Create New Course
             </button>
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#D4AF37]/30 bg-[#1A1D24] text-[#D4AF37] transition duration-300 hover:border-[#D4AF37]/60"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface)] text-[var(--exa-gold)] transition duration-300 hover:border-[var(--exa-border-active)]"
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4" />
             </button>
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#1A1D24] text-xs font-semibold text-[#D4AF37]">
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface)] text-xs font-semibold text-[var(--exa-gold)]">
               ID
             </div>
           </div>
@@ -87,7 +87,7 @@ function InstructorDashboard({ onBack }) {
           <button
             type="button"
             onClick={onBack}
-            className="mb-5 inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/30 bg-[#111827] px-4 py-2 text-sm font-semibold text-[#F4D03F] transition duration-300 hover:border-[#D4AF37]/60"
+            className="mb-5 inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-light)] transition duration-300 hover:border-[var(--exa-border-active)]"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to EdTech
@@ -100,14 +100,14 @@ function InstructorDashboard({ onBack }) {
             return (
               <article
                 key={item.label}
-                className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-5 shadow-lg transition duration-300 hover:-translate-y-1 hover:border-[#D4AF37]/45"
+                className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 shadow-lg transition duration-300 hover:-translate-y-1 hover:border-[var(--exa-border-active)]"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm text-[#9CA3AF]">{item.label}</p>
-                    <p className="mt-2 text-2xl font-semibold text-[#D4AF37]">{item.value}</p>
+                    <p className="text-sm text-[var(--exa-text-muted)]">{item.label}</p>
+                    <p className="mt-2 text-2xl font-semibold text-[var(--exa-gold)]">{item.value}</p>
                   </div>
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#D4AF37]">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--exa-border)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold)]">
                     <Icon className="h-5 w-5" />
                   </span>
                 </div>
@@ -116,38 +116,38 @@ function InstructorDashboard({ onBack }) {
           })}
         </section>
 
-        <section className="mt-8 rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-5 shadow-lg">
-          <h2 className="text-xl font-semibold text-white">Revenue Analytics</h2>
+        <section className="mt-8 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 shadow-lg">
+          <h2 className="text-xl font-semibold text-[var(--exa-text-primary)]">Revenue Analytics</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatItem label="Total Earnings" value="42.80 ETH" />
             <StatItem label="Pending Payout" value="1.24 ETH" />
             <StatItem label="NFT Certificate Revenue" value="6.12 ETH" />
             <StatItem label="Referral Revenue" value="2.08 ETH" />
           </div>
-          <div className="mt-5 rounded-lg border border-[#D4AF37]/15 bg-[#111827] p-4">
-            <p className="mb-3 text-xs uppercase tracking-wide text-[#D4AF37]/85">Revenue Trend (UI Placeholder)</p>
-            <div className="h-28 rounded-md bg-gradient-to-r from-[#D4AF37]/5 via-[#D4AF37]/15 to-[#D4AF37]/5" />
+          <div className="mt-5 rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-4">
+            <p className="mb-3 text-xs uppercase tracking-wide text-[var(--exa-gold)]">Revenue Trend (UI Placeholder)</p>
+            <div className="h-28 rounded-md bg-gradient-to-r from-[var(--exa-surface)] via-[var(--exa-gold-surface)] to-[var(--exa-surface)]" />
           </div>
         </section>
 
         <section className="mt-8">
-          <h2 className="text-xl font-semibold text-white">Course Performance</h2>
+          <h2 className="text-xl font-semibold text-[var(--exa-text-primary)]">Course Performance</h2>
           <div className="mt-4 grid gap-4">
             {performanceCourses.map((course) => (
               <article
                 key={course.id}
-                className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-4 shadow-lg transition duration-300 hover:border-[#D4AF37]/45"
+                className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-4 shadow-lg transition duration-300 hover:border-[var(--exa-border-active)]"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="h-14 w-14 rounded-lg border border-[#D4AF37]/20 bg-[#111827]" />
+                    <div className="h-14 w-14 rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)]" />
                     <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-white">{course.title}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#9CA3AF]">
+                      <p className="truncate text-base font-semibold text-[var(--exa-text-primary)]">{course.title}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--exa-text-muted)]">
                         <span>{course.students} students</span>
                         <span>{course.quizScore} avg quiz</span>
                         <span>{course.completion} completion</span>
-                        <span className={`rounded-full border px-2 py-0.5 ${course.status === "Live" ? "border-[#D4AF37]/40 text-[#D4AF37]" : "border-neutral-600 text-neutral-300"}`}>
+                        <span className={`rounded-full border px-2 py-0.5 ${course.status === "Live" ? "border-[var(--exa-border-active)] text-[var(--exa-gold)]" : "border-neutral-600 text-[var(--exa-text-secondary)]"}`}>
                           {course.status}
                         </span>
                       </div>
@@ -156,13 +156,13 @@ function InstructorDashboard({ onBack }) {
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
-                      className="rounded-xl border border-[#D4AF37]/35 bg-transparent px-4 py-2 text-sm font-semibold text-[#F4D03F] transition duration-300 hover:bg-[#D4AF37]/10"
+                      className="rounded-xl border border-[var(--exa-border-active)] bg-transparent px-4 py-2 text-sm font-semibold text-[var(--exa-gold-light)] transition duration-300 hover:bg-[var(--exa-gold-surface)]"
                     >
                       View Analytics
                     </button>
                     <button
                       type="button"
-                      className="rounded-xl border border-[#D4AF37]/35 bg-transparent px-4 py-2 text-sm font-semibold text-[#F4D03F] transition duration-300 hover:bg-[#D4AF37]/10"
+                      className="rounded-xl border border-[var(--exa-border-active)] bg-transparent px-4 py-2 text-sm font-semibold text-[var(--exa-gold-light)] transition duration-300 hover:bg-[var(--exa-gold-surface)]"
                     >
                       Manage Course
                     </button>
@@ -173,12 +173,12 @@ function InstructorDashboard({ onBack }) {
           </div>
         </section>
 
-        <section className="mt-8 rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-5 shadow-lg">
-          <h2 className="text-xl font-semibold text-white">Recent Student Activity</h2>
+        <section className="mt-8 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 shadow-lg">
+          <h2 className="text-xl font-semibold text-[var(--exa-text-primary)]">Recent Student Activity</h2>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
-                <tr className="border-b border-[#D4AF37]/20 text-[#D4AF37]">
+                <tr className="border-b border-[var(--exa-border-active)] text-[var(--exa-gold)]">
                   <th className="pb-3 font-semibold">Student Name</th>
                   <th className="pb-3 font-semibold">Course</th>
                   <th className="pb-3 font-semibold">Lesson Completed</th>
@@ -188,11 +188,11 @@ function InstructorDashboard({ onBack }) {
               </thead>
               <tbody>
                 {studentActivity.map((row) => (
-                  <tr key={`${row.name}-${row.course}`} className="border-b border-[#D4AF37]/10 text-[#9CA3AF]">
+                  <tr key={`${row.name}-${row.course}`} className="border-b border-[var(--exa-border-active)] text-[var(--exa-text-muted)]">
                     <td className="py-3">{row.name}</td>
                     <td className="py-3">{row.course}</td>
                     <td className="py-3">{row.lesson}</td>
-                    <td className="py-3 text-[#D4AF37]">{row.quiz}</td>
+                    <td className="py-3 text-[var(--exa-gold)]">{row.quiz}</td>
                     <td className="py-3">{row.status}</td>
                   </tr>
                 ))}
@@ -202,34 +202,34 @@ function InstructorDashboard({ onBack }) {
         </section>
 
         <section className="mt-8 grid gap-5 lg:grid-cols-2">
-          <div className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-5 shadow-lg">
-            <h2 className="text-xl font-semibold text-white">Instructor Announcements</h2>
+          <div className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 shadow-lg">
+            <h2 className="text-xl font-semibold text-[var(--exa-text-primary)]">Instructor Announcements</h2>
             <div className="mt-4 space-y-3">
               <label className="block">
-                <span className="mb-2 block text-xs text-[#9CA3AF]">Message</span>
+                <span className="mb-2 block text-xs text-[var(--exa-text-muted)]">Message</span>
                 <textarea
                   rows={4}
                   placeholder="Write announcement to students..."
-                  className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 placeholder:text-[#9CA3AF]/80 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25"
+                  className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 placeholder:text-[var(--exa-text-muted)] focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]"
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs text-[#9CA3AF]">Select Course</span>
-                <select className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition duration-300 focus:border-[#D4AF37]/60 focus:ring-2 focus:ring-[#D4AF37]/25">
+                <span className="mb-2 block text-xs text-[var(--exa-text-muted)]">Select Course</span>
+                <select className="w-full rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none transition duration-300 focus:border-[var(--exa-border-active)] focus:ring-2 focus:ring-[var(--exa-gold)]">
                   {performanceCourses.map((course) => (
-                    <option key={course.id} value={course.id} className="bg-[#111827] text-white">
+                    <option key={course.id} value={course.id} className="bg-[var(--exa-surface-elevated)] text-[var(--exa-text-primary)]">
                       {course.title}
                     </option>
                   ))}
                 </select>
               </label>
-              <label className="flex items-center gap-2 rounded-lg border border-[#D4AF37]/20 bg-[#111827] px-3 py-2.5 text-sm text-[#9CA3AF]">
-                <input type="checkbox" className="h-4 w-4 rounded border-[#D4AF37]/40 bg-[#111827] text-[#D4AF37] focus:ring-[#D4AF37]/30" />
+              <label className="flex items-center gap-2 rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-3 py-2.5 text-sm text-[var(--exa-text-muted)]">
+                <input type="checkbox" className="h-4 w-4 rounded border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold)] focus:ring-[var(--exa-gold)]" />
                 Send to cohort
               </label>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#C9A227] via-[#D4AF37] to-[#F4D03F] px-5 py-3 text-sm font-semibold text-[#15100A] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[#D4AF37]/40"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-5 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-lg transition duration-300 hover:brightness-105 hover:shadow-[var(--exa-shadow-gold)]"
               >
                 <Send className="h-4 w-4" />
                 Send Announcement
@@ -238,20 +238,20 @@ function InstructorDashboard({ onBack }) {
           </div>
 
           <div className="space-y-5">
-            <div className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-5 shadow-lg">
-              <h2 className="text-xl font-semibold text-white">Engagement Analytics</h2>
+            <div className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 shadow-lg">
+              <h2 className="text-xl font-semibold text-[var(--exa-text-primary)]">Engagement Analytics</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {engagementStats.map((item) => (
-                  <article key={item.label} className="rounded-lg border border-[#D4AF37]/15 bg-[#111827] p-3">
-                    <p className="text-xs text-[#9CA3AF]">{item.label}</p>
-                    <p className="mt-2 text-lg font-semibold text-[#D4AF37]">{item.value}</p>
+                  <article key={item.label} className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-3">
+                    <p className="text-xs text-[var(--exa-text-muted)]">{item.label}</p>
+                    <p className="mt-2 text-lg font-semibold text-[var(--exa-gold)]">{item.value}</p>
                   </article>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#D4AF37]/20 bg-[#1A1D24] p-5 shadow-lg">
-              <h2 className="text-xl font-semibold text-white">Quick Actions</h2>
+            <div className="rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-5 shadow-lg">
+              <h2 className="text-xl font-semibold text-[var(--exa-text-primary)]">Quick Actions</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {quickActions.map((action) => {
                   const Icon = action.icon;
@@ -259,12 +259,12 @@ function InstructorDashboard({ onBack }) {
                     <button
                       key={action.label}
                       type="button"
-                      className="rounded-lg border border-[#D4AF37]/20 bg-[#111827] p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/45"
+                      className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-[var(--exa-border-active)]"
                     >
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#D4AF37]">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--exa-border)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold)]">
                         <Icon className="h-4 w-4" />
                       </span>
-                      <p className="mt-2 text-sm font-semibold text-white">{action.label}</p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--exa-text-primary)]">{action.label}</p>
                     </button>
                   );
                 })}
@@ -273,8 +273,8 @@ function InstructorDashboard({ onBack }) {
           </div>
         </section>
 
-        <section className="mt-6 rounded-xl border border-[#D4AF37]/20 bg-[#111827]/75 p-4">
-          <p className="border-l-2 border-[#D4AF37] pl-3 text-sm text-[#9CA3AF]">
+        <section className="mt-6 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-4">
+          <p className="border-l-2 border-[var(--exa-border-active)] pl-3 text-sm text-[var(--exa-text-muted)]">
             Your instructor dashboard is powered by ExaEarn decentralized infrastructure and encrypted blockchain-backed tracking.
           </p>
         </section>
@@ -285,9 +285,9 @@ function InstructorDashboard({ onBack }) {
 
 function StatItem({ label, value }) {
   return (
-    <div className="rounded-lg border border-[#D4AF37]/15 bg-[#111827] p-3">
-      <p className="text-xs text-[#9CA3AF]">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-[#D4AF37]">{value}</p>
+    <div className="rounded-lg border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-3">
+      <p className="text-xs text-[var(--exa-text-muted)]">{label}</p>
+      <p className="mt-2 text-lg font-semibold text-[var(--exa-gold)]">{value}</p>
     </div>
   );
 }
