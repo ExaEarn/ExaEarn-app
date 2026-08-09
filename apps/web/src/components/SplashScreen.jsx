@@ -16,7 +16,7 @@ function SplashScreen() {
       >
         <div className="relative flex h-32 w-32 items-center justify-center rounded-3xl border border-[var(--exa-border-active)] bg-[var(--exa-surface)] shadow-[var(--exa-shadow-panel)]">
           <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[var(--exa-gold-surface)] via-transparent to-[var(--exa-surface-hover)]" />
-          <img src={Image.earn} alt="ExaEarn logo" className="relative z-10 h-16 w-16 object-contain" />
+          <img src={Image.exaearnLogo} alt="ExaEarn logo" className="relative z-10 h-16 w-16 object-contain" />
         </div>
 
         <h1 className="mt-6 font-['Sora'] text-4xl font-semibold tracking-tight text-[var(--exa-text-primary)]">ExaEarn</h1>

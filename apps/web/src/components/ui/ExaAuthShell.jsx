@@ -1,4 +1,4 @@
-﻿import Image from "../../assets/Image";
+import Image from "../../assets/Image";
 import LanguageSwitcher from "../language/LanguageSwitcher.jsx";
 import { useLanguage } from "../../context/LanguageContext.jsx";
 
@@ -16,7 +16,7 @@ export function ExaAuthShell({ title, subtitle, children }) {
           <aside className="hidden border-r border-[var(--exa-border-subtle)] bg-[linear-gradient(145deg,rgba(214,178,75,0.12),rgba(255,255,255,0.018)),var(--exa-bg-secondary)] p-8 lg:flex lg:flex-col lg:justify-between">
             <div>
               <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]">
-                <img src={Image.earn} alt="ExaEarn logo" className="h-8 w-8 object-contain" />
+                <img src={Image.exaearnLogo} alt="ExaEarn logo" className="h-8 w-8 object-contain" />
               </div>
               <h2 className="mt-8 max-w-sm text-4xl font-semibold leading-tight text-white">{t("auth.authBrandTitle")}</h2>
               <p className="mt-4 max-w-sm text-sm leading-6 text-[var(--exa-text-muted)]">{t("auth.authBrandText")}</p>
@@ -29,7 +29,7 @@ export function ExaAuthShell({ title, subtitle, children }) {
           <main className="p-5 sm:p-8 lg:p-10">
             <div className="mb-7 flex flex-col items-center text-center lg:hidden">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]">
-                <img src={Image.earn} alt="ExaEarn logo" className="h-8 w-8 object-contain" />
+                <img src={Image.exaearnLogo} alt="ExaEarn logo" className="h-8 w-8 object-contain" />
               </div>
             </div>
             <div className="mx-auto w-full max-w-md">

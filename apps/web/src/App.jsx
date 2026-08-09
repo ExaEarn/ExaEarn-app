@@ -34,6 +34,7 @@ import { useWebSocketEvent } from "./services/webSocketService";
 import useMarketData from "./components/market/useMarketData";
 import newsData from "./data/news.json";
 import Register from "./pages/auth/Register";
+import { isLocalApiPreview } from "./config/apiConfig";
 import "./styles/App.css";
 
 const Game = lazy(() => import("./Game/Game"));
@@ -404,6 +405,7 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const localApiPreview = isLocalApiPreview();
   const [notificationLoading, setNotificationLoading] = useState(false);
   const { pairs: livePairs, setPairs: setLivePairs } = useMarketData();
   const [homeMarketFilter, setHomeMarketFilter] = useState("Top");
@@ -497,9 +499,13 @@ export default function App() {
         return;
       }
 
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), localApiPreview ? 3500 : 9000);
+
       try {
         const response = await fetch(`${base}/api/portfolio`, {
           credentials: "include",
+          signal: controller.signal,
           headers: {
             Accept: "application/json",
           },
@@ -516,6 +522,8 @@ export default function App() {
         }
       } catch {
         // best-effort portfolio bootstrap
+      } finally {
+        window.clearTimeout(timeoutId);
       }
     };
 
@@ -524,7 +532,7 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, [apiBaseUrl, user]);
+  }, [apiBaseUrl, localApiPreview, user]);
 
   const loadRewards = useCallback(async () => {
     if (!user) return;
@@ -748,7 +756,7 @@ export default function App() {
       <div className="min-h-screen w-full bg-linear-to-br from-black via-[#140a24] to-[#220c3d] text-white">
         <div className="flex min-h-screen items-center justify-center">
           <div className="flex h-28 w-28 items-center justify-center rounded-3xl border border-auric-300/60 bg-cosmic-900/70 shadow-button-glow">
-            <img src={Image.earn} alt="ExaEarn logo" className="h-14 w-14 object-contain" />
+            <img src={Image.exaearnLogo} alt="ExaEarn logo" className="h-14 w-14 object-contain" />
           </div>
         </div>
       </div>

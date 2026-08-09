@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, LineSeries, AreaSeries, ColorType } from 'lightweight-charts';
 import type { Candle } from '../../types/market';
 
@@ -64,8 +64,8 @@ export default function TradingChart({
         vertLine: { color: 'rgba(245,158,11,0.25)' },
         horzLine: { color: 'rgba(245,158,11,0.25)' },
       },
-      width: Math.max(element.clientWidth, 320),
-      height: Math.max(element.clientHeight, 320),
+      width: Math.max(element.clientWidth || 0, 240),
+      height: Math.max(element.clientHeight || 0, 260),
     });
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -83,10 +83,13 @@ export default function TradingChart({
       resizeObserverRef.current = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (!entry || !chartRef.current) return;
-        const nextWidth = Math.max(Math.floor(entry.contentRect.width), 320);
-        const nextHeight = Math.max(Math.floor(entry.contentRect.height), 320);
-        chartRef.current.applyOptions({ width: nextWidth, height: nextHeight });
-        chartRef.current.timeScale().fitContent();
+        const nextWidth = Math.floor(entry.contentRect.width);
+        const nextHeight = Math.floor(entry.contentRect.height);
+        if (nextWidth < 120 || nextHeight < 180) return;
+        requestAnimationFrame(() => {
+          chartRef.current?.applyOptions({ width: nextWidth, height: nextHeight });
+          chartRef.current?.timeScale().fitContent();
+        });
       });
       resizeObserverRef.current.observe(element);
     }

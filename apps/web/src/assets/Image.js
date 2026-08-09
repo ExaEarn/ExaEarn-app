@@ -3,6 +3,7 @@ import assets from "./images/assets.png";
 import campaigns from "./images/campaigns.jpg";
 import crowdfund from "./images/crowdfund.png";
 import earn from "./images/earn.jpg";
+import exaearnLogo from "./images/exaearn-logo.png";
 import edu from "./images/edu.png";
 import games from "./images/games.png";
 import giftcard from "./images/giftcard.png";
@@ -23,6 +24,7 @@ const Image = {
   campaigns,
   crowdfund,
   earn,
+  exaearnLogo,
   edu,
   games,
   giftcard,

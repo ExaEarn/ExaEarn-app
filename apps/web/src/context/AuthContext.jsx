@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useWebSocketConnection } from "../services/webSocketService";
-import { getApiBaseUrl, isDemoAuthEnabled } from "../config/apiConfig";
+import { getApiBaseUrl, isDemoAuthEnabled, isLocalApiPreview } from "../config/apiConfig";
 
 const AuthContext = createContext(null);
 const AUTH_USER_KEY = "exaearn_auth_user";
@@ -36,6 +36,10 @@ function writeDemoUsers(users) {
   }
 }
 
+function isPreviewFallbackError(error) {
+  return error?.message === API_UNREACHABLE_MESSAGE || error?.message === API_TIMEOUT_MESSAGE;
+}
+
 function createDemoUser({ name, email }) {
   return {
     id: `demo-${Date.now()}`,
@@ -63,6 +67,7 @@ function AuthProvider({ children }) {
 
   const apiBaseUrl = getApiBaseUrl();
   const demoAuthEnabled = isDemoAuthEnabled();
+  const localApiPreview = isLocalApiPreview();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
   const isGoogleConfigured = Boolean(googleClientId);
@@ -102,7 +107,7 @@ function AuthProvider({ children }) {
       }
       const requestUrl = `${normalizedBase}${normalizedPath}`;
 
-      const { headers: optionHeaders, timeoutMs = 15000, signal: externalSignal, ...restOptions } = options || {};
+      const { headers: optionHeaders, timeoutMs = localApiPreview ? 5000 : 15000, signal: externalSignal, ...restOptions } = options || {};
 
       const headers = {
         Accept: "application/json",
@@ -155,7 +160,7 @@ function AuthProvider({ children }) {
 
       return payload;
     },
-    [apiBaseUrl, token]
+    [apiBaseUrl, localApiPreview, token]
   );
 
   const fetchMe = useCallback(async () => {
@@ -260,7 +265,7 @@ function AuthProvider({ children }) {
       setAuthError("");
       setAuthLoading(true);
       try {
-        if (demoAuthEnabled) {
+        if (demoAuthEnabled && !apiBaseUrl) {
           const normalizedEmail = email.trim().toLowerCase();
           const demoUser = readDemoUsers().find((item) => item.email === normalizedEmail);
           if (!demoUser || demoUser.password !== password) {
@@ -278,6 +283,7 @@ function AuthProvider({ children }) {
         const payload = await request("/api/login", {
           method: "POST",
           body: JSON.stringify({ email, password }),
+          timeoutMs: localApiPreview ? 4000 : 15000,
         });
 
         const succeeded = payload.success === true || payload.status === "success";
@@ -299,7 +305,7 @@ function AuthProvider({ children }) {
         setAuthReady(true);
         return { success: true };
       } catch (error) {
-        if (demoAuthEnabled && error.message === API_UNREACHABLE_MESSAGE) {
+        if (demoAuthEnabled && isPreviewFallbackError(error)) {
           const normalizedEmail = email.trim().toLowerCase();
           const demoUser = readDemoUsers().find((item) => item.email === normalizedEmail);
           if (demoUser && demoUser.password === password) {
@@ -317,7 +323,7 @@ function AuthProvider({ children }) {
         setAuthLoading(false);
       }
     },
-    [demoAuthEnabled, request, fetchMe]
+    [apiBaseUrl, demoAuthEnabled, fetchMe, localApiPreview, request]
   );
 
   const checkAccountAvailability = useCallback(
@@ -325,7 +331,7 @@ function AuthProvider({ children }) {
       setAuthError("");
       setAuthLoading(true);
       try {
-        if (demoAuthEnabled) {
+        if (demoAuthEnabled && !apiBaseUrl) {
           const normalizedEmail = email.trim().toLowerCase();
           const exists = readDemoUsers().some((item) => item.email === normalizedEmail);
           return {
@@ -349,6 +355,7 @@ function AuthProvider({ children }) {
                 }
               : {}),
           }),
+          timeoutMs: localApiPreview ? 4000 : 15000,
         });
 
         return {
@@ -357,6 +364,16 @@ function AuthProvider({ children }) {
           message: payload.message || "",
         };
       } catch (error) {
+        if (demoAuthEnabled && isPreviewFallbackError(error)) {
+          const normalizedEmail = email.trim().toLowerCase();
+          const exists = readDemoUsers().some((item) => item.email === normalizedEmail);
+          return {
+            success: true,
+            exists,
+            message: exists ? "Preview account already exists. Please login." : "",
+          };
+        }
+
         const accountExists = error.code === "ACCOUNT_EXISTS" || error.status === 409;
         const message = error.message || "Unable to verify account.";
         setAuthError(message);
@@ -365,7 +382,7 @@ function AuthProvider({ children }) {
         setAuthLoading(false);
       }
     },
-    [demoAuthEnabled, request]
+    [apiBaseUrl, demoAuthEnabled, localApiPreview, request]
   );
 
   const register = useCallback(
@@ -373,7 +390,7 @@ function AuthProvider({ children }) {
       setAuthError("");
       setAuthLoading(true);
       try {
-        if (demoAuthEnabled) {
+        if (demoAuthEnabled && !apiBaseUrl) {
           const normalizedEmail = email.trim().toLowerCase();
           const demoUsers = readDemoUsers();
           if (demoUsers.some((item) => item.email === normalizedEmail)) {
@@ -398,6 +415,7 @@ function AuthProvider({ children }) {
             password_confirmation: passwordConfirmation,
             referral_code: referralCode || undefined,
           }),
+          timeoutMs: localApiPreview ? 4000 : 15000,
         });
 
         const succeeded = payload.success === true || payload.status === "success";
@@ -416,7 +434,7 @@ function AuthProvider({ children }) {
         setAuthReady(true);
         return { success: true };
       } catch (error) {
-        if (demoAuthEnabled && error.message === API_UNREACHABLE_MESSAGE) {
+        if (demoAuthEnabled && isPreviewFallbackError(error)) {
           const normalizedEmail = email.trim().toLowerCase();
           const demoUsers = readDemoUsers();
           if (demoUsers.some((item) => item.email === normalizedEmail)) {
@@ -438,7 +456,7 @@ function AuthProvider({ children }) {
         setAuthLoading(false);
       }
     },
-    [demoAuthEnabled, request]
+    [apiBaseUrl, demoAuthEnabled, localApiPreview, request]
   );
 
   const logout = useCallback(async () => {
