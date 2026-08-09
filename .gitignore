@@ -218,3 +218,4 @@ website-*.png
 .npmrc
 package-lock.json
 apps/mobile/serve-dist-web.cjs
+.vercel
