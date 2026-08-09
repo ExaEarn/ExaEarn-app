@@ -48,39 +48,36 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
   }, [activeCategory, campaigns, query]);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#050509] via-[#140822] to-[#1c0d32] px-4 py-8 text-violet-50 sm:px-6 sm:py-10">
-      <div className="pointer-events-none absolute -left-24 top-20 h-56 w-56 rounded-full bg-purple-500/25 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-1/3 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
-
-      <section className="mx-auto w-full max-w-7xl rounded-3xl border border-violet-300/15 bg-[#110a20]/70 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-6 lg:p-8">
-        <header className="rounded-2xl border border-violet-300/15 bg-[#140c24]/85 p-4 sm:p-6">
+    <main className="relative min-h-screen overflow-hidden bg-[var(--exa-bg-primary)] px-4 py-8 text-[var(--exa-text-primary)] sm:px-6 sm:py-10">
+      <section className="mx-auto w-full max-w-7xl rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)] backdrop-blur-xl sm:p-6 lg:p-8">
+        <header className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               {onBack ? (
                 <button
                   type="button"
                   onClick={onBack}
-                  className="mb-3 inline-flex items-center gap-2 rounded-xl border border-violet-300/25 bg-violet-950/35 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-amber-300/60 hover:text-amber-200"
+                  className="mb-3 inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs font-semibold text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
                 </button>
               ) : null}
-              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-white sm:text-4xl">Crowdfunding</h1>
-              <p className="mt-1 text-sm text-violet-100/70">Escrow-backed campaigns with contributor governance</p>
+              <h1 className="font-['Sora'] text-3xl font-semibold tracking-tight text-[var(--exa-text-primary)] sm:text-4xl">Crowdfunding</h1>
+              <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Escrow-backed campaigns with contributor governance</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={refresh}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-300/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-100"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 text-xs font-semibold text-[var(--exa-text-secondary)]"
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Refresh
               </button>
               <button
                 type="button"
                 onClick={() => wallet.connectMetaMask()}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-violet-300/30 bg-violet-500/10 px-3 text-xs font-semibold text-violet-100"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 text-xs font-semibold text-[var(--exa-text-secondary)]"
               >
                 <Wallet className="h-3.5 w-3.5" />
                 {wallet.isConnected ? wallet.shortAddress : "Connect Wallet"}
@@ -88,7 +85,7 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
               <button
                 type="button"
                 onClick={onCreateCampaign}
-                className="h-10 rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 px-4 text-sm font-bold text-black shadow-[0_0_22px_rgba(245,158,11,0.35)] transition hover:brightness-105 active:scale-[0.99]"
+                className="h-10 rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 text-sm font-bold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition hover:brightness-105 active:scale-[0.99]"
               >
                 Create Campaign
               </button>
@@ -96,9 +93,9 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border border-violet-300/20 bg-violet-500/10 px-2 py-1 text-violet-100/80">Data: {dataSource}</span>
-            {loading ? <span className="text-violet-100/75">Syncing campaigns...</span> : null}
-            {error ? <span className="text-amber-200">{error}</span> : null}
+            <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-2 py-1 text-[var(--exa-text-secondary)]">Data: {dataSource}</span>
+            {loading ? <span className="text-[var(--exa-text-secondary)]">Syncing campaigns...</span> : null}
+            {error ? <span className="text-[var(--exa-gold-light)]">{error}</span> : null}
             {txState.status !== "idle" ? (
               <span className="text-emerald-200">Tx: {txState.message}{txState.hash ? ` (${txState.hash.slice(0, 10)}...)` : ""}</span>
             ) : null}
@@ -106,44 +103,44 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
 
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-200/70" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--exa-text-muted)]" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search campaigns"
-                className="w-full rounded-xl border border-violet-300/20 bg-[#0f091a] py-2.5 pl-10 pr-3 text-sm text-white outline-none transition focus:border-amber-300/65"
+                className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] py-2.5 pl-10 pr-3 text-sm text-[var(--exa-text-primary)] outline-none transition focus:border-[var(--exa-border-active)]"
               />
             </div>
-            <div className="inline-flex h-10 items-center justify-center rounded-xl border border-violet-300/25 bg-violet-500/10 px-4 text-xs font-semibold text-violet-100">
+            <div className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 text-xs font-semibold text-[var(--exa-text-secondary)]">
               Lifecycle statuses: active / funded / failed / completed / frozen
             </div>
           </div>
         </header>
 
         {featuredCampaign ? (
-          <section className="mt-5 rounded-2xl border border-violet-300/15 bg-gradient-to-br from-[#22133b] via-[#1b112f] to-[#2d1f1a] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.35)] sm:p-6">
+          <section className="mt-5 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5 shadow-[var(--exa-shadow-soft)] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">
-              <p className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-300/12 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+              <p className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-300/12 px-2.5 py-1 text-[11px] font-semibold text-[var(--exa-gold-light)]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Featured Campaign
               </p>
-              <h2 className="mt-2 font-['Sora'] text-2xl font-semibold text-white">{featuredCampaign.title}</h2>
-              <p className="mt-2 text-sm text-violet-100/75">{featuredCampaign.description}</p>
-              <p className="mt-2 text-xs text-violet-100/75">Status: {humanStatus(featuredCampaign.status)}</p>
+              <h2 className="mt-2 font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">{featuredCampaign.title}</h2>
+              <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">{featuredCampaign.description}</p>
+              <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">Status: {humanStatus(featuredCampaign.status)}</p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => onViewCampaign?.(featuredCampaign.id)}
-                className="h-10 rounded-xl border border-violet-300/20 bg-violet-500/15 px-4 text-sm font-semibold text-violet-100 transition hover:border-amber-300/55 hover:text-amber-200"
+                className="h-10 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 text-sm font-semibold text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
               >
                 View Campaign
               </button>
               <button
                 type="button"
                 onClick={() => onSupportCampaign?.(featuredCampaign.id)}
-                className="h-10 rounded-xl border border-amber-300/55 bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 px-4 text-sm font-semibold text-black transition hover:brightness-105"
+                className="h-10 rounded-xl border border-amber-300/55 bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 text-sm font-semibold text-[var(--exa-gold-contrast)] transition hover:brightness-105"
               >
                 Support Campaign
               </button>
@@ -152,12 +149,12 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
 
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-violet-100/70">{formatNaira(featuredCampaign.raised)} raised</span>
-              <span className="text-violet-100/70">Target: {formatNaira(featuredCampaign.goal_amount || featuredCampaign.target || 0)}</span>
+              <span className="text-[var(--exa-text-muted)]">{formatNaira(featuredCampaign.raised)} raised</span>
+              <span className="text-[var(--exa-text-muted)]">Target: {formatNaira(featuredCampaign.goal_amount || featuredCampaign.target || 0)}</span>
             </div>
-            <div className="mt-1.5 h-2.5 w-full rounded-full bg-violet-950/65">
+            <div className="mt-1.5 h-2.5 w-full rounded-full bg-[var(--exa-surface-hover)]">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] transition-all duration-500"
                 style={{ width: `${percent(featuredCampaign.raised_amount || featuredCampaign.raised || 0, featuredCampaign.goal_amount || featuredCampaign.target || 1)}%` }}
               />
             </div>
@@ -165,14 +162,14 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
           </section>
         ) : null}
 
-        <section className="mt-5 rounded-2xl border border-violet-300/15 bg-[#140c24]/80 p-3">
+        <section className="mt-5 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-3">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {categories.map((category) => (
               <button
                 key={category}
                 type="button"
                 onClick={() => setActiveCategory(category)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${activeCategory === category ? "bg-gradient-to-r from-amber-300 to-yellow-500 text-black shadow-[0_0_18px_rgba(245,158,11,0.45)]" : "border border-violet-300/20 bg-violet-500/10 text-violet-100/85 hover:border-violet-200/45 hover:text-white"}`}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${activeCategory === category ? "bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]" : "border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)] hover:border-[var(--exa-border-active)] hover:text-[var(--exa-text-primary)]"}`}
               >
                 {category}
               </button>
@@ -185,45 +182,45 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
             filteredCampaigns.map((campaign) => (
               <article
                 key={campaign.id}
-                className="rounded-2xl border border-violet-300/15 bg-[#120b20]/85 p-4 shadow-[0_10px_24px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-300/35 sm:p-5"
+                className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-soft)] transition duration-300 hover:-translate-y-0.5 hover:border-[var(--exa-border-active)] sm:p-5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-semibold text-white">{campaign.title}</h3>
-                    <p className="mt-1 text-sm text-violet-100/70">{campaign.description}</p>
+                    <h3 className="text-base font-semibold text-[var(--exa-text-primary)]">{campaign.title}</h3>
+                    <p className="mt-1 text-sm text-[var(--exa-text-muted)]">{campaign.description}</p>
                   </div>
-                  <span className="rounded-full border border-violet-300/25 bg-violet-500/12 px-2.5 py-1 text-xs font-semibold text-violet-100">
+                  <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-2.5 py-1 text-xs font-semibold text-[var(--exa-text-secondary)]">
                     {campaign.category || "General"}
                   </span>
                 </div>
 
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-violet-100/70">{formatNaira(campaign.raised_amount || campaign.raised || 0)} raised</span>
-                    <span className="text-violet-100/70">Target: {formatNaira(campaign.goal_amount || campaign.target || 0)}</span>
+                    <span className="text-[var(--exa-text-muted)]">{formatNaira(campaign.raised_amount || campaign.raised || 0)} raised</span>
+                    <span className="text-[var(--exa-text-muted)]">Target: {formatNaira(campaign.goal_amount || campaign.target || 0)}</span>
                   </div>
-                  <div className="mt-1.5 h-2.5 w-full rounded-full bg-violet-950/65">
+                  <div className="mt-1.5 h-2.5 w-full rounded-full bg-[var(--exa-surface-hover)]">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] transition-all duration-500"
                       style={{ width: `${percent(campaign.raised_amount || campaign.raised || 0, campaign.goal_amount || campaign.target || 1)}%` }}
                     />
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-2">
-                  <span className="text-xs text-violet-100/65">{humanStatus(campaign.status)}</span>
+                  <span className="text-xs text-[var(--exa-text-muted)]">{humanStatus(campaign.status)}</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => onViewCampaign?.(campaign.id)}
-                      className="h-9 rounded-xl border border-violet-300/20 bg-violet-500/12 px-4 text-sm font-semibold text-violet-100 transition hover:border-amber-300/55 hover:text-amber-200"
+                      className="h-9 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 text-sm font-semibold text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold-light)]"
                     >
                       View Campaign
                     </button>
                     <button
                       type="button"
                       onClick={() => onSupportCampaign?.(campaign.id)}
-                      className="h-9 rounded-xl border border-amber-300/55 bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 px-4 text-sm font-semibold text-black transition hover:brightness-105"
+                      className="h-9 rounded-xl border border-amber-300/55 bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 text-sm font-semibold text-[var(--exa-gold-contrast)] transition hover:brightness-105"
                     >
                       Support Campaign
                     </button>
@@ -232,13 +229,13 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
               </article>
             ))
           ) : (
-            <div className="col-span-full rounded-2xl border border-violet-300/15 bg-[#120b20]/85 p-12 text-center">
-              <p className="text-base font-semibold text-violet-50">No Campaigns Available</p>
-              <p className="mt-1 text-sm text-violet-100/65">Be the first to start a movement</p>
+            <div className="col-span-full rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-12 text-center">
+              <p className="text-base font-semibold text-[var(--exa-text-primary)]">No Campaigns Available</p>
+              <p className="mt-1 text-sm text-[var(--exa-text-muted)]">Be the first to start a movement</p>
               <button
                 type="button"
                 onClick={onCreateCampaign}
-                className="mt-4 h-10 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-500 px-4 text-sm font-bold text-black transition hover:brightness-105"
+                className="mt-4 h-10 rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 text-sm font-bold text-[var(--exa-gold-contrast)] transition hover:brightness-105"
               >
                 Create Campaign
               </button>
@@ -246,7 +243,7 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
           )}
         </section>
 
-        <p className="mt-6 text-center text-xs text-violet-100/60">
+        <p className="mt-6 text-center text-xs text-[var(--exa-text-muted)]">
           All contributions are transparently recorded within the ExaEarn ecosystem.
         </p>
       </section>
