@@ -57,22 +57,22 @@ function Badge({ tone = "neutral", children }) {
     success: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
     warning: "border-amber-400/30 bg-amber-500/10 text-amber-200",
     danger: "border-red-400/30 bg-red-500/10 text-red-200",
-    neutral: "border-white/10 bg-white/5 text-slate-200",
-    brand: "border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#F6E7B0]",
+    neutral: "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)]",
+    brand: "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]",
   };
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${classes[tone]}`}>{children}</span>;
 }
 
 function StatCard({ label, value, hint, positive, negative, icon: Icon }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-4">
+    <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-          <p className={`mt-2 text-xl font-semibold ${positive ? "text-emerald-300" : negative ? "text-red-300" : "text-white"}`}>{value}</p>
-          {hint ? <p className="mt-1 text-xs text-slate-400">{hint}</p> : null}
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--exa-text-muted)]">{label}</p>
+          <p className={`mt-2 text-xl font-semibold ${positive ? "text-emerald-300" : negative ? "text-red-300" : "text-[var(--exa-text-primary)]"}`}>{value}</p>
+          {hint ? <p className="mt-1 text-xs text-[var(--exa-text-muted)]">{hint}</p> : null}
         </div>
-        {Icon ? <Icon className="h-5 w-5 text-[#D4AF37]" /> : null}
+        {Icon ? <Icon className="h-5 w-5 text-[var(--exa-gold)]" /> : null}
       </div>
     </div>
   );
@@ -80,11 +80,11 @@ function StatCard({ label, value, hint, positive, negative, icon: Icon }) {
 
 function SectionCard({ title, subtitle, action, children }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-[#0b1220] p-4 md:p-5">
+    <section className="rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 md:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-white">{title}</h3>
-          {subtitle ? <p className="mt-1 text-sm text-slate-400">{subtitle}</p> : null}
+          <h3 className="text-base font-semibold text-[var(--exa-text-primary)]">{title}</h3>
+          {subtitle ? <p className="mt-1 text-sm text-[var(--exa-text-muted)]">{subtitle}</p> : null}
         </div>
         {action}
       </div>
@@ -263,15 +263,15 @@ export default function AITradingAssistantPage({ onBack }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#070b14]/95 backdrop-blur">
+    <main className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
+      <header className="sticky top-0 z-20 border-b border-[var(--exa-border)] bg-[var(--exa-bg-primary)] backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 md:px-6">
-          <button type="button" onClick={onBack} className="rounded-full border border-white/15 p-2 text-slate-200 transition hover:border-[#D4AF37]/50 hover:text-white">
+          <button type="button" onClick={onBack} className="rounded-full border border-[var(--exa-border)] p-2 text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:text-[var(--exa-text-primary)]">
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-white">ExaAI</h1>
-            <p className="text-xs text-slate-400">Automated trading powered by intelligent strategy and disciplined risk controls.</p>
+            <h1 className="text-lg font-semibold tracking-tight text-[var(--exa-text-primary)]">ExaAI</h1>
+            <p className="text-xs text-[var(--exa-text-muted)]">Automated trading powered by intelligent strategy and disciplined risk controls.</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Badge tone={sessionStatusTone}>{overviewStatus.session_status || "stopped"}</Badge>
@@ -288,16 +288,16 @@ export default function AITradingAssistantPage({ onBack }) {
         ) : null}
 
         <section className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
-          <div className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(212,175,55,0.16),_transparent_38%),#0b1220] p-5 md:p-6">
+          <div className="rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5 md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <Badge tone="brand">ExaEarn AI Trading Module</Badge>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white md:text-3xl">Native automation for your ExaEarn trading account</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Activate a governed ExaAI session, allocate only the capital you approve, and keep visibility into strategy, exposure, session controls, and performance.</p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--exa-text-primary)] md:text-3xl">Native automation for your ExaEarn trading account</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--exa-text-secondary)]">Activate a governed ExaAI session, allocate only the capital you approve, and keep visibility into strategy, exposure, session controls, and performance.</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setActiveTab("Start Trading")} className="rounded-xl bg-[#D4AF37] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[#e1c35d]">Start ExaAI</button>
-                <button type="button" onClick={() => setActiveTab("Performance")} className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-white/30">View Performance</button>
+                <button type="button" onClick={() => setActiveTab("Start Trading")} className="rounded-xl bg-[var(--exa-gold)] px-4 py-2.5 text-sm font-semibold text-[var(--exa-gold-contrast)] transition hover:brightness-105">Start ExaAI</button>
+                <button type="button" onClick={() => setActiveTab("Performance")} className="rounded-xl border border-[var(--exa-border)] px-4 py-2.5 text-sm font-semibold text-[var(--exa-text-primary)] transition hover:border-[var(--exa-border-active)]">View Performance</button>
               </div>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -309,22 +309,22 @@ export default function AITradingAssistantPage({ onBack }) {
           </div>
 
           <SectionCard title="Live Session" subtitle="Pause or stop automation without leaving the module." action={<Badge tone={sessionStatusTone}>{session?.status || "inactive"}</Badge>}>
-            <div className="space-y-3 text-sm text-slate-300">
-              <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Strategy</span><span className="font-medium text-white">{session?.strategy?.name || overviewStatus.current_strategy || "Not configured"}</span></div>
-              <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Risk Level</span><span className="font-medium text-white capitalize">{session?.risk_level || overviewStatus.risk_level || "--"}</span></div>
-              <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Available ExaAI Capital</span><span className="font-medium text-white">{fmtMoney(overviewCapital.available_exaai_capital)}</span></div>
+            <div className="space-y-3 text-sm text-[var(--exa-text-secondary)]">
+              <div className="flex items-center justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Strategy</span><span className="font-medium text-[var(--exa-text-primary)]">{session?.strategy?.name || overviewStatus.current_strategy || "Not configured"}</span></div>
+              <div className="flex items-center justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Risk Level</span><span className="font-medium text-[var(--exa-text-primary)] capitalize">{session?.risk_level || overviewStatus.risk_level || "--"}</span></div>
+              <div className="flex items-center justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Available ExaAI Capital</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtMoney(overviewCapital.available_exaai_capital)}</span></div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <button type="button" disabled={!session?.id || submitting} onClick={() => handleSessionAction("pause")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"><Pause className="h-4 w-4" />Pause</button>
-              <button type="button" disabled={!session?.id || submitting} onClick={() => handleSessionAction("resume")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"><Play className="h-4 w-4" />Resume</button>
-              <button type="button" disabled={!session?.id || submitting} onClick={() => handleSessionAction("stop")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500/90 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Square className="h-4 w-4" />Stop</button>
+              <button type="button" disabled={!session?.id || submitting} onClick={() => handleSessionAction("pause")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--exa-border)] px-3 py-2 text-sm font-semibold text-[var(--exa-text-primary)] disabled:opacity-50"><Pause className="h-4 w-4" />Pause</button>
+              <button type="button" disabled={!session?.id || submitting} onClick={() => handleSessionAction("resume")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--exa-border)] px-3 py-2 text-sm font-semibold text-[var(--exa-text-primary)] disabled:opacity-50"><Play className="h-4 w-4" />Resume</button>
+              <button type="button" disabled={!session?.id || submitting} onClick={() => handleSessionAction("stop")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500/90 px-3 py-2 text-sm font-semibold text-[var(--exa-text-primary)] disabled:opacity-50"><Square className="h-4 w-4" />Stop</button>
             </div>
           </SectionCard>
         </section>
 
         <div className="mt-6 flex gap-2 overflow-x-auto pb-2">
           {TABS.map((tab) => (
-            <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition ${activeTab === tab ? "border-[#D4AF37]/60 bg-[#D4AF37]/15 text-[#F7EBC3]" : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:text-white"}`}>
+            <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition ${activeTab === tab ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)] hover:border-[var(--exa-border-active)] hover:text-[var(--exa-text-primary)]"}`}>
               {tab}
             </button>
           ))}
@@ -334,23 +334,23 @@ export default function AITradingAssistantPage({ onBack }) {
           {activeTab === "Overview" ? (
             <div className="grid gap-4 lg:grid-cols-3">
               <SectionCard title="Performance Snapshot" subtitle="Derived from real ExaAI order and session records.">
-                <div className="space-y-3 text-sm text-slate-300">
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Realized P/L</span><span className="font-medium text-white">{fmtSigned(overviewPerformance.realized_pnl)}</span></div>
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Unrealized P/L</span><span className="font-medium text-white">{fmtSigned(overviewPerformance.unrealized_pnl)}</span></div>
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Today's P/L</span><span className="font-medium text-white">{fmtSigned(overviewPerformance.today_pnl)}</span></div>
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Max Drawdown</span><span className="font-medium text-white">{fmtPct(overviewPerformance.max_drawdown_percent)}</span></div>
+                <div className="space-y-3 text-sm text-[var(--exa-text-secondary)]">
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Realized P/L</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtSigned(overviewPerformance.realized_pnl)}</span></div>
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Unrealized P/L</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtSigned(overviewPerformance.unrealized_pnl)}</span></div>
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Today's P/L</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtSigned(overviewPerformance.today_pnl)}</span></div>
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Max Drawdown</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtPct(overviewPerformance.max_drawdown_percent)}</span></div>
                 </div>
               </SectionCard>
               <SectionCard title="Current Entitlements" subtitle="The active plan governs capacity, analytics, and strategy access.">
-                <div className="space-y-3 text-sm text-slate-300">
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Plan</span><span className="font-medium text-white">{subscription?.plan?.name || "No active plan"}</span></div>
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Execution Tier</span><span className="font-medium text-white">{subscription?.plan?.execution_tier || "--"}</span></div>
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Capital Limit</span><span className="font-medium text-white">{fmtMoney(subscription?.plan?.capital_limit)}</span></div>
-                  <div className="flex justify-between rounded-2xl bg-white/5 px-4 py-3"><span>Renewal</span><span className="font-medium text-white">{subscription?.renewal_at ? new Date(subscription.renewal_at).toLocaleDateString() : "--"}</span></div>
+                <div className="space-y-3 text-sm text-[var(--exa-text-secondary)]">
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Plan</span><span className="font-medium text-[var(--exa-text-primary)]">{subscription?.plan?.name || "No active plan"}</span></div>
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Execution Tier</span><span className="font-medium text-[var(--exa-text-primary)]">{subscription?.plan?.execution_tier || "--"}</span></div>
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Capital Limit</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtMoney(subscription?.plan?.capital_limit)}</span></div>
+                  <div className="flex justify-between rounded-2xl bg-[var(--exa-surface-elevated)] px-4 py-3"><span>Renewal</span><span className="font-medium text-[var(--exa-text-primary)]">{subscription?.renewal_at ? new Date(subscription.renewal_at).toLocaleDateString() : "--"}</span></div>
                 </div>
               </SectionCard>
               <SectionCard title="Why ExaAI stops" subtitle="Automation fails closed when controls are breached or infrastructure is unhealthy.">
-                <ul className="space-y-2 text-sm leading-6 text-slate-300">
+                <ul className="space-y-2 text-sm leading-6 text-[var(--exa-text-secondary)]">
                   <li>Maximum daily loss or drawdown reached</li>
                   <li>Stale market data or suspended markets</li>
                   <li>Plan or eligibility becomes invalid</li>
@@ -367,11 +367,11 @@ export default function AITradingAssistantPage({ onBack }) {
                   {plans.map((plan) => {
                     const active = selectedPlan === plan.code;
                     return (
-                      <button key={plan.id} type="button" onClick={() => setSelectedPlan(plan.code)} className={`rounded-2xl border p-4 text-left transition ${active ? "border-[#D4AF37]/60 bg-[#D4AF37]/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}>
-                        <div className="flex items-center justify-between gap-2"><div><p className="text-base font-semibold text-white">{plan.name}</p><p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{plan.code}</p></div>{plan.code === "pro" ? <Badge tone="brand">Most Popular</Badge> : null}</div>
-                        <p className="mt-3 text-2xl font-semibold text-white">{fmtMoney(billingCycle === "annual" && plan.annual_price ? plan.annual_price : plan.price)}</p>
-                        <p className="mt-1 text-sm text-slate-400">{plan.description}</p>
-                        <div className="mt-4 space-y-2 text-sm text-slate-300">
+                      <button key={plan.id} type="button" onClick={() => setSelectedPlan(plan.code)} className={`rounded-2xl border p-4 text-left transition ${active ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] hover:border-[var(--exa-border-active)]"}`}>
+                        <div className="flex items-center justify-between gap-2"><div><p className="text-base font-semibold text-[var(--exa-text-primary)]">{plan.name}</p><p className="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--exa-text-muted)]">{plan.code}</p></div>{plan.code === "pro" ? <Badge tone="brand">Most Popular</Badge> : null}</div>
+                        <p className="mt-3 text-2xl font-semibold text-[var(--exa-text-primary)]">{fmtMoney(billingCycle === "annual" && plan.annual_price ? plan.annual_price : plan.price)}</p>
+                        <p className="mt-1 text-sm text-[var(--exa-text-muted)]">{plan.description}</p>
+                        <div className="mt-4 space-y-2 text-sm text-[var(--exa-text-secondary)]">
                           <div className="flex justify-between"><span>Capital Limit</span><span>{fmtMoney(plan.capital_limit)}</span></div>
                           <div className="flex justify-between"><span>Max Positions</span><span>{plan.max_open_positions}</span></div>
                           <div className="flex justify-between"><span>Analytics</span><span className="capitalize">{plan.analytics_level}</span></div>
@@ -381,46 +381,46 @@ export default function AITradingAssistantPage({ onBack }) {
                   })}
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">{[{ key: "monthly", label: "Monthly" }, { key: "annual", label: "Annual" }].map((option) => <button key={option.key} type="button" onClick={() => setBillingCycle(option.key)} className={`rounded-lg px-4 py-2 text-sm font-medium ${billingCycle === option.key ? "bg-[#D4AF37] text-black" : "text-slate-300"}`}>{option.label}</button>)}</div>
-                  <button type="button" disabled={submitting} onClick={handleSubscribe} className="rounded-xl bg-[#D4AF37] px-4 py-2.5 text-sm font-semibold text-black disabled:opacity-60">{submitting ? "Activating..." : "Activate Plan"}</button>
+                  <div className="inline-flex rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-1">{[{ key: "monthly", label: "Monthly" }, { key: "annual", label: "Annual" }].map((option) => <button key={option.key} type="button" onClick={() => setBillingCycle(option.key)} className={`rounded-lg px-4 py-2 text-sm font-medium ${billingCycle === option.key ? "bg-[var(--exa-gold)] text-[var(--exa-gold-contrast)]" : "text-[var(--exa-text-secondary)]"}`}>{option.label}</button>)}</div>
+                  <button type="button" disabled={submitting} onClick={handleSubscribe} className="rounded-xl bg-[var(--exa-gold)] px-4 py-2.5 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-60">{submitting ? "Activating..." : "Activate Plan"}</button>
                 </div>
               </SectionCard>
 
               <SectionCard title="2. Allocate capital and activate" subtitle="ExaAI only trades capital you explicitly assign from Unified Trading.">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2 text-sm text-slate-300"><span>Asset</span><select value={allocationForm.asset} onChange={(event) => setAllocationForm((current) => ({ ...current, asset: event.target.value }))} className="w-full rounded-xl border border-white/10 bg-[#09101c] px-3 py-3 text-white outline-none focus:border-[#D4AF37]/60">{(unifiedAssetOptions.length ? unifiedAssetOptions : [{ asset: "USDT" }]).map((item) => <option key={item.asset} value={item.asset}>{item.asset}</option>)}</select></label>
-                  <label className="space-y-2 text-sm text-slate-300"><span>Allocation Amount</span><input value={allocationForm.amount} onChange={(event) => setAllocationForm((current) => ({ ...current, amount: event.target.value }))} className="w-full rounded-xl border border-white/10 bg-[#09101c] px-3 py-3 text-white outline-none focus:border-[#D4AF37]/60" inputMode="decimal" /></label>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 md:col-span-2">
-                    <div className="flex items-center justify-between"><span>Unified Trading Transferable</span><span className="font-medium text-white">{selectedBalance ? fmtMoney(selectedBalance.transferable, selectedBalance.asset) : "--"}</span></div>
-                    <div className="mt-2 flex items-center justify-between"><span>Spot Available</span><span className="font-medium text-white">{selectedBalance ? fmtMoney(selectedBalance.spot_available, selectedBalance.asset) : "--"}</span></div>
-                    <div className="mt-2 flex items-center justify-between"><span>Futures Available</span><span className="font-medium text-white">{selectedBalance ? fmtMoney(selectedBalance.futures_available, selectedBalance.asset) : "--"}</span></div>
+                  <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Asset</span><select value={allocationForm.asset} onChange={(event) => setAllocationForm((current) => ({ ...current, asset: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]">{(unifiedAssetOptions.length ? unifiedAssetOptions : [{ asset: "USDT" }]).map((item) => <option key={item.asset} value={item.asset}>{item.asset}</option>)}</select></label>
+                  <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Allocation Amount</span><input value={allocationForm.amount} onChange={(event) => setAllocationForm((current) => ({ ...current, amount: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]" inputMode="decimal" /></label>
+                  <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-sm text-[var(--exa-text-secondary)] md:col-span-2">
+                    <div className="flex items-center justify-between"><span>Unified Trading Transferable</span><span className="font-medium text-[var(--exa-text-primary)]">{selectedBalance ? fmtMoney(selectedBalance.transferable, selectedBalance.asset) : "--"}</span></div>
+                    <div className="mt-2 flex items-center justify-between"><span>Spot Available</span><span className="font-medium text-[var(--exa-text-primary)]">{selectedBalance ? fmtMoney(selectedBalance.spot_available, selectedBalance.asset) : "--"}</span></div>
+                    <div className="mt-2 flex items-center justify-between"><span>Futures Available</span><span className="font-medium text-[var(--exa-text-primary)]">{selectedBalance ? fmtMoney(selectedBalance.futures_available, selectedBalance.asset) : "--"}</span></div>
                   </div>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={submitting || !subscription} onClick={handleAllocate} className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-slate-100 disabled:opacity-50">{submitting ? "Saving..." : "Save Allocation"}</button><Badge tone={allocation ? "success" : "neutral"}>{allocation ? `Allocation ${allocation.reference}` : "No allocation saved yet"}</Badge>{allocations.length > 1 ? <Badge tone="brand">{allocations.length} saved allocations</Badge> : null}</div>
+                <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={submitting || !subscription} onClick={handleAllocate} className="rounded-xl border border-[var(--exa-border)] px-4 py-2.5 text-sm font-semibold text-[var(--exa-text-primary)] disabled:opacity-50">{submitting ? "Saving..." : "Save Allocation"}</button><Badge tone={allocation ? "success" : "neutral"}>{allocation ? `Allocation ${allocation.reference}` : "No allocation saved yet"}</Badge>{allocations.length > 1 ? <Badge tone="brand">{allocations.length} saved allocations</Badge> : null}</div>
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2 text-sm text-slate-300"><span>Strategy</span><select value={sessionForm.strategy_id} onChange={(event) => setSessionForm((current) => ({ ...current, strategy_id: event.target.value }))} className="w-full rounded-xl border border-white/10 bg-[#09101c] px-3 py-3 text-white outline-none focus:border-[#D4AF37]/60"><option value="">Select strategy</option>{strategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.name}</option>)}</select></label>
-                  <label className="space-y-2 text-sm text-slate-300"><span>Duration</span><select value={sessionForm.duration} onChange={(event) => setSessionForm((current) => ({ ...current, duration: event.target.value }))} className="w-full rounded-xl border border-white/10 bg-[#09101c] px-3 py-3 text-white outline-none focus:border-[#D4AF37]/60"><option value="24h">24 Hours</option><option value="7d">7 Days</option><option value="30d">30 Days</option><option value="90d">90 Days</option><option value="manual">Until Manually Stopped</option></select></label>
-                  <label className="space-y-2 text-sm text-slate-300"><span>Maximum Daily Loss</span><input value={sessionForm.max_daily_loss} onChange={(event) => setSessionForm((current) => ({ ...current, max_daily_loss: event.target.value }))} className="w-full rounded-xl border border-white/10 bg-[#09101c] px-3 py-3 text-white outline-none focus:border-[#D4AF37]/60" inputMode="decimal" /></label>
-                  <label className="space-y-2 text-sm text-slate-300"><span>Maximum Drawdown %</span><input value={sessionForm.max_drawdown_percent} onChange={(event) => setSessionForm((current) => ({ ...current, max_drawdown_percent: event.target.value }))} className="w-full rounded-xl border border-white/10 bg-[#09101c] px-3 py-3 text-white outline-none focus:border-[#D4AF37]/60" inputMode="decimal" /></label>
+                  <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Strategy</span><select value={sessionForm.strategy_id} onChange={(event) => setSessionForm((current) => ({ ...current, strategy_id: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]"><option value="">Select strategy</option>{strategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.name}</option>)}</select></label>
+                  <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Duration</span><select value={sessionForm.duration} onChange={(event) => setSessionForm((current) => ({ ...current, duration: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]"><option value="24h">24 Hours</option><option value="7d">7 Days</option><option value="30d">30 Days</option><option value="90d">90 Days</option><option value="manual">Until Manually Stopped</option></select></label>
+                  <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Maximum Daily Loss</span><input value={sessionForm.max_daily_loss} onChange={(event) => setSessionForm((current) => ({ ...current, max_daily_loss: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]" inputMode="decimal" /></label>
+                  <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Maximum Drawdown %</span><input value={sessionForm.max_drawdown_percent} onChange={(event) => setSessionForm((current) => ({ ...current, max_drawdown_percent: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]" inputMode="decimal" /></label>
                 </div>
                 <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">Trading involves risk. Automated trading can generate losses. Historical performance does not guarantee future performance, and ExaAI remains subject to ExaEarn eligibility, market availability, and server-side risk controls.</div>
-                <button type="button" disabled={submitting || !subscription || !allocation || !sessionForm.strategy_id} onClick={handleActivate} className="mt-4 w-full rounded-2xl bg-[#D4AF37] px-4 py-3 text-sm font-semibold text-black disabled:opacity-50">{submitting ? "Activating ExaAI..." : "Activate ExaAI"}</button>
+                <button type="button" disabled={submitting || !subscription || !allocation || !sessionForm.strategy_id} onClick={handleActivate} className="mt-4 w-full rounded-2xl bg-[var(--exa-gold)] px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-50">{submitting ? "Activating ExaAI..." : "Activate ExaAI"}</button>
               </SectionCard>
             </div>
           ) : null}
 
-          {activeTab === "Strategies" ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{strategies.map((strategy) => <SectionCard key={strategy.id} title={strategy.name} subtitle={strategy.description} action={<Badge tone={strategy.risk_level === "aggressive" ? "danger" : strategy.risk_level === "balanced" ? "warning" : "success"}>{strategy.risk_level}</Badge>}><div className="space-y-2 text-sm text-slate-300"><div className="flex justify-between"><span>Spot</span><span>{strategy.supports_spot ? "Enabled" : "No"}</span></div><div className="flex justify-between"><span>Futures</span><span>{strategy.supports_futures ? "Enabled" : "No"}</span></div><div className="flex justify-between"><span>Plan Access</span><span>{(strategy.allowed_plan_codes || []).join(", ") || "--"}</span></div></div></SectionCard>)}</div> : null}
+          {activeTab === "Strategies" ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{strategies.map((strategy) => <SectionCard key={strategy.id} title={strategy.name} subtitle={strategy.description} action={<Badge tone={strategy.risk_level === "aggressive" ? "danger" : strategy.risk_level === "balanced" ? "warning" : "success"}>{strategy.risk_level}</Badge>}><div className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><div className="flex justify-between"><span>Spot</span><span>{strategy.supports_spot ? "Enabled" : "No"}</span></div><div className="flex justify-between"><span>Futures</span><span>{strategy.supports_futures ? "Enabled" : "No"}</span></div><div className="flex justify-between"><span>Plan Access</span><span>{(strategy.allowed_plan_codes || []).join(", ") || "--"}</span></div></div></SectionCard>)}</div> : null}
 
-          {activeTab === "Performance" ? <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]"><SectionCard title="Performance Metrics" subtitle="Calculated from recorded ExaAI orders only." action={<div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">{["24h", "7d", "30d", "90d", "all"].map((period) => <button key={period} type="button" onClick={() => setPerformancePeriod(period)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${performancePeriod === period ? "bg-[#D4AF37] text-black" : "text-slate-300"}`}>{period.toUpperCase()}</button>)}</div>}><div className="grid gap-3 md:grid-cols-2"><StatCard label="Net P/L" value={fmtSigned(performance?.net_pnl)} positive={Number(performance?.net_pnl) > 0} negative={Number(performance?.net_pnl) < 0} /><StatCard label="Trading Fees" value={fmtMoney(performance?.trading_fees)} /><StatCard label="Win Rate" value={fmtPct(performance?.win_rate)} /><StatCard label="Profit Factor" value={performance?.profit_factor ?? "--"} /></div></SectionCard><SectionCard title="Equity Curve" subtitle="A simple view of cumulative ExaAI realized performance over time."><div className="space-y-3">{(performance?.equity_curve || []).length ? performance.equity_curve.map((point, index) => <div key={`${point.time}-${index}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"><span>{point.time ? new Date(point.time).toLocaleString() : "--"}</span><span className="font-medium text-white">{fmtMoney(point.equity)}</span></div>) : <p className="text-sm text-slate-400">Not enough trading history to plot an equity curve yet.</p>}</div></SectionCard></div> : null}
+          {activeTab === "Performance" ? <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]"><SectionCard title="Performance Metrics" subtitle="Calculated from recorded ExaAI orders only." action={<div className="inline-flex rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-1">{["24h", "7d", "30d", "90d", "all"].map((period) => <button key={period} type="button" onClick={() => setPerformancePeriod(period)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${performancePeriod === period ? "bg-[var(--exa-gold)] text-[var(--exa-gold-contrast)]" : "text-[var(--exa-text-secondary)]"}`}>{period.toUpperCase()}</button>)}</div>}><div className="grid gap-3 md:grid-cols-2"><StatCard label="Net P/L" value={fmtSigned(performance?.net_pnl)} positive={Number(performance?.net_pnl) > 0} negative={Number(performance?.net_pnl) < 0} /><StatCard label="Trading Fees" value={fmtMoney(performance?.trading_fees)} /><StatCard label="Win Rate" value={fmtPct(performance?.win_rate)} /><StatCard label="Profit Factor" value={performance?.profit_factor ?? "--"} /></div></SectionCard><SectionCard title="Equity Curve" subtitle="A simple view of cumulative ExaAI realized performance over time."><div className="space-y-3">{(performance?.equity_curve || []).length ? performance.equity_curve.map((point, index) => <div key={`${point.time}-${index}`} className="flex items-center justify-between rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-secondary)]"><span>{point.time ? new Date(point.time).toLocaleString() : "--"}</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtMoney(point.equity)}</span></div>) : <p className="text-sm text-[var(--exa-text-muted)]">Not enough trading history to plot an equity curve yet.</p>}</div></SectionCard></div> : null}
 
-          {activeTab === "Positions" ? <SectionCard title="ExaAI Positions" subtitle="Open and pending ExaAI-linked positions only."><div className="overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-6 gap-3 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.16em] text-slate-500"><span>Pair</span><span>Side</span><span>Status</span><span>Qty</span><span>Unrealized P/L</span><span>Opened</span></div>{(positions || []).length ? positions.map((position) => <div key={position.id} className="grid grid-cols-6 gap-3 border-t border-white/10 px-4 py-3 text-sm text-slate-200"><span>{position.pair}</span><span className="capitalize">{position.side}</span><span className="capitalize">{position.status}</span><span>{position.quantity}</span><span>{fmtSigned(position.unrealized_pnl)}</span><span>{position.opened_at ? new Date(position.opened_at).toLocaleString() : "--"}</span></div>) : <div className="px-4 py-6 text-sm text-slate-400">No ExaAI positions are open right now.</div>}</div></SectionCard> : null}
+          {activeTab === "Positions" ? <SectionCard title="ExaAI Positions" subtitle="Open and pending ExaAI-linked positions only."><div className="overflow-hidden rounded-2xl border border-[var(--exa-border)]"><div className="grid grid-cols-6 gap-3 bg-[var(--exa-surface-elevated)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--exa-text-muted)]"><span>Pair</span><span>Side</span><span>Status</span><span>Qty</span><span>Unrealized P/L</span><span>Opened</span></div>{(positions || []).length ? positions.map((position) => <div key={position.id} className="grid grid-cols-6 gap-3 border-t border-[var(--exa-border)] px-4 py-3 text-sm text-[var(--exa-text-secondary)]"><span>{position.pair}</span><span className="capitalize">{position.side}</span><span className="capitalize">{position.status}</span><span>{position.quantity}</span><span>{fmtSigned(position.unrealized_pnl)}</span><span>{position.opened_at ? new Date(position.opened_at).toLocaleString() : "--"}</span></div>) : <div className="px-4 py-6 text-sm text-[var(--exa-text-muted)]">No ExaAI positions are open right now.</div>}</div></SectionCard> : null}
 
-          {activeTab === "Trade History" ? <SectionCard title="ExaAI Trade History" subtitle="Every ExaAI-generated order remains auditable and attributable to its session."><div className="space-y-3">{(trades || []).length ? trades.map((trade) => <div key={trade.id} className="rounded-2xl border border-white/10 bg-white/5 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-white">{trade.pair}</p><p className="mt-1 text-xs text-slate-400">{trade.market_type} â€¢ {trade.order_type} â€¢ {trade.status}</p></div><Badge tone={Number(trade.realized_pnl) >= 0 ? "success" : "danger"}>{fmtSigned(trade.realized_pnl)}</Badge></div><div className="mt-3 grid gap-2 text-sm text-slate-300 md:grid-cols-4"><div><span className="text-slate-500">Side</span><p className="mt-1 capitalize text-white">{trade.side}</p></div><div><span className="text-slate-500">Quantity</span><p className="mt-1 text-white">{trade.quantity}</p></div><div><span className="text-slate-500">Entry</span><p className="mt-1 text-white">{trade.entry_price || "--"}</p></div><div><span className="text-slate-500">Exit</span><p className="mt-1 text-white">{trade.exit_price || "--"}</p></div></div></div>) : <p className="text-sm text-slate-400">No ExaAI trades have been recorded yet.</p>}</div></SectionCard> : null}
+          {activeTab === "Trade History" ? <SectionCard title="ExaAI Trade History" subtitle="Every ExaAI-generated order remains auditable and attributable to its session."><div className="space-y-3">{(trades || []).length ? trades.map((trade) => <div key={trade.id} className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-[var(--exa-text-primary)]">{trade.pair}</p><p className="mt-1 text-xs text-[var(--exa-text-muted)]">{trade.market_type} / {trade.order_type} / {trade.status}</p></div><Badge tone={Number(trade.realized_pnl) >= 0 ? "success" : "danger"}>{fmtSigned(trade.realized_pnl)}</Badge></div><div className="mt-3 grid gap-2 text-sm text-[var(--exa-text-secondary)] md:grid-cols-4"><div><span className="text-[var(--exa-text-muted)]">Side</span><p className="mt-1 capitalize text-[var(--exa-text-primary)]">{trade.side}</p></div><div><span className="text-[var(--exa-text-muted)]">Quantity</span><p className="mt-1 text-[var(--exa-text-primary)]">{trade.quantity}</p></div><div><span className="text-[var(--exa-text-muted)]">Entry</span><p className="mt-1 text-[var(--exa-text-primary)]">{trade.entry_price || "--"}</p></div><div><span className="text-[var(--exa-text-muted)]">Exit</span><p className="mt-1 text-[var(--exa-text-primary)]">{trade.exit_price || "--"}</p></div></div></div>) : <p className="text-sm text-[var(--exa-text-muted)]">No ExaAI trades have been recorded yet.</p>}</div></SectionCard> : null}
 
-          {activeTab === "Plans" ? <div className="grid gap-4 lg:grid-cols-3">{plans.map((plan) => <SectionCard key={plan.id} title={plan.name} subtitle={plan.description} action={<Badge tone={subscription?.plan_id === plan.id ? "brand" : "neutral"}>{subscription?.plan_id === plan.id ? "Current Plan" : plan.code}</Badge>}><div className="space-y-3 text-sm text-slate-300"><div className="flex justify-between"><span>Monthly</span><span className="font-medium text-white">{fmtMoney(plan.price)}</span></div><div className="flex justify-between"><span>Annual</span><span className="font-medium text-white">{plan.annual_price ? fmtMoney(plan.annual_price) : "--"}</span></div><div className="flex justify-between"><span>Execution Tier</span><span className="font-medium text-white capitalize">{plan.execution_tier}</span></div><div className="flex justify-between"><span>Strategy Access</span><span className="font-medium text-white">{(plan.strategy_access || []).join(", ")}</span></div></div></SectionCard>)}</div> : null}
+          {activeTab === "Plans" ? <div className="grid gap-4 lg:grid-cols-3">{plans.map((plan) => <SectionCard key={plan.id} title={plan.name} subtitle={plan.description} action={<Badge tone={subscription?.plan_id === plan.id ? "brand" : "neutral"}>{subscription?.plan_id === plan.id ? "Current Plan" : plan.code}</Badge>}><div className="space-y-3 text-sm text-[var(--exa-text-secondary)]"><div className="flex justify-between"><span>Monthly</span><span className="font-medium text-[var(--exa-text-primary)]">{fmtMoney(plan.price)}</span></div><div className="flex justify-between"><span>Annual</span><span className="font-medium text-[var(--exa-text-primary)]">{plan.annual_price ? fmtMoney(plan.annual_price) : "--"}</span></div><div className="flex justify-between"><span>Execution Tier</span><span className="font-medium text-[var(--exa-text-primary)] capitalize">{plan.execution_tier}</span></div><div className="flex justify-between"><span>Strategy Access</span><span className="font-medium text-[var(--exa-text-primary)]">{(plan.strategy_access || []).join(", ")}</span></div></div></SectionCard>)}</div> : null}
         </div>
 
-        {loading ? <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-sm text-slate-400">Loading ExaAI...</div> : null}
+        {loading ? <div className="mt-6 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-5 text-sm text-[var(--exa-text-muted)]">Loading ExaAI...</div> : null}
       </div>
     </main>
   );
