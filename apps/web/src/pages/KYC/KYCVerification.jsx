@@ -278,9 +278,9 @@ function KYCVerification({ onBack }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#070B14] text-white">
+    <main className="min-h-screen bg-[var(--exa-bg-primary)] text-white">
       <header
-        className="sticky top-0 z-30 border-b border-[#D4AF37]/25 bg-gradient-to-r from-[#121A2A]/95 via-[#0E1524]/95 to-[#0A0F1D]/95 backdrop-blur"
+        className="sticky top-0 z-30 border-b border-[var(--exa-border-active)] bg-[var(--exa-surface)] backdrop-blur"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto w-full max-w-5xl px-4 pb-3 pt-3 sm:px-6">
@@ -289,21 +289,21 @@ function KYCVerification({ onBack }) {
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-xl border border-white/15 bg-[#111827] p-2 text-[#E6EAF2] hover:border-[#D4AF37]/60"
+                className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-2 text-[var(--exa-text-primary)] hover:border-[var(--exa-border-active)]"
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
               <div>
-                <h1 className="text-lg font-semibold text-[#F8F1DE] sm:text-xl">KYC Verification</h1>
-                <p className="text-xs text-[#B8C0CF] sm:text-sm">Verify your identity to unlock full features</p>
+                <h1 className="text-lg font-semibold text-[var(--exa-text-primary)] sm:text-xl">KYC Verification</h1>
+                <p className="text-xs text-[var(--exa-text-secondary)] sm:text-sm">Verify your identity to unlock full features</p>
               </div>
             </div>
-            {!statusView ? <p className="text-xs font-medium text-[#D4AF37]">Step {currentStep} of 4</p> : null}
+            {!statusView ? <p className="text-xs font-medium text-[var(--exa-gold-light)]">Step {currentStep} of 4</p> : null}
           </div>
           {!statusView ? (
             <div className="mt-3">
-              <div className="h-2 overflow-hidden rounded-full bg-[#1A2334]">
-                <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--exa-surface-hover)]">
+                <div className="h-full rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] transition-all duration-300" style={{ width: `${progressPercent}%` }} />
               </div>
             </div>
           ) : null}
@@ -311,36 +311,36 @@ function KYCVerification({ onBack }) {
       </header>
 
       <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-5 sm:px-6">
-        <section className="rounded-2xl border border-white/10 bg-[#101827]/85 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
-          <h2 className="mb-3 text-base font-semibold text-[#F8F1DE]">Verification Levels</h2>
+        <section className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)]">
+          <h2 className="mb-3 text-base font-semibold text-[var(--exa-text-primary)]">Verification Levels</h2>
           <div className="grid gap-3 sm:grid-cols-3">
             {levelCards.map((item) => (
               <article
                 key={item.level}
                 className={`rounded-2xl border p-3 ${
                   currentLevel === item.level
-                    ? "border-[#D4AF37]/70 bg-[#D4AF37]/10"
-                    : "border-white/10 bg-[#0C1424]"
+                    ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]"
+                    : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]"
                 }`}
               >
-                <p className="text-sm font-semibold text-[#E6EAF2]">{item.level}</p>
-                <p className="mt-2 text-xs text-[#B8C0CF]">{item.requirements}</p>
-                <p className="mt-1 text-xs text-[#9AA3B4]">{item.access}</p>
+                <p className="text-sm font-semibold text-[var(--exa-text-primary)]">{item.level}</p>
+                <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">{item.requirements}</p>
+                <p className="mt-1 text-xs text-[var(--exa-text-muted)]">{item.access}</p>
               </article>
             ))}
           </div>
         </section>
 
         {!statusView ? (
-          <section className="mt-4 rounded-2xl border border-white/10 bg-[#101827]/85 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
+          <section className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)]">
             <div className="mb-4 flex flex-wrap gap-2">
               {steps.map((step) => (
                 <span
                   key={step.id}
                   className={`rounded-full border px-3 py-1 text-xs ${
                     step.id === currentStep
-                      ? "border-[#D4AF37]/70 bg-[#D4AF37]/12 text-[#F8F1DE]"
-                      : "border-white/15 bg-[#0C1424] text-[#A3ACBC]"
+                      ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-text-primary)]"
+                      : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-muted)]"
                   }`}
                 >
                   {step.label}
@@ -393,7 +393,7 @@ function KYCVerification({ onBack }) {
                 type="button"
                 onClick={handlePrevious}
                 disabled={currentStep === 1}
-                className="rounded-xl border border-white/15 bg-[#111827] px-4 py-2 text-sm text-[#D7DDEA] disabled:cursor-not-allowed disabled:opacity-45"
+                className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm text-[var(--exa-text-secondary)] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Previous
               </button>
@@ -402,7 +402,7 @@ function KYCVerification({ onBack }) {
                 <button
                   type="button"
                   onClick={handleContinue}
-                  className="rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] px-5 py-2 text-sm font-semibold text-[#111827] shadow-[0_8px_20px_rgba(212,175,55,0.28)]"
+                  className="rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-5 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)]"
                 >
                   Continue
                 </button>
@@ -411,7 +411,7 @@ function KYCVerification({ onBack }) {
                   type="button"
                   disabled={submitting}
                   onClick={handleSubmit}
-                  className="rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] px-5 py-2 text-sm font-semibold text-[#111827] shadow-[0_8px_20px_rgba(212,175,55,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-5 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? "Submitting..." : "Submit KYC"}
                 </button>
@@ -428,9 +428,9 @@ function KYCVerification({ onBack }) {
         )}
 
         <section className="mt-4 space-y-3">
-          <div className="rounded-2xl border border-[#D4AF37]/25 bg-[#0C1424] p-3 text-sm text-[#D7DDEA]">
+          <div className="rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] p-3 text-sm text-[var(--exa-text-secondary)]">
             <p className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-[#D4AF37]" />
+              <Lock className="h-4 w-4 text-[var(--exa-gold-light)]" />
               Your information is encrypted and securely stored.
             </p>
           </div>
@@ -458,7 +458,7 @@ function StepOnePersonalInfo({ personalInfo, onUpdate }) {
       <Field label="Nationality">
         <select value={personalInfo.nationality} onChange={(e) => onUpdate("nationality", e.target.value)} className={inputCls}>
           {nationalities.map((item) => (
-            <option key={item} value={item} className="bg-[#0C1424]">
+            <option key={item} value={item} className="bg-[var(--exa-surface-elevated)]">
               {item}
             </option>
           ))}
@@ -477,7 +477,7 @@ function StepTwoDocumentUpload({ documentData, needsBackSide, onIdTypeChange, on
       <Field label="ID Type">
         <select value={documentData.idType} onChange={(event) => onIdTypeChange(event.target.value)} className={inputCls}>
           {idTypes.map((type) => (
-            <option key={type} value={type} className="bg-[#0C1424]">
+            <option key={type} value={type} className="bg-[var(--exa-surface-elevated)]">
               {type}
             </option>
           ))}
@@ -487,7 +487,7 @@ function StepTwoDocumentUpload({ documentData, needsBackSide, onIdTypeChange, on
         <UploadField label="Front Upload" preview={documentData.frontPreview} onUpload={onFrontUpload} />
         {needsBackSide ? <UploadField label="Back Upload" preview={documentData.backPreview} onUpload={onBackUpload} /> : null}
       </div>
-      <p className="text-xs text-[#98A1B2]">Accepted formats: JPG, PNG, WEBP up to 5MB. Ensure document is clear and all edges visible.</p>
+      <p className="text-xs text-[var(--exa-text-muted)]">Accepted formats: JPG, PNG, WEBP up to 5MB. Ensure document is clear and all edges visible.</p>
     </div>
   );
 }
@@ -505,12 +505,12 @@ function StepThreeSelfie({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-[#D7DDEA]">Ensure your face is clearly visible.</p>
+      <p className="text-sm text-[var(--exa-text-secondary)]">Ensure your face is clearly visible.</p>
       {!cameraActive && !selfieData.imagePreview ? (
         <button
           type="button"
           onClick={onStartCamera}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/45 bg-[#D4AF37]/10 px-4 py-2 text-sm text-[#F8F1DE]"
+          className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-4 py-2 text-sm text-[var(--exa-text-primary)]"
         >
           <Camera className="h-4 w-4" />
           Start Camera
@@ -520,18 +520,18 @@ function StepThreeSelfie({
       {cameraError ? <p className="text-sm text-[#FCA5A5]">{cameraError}</p> : null}
 
       {cameraActive ? (
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black">
+        <div className="relative overflow-hidden rounded-2xl border border-[var(--exa-border)] bg-black">
           <video ref={videoRef} autoPlay playsInline className="h-64 w-full object-cover sm:h-80" />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-44 w-32 rounded-[999px] border-2 border-[#D4AF37]/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+            <div className="h-44 w-32 rounded-[999px] border-2 border-[var(--exa-border-active)] shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
           </div>
           <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-2">
-            <div className="mb-1 flex items-center justify-between text-[11px] text-[#D7DDEA]">
+            <div className="mb-1 flex items-center justify-between text-[11px] text-[var(--exa-text-secondary)]">
               <span>AI liveness detection</span>
               <span>{livenessTick}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[#1F2937]">
-              <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#E7C96C] transition-all" style={{ width: `${livenessTick}%` }} />
+            <div className="h-1.5 overflow-hidden rounded-full bg-[var(--exa-surface-hover)]">
+              <div className="h-full bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] transition-all" style={{ width: `${livenessTick}%` }} />
             </div>
           </div>
         </div>
@@ -539,20 +539,20 @@ function StepThreeSelfie({
 
       {cameraActive ? (
         <div className="flex gap-2">
-          <button type="button" onClick={onCapture} className="rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E7C96C] px-4 py-2 text-sm font-semibold text-[#111827]">
+          <button type="button" onClick={onCapture} className="rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]">
             Capture Selfie
           </button>
-          <button type="button" onClick={onStopCamera} className="rounded-xl border border-white/15 bg-[#111827] px-4 py-2 text-sm">
+          <button type="button" onClick={onStopCamera} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm">
             Cancel
           </button>
         </div>
       ) : null}
 
       {selfieData.imagePreview ? (
-        <div className="rounded-2xl border border-white/10 bg-[#0C1424] p-3">
+        <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
           <img src={selfieData.imagePreview} alt="Selfie preview" className="h-44 w-full rounded-xl object-cover sm:h-56" />
           <div className="mt-2 flex justify-between">
-            <p className="text-xs text-[#A8B1C1]">{selfieData.fileName}</p>
+            <p className="text-xs text-[var(--exa-text-muted)]">{selfieData.fileName}</p>
             <button type="button" onClick={onClearSelfie} className="text-xs text-[#FCA5A5]">
               Remove
             </button>
@@ -574,9 +574,9 @@ function StepFourReview({ personalInfo, documentData, selfieData, confirmAccurat
         <ReviewCard label="ID Type" value={documentData.idType} />
         <ReviewCard label="Selfie" value={selfieData.fileName || "Uploaded"} />
       </div>
-      <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0C1424] px-3 py-2">
+      <label className="flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2">
         <input type="checkbox" checked={confirmAccurate} onChange={(e) => onConfirmChange(e.target.checked)} />
-        <span className="text-sm text-[#D7DDEA]">I confirm this information is accurate.</span>
+        <span className="text-sm text-[var(--exa-text-secondary)]">I confirm this information is accurate.</span>
       </label>
     </div>
   );
@@ -593,25 +593,25 @@ function VerificationStatus({ statusView, statusReason, onRefresh, onResubmit })
   const Icon = statusConfig.icon;
 
   return (
-    <section className="mt-4 rounded-2xl border border-white/10 bg-[#101827]/85 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
-      <h2 className="mb-3 text-base font-semibold text-[#F8F1DE]">Verification Status</h2>
+    <section className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 shadow-[var(--exa-shadow-panel)]">
+      <h2 className="mb-3 text-base font-semibold text-[var(--exa-text-primary)]">Verification Status</h2>
       <div className={`rounded-2xl border p-4 ${statusConfig.box}`}>
         <div className="flex items-center gap-2">
           <Icon className={`h-5 w-5 ${statusConfig.tone}`} />
           <span className={`text-sm font-semibold ${statusConfig.tone}`}>{statusConfig.badge}</span>
         </div>
-        <p className="mt-2 text-sm text-[#D7DDEA]">Estimated review time: 5 to 15 minutes.</p>
+        <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">Estimated review time: 5 to 15 minutes.</p>
         {statusReason ? <p className="mt-1 text-sm text-[#FCA5A5]">Reason: {statusReason}</p> : null}
       </div>
 
       <div className="mt-3 flex gap-2">
         {statusView === "Pending Review" ? (
-          <button type="button" onClick={onRefresh} className="rounded-xl border border-white/15 bg-[#111827] px-4 py-2 text-sm">
+          <button type="button" onClick={onRefresh} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm">
             Refresh Status
           </button>
         ) : null}
         {statusView === "Rejected" ? (
-          <button type="button" onClick={onResubmit} className="rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#E7C96C] px-4 py-2 text-sm font-semibold text-[#111827]">
+          <button type="button" onClick={onResubmit} className="rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]">
             Re-submit Documents
           </button>
         ) : null}
@@ -623,7 +623,7 @@ function VerificationStatus({ statusView, statusReason, onRefresh, onResubmit })
 function Field({ label, children }) {
   return (
     <label>
-      <span className="mb-1.5 block text-xs font-medium text-[#D7DDEA]">{label}</span>
+      <span className="mb-1.5 block text-xs font-medium text-[var(--exa-text-secondary)]">{label}</span>
       {children}
     </label>
   );
@@ -632,16 +632,16 @@ function Field({ label, children }) {
 function UploadField({ label, preview, onUpload }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-[#D7DDEA]">{label}</span>
-      <div className="cursor-pointer rounded-2xl border border-dashed border-white/20 bg-[#0C1424] p-3 hover:border-[#D4AF37]/55">
-        <div className="flex items-center gap-2 text-sm text-[#B8C0CF]">
-          <Upload className="h-4 w-4 text-[#D4AF37]" />
+      <span className="mb-1.5 block text-xs font-medium text-[var(--exa-text-secondary)]">{label}</span>
+      <div className="cursor-pointer rounded-2xl border border-dashed border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 hover:border-[var(--exa-border-active)]">
+        <div className="flex items-center gap-2 text-sm text-[var(--exa-text-secondary)]">
+          <Upload className="h-4 w-4 text-[var(--exa-gold-light)]" />
           Upload image
         </div>
         <input
           type="file"
           accept="image/png,image/jpeg,image/webp"
-          className="mt-2 w-full text-xs text-[#9CA3AF] file:mr-2 file:rounded-lg file:border-0 file:bg-[#111827] file:px-2 file:py-1 file:text-[#D7DDEA]"
+          className="mt-2 w-full text-xs text-[var(--exa-text-muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-[var(--exa-surface-elevated)] file:px-2 file:py-1 file:text-[var(--exa-text-secondary)]"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) onUpload(file);
@@ -655,9 +655,9 @@ function UploadField({ label, preview, onUpload }) {
 
 function ReviewCard({ label, value }) {
   return (
-    <article className="rounded-xl border border-white/10 bg-[#0C1424] p-3">
-      <p className="text-[11px] uppercase tracking-[0.1em] text-[#9AA3B4]">{label}</p>
-      <p className="mt-1 text-sm text-[#E6EAF2]">{value || "-"}</p>
+    <article className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+      <p className="text-[11px] uppercase tracking-[0.1em] text-[var(--exa-text-muted)]">{label}</p>
+      <p className="mt-1 text-sm text-[var(--exa-text-primary)]">{value || "-"}</p>
     </article>
   );
 }
@@ -712,6 +712,6 @@ function fileToBase64(file) {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-white/15 bg-[#0C1424] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#8E98AA] focus:border-[#D4AF37]/70";
+  "w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[var(--exa-text-muted)] focus:border-[var(--exa-border-active)]";
 
 export default KYCVerification;
