@@ -7,12 +7,16 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventStreamController extends Controller
 {
-    public function subscribe(Request $request): StreamedResponse
+    public function subscribe(Request $request): Response|StreamedResponse
     {
+        if (! config('streaming.sse_enabled', false)) {
+            return response()->noContent();
+        }
         $channelMap = [
             'users' => 'user.created',
             (string) config('streaming.price_channel', 'price_updates') => 'price:update',
@@ -24,8 +28,11 @@ class EventStreamController extends Controller
         return $this->streamChannels($channelMap);
     }
 
-    public function subscribeCampaigns(Request $request): StreamedResponse
+    public function subscribeCampaigns(Request $request): Response|StreamedResponse
     {
+        if (! config('streaming.sse_enabled', false)) {
+            return response()->noContent();
+        }
         $channel = (string) config('campaign.stream.channel', 'campaign_updates');
 
         return $this->streamChannels([$channel => 'campaign.generated']);
