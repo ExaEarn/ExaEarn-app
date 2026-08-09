@@ -117,9 +117,9 @@ function LanguageRegionPage({ onBack }) {
   };
 
   return (
-    <main className="relative h-[100dvh] overflow-hidden bg-[#070B14] text-white">
+    <main className="relative h-[100dvh] overflow-hidden bg-[var(--exa-bg-primary)] text-white">
       <header
-        className="fixed inset-x-0 top-0 z-40 border-b border-[#D4AF37]/20 bg-gradient-to-r from-[#121A2A]/95 via-[#0E1524]/95 to-[#0A0F1D]/95 backdrop-blur"
+        className="fixed inset-x-0 top-0 z-40 border-b border-[var(--exa-border-active)] bg-[var(--exa-surface)] backdrop-blur"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-3 sm:px-6">
@@ -127,13 +127,13 @@ function LanguageRegionPage({ onBack }) {
             <button
               type="button"
               onClick={onBack}
-              className="rounded-xl border border-white/15 bg-[#111827] p-2 text-[#E6EAF2] hover:border-[#D4AF37]/60"
+              className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-2 text-[var(--exa-text-primary)] hover:border-[var(--exa-border-active)]"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
-              <h1 className="text-lg font-semibold text-[#F8F1DE] sm:text-xl">Language & Region</h1>
-              <p className="text-xs text-[#B8C0CF] sm:text-sm">Customize your app experience</p>
+              <h1 className="text-lg font-semibold text-[var(--exa-text-primary)] sm:text-xl">Language & Region</h1>
+              <p className="text-xs text-[var(--exa-text-secondary)] sm:text-sm">Customize your app experience</p>
             </div>
           </div>
         </div>
@@ -147,20 +147,20 @@ function LanguageRegionPage({ onBack }) {
           <LoadingState />
         ) : (
           <>
-            <article className="rounded-2xl border border-white/10 bg-[#101827]/85 p-4">
+            <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
               <div className="mb-3 flex items-center gap-2">
-                <Languages className="h-4 w-4 text-[#D4AF37]" />
-                <h2 className="text-base font-semibold text-[#F8F1DE]">Language Selection</h2>
+                <Languages className="h-4 w-4 text-[var(--exa-gold-light)]" />
+                <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Language Selection</h2>
               </div>
 
               <label className="mb-3 block">
-                <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-[#0C1424] px-3 py-2.5">
-                  <Search className="h-4 w-4 text-[#D4AF37]" />
+                <div className="flex items-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2.5">
+                  <Search className="h-4 w-4 text-[var(--exa-gold-light)]" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search language..."
-                    className="w-full bg-transparent text-sm text-white placeholder:text-[#8F99AB] outline-none"
+                    className="w-full bg-transparent text-sm text-white placeholder:text-[var(--exa-text-muted)] outline-none"
                   />
                 </div>
               </label>
@@ -173,8 +173,8 @@ function LanguageRegionPage({ onBack }) {
                     onClick={() => setSelectedLanguage(language)}
                     className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition ${
                       selectedLanguage === language
-                        ? "border-[#D4AF37]/65 bg-[#D4AF37]/12 text-[#F3D88F]"
-                        : "border-white/10 bg-[#0C1424] text-[#D7DDEA] hover:border-[#D4AF37]/35"
+                        ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] text-[var(--exa-gold-light)]"
+                        : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-text-secondary)] hover:border-[var(--exa-border-active)]"
                     }`}
                   >
                     <span className="text-sm">{language}</span>
@@ -184,10 +184,10 @@ function LanguageRegionPage({ onBack }) {
               </div>
             </article>
 
-            <article className="mt-4 rounded-2xl border border-white/10 bg-[#101827]/85 p-4">
+            <article className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
               <div className="mb-3 flex items-center gap-2">
-                <Globe2 className="h-4 w-4 text-[#D4AF37]" />
-                <h2 className="text-base font-semibold text-[#F8F1DE]">Region Selection</h2>
+                <Globe2 className="h-4 w-4 text-[var(--exa-gold-light)]" />
+                <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">Region Selection</h2>
               </div>
               <div className="space-y-2">
                 {regions.map((region) => (
@@ -197,23 +197,23 @@ function LanguageRegionPage({ onBack }) {
                     onClick={() => setSelectedRegion(region.name)}
                     className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition ${
                       selectedRegion === region.name
-                        ? "border-[#D4AF37]/70 bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/5"
-                        : "border-white/10 bg-[#0C1424] hover:border-[#D4AF37]/35"
+                        ? "border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-surface)] to-transparent"
+                        : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] hover:border-[var(--exa-border-active)]"
                     }`}
                   >
                     <div>
-                      <p className="text-sm text-[#E6EAF2]">{region.name} {flagEmoji(region.flag)}</p>
-                      <p className="text-xs text-[#98A1B2]">{region.currency}</p>
+                      <p className="text-sm text-[var(--exa-text-primary)]">{region.name} {flagEmoji(region.flag)}</p>
+                      <p className="text-xs text-[var(--exa-text-muted)]">{region.currency}</p>
                     </div>
-                    {selectedRegion === region.name ? <Check className="h-4 w-4 text-[#F3D88F]" /> : null}
+                    {selectedRegion === region.name ? <Check className="h-4 w-4 text-[var(--exa-gold-light)]" /> : null}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-3 rounded-xl border border-white/10 bg-[#0C1424] p-3">
-                <p className="text-xs text-[#98A1B2]">Region-specific info</p>
-                <p className="mt-1 text-sm text-[#D7DDEA]">Default Currency: {selectedRegionMeta.currency}</p>
-                <p className="text-sm text-[#D7DDEA]">Local Format: {selectedRegionMeta.format}</p>
+              <div className="mt-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+                <p className="text-xs text-[var(--exa-text-muted)]">Region-specific info</p>
+                <p className="mt-1 text-sm text-[var(--exa-text-secondary)]">Default Currency: {selectedRegionMeta.currency}</p>
+                <p className="text-sm text-[var(--exa-text-secondary)]">Local Format: {selectedRegionMeta.format}</p>
               </div>
             </article>
           </>
@@ -221,7 +221,7 @@ function LanguageRegionPage({ onBack }) {
       </section>
 
       <section
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D4AF37]/20 bg-[#0A0F1D]/95 p-3 backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--exa-border-active)] bg-[var(--exa-surface)] p-3 backdrop-blur"
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
       >
         <div className="mx-auto w-full max-w-3xl">
@@ -229,7 +229,7 @@ function LanguageRegionPage({ onBack }) {
             type="button"
             disabled={!hasChanges || saving || loading}
             onClick={saveChanges}
-            className="w-full rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] py-3 text-sm font-semibold text-[#111827] shadow-[0_10px_24px_rgba(212,175,55,0.28)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="w-full rounded-xl bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] disabled:cursor-not-allowed disabled:opacity-45"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -248,16 +248,16 @@ function LanguageRegionPage({ onBack }) {
 function LoadingState() {
   return (
     <div className="space-y-4">
-      <article className="rounded-2xl border border-white/10 bg-[#101827]/85 p-4">
-        <div className="mb-3 h-5 w-40 animate-pulse rounded bg-gradient-to-r from-[#D4AF37]/25 to-transparent" />
+      <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
+        <div className="mb-3 h-5 w-40 animate-pulse rounded bg-gradient-to-r from-[var(--exa-gold-surface)] to-transparent" />
         <div className="space-y-2">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-11 animate-pulse rounded-xl bg-gradient-to-r from-[#1C263A] via-[#243146] to-[#1C263A]" />
           ))}
         </div>
       </article>
-      <article className="rounded-2xl border border-white/10 bg-[#101827]/85 p-4">
-        <div className="mb-3 h-5 w-36 animate-pulse rounded bg-gradient-to-r from-[#D4AF37]/25 to-transparent" />
+      <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
+        <div className="mb-3 h-5 w-36 animate-pulse rounded bg-gradient-to-r from-[var(--exa-gold-surface)] to-transparent" />
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-12 animate-pulse rounded-xl bg-gradient-to-r from-[#1C263A] via-[#243146] to-[#1C263A]" />
@@ -277,3 +277,4 @@ function flagEmoji(code) {
 }
 
 export default LanguageRegionPage;
+
