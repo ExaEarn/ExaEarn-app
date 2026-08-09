@@ -74,20 +74,20 @@ function MorePage({
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#0A0F1D] via-[#0B1224] to-[#070B14] text-white">
-      <header className="sticky top-0 z-20 border-b border-[#D4AF37]/25 bg-[#0A0F1D]/95 backdrop-blur">
+    <main className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
+      <header className="sticky top-0 z-20 border-b border-[var(--exa-border-active)] bg-[var(--exa-surface)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#111827] text-[#F3E8C8] transition hover:border-[#D4AF37]/70"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold-light)] transition hover:border-[var(--exa-border-active)]"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-xl font-semibold tracking-tight text-[#F8F1DE]">More</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--exa-text-primary)]">More</h1>
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#111827] text-[#F3E8C8]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold-light)]"
           >
             <Search className="h-5 w-5" />
           </button>
@@ -95,9 +95,9 @@ function MorePage({
       </header>
 
       <section className="mx-auto w-full max-w-5xl px-4 pb-8 pt-6 sm:px-6 lg:px-8">
-        <div className="mb-4 rounded-2xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#D4AF37]/15 via-[#D4AF37]/10 to-transparent p-4">
-          <p className="text-sm text-[#F3E8C8]/90">ExaEarn Ecosystem</p>
-          <h2 className="mt-1 text-lg font-semibold text-[#F8F1DE]">Access all ExaEarn products and utilities</h2>
+        <div className="mb-4 rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] p-4">
+          <p className="text-sm text-[var(--exa-text-secondary)]">ExaEarn Ecosystem</p>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--exa-text-primary)]">Access all ExaEarn products and utilities</h2>
         </div>
 
         <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5">
@@ -108,13 +108,13 @@ function MorePage({
                 key={item.id}
                 type="button"
                 onClick={() => handleOpenItem(item)}
-                className="relative min-h-[104px] rounded-2xl border border-[#D4AF37]/20 bg-[#111827] p-2.5 text-center transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/55 hover:shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
+                className="relative min-h-[104px] rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-2.5 text-center transition duration-300 hover:-translate-y-0.5 hover:border-[var(--exa-border-active)] hover:shadow-[var(--exa-shadow-soft)]"
               >
                 {item.badge ? <Badge type={item.badge} /> : null}
-                <span className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D4AF37]/25 bg-[#0F172A] text-[#D4AF37]">
+                <span className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold-light)]">
                   <Icon className="h-5 w-5" />
                 </span>
-                <p className="mt-2 text-[11px] font-semibold leading-tight text-[#E8EAF0]">{item.label}</p>
+                <p className="mt-2 text-[11px] font-semibold leading-tight text-[var(--exa-text-primary)]">{item.label}</p>
               </button>
             );
           })}
@@ -127,14 +127,14 @@ function MorePage({
 function Badge({ type }) {
   if (type === "HOT") {
     return (
-      <span className="absolute right-2 top-2 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#E7C96C] px-2 py-0.5 text-[9px] font-bold text-[#111827]">
+      <span className="absolute right-2 top-2 rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-2 py-0.5 text-[9px] font-bold text-[var(--exa-gold-contrast)]">
         HOT
       </span>
     );
   }
 
   return (
-    <span className="absolute right-2 top-2 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#E7C96C] px-2 py-0.5 text-[9px] font-bold text-[#111827]">
+    <span className="absolute right-2 top-2 rounded-full bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-2 py-0.5 text-[9px] font-bold text-[var(--exa-gold-contrast)]">
       NEW
     </span>
   );
