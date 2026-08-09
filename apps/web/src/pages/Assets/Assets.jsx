@@ -311,9 +311,9 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
   }, [mergedAssets, portfolio]);
 
   return (
-    <main className="min-h-[100dvh] bg-[#06080d] px-3 pb-8 pt-3 text-slate-100 sm:px-4 lg:px-6">
+    <main className="min-h-[100dvh] bg-[var(--exa-bg-primary)] px-3 pb-8 pt-3 text-[var(--exa-text-primary)] sm:px-4 lg:px-6">
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-4">
-        <header className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-[#0c1018] px-4 py-3">
+        <header className="exa-surface flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             {onBack ? (
               <button type="button" onClick={onBack} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100">
@@ -322,7 +322,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
             ) : null}
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{user?.name || "Assets"}</p>
-              <p className="text-xs text-slate-500">Assets</p>
+              <p className="text-xs text-[var(--exa-text-muted)]">Assets</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -344,25 +344,25 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-white/8 bg-[#0c1018] px-4 py-4">
+        <section className="exa-surface-elevated overflow-hidden rounded-2xl px-4 py-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-500">
                 <span>Total Assets</span>
-                <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label="Toggle balance privacy" className="text-slate-400">
+                <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label="Toggle balance privacy" className="text-[var(--exa-text-muted)]">
                   {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {loading ? <div className="mt-2 h-10 w-52 animate-pulse rounded-xl bg-white/[0.05]" /> : <p className="mt-2 text-3xl font-semibold text-white sm:text-4xl">{formatDisplayValue(portfolioValue, portfolioCurrency, privacyMode)}</p>}
+              {loading ? <div className="mt-2 h-10 w-52 animate-pulse rounded-xl bg-white/[0.05]" /> : <p className="exa-data-number mt-2 text-3xl font-semibold tracking-tight text-[var(--exa-text-primary)] sm:text-4xl">{formatDisplayValue(portfolioValue, portfolioCurrency, privacyMode)}</p>}
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-400">
                 <button type="button" onClick={() => setShowCurrencySelector(true)} className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200">
                   {portfolioCurrency}
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
-                {btcEquivalent ? <span>{privacyMode ? "≈ •••••• BTC" : `≈ ${formatAmount(btcEquivalent, 5)} BTC`}</span> : null}
+                {btcEquivalent ? <span>{privacyMode ? "approx •••••• BTC" : `approx ${formatAmount(btcEquivalent, 5)} BTC`}</span> : null}
               </div>
             </div>
-            {refreshing ? <div className="text-xs text-slate-500">Refreshing...</div> : null}
+            {refreshing ? <div className="text-xs text-[var(--exa-text-muted)]">Refreshing...</div> : null}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -373,20 +373,20 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
           </div>
         </section>
 
-        <section className="grid grid-cols-4 gap-3 rounded-2xl border border-white/8 bg-[#0c1018] px-3 py-3">
+        <section className="exa-surface grid grid-cols-4 gap-2 rounded-2xl px-3 py-3 sm:gap-3">
           <QuickAction icon={ArrowDownToLine} label="Deposit" onClick={onOpenAddFunds} />
           <QuickAction icon={ArrowUpFromLine} label="Withdraw" onClick={onOpenWithdraw} />
           <QuickAction icon={Repeat2} label="Transfer" onClick={() => setShowTransferModal(true)} />
           <QuickAction icon={Repeat2} label="Convert" onClick={onOpenSwap} />
         </section>
 
-        <section className="rounded-2xl border border-white/8 bg-[#0c1018]">
+        <section className="exa-surface overflow-hidden rounded-2xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
             <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-              <button type="button" onClick={() => setActiveTab("assets")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "assets" ? "bg-white text-slate-950" : "text-slate-400"}`}>
+              <button type="button" onClick={() => setActiveTab("assets")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "assets" ? "bg-[var(--exa-gold)] text-slate-950" : "text-[var(--exa-text-muted)]"}`}>
                 Asset
               </button>
-              <button type="button" onClick={() => setActiveTab("accounts")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "accounts" ? "bg-white text-slate-950" : "text-slate-400"}`}>
+              <button type="button" onClick={() => setActiveTab("accounts")} className={`rounded-full px-4 py-1.5 text-sm ${activeTab === "accounts" ? "bg-[var(--exa-gold)] text-slate-950" : "text-[var(--exa-text-muted)]"}`}>
                 Account
               </button>
             </div>
@@ -406,7 +406,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
             <div className="flex flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3 text-sm">
               <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
                 {ASSET_FILTERS.map((filter) => (
-                  <button key={filter} type="button" onClick={() => setAssetFilter(filter)} className={`rounded-full px-3 py-1.5 ${assetFilter === filter ? "bg-white text-slate-950" : "text-slate-400"}`}>
+                  <button key={filter} type="button" onClick={() => setAssetFilter(filter)} className={`rounded-full px-3 py-1.5 ${assetFilter === filter ? "bg-[var(--exa-gold)] text-slate-950" : "text-[var(--exa-text-muted)]"}`}>
                     {filter === "all" ? "All" : filter === "crypto" ? "Crypto" : "Fiat"}
                   </button>
                 ))}
@@ -471,7 +471,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
                   {accounts.map((account) => (
                     <div key={account.key} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
                       <div>
-                        <p className="text-sm font-semibold text-white">{account.label}</p>
+                        <p className="text-sm font-semibold text-[var(--exa-text-primary)]">{account.label}</p>
                         <p className="mt-1 text-xs text-slate-500">Real backend account balance</p>
                       </div>
                       <p className="text-left text-sm text-white lg:text-right">{privacyMode ? "••••" : formatAmount(account.available, 8)}</p>
@@ -547,7 +547,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
 
 function SummaryMetric({ label, value, hint, loading }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3">
+    <div className="rounded-xl border border-[var(--exa-border-subtle)] bg-white/[0.025] px-3 py-3">
       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</p>
       {loading ? <div className="mt-2 h-6 w-24 animate-pulse rounded bg-white/[0.05]" /> : <p className="mt-2 text-base font-semibold text-white">{value}</p>}
       {hint ? <p className="mt-1 text-[11px] text-slate-500">{hint}</p> : null}
@@ -557,8 +557,8 @@ function SummaryMetric({ label, value, hint, loading }) {
 
 function QuickAction({ icon: Icon, label, onClick }) {
   return (
-    <button type="button" onClick={onClick} className="flex flex-col items-center gap-2 rounded-xl px-2 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/[0.05]">
-      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white">
+    <button type="button" onClick={onClick} className="flex flex-col items-center gap-2 rounded-xl px-2 py-2 text-xs font-semibold text-[var(--exa-text-secondary)] transition hover:bg-[var(--exa-gold-surface)] hover:text-[var(--exa-text-primary)] exa-focusable">
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--exa-border-subtle)] bg-white/[0.035] text-[var(--exa-gold-light)]">
         <Icon className="h-4 w-4" />
       </span>
       <span>{label}</span>
@@ -583,9 +583,9 @@ function EmptyState({ title, body }) {
 function Sheet({ title, children, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm lg:p-4">
-      <div className="max-h-[92vh] w-full overflow-hidden rounded-t-[28px] border border-white/10 bg-[#0b0f16] shadow-2xl lg:max-w-xl lg:rounded-[28px]">
+      <div className="max-h-[92vh] w-full overflow-hidden rounded-t-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] shadow-[var(--exa-shadow-md)] lg:max-w-xl lg:rounded-[28px]">
         <div className="flex items-center justify-between border-b border-white/8 px-4 py-4">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
+          <h2 className="text-base font-semibold text-[var(--exa-text-primary)]">{title}</h2>
           <button type="button" onClick={onClose} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300">
             <X className="h-4 w-4" />
           </button>
@@ -599,14 +599,14 @@ function Sheet({ title, children, onClose }) {
 function DetailRow({ label, value }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-[var(--exa-text-muted)]">{label}</span>
       <span className="text-right font-medium text-white">{value}</span>
     </div>
   );
 }
 
 function ActionPill({ label, onClick }) {
-  return <button type="button" onClick={onClick} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06]">{label}</button>;
+  return <button type="button" onClick={onClick} className="rounded-xl border border-[var(--exa-border)] bg-white/[0.035] px-3 py-3 text-sm font-semibold text-[var(--exa-text-secondary)] transition hover:border-[var(--exa-border-active)] hover:bg-[var(--exa-gold-surface)] hover:text-[var(--exa-text-primary)] exa-focusable">{label}</button>;
 }
 
 export default Assets;
