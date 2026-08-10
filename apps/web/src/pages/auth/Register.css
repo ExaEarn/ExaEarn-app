@@ -1081,14 +1081,24 @@
 
 .register-language-switcher {
   position: fixed;
-  right: 16px;
-  top: max(16px, env(safe-area-inset-top));
-  z-index: 80;
+  right: max(12px, env(safe-area-inset-right));
+  top: max(10px, env(safe-area-inset-top));
+  z-index: 95;
+  display: flex;
+  justify-content: flex-end;
+  max-width: calc(100vw - 24px);
+}
+
+.register-language-switcher .language-trigger {
+  min-height: 34px;
+  max-width: 96px;
+  border-radius: 12px;
+  padding: 5px 7px;
 }
 
 @media (max-width: 520px) {
   .register-language-switcher {
-    right: 12px;
-    top: max(12px, env(safe-area-inset-top));
+    right: 10px;
+    top: max(8px, env(safe-area-inset-top));
   }
 }

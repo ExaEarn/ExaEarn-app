@@ -8,7 +8,7 @@ export function ExaAuthShell({ title, subtitle, children }) {
   return (
     <div className="min-h-screen w-full bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-        <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <div className="auth-language-switcher absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
           <LanguageSwitcher compact />
         </div>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(214,178,75,0.13),transparent_30%),radial-gradient(circle_at_82%_4%,rgba(56,189,248,0.06),transparent_26%)]" />
