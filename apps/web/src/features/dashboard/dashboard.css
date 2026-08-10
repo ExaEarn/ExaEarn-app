@@ -1,1 +1,413 @@
-.dashboard-personalize-trigger{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #d4af3747;border-radius:999px;background:#d4af3714;padding:.48rem .7rem;color:#f3e8c8;font-size:.72rem;font-weight:700}.personalized-dashboard{margin:0 0 1rem;padding:1rem;border:1px solid #d4af372e;border-radius:1.35rem;background:linear-gradient(145deg,#131b2df0,#080d18f5)}.personalized-heading span{display:flex;align-items:center;gap:.35rem;color:#d4af37;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.personalized-heading h2{margin:.3rem 0 .85rem;font-size:1.05rem}.personalized-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}.personalized-grid article{display:flex;min-height:190px;flex-direction:column;justify-content:space-between;padding:1rem;border:1px solid #94a3b829;border-radius:1rem;background:#0f172ac7}.personalized-grid article.primary{border-color:#d4af378c;background:linear-gradient(145deg,#d4af371f,#0f172ae0)}.personalized-grid article span{font-size:.66rem;color:#d4af37;text-transform:uppercase}.personalized-grid h3{margin:.35rem 0;font-size:1.08rem}.personalized-grid p{margin:0;color:#aeb9cd;font-size:.78rem;line-height:1.5}.personalized-grid strong{display:flex;align-items:baseline;gap:.45rem;margin-top:.75rem;font-size:1.55rem;color:#f8e7a1}.personalized-grid strong small{font-size:.68rem;color:#91a0b8}.personalized-grid button{display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;border:0;border-radius:.7rem;background:#d4af371f;padding:.65rem .75rem;color:#f3e8c8;font-weight:700}.dashboard-customizer-backdrop{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:1rem;background:#02060fc7;backdrop-filter:blur(10px)}.dashboard-customizer{width:min(820px,100%);max-height:90vh;overflow:auto;border:1px solid #d4af3752;border-radius:1.4rem;background:#0b1220;padding:1.25rem}.dashboard-customizer header{display:flex;justify-content:space-between;gap:1rem}.dashboard-customizer header span{color:#d4af37;font-size:.7rem;font-weight:800;text-transform:uppercase}.dashboard-customizer h2{margin:.25rem 0}.dashboard-customizer header p{margin:0;color:#9eabc0;font-size:.82rem}.dashboard-customizer header>button{height:2.5rem;width:2.5rem;border:1px solid #27344b;border-radius:.75rem;background:#111b2e;color:#fff}.dashboard-choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem;margin:1.1rem 0}.dashboard-choice-grid>button{min-height:126px;text-align:left;border:1px solid #253249;border-radius:.9rem;background:#101a2c;padding:.85rem;color:#fff}.dashboard-choice-grid>button.active{border-color:#d4af37;background:#d4af371a}.dashboard-choice-grid span{display:flex;align-items:center;gap:.35rem;font-weight:750}.dashboard-choice-grid small,.dashboard-choice-grid em{display:block;margin-top:.45rem;color:#9eabc0;line-height:1.4}.dashboard-choice-grid em{color:#e2bc4d;font-size:.65rem;font-style:normal}.primary-choice{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem;border-radius:.85rem;background:#101a2c}.primary-choice select{border:1px solid #39475f;border-radius:.65rem;background:#0b1220;padding:.55rem;color:#fff}.dashboard-customizer footer{display:flex;justify-content:space-between;gap:.75rem;margin-top:1rem}.dashboard-customizer footer button{display:flex;align-items:center;justify-content:center;gap:.4rem;border-radius:.75rem;padding:.7rem 1rem;font-weight:700}.dashboard-customizer .reset{border:1px solid #39475f;background:transparent;color:#c9d2df}.dashboard-customizer .save{border:0;background:#d4af37;color:#111827}@media(max-width:760px){.dashboard-personalize-trigger span{display:none}.personalized-grid,.dashboard-choice-grid{grid-template-columns:1fr}.dashboard-customizer-backdrop{align-items:flex-end;padding:0}.dashboard-customizer{max-height:92vh;border-radius:1.4rem 1.4rem 0 0}.dashboard-choice-grid>button{min-height:104px}.dashboard-customizer footer,.primary-choice{align-items:stretch;flex-direction:column}}
+.dashboard-personalize-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--exa-gold) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--exa-gold) 9%, transparent);
+  padding: 0.48rem 0.7rem;
+  color: var(--exa-gold-light);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.personalized-dashboard {
+  margin: 0 0 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--exa-border-subtle, rgba(148, 163, 184, 0.16));
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(20, 23, 27, 0.94), rgba(10, 12, 15, 0.96));
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+}
+
+.personalized-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.personalized-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--exa-gold-light);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.personalized-heading h2 {
+  margin: 0;
+  color: var(--exa-text-primary);
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.personalized-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.9fr);
+  gap: 0.75rem;
+}
+
+.personalized-primary-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 118px;
+  overflow: hidden;
+  border: 1px solid var(--exa-border, rgba(148, 163, 184, 0.18));
+  border-radius: 14px;
+  background: rgba(15, 18, 23, 0.84);
+  padding: 0.95rem;
+}
+
+.personalized-primary-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--exa-gold-light), var(--exa-gold-dark));
+}
+
+.personalized-primary-copy {
+  min-width: 0;
+  padding-left: 0.25rem;
+}
+
+.personalized-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--exa-gold-light);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.personalized-primary-card h3 {
+  margin: 0.35rem 0 0.25rem;
+  color: var(--exa-text-primary);
+  font-size: 1.05rem;
+  font-weight: 780;
+}
+
+.personalized-primary-card p {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--exa-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.48;
+}
+
+.personalized-primary-action {
+  display: grid;
+  min-width: 148px;
+  gap: 0.65rem;
+  justify-items: end;
+}
+
+.personalized-metric {
+  display: inline-grid;
+  gap: 0.05rem;
+  min-width: 92px;
+  text-align: right;
+}
+
+.personalized-metric strong {
+  color: var(--exa-text-primary);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.personalized-metric span {
+  color: var(--exa-text-muted);
+  font-size: 0.66rem;
+  line-height: 1.2;
+}
+
+.personalized-primary-action button,
+.personalized-shortcuts button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--exa-gold) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--exa-gold) 12%, transparent);
+  color: var(--exa-gold-light);
+  font-size: 0.75rem;
+  font-weight: 760;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.personalized-primary-action button {
+  min-height: 38px;
+  padding: 0 0.8rem;
+}
+
+.personalized-primary-action button:hover,
+.personalized-shortcuts button:hover {
+  border-color: color-mix(in srgb, var(--exa-gold) 62%, transparent);
+  background: color-mix(in srgb, var(--exa-gold) 17%, transparent);
+  transform: translateY(-1px);
+}
+
+.personalized-shortcuts {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.personalized-shortcuts button {
+  min-height: 56px;
+  justify-content: space-between;
+  border-color: var(--exa-border, rgba(148, 163, 184, 0.18));
+  background: rgba(12, 15, 19, 0.72);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.personalized-shortcuts button > span {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.personalized-shortcuts small {
+  color: var(--exa-text-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.personalized-shortcuts strong {
+  overflow: hidden;
+  color: var(--exa-text-primary);
+  font-size: 0.82rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-customizer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: #02060fc7;
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-customizer {
+  width: min(820px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border: 1px solid #d4af3752;
+  border-radius: 1.4rem;
+  background: #0b1220;
+  padding: 1.25rem;
+}
+
+.dashboard-customizer header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-customizer header span {
+  color: #d4af37;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.dashboard-customizer h2 {
+  margin: 0.25rem 0;
+}
+
+.dashboard-customizer header p {
+  margin: 0;
+  color: #9eabc0;
+  font-size: 0.82rem;
+}
+
+.dashboard-customizer header > button {
+  height: 2.5rem;
+  width: 2.5rem;
+  border: 1px solid #27344b;
+  border-radius: 0.75rem;
+  background: #111b2e;
+  color: #fff;
+}
+
+.dashboard-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 1.1rem 0;
+}
+
+.dashboard-choice-grid > button {
+  min-height: 126px;
+  border: 1px solid #253249;
+  border-radius: 0.9rem;
+  background: #101a2c;
+  padding: 0.85rem;
+  color: #fff;
+  text-align: left;
+}
+
+.dashboard-choice-grid > button.active {
+  border-color: #d4af37;
+  background: #d4af371a;
+}
+
+.dashboard-choice-grid span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 750;
+}
+
+.dashboard-choice-grid small,
+.dashboard-choice-grid em {
+  display: block;
+  margin-top: 0.45rem;
+  color: #9eabc0;
+  line-height: 1.4;
+}
+
+.dashboard-choice-grid em {
+  color: #e2bc4d;
+  font-size: 0.65rem;
+  font-style: normal;
+}
+
+.primary-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem;
+  border-radius: 0.85rem;
+  background: #101a2c;
+}
+
+.primary-choice select {
+  border: 1px solid #39475f;
+  border-radius: 0.65rem;
+  background: #0b1220;
+  padding: 0.55rem;
+  color: #fff;
+}
+
+.dashboard-customizer footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.dashboard-customizer footer button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+
+.dashboard-customizer .reset {
+  border: 1px solid #39475f;
+  background: transparent;
+  color: #c9d2df;
+}
+
+.dashboard-customizer .save {
+  border: 0;
+  background: #d4af37;
+  color: #111827;
+}
+
+@media (max-width: 900px) {
+  .personalized-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .personalized-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-personalize-trigger span {
+    display: none;
+  }
+
+  .personalized-dashboard {
+    padding: 0.75rem;
+    border-radius: 14px;
+  }
+
+  .personalized-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .personalized-primary-card {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .personalized-primary-action {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .personalized-metric {
+    text-align: left;
+  }
+
+  .personalized-primary-action button span {
+    display: none;
+  }
+
+  .personalized-shortcuts,
+  .dashboard-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-customizer-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .dashboard-customizer {
+    max-height: 92vh;
+    border-radius: 1.4rem 1.4rem 0 0;
+  }
+
+  .dashboard-choice-grid > button {
+    min-height: 104px;
+  }
+
+  .dashboard-customizer footer,
+  .primary-choice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
