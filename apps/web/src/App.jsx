@@ -35,7 +35,6 @@ import useMarketData from "./components/market/useMarketData";
 import newsData from "./data/news.json";
 import Register from "./pages/auth/Register";
 import { isLocalApiPreview } from "./config/apiConfig";
-import DashboardComposer from "./features/dashboard/DashboardComposer";
 import DashboardCustomizer from "./features/dashboard/DashboardCustomizer";
 import { defaultDashboardPreferences, loadDashboard, resetDashboard, saveDashboard } from "./features/dashboard/dashboardApi";
 import "./features/dashboard/dashboard.css";
@@ -304,6 +303,27 @@ const features = [
   { name: "ExaSkills", image: Image.edu, icon: GraduationCap, tone: "cyan" },
   { name: "More", image: Image.more, icon: MoreHorizontal, tone: "violet" },
 ];
+const ecosystemFeatureMap = {
+  earn: "Earn",
+  giftcards: "Gift Cards",
+  games: "Games",
+  nft_marketplace: "NFT Market",
+  crowdfund: "Crowdfund",
+  agritech: "Agritech",
+  exaskills: "ExaSkills",
+};
+
+const ecosystemClassMap = {
+  crypto_exchange: "exchange",
+  exaai: "ai",
+  earn: "earn",
+  giftcards: "giftcards",
+  games: "games",
+  exaskills: "skills",
+  crowdfund: "crowdfund",
+  nft_marketplace: "nft",
+  agritech: "agritech",
+};
 
 const marketAssets = [
   { symbol: "BTC", pair: "BTC/USDT", price: "$102,840", change: "+2.84%", heat: "hot" },
@@ -481,6 +501,12 @@ export default function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  const primaryDashboardInterest = dashboardPreferences?.mode === "personalized"
+    ? dashboardPreferences.primary_interest || dashboardPreferences.selected_interests?.[0] || null
+    : null;
+  const primaryEcosystemClass = ecosystemClassMap[primaryDashboardInterest] || "default";
+  const isExchangeEcosystem = primaryDashboardInterest === "crypto_exchange";
+
   const campaignNews = useMemo(() => {
     return [...newsData].sort((a, b) => {
       if (a.featured !== b.featured) {
@@ -507,8 +533,8 @@ export default function App() {
       return right.last - left.last;
     });
 
-    return sorted.slice(0, 5);
-  }, [homeMarketFilter, livePairs]);
+    return sorted.slice(0, isExchangeEcosystem ? 8 : 5);
+  }, [homeMarketFilter, isExchangeEcosystem, livePairs]);
 
   useEffect(() => {
     const splashTimer = setTimeout(() => {
@@ -1283,11 +1309,20 @@ export default function App() {
     );
   };
 
+  const personalizedFeatureName = ecosystemFeatureMap[primaryDashboardInterest] || null;
+  const orderedFeatures = personalizedFeatureName
+    ? [...features].sort((left, right) => {
+        if (left.name === personalizedFeatureName) return -1;
+        if (right.name === personalizedFeatureName) return 1;
+        return 0;
+      })
+    : features;
+
   return (
-    <div className="home-screen text-white exa-bg app-shell">
+    <div className={`home-screen text-white exa-bg app-shell dashboard-ecosystem dashboard-ecosystem-${primaryEcosystemClass}`}>
       <div className="home-scroll-area">
         <div className="w-full px-0 pt-4 pb-6">
-          <div className="home-main-card p-4 shadow-xl glass-card rounded-3xl sm:p-5">
+          <div className="home-main-card dashboard-ecosystem-grid p-4 shadow-xl glass-card rounded-3xl sm:p-5">
           <header className="home-profile-card flex items-center justify-between mb-4 sm:mb-6 campaign-card">
             <div className="flex items-center min-w-0 gap-3 sm:gap-4">
               <div className="profile-menu">
@@ -1454,9 +1489,7 @@ export default function App() {
 
           {dashboardCriticalAlerts.length ? <section className="dashboard-critical-alerts" aria-label="Important account alerts"><strong>Needs your attention</strong>{dashboardCriticalAlerts.map((alert) => <button type="button" key={alert.id} onClick={() => setCurrentPage(alert.kind === "security" ? "settings" : "transactions")}><span>{alert.title}</span><small>{alert.message}</small></button>)}</section> : null}
 
-          <DashboardComposer preferences={dashboardPreferences} state={dashboardState} onOpen={setCurrentPage} />
-
-          <section className="home-features-card mb-4 campaign-card">
+          <section className="home-features-card ecosystem-module mb-4 campaign-card">
             <div className="feature-grid-header">
               <div>
                 <span>{t("dashboard.superAppAccess")}</span>
@@ -1465,11 +1498,11 @@ export default function App() {
               <Sparkles size={17} aria-hidden="true" />
             </div>
             <div className="features-grid">
-              {features.map((feature) => (
+              {orderedFeatures.map((feature) => (
                 <button
                   type="button"
                   key={feature.name}
-                  className={`feature-card feature-${feature.tone}`}
+                  className={`feature-card feature-${feature.tone} ${feature.name === personalizedFeatureName ? "feature-primary" : ""}`}
                   onClick={() => openFeature(feature.name)}
                 >
                   <div className="icon-wrap">
@@ -1482,7 +1515,7 @@ export default function App() {
             </div>
           </section>
 
-          <section className="market-intel-section">
+          <section className={`market-intel-section ecosystem-module ${isExchangeEcosystem ? "market-intel-priority" : ""}`}>
             <div className="market-section-head">
               <div>
                 <span>{t("dashboard.liveMarket")}</span>
