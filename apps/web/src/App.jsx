@@ -461,19 +461,25 @@ export default function App() {
 
   const persistDashboardPreferences = async (next) => {
     setDashboardPreferenceBusy(true);
+    setDashboardPreferences(next);
+    setDashboardCustomizerOpen(false);
     try {
       const saved = await saveDashboard(request, next, Boolean(user?.demo));
       setDashboardPreferences(saved);
-      setDashboardCustomizerOpen(false);
-    } finally { setDashboardPreferenceBusy(false); }
+    } finally {
+      setDashboardPreferenceBusy(false);
+    }
   };
 
   const restoreDefaultDashboard = async () => {
     setDashboardPreferenceBusy(true);
+    setDashboardPreferences(defaultDashboardPreferences);
+    setDashboardCustomizerOpen(false);
     try {
       setDashboardPreferences(await resetDashboard(request, Boolean(user?.demo)));
-      setDashboardCustomizerOpen(false);
-    } finally { setDashboardPreferenceBusy(false); }
+    } finally {
+      setDashboardPreferenceBusy(false);
+    }
   };
 
   const openP2PPage = useCallback((side = "buy") => {

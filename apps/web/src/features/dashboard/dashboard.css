@@ -411,3 +411,182 @@
     flex-direction: column;
   }
 }
+
+/* Personalize dashboard modal: fixed header, scrollable body, sticky actions */
+.dashboard-customizer-backdrop {
+  z-index: 120;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+}
+
+.dashboard-customizer {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(860px, calc(100vw - 2rem));
+  max-height: min(88dvh, 760px);
+  overflow: hidden;
+  padding: 0;
+  border-color: color-mix(in srgb, var(--exa-gold) 32%, var(--exa-border));
+  background: linear-gradient(180deg, rgba(15, 18, 24, 0.98), rgba(8, 10, 14, 0.98));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.58);
+}
+
+.dashboard-customizer-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.85rem;
+  border-bottom: 1px solid var(--exa-border-subtle, rgba(148, 163, 184, 0.14));
+  background: linear-gradient(180deg, rgba(15, 18, 24, 1), rgba(15, 18, 24, 0.96));
+}
+
+.dashboard-customizer-header p {
+  max-width: 58ch;
+}
+
+.dashboard-customizer-close {
+  position: relative;
+  z-index: 4;
+  flex: 0 0 auto;
+  height: 2.75rem !important;
+  width: 2.75rem !important;
+  border: 1px solid var(--exa-border, rgba(148, 163, 184, 0.22)) !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  color: var(--exa-text-primary, #fff) !important;
+}
+
+.dashboard-customizer-close:hover {
+  border-color: color-mix(in srgb, var(--exa-gold) 44%, var(--exa-border)) !important;
+  color: var(--exa-gold-light, #f3d77a) !important;
+}
+
+.dashboard-customizer-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.45) rgba(255, 255, 255, 0.06);
+}
+
+.dashboard-choice-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem 0.8rem;
+  align-items: center;
+  margin-bottom: 0.9rem;
+  border: 1px solid var(--exa-border, rgba(148, 163, 184, 0.18));
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.8rem;
+}
+
+.dashboard-choice-summary span,
+.dashboard-choice-summary small {
+  color: var(--exa-text-muted, #94a3b8);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-choice-summary strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--exa-text-primary, #fff);
+  font-size: 0.9rem;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-choice-summary small {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--exa-gold) 12%, transparent);
+  padding: 0.42rem 0.58rem;
+  color: var(--exa-gold-light, #f3d77a);
+}
+
+.dashboard-choice-grid {
+  margin: 0;
+}
+
+.dashboard-choice-grid > button {
+  position: relative;
+}
+
+.dashboard-choice-grid > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.dashboard-customizer-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 0.75rem;
+  margin: 0 !important;
+  padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--exa-border-subtle, rgba(148, 163, 184, 0.14));
+  background: linear-gradient(180deg, rgba(8, 10, 14, 0.92), rgba(8, 10, 14, 1));
+}
+
+.dashboard-customizer-footer button {
+  min-height: 2.85rem;
+}
+
+.dashboard-customizer-footer .save {
+  box-shadow: 0 12px 24px rgba(212, 175, 55, 0.16);
+}
+
+@media (max-width: 760px) {
+  .dashboard-customizer-backdrop {
+    align-items: stretch;
+    justify-content: flex-end;
+    padding: max(0.5rem, env(safe-area-inset-top)) 0 0;
+  }
+
+  .dashboard-customizer {
+    width: 100%;
+    max-height: 96dvh;
+    border-radius: 1.35rem 1.35rem 0 0;
+  }
+
+  .dashboard-customizer-header {
+    padding: 0.95rem 0.9rem 0.75rem;
+  }
+
+  .dashboard-customizer-header h2 {
+    font-size: 1.05rem;
+  }
+
+  .dashboard-customizer-header p {
+    font-size: 0.76rem;
+  }
+
+  .dashboard-customizer-body {
+    padding: 0.85rem;
+  }
+
+  .dashboard-choice-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-choice-summary small {
+    grid-row: auto;
+    grid-column: auto;
+    width: fit-content;
+  }
+
+  .dashboard-customizer-footer {
+    grid-template-columns: 1fr 1.35fr;
+    padding-inline: 0.85rem;
+  }
+}
