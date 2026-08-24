@@ -79,13 +79,33 @@ class LedgerService
                 throw new RuntimeException('Cannot commit transaction without entries.');
             }
 
-            $sum = '0';
+            $sumsByAsset = [];
             foreach ($entries as $entry) {
-                $sum = $this->add($sum, (string) $entry->amount);
+                $asset = strtoupper((string) $entry->asset);
+                $sumsByAsset[$asset] = $this->add($sumsByAsset[$asset] ?? '0', (string) $entry->amount);
             }
 
-            if ($this->compare($sum, '0') !== 0) {
-                throw new RuntimeException('Double-entry check failed: sum(entries) must equal zero.');
+            foreach ($sumsByAsset as $asset => $sum) {
+                if ($this->compare($sum, '0') !== 0) {
+                    if (
+                        $transaction->transaction_type === 'margin_repay'
+                        && FinancialDecimal::compare(FinancialDecimal::abs($sum), '0.00000001') <= 0
+                    ) {
+                        $rounding = $this->getOrCreateAccount(null, 'margin_rounding_reserve', $asset);
+                        $this->addEntry(
+                            $rounding->id,
+                            FinancialDecimal::sub('0', $sum),
+                            $asset,
+                            $reference,
+                            (string) $transaction->transaction_type,
+                            null,
+                            ['rounding_adjustment' => true, 'source_service' => 'ledger_commit'],
+                        );
+                        $sumsByAsset[$asset] = '0';
+                        continue;
+                    }
+                    throw new RuntimeException("Double-entry check failed: sum(entries) for {$asset} must equal zero; actual {$sum}.");
+                }
             }
 
             $transaction->status = 'completed';
@@ -101,24 +121,55 @@ class LedgerService
     {
         return DB::transaction(function () use ($reference): LedgerTransaction {
             $transaction = LedgerTransaction::query()->where('reference', $reference)->lockForUpdate()->firstOrFail();
-            $entries = LedgerEntry::query()->where('reference', $reference)->lockForUpdate()->get();
+            $entries = LedgerEntry::query()->where('reference', $reference)->lockForUpdate()->orderBy('id')->get();
 
-            foreach ($entries->reverse() as $entry) {
-                $account = Account::query()->lockForUpdate()->findOrFail($entry->account_id);
-                $rollbackAmount = $this->sub('0', (string) $entry->amount);
-                $newBalance = $this->add((string) $account->balance, $rollbackAmount);
-                if ($account->user_id !== null && $this->compare($newBalance, '0') < 0) {
-                    throw new RuntimeException('Rollback would create negative balance.');
-                }
-                $account->balance = $newBalance;
-                $account->save();
+            if ($entries->isEmpty()) {
+                $transaction->status = 'failed';
+                $transaction->metadata = array_merge($transaction->metadata ?? [], ['rollback_note' => 'No ledger entries existed to reverse.']);
+                $transaction->save();
+
+                return $transaction;
             }
 
-            LedgerEntry::query()->where('reference', $reference)->delete();
-            $transaction->status = 'failed';
+            $reversalReference = 'REV-' . $reference;
+            $existingReversal = LedgerTransaction::query()->where('reference', $reversalReference)->first();
+            if (!$existingReversal) {
+                $reversalEntries = $entries->map(fn (LedgerEntry $entry): array => [
+                    'account_id' => $entry->account_id,
+                    'amount' => $this->sub('0', (string) $entry->amount),
+                    'asset' => $entry->asset,
+                    'user_id' => $entry->user_id,
+                    'metadata' => array_merge($entry->metadata ?? [], [
+                        'reversal_of_reference' => $reference,
+                        'original_entry_id' => $entry->id,
+                    ]),
+                ])->all();
+
+                $existingReversal = $this->postDoubleEntry(
+                    $reversalReference,
+                    'Rollback reversal for ' . $reference,
+                    $reversalEntries,
+                    'reversal',
+                    ['reversal_of_reference' => $reference, 'source_service' => 'ledger']
+                );
+            }
+
+            $transaction->status = $transaction->status === 'completed' ? 'reversed' : 'failed';
+            $transaction->metadata = array_merge($transaction->metadata ?? [], ['reversal_reference' => $reversalReference]);
             $transaction->save();
 
-            return $transaction;
+            if (class_exists(\App\Models\LedgerReversalLink::class)) {
+                \App\Models\LedgerReversalLink::query()->firstOrCreate([
+                    'original_transaction_id' => $transaction->id,
+                    'reversal_transaction_id' => $existingReversal->id,
+                ], [
+                    'reason' => 'rollback',
+                    'performed_by_type' => 'system',
+                    'metadata' => ['source' => 'LedgerService::rollbackTransaction'],
+                ]);
+            }
+
+            return $transaction->fresh();
         });
     }
 
@@ -129,6 +180,14 @@ class LedgerService
             if ($tx->status === 'completed') {
                 return $tx;
             }
+
+            $tx->forceFill([
+                'transaction_type' => $type,
+                'source_service' => (string) ($metadata['source_service'] ?? 'ledger'),
+                'initiated_by_type' => $metadata['initiated_by_type'] ?? null,
+                'initiated_by_id' => $metadata['initiated_by_id'] ?? null,
+                'metadata' => $metadata,
+            ])->save();
 
             if (LedgerEntry::query()->where('reference', $reference)->exists()) {
                 throw new RuntimeException('Duplicate ledger reference detected.');
@@ -154,7 +213,12 @@ class LedgerService
     {
         $asset = strtoupper($asset);
 
-        $defaults = ['balance' => '0'];
+        $defaults = [
+            'owner_type' => $userId === null ? 'system' : 'user',
+            'owner_id' => $userId,
+            'status' => 'active',
+            'balance' => '0',
+        ];
 
         if ($userId !== null && $accountType === 'funding') {
             $wallet = Wallet::query()
@@ -167,11 +231,18 @@ class LedgerService
             }
         }
 
-        return Account::query()->firstOrCreate([
+        $account = Account::query()->firstOrCreate([
             'user_id' => $userId,
             'account_type' => $accountType,
             'asset' => $asset,
         ], $defaults);
+
+        $expectedOwnerType = $userId === null ? 'system' : 'user';
+        if (($account->owner_type ?? null) !== $expectedOwnerType || ($account->owner_id ?? null) !== $userId) {
+            $account->forceFill(['owner_type' => $expectedOwnerType, 'owner_id' => $userId, 'status' => $account->status ?? 'active'])->save();
+        }
+
+        return $account;
     }
 
     public function getBalance(int $userId, string $asset, string $accountType = 'funding'): string
@@ -449,22 +520,19 @@ class LedgerService
 
     private function add(string $a, string $b): string
     {
-        return function_exists('bcadd') ? bcadd($a, $b, self::SCALE) : number_format(((float) $a + (float) $b), self::SCALE, '.', '');
+        return FinancialDecimal::add($a, $b, self::SCALE);
     }
 
     private function sub(string $a, string $b): string
     {
-        return function_exists('bcsub') ? bcsub($a, $b, self::SCALE) : number_format(((float) $a - (float) $b), self::SCALE, '.', '');
+        return FinancialDecimal::sub($a, $b, self::SCALE);
     }
 
     private function compare(string $a, string $b): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($a, $b, self::SCALE);
-        }
-        $fa = (float) $a;
-        $fb = (float) $b;
-
-        return $fa < $fb ? -1 : ($fa > $fb ? 1 : 0);
+        return FinancialDecimal::compare($a, $b, self::SCALE);
     }
 }
+
+
+

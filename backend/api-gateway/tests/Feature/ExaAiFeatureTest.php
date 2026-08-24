@@ -83,6 +83,8 @@ class ExaAiFeatureTest extends TestCase
         $sessionResponse = $this->actingAs($user)->postJson('/api/exaai/sessions', [
             'allocation_id' => $allocationId,
             'strategy_id' => $strategy->id,
+            'mode' => 'live',
+            'live_authorization' => true,
             'duration' => '30d',
             'max_daily_loss' => '50',
             'max_drawdown_percent' => '8',
@@ -186,6 +188,6 @@ class ExaAiFeatureTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Current plan does not permit the selected strategy.');
+            ->assertJsonPath('message', 'ExaAI entitlement rejected action: PLAN_FUTURES_DISABLED,STRATEGY_NOT_ENTITLED');
     }
 }

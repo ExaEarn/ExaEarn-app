@@ -233,6 +233,28 @@ class P2PController extends Controller
         return response()->json(['data' => $ad]);
     }
 
+    public function pauseAd(Request $request, int $adId): JsonResponse
+    {
+        try {
+            $ad = $this->p2pService->updateAdStatus($request->user(), $adId, 'paused');
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $ad]);
+    }
+
+    public function resumeAd(Request $request, int $adId): JsonResponse
+    {
+        try {
+            $ad = $this->p2pService->updateAdStatus($request->user(), $adId, 'active');
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $ad]);
+    }
+
     public function openTrade(Request $request, int $adId): JsonResponse
     {
         $payload = $request->validate([
@@ -242,6 +264,23 @@ class P2PController extends Controller
 
         try {
             $trade = $this->p2pService->openTrade($request->user(), $adId, $payload);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $trade], 201);
+    }
+
+    public function openOrder(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'ad_id' => ['required', 'integer', 'min:1'],
+            'fiat_amount' => ['required', 'numeric', 'gt:0'],
+            'payment_method' => ['required', 'string', 'max:64'],
+        ]);
+
+        try {
+            $trade = $this->p2pService->openTrade($request->user(), (int) $payload['ad_id'], $payload);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }

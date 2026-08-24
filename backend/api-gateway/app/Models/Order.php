@@ -11,11 +11,14 @@ class Order extends Model
 {
     protected $fillable = [
         'order_uuid',
+        'client_order_id',
         'user_id',
         'market_id',
         'pair',
         'side',
         'type',
+        'time_in_force',
+        'post_only',
         'trigger_order_type',
         'price',
         'stop_price',
@@ -24,7 +27,12 @@ class Order extends Model
         'remaining_amount',
         'locked_amount',
         'locked_currency',
+        'reservation_id',
         'status',
+        'sequence',
+        'accepted_at',
+        'opened_at',
+        'cancelled_at',
         'triggered_at',
         'metadata',
     ];
@@ -36,6 +44,10 @@ class Order extends Model
         'filled_amount' => 'decimal:8',
         'remaining_amount' => 'decimal:8',
         'locked_amount' => 'decimal:8',
+        'post_only' => 'boolean',
+        'accepted_at' => 'datetime',
+        'opened_at' => 'datetime',
+        'cancelled_at' => 'datetime',
         'triggered_at' => 'datetime',
         'metadata' => 'array',
     ];

@@ -126,8 +126,9 @@ class WalletService
         });
     }
 
-    public function transfer(int $userId, string $asset, string $from, string $to, string $amount, string $referenceId)
+    public function transfer(int $userId, string $asset, string $from, string $to, string|int|float $amount, string $referenceId)
     {
+        $amount = $this->normalize((string) $amount);
         return DB::transaction(function () use ($userId, $asset, $from, $to, $amount, $referenceId) {
             $balance = Balance::where('user_id', $userId)->where('asset', $asset)->lockForUpdate()->firstOrFail();
             LedgerTransaction::firstOrCreate(
@@ -150,12 +151,12 @@ class WalletService
     private function debit(Balance $balance, string $walletType, string $amount, string $referenceId)
     {
         $field = "{$walletType}_available";
-        if ($balance->$field < $amount) {
+        if ($this->compare((string) $balance->$field, $amount) < 0) {
             throw new Exception("Insufficient funds");
         }
 
         $before = $balance->$field;
-        $balance->$field -= $amount;
+        $balance->$field = $this->sub((string) $balance->$field, $amount);
         $account = $this->account($balance, $walletType);
         $account->balance = (string) $balance->$field;
         $account->save();
@@ -165,7 +166,7 @@ class WalletService
             'user_id' => $balance->user_id,
             'wallet_type' => $walletType,
             'asset' => $balance->asset,
-            'amount' => (string) (-1 * (float) $amount),
+            'amount' => $this->sub('0', $amount),
             'type' => 'transfer',
             'transaction_type' => 'transfer',
             'reference' => $referenceId,
@@ -179,7 +180,7 @@ class WalletService
     {
         $field = "{$walletType}_available";
         $before = $balance->$field;
-        $balance->$field += $amount;
+        $balance->$field = $this->add((string) $balance->$field, $amount);
         $account = $this->account($balance, $walletType);
         $account->balance = (string) $balance->$field;
         $account->save();
@@ -222,18 +223,23 @@ class WalletService
         ]);
     }
 
+    private function normalize(string $value): string
+    {
+        return FinancialDecimal::normalize($value, self::SCALE);
+    }
+
     private function add(string $left, string $right): string
     {
-        return function_exists('bcadd') ? bcadd($left, $right, self::SCALE) : number_format((float) $left + (float) $right, self::SCALE, '.', '');
+        return FinancialDecimal::add($left, $right, self::SCALE);
     }
 
     private function sub(string $left, string $right): string
     {
-        return function_exists('bcsub') ? bcsub($left, $right, self::SCALE) : number_format((float) $left - (float) $right, self::SCALE, '.', '');
+        return FinancialDecimal::sub($left, $right, self::SCALE);
     }
 
     private function compare(string $left, string $right): int
     {
-        return function_exists('bccomp') ? bccomp($left, $right, self::SCALE) : ((float) $left <=> (float) $right);
+        return FinancialDecimal::compare($left, $right, self::SCALE);
     }
 }

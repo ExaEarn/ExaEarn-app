@@ -31,6 +31,7 @@ class ExaAiService
         private readonly UnifiedTradingAccountService $accounts,
         private readonly ReferralService $referrals,
         private readonly NotificationService $notifications,
+        private readonly ExaAiEntitlementService $entitlements,
     ) {
     }
 
@@ -70,6 +71,7 @@ class ExaAiService
                 'risk_level' => $session?->risk_level,
                 'mode' => $session?->mode ?? 'live',
             ],
+            'effective_permission' => $this->safeEntitlements($user),
             'capital' => [
                 'allocated_capital' => $activeAllocation?->amount ? (string) $activeAllocation->amount : '0',
                 'available_exaai_capital' => $activeAllocation?->available_amount ? (string) $activeAllocation->available_amount : '0',
@@ -111,6 +113,9 @@ class ExaAiService
             ->with('plan')
             ->where('user_id', $user->id)
             ->whereIn('status', ['active', 'past_due'])
+            ->where(function ($query): void {
+                $query->whereNull('ends_at')->orWhere('ends_at', '>', now());
+            })
             ->orderByDesc('id')
             ->first();
     }
@@ -215,7 +220,7 @@ class ExaAiService
     public function strategiesFor(User $user): Collection
     {
         $subscription = $this->getCurrentSubscription($user);
-        $allowedCodes = $subscription?->plan?->strategy_access ?? [];
+        $allowedCodes = $subscription ? $this->entitlements->effectiveFor($user, ['log_compliance' => false])['entitlements']['allowed_strategies'] : [];
 
         return ExaAiStrategyDefinition::query()
             ->where('is_active', true)
@@ -262,7 +267,13 @@ class ExaAiService
             throw new RuntimeException('Allocation exceeds available Unified Trading capital.');
         }
 
-        if ($this->compare($amount, (string) $subscription->plan->capital_limit) > 0) {
+        $effective = $this->entitlements->assertCanUse($user, [
+            'product' => 'spot',
+            'action' => 'ALLOCATE',
+            'requested_capital' => $amount,
+        ]);
+
+        if ($this->compare($amount, (string) $effective['entitlements']['maximum_ai_capital']) > 0) {
             throw new RuntimeException('Allocation exceeds the current ExaAI plan capital limit.');
         }
 
@@ -332,8 +343,21 @@ class ExaAiService
             throw new RuntimeException('Selected ExaAI strategy is unavailable.');
         }
 
-        if (! in_array($strategy->code, $subscription->plan->strategy_access ?? [], true)) {
+        $mode = $this->normalizeMode((string) ($payload['mode'] ?? 'paper'));
+        $effective = $this->entitlements->assertCanUse($user, [
+            'product' => $strategy->supports_futures ? 'futures' : 'spot',
+            'action' => 'START_SESSION',
+            'strategy_code' => $strategy->code,
+            'requested_capital' => (string) $allocation->amount,
+            'requested_leverage' => (int) data_get($payload, 'constraints.leverage', 1),
+        ]);
+
+        if (! in_array($strategy->code, $effective['entitlements']['allowed_strategies'] ?? [], true)) {
             throw new RuntimeException('Current plan does not permit the selected strategy.');
+        }
+
+        if ($mode === 'live' && ! (bool) ($payload['live_authorization'] ?? false)) {
+            throw new RuntimeException('LIVE ExaAI sessions require explicit user authorization.');
         }
 
         $currentVersion = $strategy->versions()->where('is_current', true)->first();
@@ -358,7 +382,7 @@ class ExaAiService
             'allocation_id' => $allocation->id,
             'strategy_definition_id' => $strategy->id,
             'strategy_version_id' => $currentVersion->id,
-            'mode' => (string) ($payload['mode'] ?? 'live'),
+            'mode' => $mode,
             'status' => 'active',
             'risk_level' => $strategy->risk_level,
             'duration_label' => $durationLabel,
@@ -366,7 +390,7 @@ class ExaAiService
             'ends_at' => $endsAt,
             'max_daily_loss' => $this->fmt((string) ($payload['max_daily_loss'] ?? '0')),
             'max_drawdown_percent' => $payload['max_drawdown_percent'] ?? null,
-            'max_open_positions' => (int) ($payload['max_open_positions'] ?? $subscription->plan->max_open_positions),
+            'max_open_positions' => min((int) ($payload['max_open_positions'] ?? $effective['entitlements']['maximum_positions']), (int) $effective['entitlements']['maximum_positions']),
             'eligible_markets' => $payload['eligible_markets'] ?? ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'],
             'constraints' => array_merge($strategy->default_constraints ?? [], $payload['constraints'] ?? []),
             'stop_conditions' => [
@@ -377,6 +401,8 @@ class ExaAiService
                 'activated_by' => 'user',
                 'plan_code' => $subscription->plan->code,
                 'strategy_version' => $currentVersion->version,
+                'live_authorized' => $mode === 'live',
+                'effective_entitlement_mode' => $effective['mode'],
             ],
         ]);
 
@@ -490,6 +516,60 @@ class ExaAiService
         ];
     }
 
+    public function adminOverview(): array
+    {
+        return [
+            'total_subscribers' => ExaAiSubscription::query()->where('status', 'active')->count(),
+            'active_sessions' => ExaAiSession::query()->where('status', 'active')->count(),
+            'paused_sessions' => ExaAiSession::query()->where('status', 'paused')->count(),
+            'allocated_capital' => (string) ExaAiCapitalAllocation::query()->where('status', 'active')->sum('amount'),
+            'reserved_capital' => (string) ExaAiCapitalAllocation::query()->where('status', 'active')->sum('reserved_amount'),
+            'open_orders' => ExaAiOrder::query()->whereIn('status', ['pending', 'open'])->count(),
+            'completed_orders' => ExaAiOrder::query()->where('status', 'closed')->count(),
+        ];
+    }
+
+    public function adminPlans(): Collection
+    {
+        return ExaAiPlan::query()->orderBy('id')->get();
+    }
+
+    public function adminStrategies(): Collection
+    {
+        return ExaAiStrategyDefinition::query()->with('versions')->orderBy('id')->get();
+    }
+
+    public function adminSessions(int $perPage = 25): LengthAwarePaginator
+    {
+        return ExaAiSession::query()
+            ->with(['user', 'subscription.plan', 'allocation', 'strategy', 'strategyVersion'])
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
+    public function adminSubscriptions(int $perPage = 25): LengthAwarePaginator
+    {
+        return ExaAiSubscription::query()
+            ->with(['user', 'plan'])
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
+    public function adminTrades(int $perPage = 25): LengthAwarePaginator
+    {
+        return ExaAiOrder::query()
+            ->with(['user', 'session'])
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
+    public function adminAuditLogs(int $perPage = 25): LengthAwarePaginator
+    {
+        return ExaAiAuditLog::query()
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
     private function sessionForUser(User $user, int $sessionId): ExaAiSession
     {
         $session = ExaAiSession::query()->where('user_id', $user->id)->find($sessionId);
@@ -509,6 +589,32 @@ class ExaAiService
             '90d' => CarbonImmutable::now()->addDays(90),
             default => null,
         };
+    }
+
+    private function normalizeMode(string $mode): string
+    {
+        $mode = strtolower($mode);
+        return match ($mode) {
+            'demo', 'paper' => 'paper',
+            'shadow' => 'shadow',
+            'live' => 'live',
+            default => throw new RuntimeException('Unsupported ExaAI mode.'),
+        };
+    }
+
+    private function safeEntitlements(User $user): array
+    {
+        try {
+            $effective = $this->entitlements->effectiveFor($user, ['log_compliance' => false]);
+            unset($effective['subscription'], $effective['plan'], $effective['market']);
+            return $effective;
+        } catch (\Throwable $exception) {
+            return [
+                'allowed' => false,
+                'mode' => 'NO_NEW_RISK',
+                'reasons' => ['ENTITLEMENT_EVALUATION_FAILED'],
+            ];
+        }
     }
 
     private function sumCollection(iterable $rows, string $field): string
@@ -591,26 +697,43 @@ class ExaAiService
 
     private function fmt(string $value): string
     {
-        return function_exists('bcadd') ? bcadd($value, '0', self::SCALE) : number_format((float) $value, self::SCALE, '.', '');
+        $this->assertDecimalSupport();
+
+        return bcadd($value, '0', self::SCALE);
     }
 
     private function add(string $left, string $right): string
     {
-        return function_exists('bcadd') ? bcadd($left, $right, self::SCALE) : number_format((float) $left + (float) $right, self::SCALE, '.', '');
+        $this->assertDecimalSupport();
+
+        return bcadd($left, $right, self::SCALE);
     }
 
     private function sub(string $left, string $right): string
     {
-        return function_exists('bcsub') ? bcsub($left, $right, self::SCALE) : number_format((float) $left - (float) $right, self::SCALE, '.', '');
+        $this->assertDecimalSupport();
+
+        return bcsub($left, $right, self::SCALE);
     }
 
     private function mul(string $left, string $right): string
     {
-        return function_exists('bcmul') ? bcmul($left, $right, self::SCALE) : number_format((float) $left * (float) $right, self::SCALE, '.', '');
+        $this->assertDecimalSupport();
+
+        return bcmul($left, $right, self::SCALE);
     }
 
     private function compare(string $left, string $right): int
     {
-        return function_exists('bccomp') ? bccomp($left, $right, self::SCALE) : ((float) $left <=> (float) $right);
+        $this->assertDecimalSupport();
+
+        return bccomp($left, $right, self::SCALE);
+    }
+
+    private function assertDecimalSupport(): void
+    {
+        if (! function_exists('bcadd')) {
+            throw new RuntimeException('BCMath is required for ExaAI financial calculations.');
+        }
     }
 }

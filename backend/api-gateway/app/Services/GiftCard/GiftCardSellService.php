@@ -7,7 +7,7 @@ namespace App\Services\GiftCard;
 use App\Jobs\ProcessGiftCardSubmissionJob;
 use App\Models\GiftCardSubmission;
 use App\Models\User;
-use App\Repositories\WalletRepository;
+use App\Services\SettlementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -18,7 +18,7 @@ class GiftCardSellService
         private readonly GiftCardRateEngine $rateEngine,
         private readonly GiftCardValidationService $validationService,
         private readonly GiftCardFraudDetectionService $fraudDetection,
-        private readonly WalletRepository $walletRepository,
+        private readonly SettlementService $settlement,
     ) {
     }
 
@@ -181,15 +181,26 @@ class GiftCardSellService
             $submission->approved_at = now();
             $submission->save();
 
-            // 2. Credit user wallet
-            $wallet = $this->walletRepository->lockWallet($submission->user_id, $submission->currency);
-            $wallet->available_balance = bcadd((string) $wallet->available_balance, (string) $submission->payout_amount, 2);
-            $wallet->save();
-
-            // 3. Create ledger entries
-            $this->createLedgerEntries($submission);
+            // 2. Credit user through canonical settlement from explicit Gift Card treasury.
+            $payoutReference = "giftcard_sell_payout:{$submission->id}";
+            $this->settlement->giftcardSellPayout(
+                (int) $submission->user_id,
+                (string) $submission->currency,
+                (string) $submission->payout_amount,
+                $payoutReference,
+                [
+                    'giftcard_submission_id' => $submission->id,
+                    'brand' => $submission->brand,
+                    'approved_by' => $adminId,
+                ],
+            );
 
             $submission->paid_out_at = now();
+            $submission->status = 'paid_out';
+            $submission->metadata = array_merge($submission->metadata ?? [], [
+                'payout_reference' => $payoutReference,
+                'settlement_path' => 'canonical_ledger',
+            ]);
             $submission->save();
 
             // 4. Add to inventory (optional for resale)
@@ -236,23 +247,6 @@ class GiftCardSellService
         ]);
 
         return $submission;
-    }
-
-    /**
-     * Create ledger entries for approved gift card.
-     *
-     * @param GiftCardSubmission $submission
-     */
-    private function createLedgerEntries(GiftCardSubmission $submission): void
-    {
-        // Debit treasury
-        app(\App\Services\LedgerService::class)->credit(
-            $submission->user_id,
-            (string) $submission->payout_amount,
-            $submission->currency,
-            "giftcard_payout_{$submission->id}",
-            "Gift card sell payout - {$submission->brand}"
-        );
     }
 
     /**

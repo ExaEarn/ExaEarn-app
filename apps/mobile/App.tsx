@@ -29,13 +29,14 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { LanguageProvider, useLanguage } from "./src/context/LanguageContext";
 import DashboardScreen from "./src/screens/DashboardScreen";
+import ExaCardScreen from "./src/screens/ExaCardScreen";
 import GiftcardScreen from "./src/screens/GiftcardScreen";
 import MarketScreen from "./src/screens/MarketScreen";
 import StakingScreen from "./src/screens/StakingScreen";
 import TradeScreen from "./src/screens/TradeScreen";
 import { colors, fonts } from "./src/theme/colors";
 
-type RouteName = "dashboard" | "staking" | "giftcard" | "market" | "trade";
+type RouteName = "dashboard" | "staking" | "giftcard" | "exacard" | "market" | "trade";
 
 export default function App() {
   const [fontsReady] = useFonts({
@@ -75,6 +76,10 @@ function RootShell({ fontsReady }: { fontsReady: boolean }) {
     return <GiftcardScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
   }
 
+  if (route === "exacard") {
+    return <ExaCardScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+  }
+
   if (route === "market") {
     return <MarketScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} onOpenTrade={() => setRoute("trade")} />;
   }
@@ -86,6 +91,7 @@ function RootShell({ fontsReady }: { fontsReady: boolean }) {
   return (
     <DashboardScreen
       fontsReady={fontsReady}
+      onOpenExaCard={() => setRoute("exacard")}
       onOpenGiftcard={() => setRoute("giftcard")}
       onOpenMarket={() => setRoute("market")}
       onOpenStaking={() => setRoute("staking")}

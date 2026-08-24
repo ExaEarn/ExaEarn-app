@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'provider_mode' => env('CARD_PROVIDER_MODE', 'sandbox'),
+    'production_issuance_enabled' => (bool) env('EXACARD_PRODUCTION_ISSUANCE_ENABLED', false),
+    'quote_ttl_seconds' => (int) env('EXACARD_QUOTE_TTL_SECONDS', 60),
+    'webhook_tolerance_seconds' => (int) env('EXACARD_WEBHOOK_TOLERANCE_SECONDS', 300),
+    'webhook_secret' => env('EXACARD_SANDBOX_WEBHOOK_SECRET', 'sandbox-card-webhook-secret'),
+    'minimum_account_age_days' => (int) env('EXACARD_MIN_ACCOUNT_AGE_DAYS', 0),
+
+    'products' => [
+        'USD_VIRTUAL' => [
+            'provider' => 'fake',
+            'product_code' => 'USD_VIRTUAL',
+            'type' => 'VIRTUAL',
+            'currency' => 'USD',
+            'enabled' => true,
+            'countries' => ['US', 'NG', 'GB', 'CA'],
+            'minimum_kyc_level' => 1,
+            'maximum_cards_user' => 2,
+            'minimum_funding' => '5',
+            'maximum_funding' => '10000',
+            'allowed_funding_assets' => ['USD', 'USDT', 'USDC'],
+            'physical_enabled' => false,
+        ],
+        'NGN_VIRTUAL' => [
+            'provider' => 'fake',
+            'product_code' => 'NGN_VIRTUAL',
+            'type' => 'VIRTUAL',
+            'currency' => 'NGN',
+            'enabled' => true,
+            'countries' => ['NG'],
+            'minimum_kyc_level' => 1,
+            'maximum_cards_user' => 2,
+            'minimum_funding' => '1000',
+            'maximum_funding' => '10000000',
+            'allowed_funding_assets' => ['NGN', 'USDT', 'USDC'],
+            'physical_enabled' => false,
+        ],
+        'PHYSICAL' => [
+            'provider' => 'fake',
+            'product_code' => 'PHYSICAL',
+            'type' => 'PHYSICAL',
+            'currency' => 'USD',
+            'enabled' => false,
+            'countries' => [],
+            'minimum_kyc_level' => 2,
+            'maximum_cards_user' => 1,
+            'minimum_funding' => '25',
+            'maximum_funding' => '10000',
+            'allowed_funding_assets' => ['USD', 'USDT', 'USDC'],
+            'physical_enabled' => false,
+        ],
+    ],
+
+    'fake_provider' => [
+        'capabilities' => [
+            'virtual_cards' => true,
+            'physical_cards' => false,
+            'currencies' => ['USD', 'NGN'],
+            'unload_card' => true,
+            'freeze' => true,
+            'unfreeze' => true,
+            'spending_limits' => true,
+            'atm_controls' => false,
+            'online_controls' => true,
+            'international_controls' => true,
+            'contactless' => false,
+            'apple_pay' => false,
+            'google_pay' => false,
+            'jit_funding' => false,
+            'physical_replacement' => false,
+        ],
+    ],
+];

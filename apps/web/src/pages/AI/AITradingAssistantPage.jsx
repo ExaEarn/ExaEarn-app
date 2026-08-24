@@ -114,7 +114,7 @@ export default function AITradingAssistantPage({ onBack }) {
   const [allocationForm, setAllocationForm] = useState({ asset: "USDT", amount: "1000" });
   const [allocations, setAllocations] = useState([]);
   const [allocation, setAllocation] = useState(null);
-  const [sessionForm, setSessionForm] = useState({ strategy_id: "", duration: "30d", max_daily_loss: "50", max_drawdown_percent: "8" });
+  const [sessionForm, setSessionForm] = useState({ strategy_id: "", mode: "paper", live_authorization: false, duration: "30d", max_daily_loss: "50", max_drawdown_percent: "8" });
 
   const loadAll = async (period = performancePeriod) => {
     setLoading(true);
@@ -218,7 +218,9 @@ export default function AITradingAssistantPage({ onBack }) {
     } finally {
       setSubmitting(false);
     }
-  };  const handleActivate = async () => {
+  };
+
+  const handleActivate = async () => {
     setSubmitting(true);
     setStatus({ type: "", text: "" });
     try {
@@ -228,6 +230,8 @@ export default function AITradingAssistantPage({ onBack }) {
         body: {
           allocation_id: allocation?.id,
           strategy_id: Number(sessionForm.strategy_id),
+          mode: sessionForm.mode,
+          live_authorization: sessionForm.mode === "live" ? sessionForm.live_authorization : false,
           duration: sessionForm.duration,
           max_daily_loss: sessionForm.max_daily_loss,
           max_drawdown_percent: sessionForm.max_drawdown_percent,
@@ -399,12 +403,19 @@ export default function AITradingAssistantPage({ onBack }) {
                 <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={submitting || !subscription} onClick={handleAllocate} className="rounded-xl border border-[var(--exa-border)] px-4 py-2.5 text-sm font-semibold text-[var(--exa-text-primary)] disabled:opacity-50">{submitting ? "Saving..." : "Save Allocation"}</button><Badge tone={allocation ? "success" : "neutral"}>{allocation ? `Allocation ${allocation.reference}` : "No allocation saved yet"}</Badge>{allocations.length > 1 ? <Badge tone="brand">{allocations.length} saved allocations</Badge> : null}</div>
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Strategy</span><select value={sessionForm.strategy_id} onChange={(event) => setSessionForm((current) => ({ ...current, strategy_id: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]"><option value="">Select strategy</option>{strategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.name}</option>)}</select></label>
+                  <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Mode</span><select value={sessionForm.mode} onChange={(event) => setSessionForm((current) => ({ ...current, mode: event.target.value, live_authorization: event.target.value === "live" ? current.live_authorization : false }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]"><option value="paper">Paper - no real funds</option><option value="shadow">Shadow - real market data, no orders</option><option value="live">Live - real ExaEarn execution</option></select></label>
                   <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Duration</span><select value={sessionForm.duration} onChange={(event) => setSessionForm((current) => ({ ...current, duration: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]"><option value="24h">24 Hours</option><option value="7d">7 Days</option><option value="30d">30 Days</option><option value="90d">90 Days</option><option value="manual">Until Manually Stopped</option></select></label>
                   <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Maximum Daily Loss</span><input value={sessionForm.max_daily_loss} onChange={(event) => setSessionForm((current) => ({ ...current, max_daily_loss: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]" inputMode="decimal" /></label>
                   <label className="space-y-2 text-sm text-[var(--exa-text-secondary)]"><span>Maximum Drawdown %</span><input value={sessionForm.max_drawdown_percent} onChange={(event) => setSessionForm((current) => ({ ...current, max_drawdown_percent: event.target.value }))} className="w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]" inputMode="decimal" /></label>
                 </div>
+                {sessionForm.mode === "live" ? (
+                  <label className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
+                    <input type="checkbox" checked={sessionForm.live_authorization} onChange={(event) => setSessionForm((current) => ({ ...current, live_authorization: event.target.checked }))} className="mt-1 h-4 w-4 accent-[var(--exa-gold)]" />
+                    <span>I authorize ExaAI to submit real Spot/Futures orders through ExaEarn's normal risk, OMS, matching and ledger systems using only my allocated ExaAI capital.</span>
+                  </label>
+                ) : null}
                 <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">Trading involves risk. Automated trading can generate losses. Historical performance does not guarantee future performance, and ExaAI remains subject to ExaEarn eligibility, market availability, and server-side risk controls.</div>
-                <button type="button" disabled={submitting || !subscription || !allocation || !sessionForm.strategy_id} onClick={handleActivate} className="mt-4 w-full rounded-2xl bg-[var(--exa-gold)] px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-50">{submitting ? "Activating ExaAI..." : "Activate ExaAI"}</button>
+                <button type="button" disabled={submitting || !subscription || !allocation || !sessionForm.strategy_id || (sessionForm.mode === "live" && !sessionForm.live_authorization)} onClick={handleActivate} className="mt-4 w-full rounded-2xl bg-[var(--exa-gold)] px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-50">{submitting ? "Activating ExaAI..." : "Activate ExaAI"}</button>
               </SectionCard>
             </div>
           ) : null}

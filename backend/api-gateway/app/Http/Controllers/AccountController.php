@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Services\AccountClosureSafetyService;
 use App\Services\UnifiedTradingAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -88,6 +89,15 @@ class AccountController extends Controller
             'success' => true,
             'status' => 'success',
             'data' => $service->getTransfers((int) $request->user()->id),
+        ]);
+    }
+
+    public function closureReadiness(Request $request, AccountClosureSafetyService $service): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'status' => 'success',
+            'data' => $service->readiness((int) $request->user()->id),
         ]);
     }
 }

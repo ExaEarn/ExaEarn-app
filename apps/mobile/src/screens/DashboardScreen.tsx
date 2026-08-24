@@ -13,6 +13,7 @@ import { colors, fonts } from "../theme/colors";
 
 type DashboardScreenProps = {
   fontsReady: boolean;
+  onOpenExaCard?: () => void;
   onOpenGiftcard?: () => void;
   onOpenMarket?: () => void;
   onOpenStaking?: () => void;
@@ -62,6 +63,7 @@ const featureAssets = {
 };
 
 const features = [
+  { label: "ExaCard", image: featureAssets.giftcard, icon: "card-outline" as const, tone: "#f9e2ad" },
   { label: "Gift Cards", image: featureAssets.giftcard, icon: "gift-outline" as const, tone: "#f9e2ad" },
   { label: "ExaEarn Staking", image: featureAssets.earn, icon: "cash-outline" as const, tone: "#67e8f9" },
   { label: "Games", image: featureAssets.games, icon: "game-controller-outline" as const, tone: "#c4b5fd" },
@@ -202,7 +204,7 @@ function DailyRewardCard({
   );
 }
 
-export default function DashboardScreen({ fontsReady, onOpenGiftcard, onOpenMarket, onOpenStaking, onOpenTrade }: DashboardScreenProps) {
+export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftcard, onOpenMarket, onOpenStaking, onOpenTrade }: DashboardScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { user, logout, request, apiBaseUrl } = useAuth();
@@ -272,6 +274,12 @@ export default function DashboardScreen({ fontsReady, onOpenGiftcard, onOpenMark
         title: "Gift Card Exchange",
         body: "Redeem, swap, and track gift card liquidity with the same wallet identity used on web.",
         action: "Open Rates",
+      },
+      ExaCard: {
+        icon: "card-outline",
+        title: "ExaCard",
+        body: "Issue virtual cards, fund from your ExaEarn account, control spending, and review provider activity.",
+        action: "Open Cards",
       },
       "ExaEarn Staking": {
         icon: "cash-outline",
@@ -627,6 +635,10 @@ export default function DashboardScreen({ fontsReady, onOpenGiftcard, onOpenMark
                   onPress={() => {
                     if (item.label === "Gift Cards" && onOpenGiftcard) {
                       onOpenGiftcard();
+                      return;
+                    }
+                    if (item.label === "ExaCard" && onOpenExaCard) {
+                      onOpenExaCard();
                       return;
                     }
                     if (item.label === "ExaEarn Staking" && onOpenStaking) {

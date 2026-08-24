@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Services\FinancialDecimal;
 
 class Wallet extends Model
 {
@@ -55,10 +56,6 @@ class Wallet extends Model
      */
     public function getTotalBalanceAttribute(): string
     {
-        if (function_exists('bcadd')) {
-            return bcadd((string) $this->available_balance, (string) $this->locked_balance, 8);
-        }
-
-        return number_format((float) $this->available_balance + (float) $this->locked_balance, 8, '.', '');
+        return FinancialDecimal::add((string) $this->available_balance, (string) $this->locked_balance, 8);
     }
 }

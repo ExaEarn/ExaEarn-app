@@ -752,31 +752,16 @@ class TransactionService
 
     private function add(string $left, string $right): string
     {
-        if (function_exists('bcadd')) {
-            return bcadd($left, $right, self::SCALE);
-        }
-
-        return number_format(((float) $left + (float) $right), self::SCALE, '.', '');
+        return FinancialDecimal::add($left, $right, self::SCALE);
     }
 
     private function sub(string $left, string $right): string
     {
-        if (function_exists('bcsub')) {
-            return bcsub($left, $right, self::SCALE);
-        }
-
-        return number_format(((float) $left - (float) $right), self::SCALE, '.', '');
+        return FinancialDecimal::sub($left, $right, self::SCALE);
     }
 
     private function compare(string $left, string $right): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($left, $right, self::SCALE);
-        }
-
-        $leftFloat = (float) $left;
-        $rightFloat = (float) $right;
-
-        return $leftFloat < $rightFloat ? -1 : ($leftFloat > $rightFloat ? 1 : 0);
+        return FinancialDecimal::compare($left, $right, self::SCALE);
     }
 }

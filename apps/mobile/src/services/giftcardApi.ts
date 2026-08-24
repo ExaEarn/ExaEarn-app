@@ -26,12 +26,21 @@ export type GiftcardInventoryItem = {
 export type GiftcardOrder = {
   id?: number;
   reference?: string;
+  type?: string;
+  amount?: number | string;
+  currency?: string;
   status?: string;
   risk_level?: string;
   created_at?: string;
   metadata?: {
+    provider_reference?: string | null;
+    settlement_reference?: string | null;
+    delivery_state?: string;
+    refund_reference?: string;
+    payout_reference?: string;
     delivery?: {
       masked_code?: string;
+      masked_codes?: string[];
     };
   };
 };
@@ -143,7 +152,7 @@ export async function submitGiftcardBuy(
   });
 }
 
-export async function fetchGiftcardOrders(request: MobileRequest, perPage = 1) {
+export async function fetchGiftcardOrders(request: MobileRequest, perPage = 5) {
   const payload = await request<Record<string, unknown>>(`/api/giftcard/orders?per_page=${perPage}`, { method: "GET" });
   return unwrapArray(payload) as GiftcardOrder[];
 }

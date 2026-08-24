@@ -26,7 +26,7 @@ import TradingChart from '../../components/market/TradingChart';
 const TIMEFRAMES = ['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'] as const;
 const QUOTES = ['ALL', 'USDT', 'USDC', 'BTC', 'ETH', 'EXA'] as const;
 const ORDER_TYPES: OrderFormState['type'][] = ['limit', 'market', 'stop_loss'];
-const PRODUCT_TABS = ['Convert', 'Spot', 'Futures', 'Options', 'TradFi'] as const;
+const PRODUCT_TABS = ['Convert', 'Spot', 'Margin', 'Futures', 'Options', 'TradFi'] as const;
 const ACCOUNT_TABS = ['openOrders', 'tradeHistory', 'assets'] as const;
 const MOBILE_MODES = ['chart', 'trade'] as const;
 const DEPTH_TABS = ['book', 'trades'] as const;
@@ -44,6 +44,7 @@ type TradeTerminalProps = {
   onBack?: () => void;
   onOpenConvert?: () => void;
   onOpenFutures?: () => void;
+  onOpenMargin?: () => void;
   onOpenOptions?: () => void;
   onOpenTradFi?: () => void;
 };
@@ -68,7 +69,7 @@ const readFavorites = () => { try { const raw = localStorage.getItem(FAVORITES_K
 const getInitialPairFromPath = () => { const segments = window.location.pathname.split('/').filter(Boolean); return segments[0] === 'trade' && segments[1] ? marketDataService.normalizePair(segments[1]) : 'BTC/USDT'; };
 const pricePrecisionFromValue = (value: number) => (value >= 1000 ? 2 : value >= 1 ? 4 : 6);
 
-export default function TradeTerminal({ onBack, onOpenConvert, onOpenFutures, onOpenOptions, onOpenTradFi }: TradeTerminalProps) {
+export default function TradeTerminal({ onBack, onOpenConvert, onOpenFutures, onOpenMargin, onOpenOptions, onOpenTradFi }: TradeTerminalProps) {
   const { request, user } = useAuth();
   const [markets, setMarkets] = useState<TradingPair[]>([]);
   const [selectedPair, setSelectedPair] = useState<string>(getInitialPairFromPath);
@@ -280,6 +281,7 @@ export default function TradeTerminal({ onBack, onOpenConvert, onOpenFutures, on
   const handleProductTab = (tab: ProductTab) => {
     if (tab === 'Spot') return;
     if (tab === 'Convert') { onOpenConvert?.(); return; }
+    if (tab === 'Margin') { onOpenMargin?.(); return; }
     if (tab === 'Futures') { onOpenFutures?.(); return; }
     if (tab === 'Options') { onOpenOptions?.(); return; }
     if (tab === 'TradFi') { onOpenTradFi?.(); return; }

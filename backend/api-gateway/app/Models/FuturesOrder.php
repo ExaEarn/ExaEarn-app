@@ -11,12 +11,18 @@ class FuturesOrder extends Model
 {
     protected $fillable = [
         'order_uuid',
+        'client_order_id',
         'user_id',
         'futures_market_id',
         'symbol',
         'type',
+        'time_in_force',
         'side',
+        'reduce_only',
+        'post_only',
         'price',
+        'trigger_price',
+        'trigger_source',
         'quantity',
         'leverage',
         'notional_value',
@@ -36,6 +42,9 @@ class FuturesOrder extends Model
         'filled_quantity' => 'decimal:8',
         'remaining_quantity' => 'decimal:8',
         'leverage' => 'integer',
+        'reduce_only' => 'boolean',
+        'post_only' => 'boolean',
+        'trigger_price' => 'decimal:8',
         'metadata' => 'array',
     ];
 
@@ -49,4 +58,3 @@ class FuturesOrder extends Model
         return $this->belongsTo(User::class);
     }
 }
-

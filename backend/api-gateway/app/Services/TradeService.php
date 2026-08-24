@@ -13,9 +13,8 @@ use App\Models\Order;
 use App\Models\OrderBook;
 use App\Models\Trade;
 use App\Models\Transaction;
-use App\Models\WalletTransaction;
-use App\Repositories\WalletRepository;
-use App\Services\System\SettingService;
+use App\Services\Spot\OrderManagementService;
+use App\Services\Spot\SpotEngineModeResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -41,12 +40,12 @@ class TradeService
     ];
 
     public function __construct(
-        private readonly WalletRepository $wallets,
-        private readonly TransactionService $transactions,
         private readonly MarketStreamService $marketStream,
-        private readonly UnifiedTradingReservationService $reservations,
+        private readonly ReservationService $reservations,
+        private readonly SettlementService $settlements,
         private readonly ReferralService $referrals,
-        private readonly FeeTreasuryService $feeTreasury,
+        private readonly OrderManagementService $orderManagement,
+        private readonly SpotEngineModeResolver $engineModes,
     ) {}
 
     public function listMarkets(): Collection
@@ -513,6 +512,43 @@ class TradeService
         array $metadata = []
     ): array {
         $market = $this->getMarket($pair);
+        $this->engineModes->assertOrderEntryAllowed($market);
+        app(TradingRiskEngine::class)->assertOrderAllowed($userId, 'spot', $market, [
+            'pair' => $market->symbol,
+            'side' => $side,
+            'type' => $type,
+            'amount' => $amount,
+            'price' => $price,
+        ]);
+        if ($this->engineModes->isNewAuthority($market) && !in_array(strtolower($type), ['stop_loss', 'take_profit'], true)) {
+            $result = $this->orderManagement->placeOrder($userId, [
+                'pair' => $market->symbol,
+                'side' => $side,
+                'type' => $type,
+                'amount' => $amount,
+                'price' => $price,
+                'time_in_force' => $metadata['time_in_force'] ?? 'GTC',
+                'post_only' => $metadata['post_only'] ?? false,
+                'client_order_id' => $metadata['client_order_id'] ?? null,
+                'account_type' => $metadata['account_type'] ?? 'unified_trading',
+                'metadata' => $metadata,
+            ]);
+
+            if (($result['trades'] ?? []) !== []) {
+                $this->referrals->queueQualifiedActivity($userId, 'first_trade', [
+                    'event_key' => $result['order']->order_uuid,
+                    'transaction_id' => $result['order']->order_uuid,
+                    'ip_address' => request()?->ip(),
+                ]);
+            }
+
+            return $result;
+        }
+
+        if (!$this->engineModes->isLegacyAuthority($market)) {
+            throw new RuntimeException('No authoritative Spot engine is available for this market.');
+        }
+
         $side = strtolower($side);
         $type = strtolower($type);
 
@@ -562,6 +598,7 @@ class TradeService
             throw new RuntimeException('Price is required.');
         }
 
+        $orderUuid = (string) Str::uuid();
         $lockCurrency = $side === 'buy' ? $market->quote_currency : $market->base_currency;
         $lockAmount = $side === 'buy'
             ? ($executionType === 'market'
@@ -569,23 +606,24 @@ class TradeService
                 : $this->mul($amount, (string) $matchPrice))
             : $amount;
 
-        $this->reservations->reserveSpotOrder(
-            $userId,
-            $lockCurrency,
-            $lockAmount,
-            "order_lock:{$market->symbol}",
-            array_merge($metadata, [
-                'pair' => $market->symbol,
-                'side' => $side,
-                'type' => $type,
-                'price' => $matchPrice,
-                'stop_price' => $stopPrice,
-                'trigger_order_type' => $isConditional ? $triggerOrderType : null,
-            ])
-        );
+        if ($side === 'buy' && $executionType === 'market') {
+            $slippageBps = FinancialDecimal::normalize((string) config('trading.market_order_slippage_bps', '100'));
+            $lockAmount = $this->add($lockAmount, $this->div($this->mul($lockAmount, $slippageBps), '10000'));
+            $maximumSpend = isset($metadata['maximum_spend']) ? FinancialDecimal::normalize((string) $metadata['maximum_spend']) : null;
+            if ($maximumSpend !== null && $this->compare($lockAmount, $maximumSpend) > 0) {
+                throw new RuntimeException('Market order reservation exceeds maximum spend.');
+            }
+        }
 
-        $order = Order::create([
-            'order_uuid' => (string) Str::uuid(),
+        $order = DB::transaction(function () use ($amount, $executionType, $isConditional, $lockAmount, $lockCurrency, $market, $matchPrice, $metadata, $orderUuid, $side, $stopPrice, $triggerOrderType, $type, $userId): Order {
+            $reservation = $this->reservations->reserveUserAccount(
+                $userId, 'unified_trading', (string) $lockCurrency, $lockAmount, 'spot_order',
+                'order', $orderUuid, "spot-order:{$orderUuid}",
+                array_merge($metadata, ['product' => 'spot', 'market' => $market->symbol, 'side' => $side, 'order_type' => $type])
+            );
+
+            return Order::create([
+            'order_uuid' => $orderUuid,
             'user_id' => $userId,
             'market_id' => $market->id,
             'pair' => $market->symbol,
@@ -600,8 +638,9 @@ class TradeService
             'locked_amount' => $lockAmount,
             'locked_currency' => $lockCurrency,
             'status' => $isConditional ? 'pending_trigger' : 'open',
-            'metadata' => $metadata,
-        ]);
+            'metadata' => array_merge($metadata, ['reservation_id' => $reservation->reservation_id]),
+            ]);
+        });
 
         $trades = $isConditional ? [] : $this->matchOrder($order);
         $this->refreshOrderBook($market);
@@ -713,28 +752,32 @@ class TradeService
 
     public function cancelOrder(int $userId, string $orderUuid): Order
     {
-        $order = Order::query()
-            ->where('order_uuid', $orderUuid)
-            ->where('user_id', $userId)
-            ->firstOrFail();
-
-        if (! in_array($order->status, ['open', 'partially_filled', 'pending_trigger'], true)) {
-            throw new RuntimeException('Only open orders can be cancelled.');
+        $existing = Order::query()->where('order_uuid', $orderUuid)->where('user_id', $userId)->with('market')->firstOrFail();
+        if ($this->engineModes->isNewAuthority($existing->market)) {
+            return $this->orderManagement->cancelOrder($userId, $orderUuid);
         }
 
-        if ($this->compare((string) $order->locked_amount, '0') > 0) {
-            $this->reservations->releaseSpotOrder(
-                $userId,
-                (string) $order->locked_currency,
-                (string) $order->locked_amount,
-                "order_cancel:{$order->pair}",
-                ['order_uuid' => $order->order_uuid]
-            );
+        if (!$this->engineModes->isLegacyAuthority($existing->market)) {
+            throw new RuntimeException('Market is not accepting order cancellations through this engine mode.');
         }
 
-        $order->status = 'cancelled';
-        $order->locked_amount = '0';
-        $order->save();
+        $order = DB::transaction(function () use ($orderUuid, $userId): Order {
+            $order = Order::query()->where('order_uuid', $orderUuid)->where('user_id', $userId)->lockForUpdate()->firstOrFail();
+            if ($order->status === 'cancelled') {
+                return $order;
+            }
+            if (! in_array($order->status, ['open', 'partially_filled', 'pending_trigger'], true)) {
+                throw new RuntimeException('Only open orders can be cancelled.');
+            }
+            $reservationId = (string) data_get($order->metadata, 'reservation_id', '');
+            if ($reservationId !== '' && $this->compare((string) $order->locked_amount, '0') > 0) {
+                $this->reservations->release($reservationId, null, ['event' => 'order_cancel', 'order_uuid' => $order->order_uuid]);
+            }
+            $order->status = 'cancelled';
+            $order->locked_amount = '0';
+            $order->save();
+            return $order;
+        });
 
         $this->refreshOrderBook($order->market);
 
@@ -745,12 +788,16 @@ class TradeService
     {
         $trades = [];
         $market = $incomingOrder->market;
+        if (!$this->engineModes->isLegacyAuthority($market)) {
+            throw new RuntimeException('Legacy matcher cannot execute for this market mode.');
+        }
         $isBuy = $incomingOrder->side === 'buy';
 
         $query = Order::query()
             ->where('market_id', $incomingOrder->market_id)
             ->where('side', $isBuy ? 'sell' : 'buy')
             ->whereIn('status', ['open', 'partially_filled'])
+            ->where('user_id', '!=', $incomingOrder->user_id)
             ->where('id', '!=', $incomingOrder->id);
 
         if ($isBuy) {
@@ -785,38 +832,21 @@ class TradeService
                 $buyReserve = $buyOrder->type === 'market' ? $quoteAmount : $this->mul($tradeAmount, (string) $buyOrder->price);
                 $refund = $buyOrder->type === 'market' ? '0' : $this->sub($buyReserve, $quoteAmount);
                 $makerFeeAmount = $makerOrder->side === 'buy'
-                    ? $this->mul($tradeAmount, (string) SettingService::getNumber('trading.maker_fee', 0.001))
-                    : $this->mul($quoteAmount, (string) SettingService::getNumber('trading.maker_fee', 0.001));
+                    ? $this->mul($tradeAmount, (string) config('trading.maker_fee', '0.001'))
+                    : $this->mul($quoteAmount, (string) config('trading.maker_fee', '0.001'));
                 $takerFeeAmount = $takerOrder->side === 'buy'
-                    ? $this->mul($tradeAmount, (string) SettingService::getNumber('trading.taker_fee', 0.002))
-                    : $this->mul($quoteAmount, (string) SettingService::getNumber('trading.taker_fee', 0.002));
+                    ? $this->mul($tradeAmount, (string) config('trading.taker_fee', '0.002'))
+                    : $this->mul($quoteAmount, (string) config('trading.taker_fee', '0.002'));
                 $buyFee = $buyOrder->id === $makerOrder->id ? $makerFeeAmount : $takerFeeAmount;
                 $sellFee = $sellOrder->id === $makerOrder->id ? $makerFeeAmount : $takerFeeAmount;
                 $buyNetBase = $this->sub($tradeAmount, $buyFee);
                 $sellNetQuote = $this->sub($quoteAmount, $sellFee);
 
-                $buyQuoteWallet = $this->wallets->lockWallet($buyOrder->user_id, $market->quote_currency);
-                $buyBaseWallet = $this->wallets->lockWallet($buyOrder->user_id, $market->base_currency);
-                $sellBaseWallet = $this->wallets->lockWallet($sellOrder->user_id, $market->base_currency);
-                $sellQuoteWallet = $this->wallets->lockWallet($sellOrder->user_id, $market->quote_currency);
-
-                $buyBaseBefore = (string) $buyBaseWallet->available_balance;
-                $sellQuoteBefore = (string) $sellQuoteWallet->available_balance;
-                $buyQuoteBefore = (string) $buyQuoteWallet->available_balance;
-
-                $buyQuoteWallet->locked_balance = $this->sub((string) $buyQuoteWallet->locked_balance, $buyReserve);
-                if ($this->compare($refund, '0') > 0) {
-                    $buyQuoteWallet->available_balance = $this->add((string) $buyQuoteWallet->available_balance, $refund);
+                $buyReservationId = (string) data_get($buyOrder->metadata, 'reservation_id', '');
+                $sellReservationId = (string) data_get($sellOrder->metadata, 'reservation_id', '');
+                if ($buyReservationId === '' || $sellReservationId === '') {
+                    throw new RuntimeException('Spot order is missing its canonical reservation.');
                 }
-                $buyBaseWallet->available_balance = $this->add((string) $buyBaseWallet->available_balance, $buyNetBase);
-
-                $sellBaseWallet->locked_balance = $this->sub((string) $sellBaseWallet->locked_balance, $tradeAmount);
-                $sellQuoteWallet->available_balance = $this->add((string) $sellQuoteWallet->available_balance, $sellNetQuote);
-
-                $buyQuoteWallet->save();
-                $buyBaseWallet->save();
-                $sellBaseWallet->save();
-                $sellQuoteWallet->save();
 
                 $buyOrder->filled_amount = $this->add((string) $buyOrder->filled_amount, $tradeAmount);
                 $buyOrder->remaining_amount = $this->sub((string) $buyOrder->remaining_amount, $tradeAmount);
@@ -856,19 +886,34 @@ class TradeService
                     ],
                 ]);
 
+                $this->settlements->spotTrade([
+                    'buyer_user_id' => $buyOrder->user_id,
+                    'seller_user_id' => $sellOrder->user_id,
+                    'base_asset' => $market->base_currency,
+                    'quote_asset' => $market->quote_currency,
+                    'base_amount' => $tradeAmount,
+                    'quote_amount' => $quoteAmount,
+                    'buyer_fee' => $buyFee,
+                    'seller_fee' => $sellFee,
+                    'consume_reservations' => [$buyReservationId => $quoteAmount, $sellReservationId => $tradeAmount],
+                    'metadata' => [
+                        'product' => 'spot',
+                        'market' => $market->symbol,
+                        'execution_reference' => $trade->trade_uuid,
+                        'buy_order_reference' => $buyOrder->order_uuid,
+                        'sell_order_reference' => $sellOrder->order_uuid,
+                        'maker_order_reference' => $makerOrder->order_uuid,
+                        'taker_order_reference' => $takerOrder->order_uuid,
+                        'maker_fee_rate' => (string) config('trading.maker_fee', '0.001'),
+                        'taker_fee_rate' => (string) config('trading.taker_fee', '0.002'),
+                    ],
+                ], "spot-fill:{$trade->trade_uuid}");
+                if ($this->compare($refund, '0') > 0) {
+                    $this->reservations->release($buyReservationId, $refund, ['event' => 'price_improvement', 'trade_uuid' => $trade->trade_uuid]);
+                }
+
                 $market->last_price = $executionPrice;
                 $market->save();
-
-                $this->creditFeeCollector((string) $market->base_currency, $buyFee, "{$trade->trade_uuid}:buyer_fee", [
-                    'pair' => $market->symbol,
-                    'side' => 'buy',
-                    'source_user_id' => $buyOrder->user_id,
-                ]);
-                $this->creditFeeCollector((string) $market->quote_currency, $sellFee, "{$trade->trade_uuid}:seller_fee", [
-                    'pair' => $market->symbol,
-                    'side' => 'sell',
-                    'source_user_id' => $sellOrder->user_id,
-                ]);
 
                 $buyTransaction = Transaction::create([
                     'transaction_id' => strtoupper((string) Str::uuid()),
@@ -909,32 +954,6 @@ class TradeService
                         'base_sold' => $tradeAmount,
                         'gross_quote_received' => $quoteAmount,
                     ],
-                ]);
-
-                WalletTransaction::create([
-                    'wallet_id' => $buyBaseWallet->id,
-                    'transaction_id' => $buyTransaction->id,
-                    'amount' => $buyNetBase,
-                    'balance_before' => $buyBaseBefore,
-                    'balance_after' => $buyBaseWallet->available_balance,
-                ]);
-
-                if ($this->compare($refund, '0') > 0) {
-                    WalletTransaction::create([
-                        'wallet_id' => $buyQuoteWallet->id,
-                        'transaction_id' => $buyTransaction->id,
-                        'amount' => $refund,
-                        'balance_before' => $buyQuoteBefore,
-                        'balance_after' => $buyQuoteWallet->available_balance,
-                    ]);
-                }
-
-                WalletTransaction::create([
-                    'wallet_id' => $sellQuoteWallet->id,
-                    'transaction_id' => $sellTransaction->id,
-                    'amount' => $sellNetQuote,
-                    'balance_before' => $sellQuoteBefore,
-                    'balance_after' => $sellQuoteWallet->available_balance,
                 ]);
 
                 AuditLog::create([
@@ -987,12 +1006,10 @@ class TradeService
         if ($incomingOrder->type === 'market') {
             $fresh = $incomingOrder->fresh();
             if ($this->compare((string) $fresh->locked_amount, '0') > 0) {
-                $this->reservations->releaseSpotOrder(
-                    $fresh->user_id,
-                    (string) $fresh->locked_currency,
-                    (string) $fresh->locked_amount,
-                    "market_order_release:{$fresh->pair}",
-                    ['order_uuid' => $fresh->order_uuid]
+                $this->reservations->release(
+                    (string) data_get($fresh->metadata, 'reservation_id'),
+                    null,
+                    ['event' => 'market_order_release', 'order_uuid' => $fresh->order_uuid]
                 );
             }
             $fresh->status = $this->compare((string) $fresh->filled_amount, '0') > 0 ? 'filled' : 'cancelled';
@@ -1044,12 +1061,10 @@ class TradeService
             if ($executionType === 'market' && $lockedOrder->side === 'buy') {
                 $requiredQuote = $this->quoteRequiredForBuyAmount($market->id, (string) $lockedOrder->remaining_amount);
                 if ($this->compare((string) $lockedOrder->locked_amount, $requiredQuote) < 0) {
-                    $this->reservations->releaseSpotOrder(
-                        $lockedOrder->user_id,
-                        (string) $lockedOrder->locked_currency,
-                        (string) $lockedOrder->locked_amount,
-                        "conditional_order_release:{$lockedOrder->pair}",
-                        ['order_uuid' => $lockedOrder->order_uuid, 'reason' => 'insufficient_reserved_quote']
+                    $this->reservations->release(
+                        (string) data_get($lockedOrder->metadata, 'reservation_id'),
+                        null,
+                        ['event' => 'conditional_order_release', 'order_uuid' => $lockedOrder->order_uuid, 'reason' => 'insufficient_reserved_quote']
                     );
 
                     $metadata = $lockedOrder->metadata ?? [];
@@ -1250,28 +1265,6 @@ class TradeService
         return $baseAmount;
     }
 
-    private function creditFeeCollector(string $currency, string $amount, string $reference, array $metadata = []): void
-    {
-        if ($this->compare($amount, '0') <= 0) {
-            return;
-        }
-
-        $sourceUserId = (int) ($metadata['source_user_id'] ?? 0);
-        if ($sourceUserId <= 0) {
-            throw new RuntimeException('Trading fee source user is required.');
-        }
-
-        $this->feeTreasury->collectAssessedFee(
-            $sourceUserId,
-            $amount,
-            $currency,
-            $reference,
-            'spot_trade',
-            'funding',
-            array_merge($metadata, ['source' => 'trade_fee'])
-        );
-    }
-
     private function sumTradeField(array $trades, string $field): string
     {
         $total = '0';
@@ -1294,17 +1287,17 @@ class TradeService
 
     private function add(string $a, string $b): string
     {
-        return function_exists('bcadd') ? bcadd($a, $b, self::SCALE) : number_format((float) $a + (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::add($a, $b, self::SCALE);
     }
 
     private function sub(string $a, string $b): string
     {
-        return function_exists('bcsub') ? bcsub($a, $b, self::SCALE) : number_format((float) $a - (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::sub($a, $b, self::SCALE);
     }
 
     private function mul(string $a, string $b): string
     {
-        return function_exists('bcmul') ? bcmul($a, $b, self::SCALE) : number_format((float) $a * (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::mul($a, $b, self::SCALE);
     }
 
     private function div(string $a, string $b): string
@@ -1313,18 +1306,12 @@ class TradeService
             throw new RuntimeException('Division by zero.');
         }
 
-        return function_exists('bcdiv') ? bcdiv($a, $b, self::SCALE) : number_format((float) $a / (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::div($a, $b, self::SCALE);
     }
 
     private function compare(string $a, string $b): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($a, $b, self::SCALE);
-        }
-        $fa = (float) $a;
-        $fb = (float) $b;
-
-        return $fa < $fb ? -1 : ($fa > $fb ? 1 : 0);
+        return FinancialDecimal::compare($a, $b, self::SCALE);
     }
 
     private function min(string $a, string $b): string

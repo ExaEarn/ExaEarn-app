@@ -22,6 +22,7 @@ class EventStreamController extends Controller
             (string) config('streaming.price_channel', 'price_updates') => 'price:update',
             (string) config('streaming.portfolio_channel', 'portfolio_updates') => 'portfolio:update',
             (string) config('trading.stream.channel', 'exaearn.market.stream') => 'market:stream',
+            (string) config('streaming.margin_channel', 'margin_updates') => 'margin:update',
             (string) config('games.flight.stream_channel', 'exaearn.game.flight') => 'game.flight',
         ];
 

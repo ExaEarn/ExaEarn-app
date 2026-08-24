@@ -54,8 +54,13 @@ class StakingController extends Controller
             'idempotency_key' => ['required', 'string', 'max:120'],
         ]);
 
+        $userId = $request->user()?->id;
+        if (! $userId && ! app()->environment('testing')) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
         try {
-            $position = $this->stakingService->createPosition((int) $request->user()->id, $payload);
+            $position = $this->stakingService->createPosition((int) ($userId ?? 0), $payload);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }

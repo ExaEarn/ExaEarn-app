@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\TransactionType;
+use App\Domain\P2P\Services\P2PEscrowService;
+use App\Domain\P2P\Services\P2POrderEventService;
+use App\Domain\P2P\Services\P2PReputationService;
+use App\Domain\P2P\Services\P2PRiskEngine;
 use App\Jobs\ExpireP2PTradeJob;
 use App\Jobs\ModerateP2PMessageJob;
 use App\Models\AuditLog;
@@ -15,7 +18,6 @@ use App\Models\P2PPaymentMethod;
 use App\Models\P2PRating;
 use App\Models\P2PTrade;
 use App\Models\SuspiciousUser;
-use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,9 +33,13 @@ class P2PService
     private const SCALE = 8;
 
     public function __construct(
-        private readonly WalletService $wallets,
-        private readonly TransactionService $transactions,
         private readonly BlockchainService $blockchain,
+        private readonly LedgerService $ledger,
+        private readonly BalanceProjectionService $balances,
+        private readonly P2PEscrowService $escrows,
+        private readonly P2PRiskEngine $risk,
+        private readonly P2PReputationService $reputation,
+        private readonly P2POrderEventService $events,
     ) {
     }
 
@@ -199,22 +205,6 @@ class P2PService
             $sellerId = $ad->type === 'sell' ? $ad->user_id : $user->id;
             $sellerPaymentDetails = $this->resolveTradeSellerPaymentMethod($ad, $user, $sellerId, $paymentMethod, $payload);
 
-            $escrowTransaction = $this->transactions->createTransaction(
-                $sellerId,
-                TransactionType::P2PEscrowLock,
-                $ad->asset,
-                $cryptoAmount,
-                'p2p_escrow:' . (string) Str::uuid(),
-                [
-                    'ad_id' => $ad->id,
-                    'buyer_id' => $buyerId,
-                    'seller_id' => $sellerId,
-                    'source' => 'p2p_trade',
-                ]
-            );
-
-            $this->wallets->freezeFromTransaction($escrowTransaction);
-
             $ad->available_amount = $this->sub((string) $ad->available_amount, $cryptoAmount);
             if ($this->compare((string) $ad->available_amount, '0') === 0) {
                 $ad->status = 'filled';
@@ -236,7 +226,9 @@ class P2PService
                 'payment_window_minutes' => $ad->payment_time_limit_minutes,
                 'payment_deadline' => now()->addMinutes($ad->payment_time_limit_minutes),
                 'status' => 'pending',
-                'escrow_transaction_id' => $escrowTransaction->id,
+                'escrow_transaction_id' => null,
+                'seller_release_due_at' => null,
+                'dispute_window_ends_at' => now()->addMinutes($ad->payment_time_limit_minutes + (int) config('p2p.dispute_window_minutes', 60)),
                 'metadata' => [
                     'opened_by' => $user->id,
                     'ad_type' => $ad->type,
@@ -249,6 +241,17 @@ class P2PService
                 ],
             ]);
 
+            $reservation = $this->escrows->reserveForTrade($trade, $sellerId, (string) $ad->asset, $cryptoAmount);
+            $trade = $trade->fresh(['ad', 'buyer', 'seller']);
+            $trade->metadata = array_merge($trade->metadata ?? [], [
+                'escrow' => [
+                    'type' => 'canonical_reservation',
+                    'reservation_id' => $reservation->reservation_id,
+                    'status' => $reservation->status,
+                ],
+            ]);
+            $trade->save();
+
             $this->createSystemMessage($trade, sprintf(
                 'Trade opened. %s %s has been locked in escrow. Buyer must pay within %d minutes.',
                 $trade->crypto_amount,
@@ -257,6 +260,12 @@ class P2PService
             ));
 
             ExpireP2PTradeJob::dispatch($trade->id)->delay($trade->payment_deadline);
+            $this->events->record($trade, 'order_created', $user->id, [
+                'asset' => $trade->asset,
+                'crypto_amount' => (string) $trade->crypto_amount,
+                'fiat_amount' => (string) $trade->fiat_amount,
+                'reservation_id' => $trade->escrow_reservation_id,
+            ]);
             $this->publishTradeEvent($trade->fresh(['ad', 'buyer', 'seller']), 'trade_opened');
 
             return $trade->fresh(['ad', 'buyer', 'seller']);
@@ -298,12 +307,18 @@ class P2PService
 
         $trade->status = 'payment_sent';
         $trade->payment_sent_at = now();
+        $trade->buyer_marked_paid_at = now();
+        $trade->seller_release_due_at = now()->addMinutes((int) config('p2p.release_due_minutes', 30));
         $trade->metadata = array_merge($trade->metadata ?? [], [
             'payment_reference' => $payload['payment_reference'] ?? null,
             'payment_proof_attachment' => $payload['attachment'] ?? null,
+            'payment_status_note' => 'Buyer marked paid. This is not settlement and does not prove payment.',
         ]);
         $trade->save();
 
+        $this->events->record($trade, 'buyer_marked_paid', $user->id, [
+            'payment_reference' => $payload['payment_reference'] ?? null,
+        ]);
         $this->createSystemMessage($trade, 'Buyer marked payment as sent. Seller should verify and release escrow.');
         $this->publishTradeEvent($trade->fresh(['ad', 'buyer', 'seller']), 'payment_sent');
 
@@ -324,16 +339,32 @@ class P2PService
         $extension = strtolower((string) ($file->guessExtension() ?: $file->getClientOriginalExtension() ?: 'bin'));
         $filename = (string) Str::uuid() . '.' . $extension;
         $path = $file->storeAs('private/p2p/payment-proofs/' . $trade->trade_uuid, $filename, 'local');
+        $hash = hash_file('sha256', $file->getRealPath());
 
         $proof = [
             'path' => $path,
             'file_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
             'size' => $file->getSize(),
+            'sha256' => $hash,
             'uploaded_by' => $user->id,
             'uploaded_at' => now()->toISOString(),
             'download_url' => route('p2p.payment-proof', ['tradeUuid' => $trade->trade_uuid], false),
         ];
+
+        DB::table('p2p_payment_evidence')->insert([
+            'trade_id' => $trade->id,
+            'evidence_id' => (string) Str::uuid(),
+            'uploaded_by' => $user->id,
+            'evidence_type' => 'payment_proof',
+            'storage_path' => $path,
+            'mime_type' => $file->getMimeType(),
+            'size_bytes' => $file->getSize(),
+            'sha256' => $hash,
+            'metadata' => json_encode(['original_name' => $file->getClientOriginalName()], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $trade->metadata = array_merge($trade->metadata ?? [], [
             'payment_proof' => $proof,
@@ -342,6 +373,7 @@ class P2PService
         $trade->save();
 
         $this->createSystemMessage($trade, 'Buyer uploaded payment proof. Seller must still verify the real payment account before release.');
+        $this->events->record($trade, 'payment_evidence_uploaded', $user->id, $this->publicPaymentProof($proof));
         $this->publishTradeEvent($trade->fresh(['ad', 'buyer', 'seller']), 'payment_proof_uploaded', [
             'payment_proof' => $this->publicPaymentProof($proof),
         ]);
@@ -591,42 +623,27 @@ class P2PService
     {
         return DB::transaction(function () use ($trade, $actorUserId): P2PTrade {
             /** @var P2PTrade $trade */
-            $trade = P2PTrade::query()->with(['ad', 'buyer', 'seller', 'escrowTransaction'])->lockForUpdate()->findOrFail($trade->id);
+            $trade = P2PTrade::query()->with(['ad', 'buyer', 'seller'])->lockForUpdate()->findOrFail($trade->id);
             if (!in_array($trade->status, ['payment_sent', 'disputed'], true)) {
                 throw new RuntimeException('Trade is not ready for escrow release.');
             }
 
-            /** @var Transaction $escrowTransaction */
-            $escrowTransaction = $trade->escrowTransaction()->firstOrFail();
-            $this->wallets->settleFrozenFromTransaction($escrowTransaction);
-            $this->transactions->confirmTransaction($escrowTransaction, [
-                'escrow_settled_at' => now()->toISOString(),
-                'trade_uuid' => $trade->trade_uuid,
-            ]);
-
-            $releaseTransaction = $this->transactions->createTransaction(
-                $trade->buyer_id,
-                TransactionType::P2PEscrowRelease,
-                $trade->asset,
-                (string) $trade->crypto_amount,
-                'p2p_release:' . $trade->trade_uuid,
-                [
-                    'trade_uuid' => $trade->trade_uuid,
-                    'seller_id' => $trade->seller_id,
-                    'buyer_id' => $trade->buyer_id,
-                ]
-            );
-            $this->wallets->creditFromTransaction($releaseTransaction);
-            $this->transactions->confirmTransaction($releaseTransaction, [
-                'released_at' => now()->toISOString(),
-            ]);
+            $releaseTransaction = $this->escrows->releaseToBuyer($trade, $actorUserId);
 
             $trade->status = 'released';
-            $trade->release_transaction_id = $releaseTransaction->id;
+            $trade->release_transaction_id = null;
+            $trade->release_ledger_transaction_id = $releaseTransaction->id;
+            $trade->release_ledger_reference = $releaseTransaction->reference;
             $trade->released_at = now();
             $trade->completed_at = now();
             $trade->save();
 
+            $this->events->record($trade, 'escrow_released', $actorUserId, [
+                'ledger_transaction_id' => $releaseTransaction->id,
+                'ledger_reference' => $releaseTransaction->reference,
+            ]);
+            $this->reputation->snapshot((int) $trade->buyer_id);
+            $this->reputation->snapshot((int) $trade->seller_id);
             $this->createSystemMessage($trade, 'Escrow released to buyer. Trade completed.');
             $this->publishTradeEvent($trade->fresh(['ad', 'buyer', 'seller']), 'trade_released');
             $this->logAudit($actorUserId, 'p2p_trade_released', ['trade_uuid' => $trade->trade_uuid]);
@@ -639,33 +656,12 @@ class P2PService
     {
         return DB::transaction(function () use ($trade, $actorUserId, $reason): P2PTrade {
             /** @var P2PTrade $trade */
-            $trade = P2PTrade::query()->with(['ad', 'buyer', 'seller', 'escrowTransaction'])->lockForUpdate()->findOrFail($trade->id);
+            $trade = P2PTrade::query()->with(['ad', 'buyer', 'seller'])->lockForUpdate()->findOrFail($trade->id);
             if (in_array($trade->status, ['released', 'cancelled'], true)) {
                 return $trade;
             }
 
-            /** @var Transaction $escrowTransaction */
-            $escrowTransaction = $trade->escrowTransaction()->firstOrFail();
-            $this->wallets->unfreezeFromTransaction($escrowTransaction);
-            $this->transactions->confirmTransaction($escrowTransaction, [
-                'escrow_returned_at' => now()->toISOString(),
-                'return_reason' => $reason,
-            ]);
-
-            $returnTransaction = $this->transactions->createTransaction(
-                $trade->seller_id,
-                TransactionType::P2PEscrowReturn,
-                $trade->asset,
-                (string) $trade->crypto_amount,
-                'p2p_return:' . $trade->trade_uuid,
-                [
-                    'trade_uuid' => $trade->trade_uuid,
-                    'reason' => $reason,
-                ]
-            );
-            $this->transactions->confirmTransaction($returnTransaction, [
-                'wallet_effect' => 'release_via_escrow',
-            ]);
+            $returnReference = $this->escrows->returnToSeller($trade, $actorUserId, $reason);
 
             $trade->ad->available_amount = $this->add((string) $trade->ad->available_amount, (string) $trade->crypto_amount);
             if ($trade->ad->status === 'filled') {
@@ -674,11 +670,16 @@ class P2PService
             $trade->ad->save();
 
             $trade->status = 'cancelled';
-            $trade->return_transaction_id = $returnTransaction->id;
+            $trade->return_transaction_id = null;
+            $trade->return_ledger_reference = $returnReference;
             $trade->cancelled_at = now();
             $trade->completed_at = now();
             $trade->save();
 
+            $this->events->record($trade, 'escrow_returned', $actorUserId, [
+                'return_reference' => $returnReference,
+                'reason' => $reason,
+            ]);
             $this->createSystemMessage($trade, $reason);
             $this->publishTradeEvent($trade->fresh(['ad', 'buyer', 'seller']), 'trade_cancelled');
             $this->logAudit($actorUserId, 'p2p_trade_cancelled', [
@@ -715,7 +716,8 @@ class P2PService
 
     private function assertSellAdLiquidityAvailable(int $userId, string $asset, string $requestedAmount, ?int $excludeAdId = null): void
     {
-        $wallet = $this->wallets->getWallet($userId, $asset);
+        $account = $this->ledger->getOrCreateAccount($userId, 'funding', $asset);
+        $projection = $this->balances->accountProjection($account);
 
         $reservedByOtherSellAds = (string) P2PAd::query()
             ->where('user_id', $userId)
@@ -724,7 +726,7 @@ class P2PService
             ->when($excludeAdId !== null, fn ($query) => $query->where('id', '!=', $excludeAdId))
             ->sum('available_amount');
 
-        $remainingWalletLiquidity = $this->sub((string) $wallet->available_balance, $reservedByOtherSellAds);
+        $remainingWalletLiquidity = $this->sub((string) $projection['available'], $reservedByOtherSellAds);
 
         if ($this->compare($remainingWalletLiquidity, $requestedAmount) < 0) {
             throw new RuntimeException(sprintf(
@@ -956,6 +958,11 @@ class P2PService
 
     private function guardUserRiskProfile(User $user, string $source, ?string $fiatAmount = null): void
     {
+        $risk = $this->risk->evaluate($user, $source, $fiatAmount);
+        if ($risk['decision'] === 'block_order') {
+            throw new RuntimeException('P2P order requires additional verification before continuing.');
+        }
+
         if (
             $fiatAmount !== null
             && !$user->email_verified_at
@@ -1030,20 +1037,12 @@ class P2PService
 
     private function add(string $left, string $right): string
     {
-        if (function_exists('bcadd')) {
-            return bcadd($left, $right, self::SCALE);
-        }
-
-        return number_format(((float) $left + (float) $right), self::SCALE, '.', '');
+        return FinancialDecimal::add($left, $right, self::SCALE);
     }
 
     private function sub(string $left, string $right): string
     {
-        if (function_exists('bcsub')) {
-            return bcsub($left, $right, self::SCALE);
-        }
-
-        return number_format(((float) $left - (float) $right), self::SCALE, '.', '');
+        return FinancialDecimal::sub($left, $right, self::SCALE);
     }
 
     private function div(string $left, string $right): string
@@ -1052,23 +1051,12 @@ class P2PService
             throw new RuntimeException('Invalid trade price.');
         }
 
-        if (function_exists('bcdiv')) {
-            return bcdiv($left, $right, self::SCALE);
-        }
-
-        return number_format(((float) $left / (float) $right), self::SCALE, '.', '');
+        return FinancialDecimal::div($left, $right, self::SCALE);
     }
 
     private function compare(string $left, string $right): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($left, $right, self::SCALE);
-        }
-
-        $leftFloat = (float) $left;
-        $rightFloat = (float) $right;
-
-        return $leftFloat < $rightFloat ? -1 : ($leftFloat > $rightFloat ? 1 : 0);
+        return FinancialDecimal::compare($left, $right, self::SCALE);
     }
 }
 

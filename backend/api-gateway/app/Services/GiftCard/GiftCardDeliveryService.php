@@ -7,6 +7,7 @@ namespace App\Services\GiftCard;
 use App\Models\GiftCardInventory;
 use App\Models\GiftcardOrder;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -18,6 +19,10 @@ use RuntimeException;
  */
 class GiftCardDeliveryService
 {
+    public function __construct(private readonly NotificationService $notifications)
+    {
+    }
+
     /**
      * Prepare cards for delivery.
      *
@@ -105,10 +110,21 @@ class GiftCardDeliveryService
     public function sendEmailDelivery(User $user, GiftcardOrder $order, array $deliverableCards): bool
     {
         try {
-            // TODO: Implement email delivery using Laravel Mailable
-            // This would send an email with the unmasked card details
+            $this->notifications->create(
+                $user,
+                'giftcard.delivery.ready',
+                'Your gift card is ready',
+                'Your gift card purchase has been delivered. Open ExaEarn to securely reveal the card details.',
+                ['in_app', 'email'],
+                [
+                    'product' => 'giftcards',
+                    'order_id' => $order->id,
+                    'card_count' => count($deliverableCards),
+                    'delivery_channel' => 'secure_reveal',
+                ],
+            );
 
-            Log::info('Email delivery prepared', [
+            Log::info('Gift card delivery notification queued', [
                 'user_id' => $user->id,
                 'order_id' => $order->id,
                 'card_count' => count($deliverableCards),

@@ -10,71 +10,30 @@ class FuturesPositionService
 {
     private const SCALE = 8;
 
+    public function __construct(private readonly FuturesMarginService $marginService)
+    {
+    }
+
     public function refreshUnrealizedPnl(FuturesPosition $position, string $markPrice): FuturesPosition
     {
-        $entry = (string) $position->entry_price;
         $quantity = (string) $position->quantity;
-        $margin = (string) $position->margin;
-        $maintenanceRate = $this->safeRate((string) $position->maintenance_margin, $markPrice, $quantity);
-
-        $difference = $position->side === 'long'
-            ? $this->sub($markPrice, $entry)
-            : $this->sub($entry, $markPrice);
-
-        $unrealized = $this->mul($difference, $quantity);
-        $notional = $this->mul($markPrice, $quantity);
-        $maintenanceMargin = $maintenanceRate !== null ? $this->mul($notional, $maintenanceRate) : (string) $position->maintenance_margin;
-        $liquidation = $this->compare($quantity, '0') > 0
-            ? ($position->side === 'long'
-                ? $this->sub($entry, $this->div($margin, $quantity))
-                : $this->add($entry, $this->div($margin, $quantity)))
-            : (string) $position->liquidation_price;
+        $market = $position->market()->firstOrFail();
+        $margin = ($position->margin_type ?? 'cross') === 'isolated'
+            ? (string) ($position->isolated_margin ?: $position->margin)
+            : (string) $position->margin;
+        $unrealized = $this->marginService->unrealizedPnl((string) $position->side, (string) $position->entry_price, $markPrice, $quantity);
+        $notional = $this->marginService->notional($markPrice, $quantity);
+        $maintenanceMargin = $this->marginService->maintenanceMargin($market, $notional);
+        $liquidation = $this->marginService->liquidationPrice((string) $position->side, (string) $position->entry_price, $quantity, $margin, $maintenanceMargin);
+        $bankruptcy = $this->marginService->bankruptcyPrice((string) $position->side, (string) $position->entry_price, $quantity, $margin);
 
         $position->mark_price = $markPrice;
         $position->unrealized_pnl = $unrealized;
         $position->maintenance_margin = $maintenanceMargin;
         $position->liquidation_price = $liquidation;
+        $position->bankruptcy_price = $bankruptcy;
         $position->save();
 
         return $position;
-    }
-
-    private function safeRate(string $maintenanceMargin, string $markPrice, string $quantity): ?string
-    {
-        $notional = $this->mul($markPrice, $quantity);
-        if ($this->compare($notional, '0') <= 0) {
-            return null;
-        }
-
-        return $this->div($maintenanceMargin, $notional);
-    }
-
-    private function add(string $a, string $b): string
-    {
-        return function_exists('bcadd') ? bcadd($a, $b, self::SCALE) : number_format((float) $a + (float) $b, self::SCALE, '.', '');
-    }
-
-    private function sub(string $a, string $b): string
-    {
-        return function_exists('bcsub') ? bcsub($a, $b, self::SCALE) : number_format((float) $a - (float) $b, self::SCALE, '.', '');
-    }
-
-    private function mul(string $a, string $b): string
-    {
-        return function_exists('bcmul') ? bcmul($a, $b, self::SCALE) : number_format((float) $a * (float) $b, self::SCALE, '.', '');
-    }
-
-    private function div(string $a, string $b): string
-    {
-        if ($this->compare($b, '0') === 0) {
-            return '0.00000000';
-        }
-
-        return function_exists('bcdiv') ? bcdiv($a, $b, self::SCALE) : number_format((float) $a / (float) $b, self::SCALE, '.', '');
-    }
-
-    private function compare(string $a, string $b): int
-    {
-        return function_exists('bccomp') ? bccomp($a, $b, self::SCALE) : ((float) $a <=> (float) $b);
     }
 }

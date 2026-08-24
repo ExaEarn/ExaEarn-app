@@ -23,6 +23,8 @@ use App\Services\PortfolioService;
 use App\Services\RealtimeStreamService;
 use App\Services\ReferralService;
 use App\Services\RewardEngineService;
+use App\Services\Spot\BinanceSpotVenueAdapter;
+use App\Services\Spot\ExternalSpotVenue;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
@@ -35,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(SecureSignerInterface::class, HttpSecureSigner::class);
+        $this->app->bind(ExternalSpotVenue::class, BinanceSpotVenueAdapter::class);
     }
 
     /**
@@ -42,6 +45,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $deploymentEnv = strtolower((string) env('VERCEL_ENV', env('APP_DEPLOYMENT_ENV', '')));
+        if (in_array($deploymentEnv, ['production', 'prod'], true) && app()->environment('local', 'development', 'testing')) {
+            throw new \RuntimeException('Unsafe production deployment configuration: development authentication environment is enabled. Set APP_ENV=production before deploying.');
+        }
         // Register policies
         Gate::policy(Notification::class, NotificationPolicy::class);
         Gate::policy(DeviceToken::class, DeviceTokenPolicy::class);
@@ -120,3 +127,4 @@ class AppServiceProvider extends ServiceProvider
         Nft::deleted($invalidatePortfolio);
     }
 }
+

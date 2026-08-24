@@ -10,6 +10,8 @@ const titles = {
   wallets: "Wallet Management",
   transactions: "Transaction Oversight",
   trading: "Trading Pair Management",
+  "listing-center": "Token Listing Center",
+  margin: "Margin Risk Control",
   p2p: "P2P Control Room",
   staking: "Staking Pools",
   rewards: "Reward Engine",
@@ -20,6 +22,7 @@ const titles = {
   crowdfunding: "Crowdfunding Control",
   lottery: "Lottery Operations",
   giftcard: "Giftcard Desk",
+  exacard: "ExaCard Operations",
   campaigns: "Campaigns",
   kyc: "KYC Review",
   treasury: "Treasury Control",
@@ -49,6 +52,8 @@ const primaryActions = {
   wallets: "queue sweep",
   transactions: "flag suspicious",
   trading: "pause pair",
+  "listing-center": "run listing tests",
+  margin: "run reconciliation",
   p2p: "open dispute",
   staking: "pause pool",
   rewards: "run simulation",
@@ -59,6 +64,7 @@ const primaryActions = {
   crowdfunding: "approve campaign",
   lottery: "verify winners",
   giftcard: "approve order",
+  exacard: "run reconciliation",
   campaigns: "schedule broadcast",
   kyc: "approve KYC",
   treasury: "approve withdrawal",
@@ -448,6 +454,27 @@ export function ModulePage({ moduleKey, pathKey }) {
                   <div key={item.label} className="flex items-center justify-between rounded-2xl border border-white/8 px-4 py-3">
                     <span className="text-sm text-violet-100/70">{item.label}</span>
                     <span className="font-semibold text-white">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </GlassPanel>
+          ) : null}
+
+          {moduleKey === "giftcard" && data.sections ? (
+            <GlassPanel>
+              <h3 className="font-['Sora'] text-lg font-semibold text-white">Giftcard center</h3>
+              <div className="mt-4 grid gap-3">
+                {Object.entries(data.sections).map(([key, section]) => (
+                  <div key={key} className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold capitalize text-violet-50">{key.replace(/_/g, " ")}</span>
+                      {renderStatus(String(section?.status ?? "ready").toLowerCase())}
+                    </div>
+                    {typeof section?.count !== "undefined" ? <p className="mt-1 text-xs text-violet-100/55">{section.count} records</p> : null}
+                    {typeof section?.available !== "undefined" ? <p className="mt-1 text-xs text-violet-100/55">{section.available} available</p> : null}
+                    {Array.isArray(section?.findings) && section.findings.length ? (
+                      <p className="mt-1 text-xs text-amber-100">{section.findings.length} reconciliation findings</p>
+                    ) : null}
                   </div>
                 ))}
               </div>

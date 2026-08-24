@@ -89,6 +89,7 @@ export const initializeWebSocket = (baseUrl) => {
   eventSource.addEventListener('portfolio:update', handleSseMessage);
   eventSource.addEventListener('price:update', handleSseMessage);
   eventSource.addEventListener('market:stream', handleSseMessage);
+  eventSource.addEventListener('margin:update', handleSseMessage);
   eventSource.addEventListener('game.flight', handleSseMessage);
   eventSource.addEventListener('open', () => {
     console.info('SSE connection opened:', endpoint);

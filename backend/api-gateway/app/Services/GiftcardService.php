@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\TransactionType;
 use App\Jobs\AdminApprovalJob;
 use App\Jobs\FraudAnalysisJob;
 use App\Jobs\ProcessGiftcardBuyJob;
 use App\Jobs\ProcessGiftcardSellJob;
-use App\Models\Balance;
 use App\Models\Giftcard;
 use App\Models\GiftcardInventory;
 use App\Models\GiftcardOrder;
-use App\Models\Transaction;
 use App\Models\User;
+use App\Services\FinancialDecimal;
+use App\Services\GiftCard\GiftCardPricingEngine;
 use App\Services\GiftCard\GiftCardRateEngine;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Crypt;
@@ -28,8 +27,10 @@ class GiftcardService
 {
     public function __construct(
         private readonly RiskEngineService $riskEngineService,
-        private readonly TransactionService $transactionService,
-        private readonly WalletService $walletService,
+        private readonly LedgerService $ledgerService,
+        private readonly ReservationService $reservations,
+        private readonly SettlementService $settlement,
+        private readonly GiftCardPricingEngine $pricingEngine,
         private readonly GiftCardRateEngine $rateEngine,
     ) {
     }
@@ -126,38 +127,86 @@ class GiftcardService
             throw new RuntimeException('Requested giftcard inventory is unavailable or insufficient quantity.');
         }
 
-        $unitPrice = $this->calculateBuyPrice(
+        $inventoryCurrency = strtoupper($payload['currency'] ?? $selectedCards->first()->currency);
+        $paymentCurrency = strtoupper($payload['payment_currency'] ?? config('giftcards.currency', 'USDT'));
+        $pricing = $this->pricingEngine->getBuyPrice(
             $selectedCards->first()->brand,
-            (float) $selectedCards->first()->card_value,
-            $payload['currency'] ?? $selectedCards->first()->currency
+            (string) $selectedCards->first()->card_value,
+            $inventoryCurrency,
+            [
+                'user_id' => $user->id,
+                'provider' => strtolower((string) $selectedCards->first()->brand),
+                'country' => $payload['country'] ?? null,
+                'promotion_code' => $payload['promotion_code'] ?? null,
+            ],
         );
-        $subtotal = round($unitPrice * $quantity, 2);
-        $platformFee = round($subtotal * (float) config('giftcard.platform_fee_percent', 0.02), 2);
-        $totalAmount = round($subtotal + $platformFee, 2);
+        $unitPrice = (string) $pricing['buy_price'];
+        $subtotal = FinancialDecimal::mul($unitPrice, (string) $quantity, 8);
+        $platformDecision = $this->pricingEngine->calculateTotalPrice(
+            $selectedCards->first()->brand,
+            (string) $selectedCards->first()->card_value,
+            $quantity,
+            $inventoryCurrency,
+            [
+                'user_id' => $user->id,
+                'provider' => strtolower((string) $selectedCards->first()->brand),
+                'country' => $payload['country'] ?? null,
+                'promotion_code' => $payload['promotion_code'] ?? null,
+            ],
+        );
+        $platformFee = (string) $platformDecision['platform_fee'];
+        $totalAmount = FinancialDecimal::add($subtotal, $platformFee, 8);
+
+        $this->ledgerService->getOrCreateAccount($user->id, 'funding', $paymentCurrency);
+        if (!$this->ledgerService->hasBalance($user->id, $totalAmount, $paymentCurrency, 'funding')) {
+            throw new RuntimeException("Insufficient wallet balance. Required: {$totalAmount} {$paymentCurrency}");
+        }
 
         $reservedCardIds = $selectedCards->pluck('id')->toArray();
 
-        return DB::transaction(function () use ($user, $payload, $context, $selectedCards, $quantity, $unitPrice, $subtotal, $platformFee, $totalAmount, $reservedCardIds) {
+        return DB::transaction(function () use ($user, $payload, $context, $selectedCards, $quantity, $paymentCurrency, $unitPrice, $subtotal, $platformFee, $totalAmount, $reservedCardIds) {
             $this->reserveInventoryCards($selectedCards);
+
+            $reservation = $this->reservations->reserveUserAccount(
+                $user->id,
+                'funding',
+                $paymentCurrency,
+                $totalAmount,
+                'giftcard_purchase',
+                'giftcard_order',
+                null,
+                'giftcard-buy-order:'.$user->id.':'.$selectedCards->first()->brand.':'.Str::uuid(),
+                ['card_ids' => $reservedCardIds],
+            );
 
             $order = GiftcardOrder::query()->create([
                 'user_id' => $user->id,
                 'giftcard_id' => null,
                 'type' => 'buy',
                 'amount' => $totalAmount,
-                'currency' => strtoupper($payload['currency'] ?? $selectedCards->first()->currency),
+                'currency' => $paymentCurrency,
                 'status' => 'pending_analysis',
                 'payment_method' => $payload['payment_method'] ?? 'funding',
                 'reference' => $this->reference('buy'),
                 'metadata' => [
                     'delivery_mode' => 'secure_reveal',
                     'brand' => $selectedCards->first()->brand,
-                    'card_value' => (float) $selectedCards->first()->card_value,
+                    'card_value' => (string) $selectedCards->first()->card_value,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'subtotal' => $subtotal,
                     'platform_fee' => $platformFee,
                     'total_amount' => $totalAmount,
+                    'reservation_id' => $reservation->reservation_id,
+                    'pricing_snapshot' => [
+                        'gross_amount' => $subtotal,
+                        'provider_cost' => $subtotal,
+                        'exaearn_fee' => $platformFee,
+                        'currency' => $paymentCurrency,
+                        'source' => 'PRICING_ENGINE',
+                        'central_pricing' => $platformDecision['pricing_snapshot'] ?? $pricing['pricing_snapshot'] ?? null,
+                        'captured_at' => now()->toIso8601String(),
+                    ],
                     'card_ids' => $reservedCardIds,
                     'ip_address' => $context['ip_address'] ?? request()?->ip(),
                     'device_id' => $context['device_id'] ?? null,
@@ -235,11 +284,9 @@ class GiftcardService
 
         if ($order->type === 'buy') {
             if ($order->requires_admin_review) {
-                $transaction = $this->resolveOrCreatePendingTransaction($order, TransactionType::GiftcardBuy);
-                $transaction = $this->transactionService->freezePendingFunds($transaction);
                 $order->status = $analysis['risk_level'] === 'HIGH' ? 'flagged' : 'pending_review';
                 $order->metadata = array_merge($order->metadata ?? [], [
-                    'financial_transaction_id' => $transaction->transaction_id,
+                    'financial_path' => 'canonical_reservation',
                 ]);
                 $order->save();
                 AdminApprovalJob::dispatch($order->id, 'review')->onQueue('giftcards-admin');
@@ -259,24 +306,27 @@ class GiftcardService
                 return $order;
             }
 
-            $transaction = $this->resolveOrCreatePendingTransaction($order, TransactionType::GiftcardSell);
-
             try {
-                $transaction = $this->transactionService->applyPendingCredit($transaction);
-                $transaction = $this->transactionService->confirmTransaction($transaction, [
-                    'giftcard_order_id' => $order->id,
-                ]);
+                $reference = 'giftcard_sell_payout:'.$order->id;
+                $this->settlement->giftcardSellPayout(
+                    (int) $order->user_id,
+                    (string) $order->currency,
+                    (string) $order->amount,
+                    $reference,
+                    [
+                        'giftcard_order_id' => $order->id,
+                        'giftcard_id' => $order->giftcard_id,
+                    ],
+                );
             } catch (RuntimeException $exception) {
-                $this->transactionService->failTransaction($transaction, $exception->getMessage(), [
-                    'giftcard_order_id' => $order->id,
-                ]);
                 throw $exception;
             }
 
             $order->status = 'completed';
             $order->processed_at = now();
             $order->metadata = array_merge($order->metadata ?? [], [
-                'financial_transaction_id' => $transaction->transaction_id,
+                'settlement_reference' => $reference,
+                'settlement_path' => 'canonical_ledger',
             ]);
             $order->save();
 
@@ -297,16 +347,12 @@ class GiftcardService
                 return $order;
             }
 
-            $transaction = $this->resolveOrCreatePendingTransaction($order, TransactionType::GiftcardBuy);
-            $walletEffect = (string) data_get($transaction->metadata, 'wallet_effect');
+            $reservationId = (string) data_get($order->metadata, 'reservation_id');
+            if ($reservationId === '') {
+                throw new RuntimeException('Giftcard order is missing a canonical reservation.');
+            }
 
             try {
-                if ($walletEffect === 'lock') {
-                    $transaction = $this->transactionService->settlePendingLockedFunds($transaction);
-                } else {
-                    $transaction = $this->transactionService->applyPendingDebit($transaction);
-                }
-
                 $cardIds = data_get($order->metadata, 'card_ids', []);
                 $cards = GiftCardInventory::query()
                     ->whereIn('id', $cardIds)
@@ -331,18 +377,26 @@ class GiftcardService
                     $card->save();
                 }
 
-                $transaction = $this->transactionService->confirmTransaction($transaction, [
-                    'giftcard_order_id' => $order->id,
-                    'delivery_masked_codes' => $deliveryDetails,
-                ]);
+                $settlementReference = 'giftcard_purchase:'.$order->id;
+                $this->settlement->giftcardPurchaseSettle(
+                    $reservationId,
+                    $settlementReference,
+                    (string) data_get($order->metadata, 'subtotal', $order->amount),
+                    (string) data_get($order->metadata, 'platform_fee', '0'),
+                    [
+                        'giftcard_order_id' => $order->id,
+                        'delivery_masked_codes' => $deliveryDetails,
+                    ],
+                );
 
                 $order->status = 'completed';
                 $order->processed_at = now();
                 $order->delivered_at = now();
                 $order->metadata = array_merge($order->metadata ?? [], [
-                    'financial_transaction_id' => $transaction->transaction_id,
+                    'settlement_reference' => $settlementReference,
+                    'settlement_path' => 'canonical_ledger',
                     'delivery' => [
-                        'masked_codes' => data_get($transaction->metadata, 'delivery_masked_codes'),
+                        'masked_codes' => $deliveryDetails,
                         'card_ids' => $cardIds,
                     ],
                 ]);
@@ -350,20 +404,7 @@ class GiftcardService
 
                 return $order->fresh('giftcard');
             } catch (RuntimeException $exception) {
-                if ((string) data_get($transaction->metadata, 'wallet_effect') === 'lock') {
-                    $this->transactionService->unfreezePendingFunds($transaction);
-                } elseif ((string) data_get($transaction->metadata, 'wallet_effect_applied', false)) {
-                    $this->transactionService->reverseTransaction(
-                        $transaction,
-                        TransactionType::GiftcardRefund,
-                        $exception->getMessage(),
-                        ['giftcard_order_id' => $order->id]
-                    );
-                }
-
-                $this->transactionService->failTransaction($transaction, $exception->getMessage(), [
-                    'giftcard_order_id' => $order->id,
-                ]);
+                $this->reservations->release($reservationId, 'Giftcard delivery failed before settlement: '.$exception->getMessage());
 
                 throw $exception;
             }
@@ -399,13 +440,9 @@ class GiftcardService
 
             if ($decision === 'reject') {
                 if ($order->type === 'buy') {
-                    $transaction = $this->resolveExistingPendingTransaction($order);
-                    if ($transaction && (string) data_get($transaction->metadata, 'wallet_effect') === 'lock') {
-                        $this->transactionService->unfreezePendingFunds($transaction);
-                        $this->transactionService->failTransaction($transaction, $reason ?? 'Admin rejected order.', [
-                            'giftcard_order_id' => $order->id,
-                            'admin_user_id' => $adminUserId,
-                        ]);
+                    $reservationId = (string) data_get($order->metadata, 'reservation_id');
+                    if ($reservationId !== '') {
+                        $this->reservations->release($reservationId, $reason ?? 'Admin rejected giftcard order.');
                     }
                 }
 
@@ -474,22 +511,6 @@ class GiftcardService
         }
     }
 
-    private function calculateBuyPrice(string $brand, float $cardValue, string $currency): float
-    {
-        $rate = $this->rateEngine->getRate($brand);
-
-        if (bccomp((string) $cardValue, (string) $rate->min_value, 2) < 0) {
-            throw new RuntimeException("Card value below minimum of {$rate->min_value}");
-        }
-
-        if (bccomp((string) $cardValue, (string) $rate->max_value, 2) > 0) {
-            throw new RuntimeException("Card value exceeds maximum of {$rate->max_value}");
-        }
-
-        $markup = (float) config('giftcard.default_markup_rate', 1.05);
-        return round($cardValue * $markup, 2);
-    }
-
     private function enforceRateLimit(string $type, int $userId): void
     {
         $key = "giftcards:{$type}:{$userId}";
@@ -513,40 +534,4 @@ class GiftcardService
         return str_repeat('*', $visible) . substr($code, -4);
     }
 
-    private function resolveExistingPendingTransaction(GiftcardOrder $order): ?Transaction
-    {
-        $transactionId = data_get($order->metadata, 'financial_transaction_id');
-        if (!$transactionId) {
-            return null;
-        }
-
-        return Transaction::query()->where('transaction_id', $transactionId)->first();
-    }
-
-    private function resolveOrCreatePendingTransaction(GiftcardOrder $order, TransactionType $type): Transaction
-    {
-        $existing = $this->resolveExistingPendingTransaction($order);
-        if ($existing) {
-            return $existing;
-        }
-
-        $transaction = $this->transactionService->createTransaction(
-            $order->user_id,
-            $type,
-            (string) config('giftcards.currency', 'USDT'),
-            (string) $order->amount,
-            $order->reference,
-            [
-                'giftcard_order_id' => $order->id,
-                'giftcard_order_type' => $order->type,
-            ]
-        );
-
-        $order->metadata = array_merge($order->metadata ?? [], [
-            'financial_transaction_id' => $transaction->transaction_id,
-        ]);
-        $order->save();
-
-        return $transaction;
-    }
 }

@@ -15,6 +15,7 @@ class RewardEngineService
     public function __construct(
         private readonly RewardSecurityService $security,
         private readonly ExaPointRewardEngineService $exaPointRewards,
+        private readonly RewardPolicyEngine $rewardPolicy,
     ) {
     }
 
@@ -72,6 +73,24 @@ class RewardEngineService
             : ($activity->mode === 'fixed'
                 ? (string) $activity->reward_rate
                 : $this->mul($activityValue, (string) $activity->reward_rate));
+
+        try {
+            $policyDecision = $this->rewardPolicy->decide($user, array_merge($context, [
+                'product' => strtoupper((string) ($context['product'] ?? 'REWARDS')),
+                'operation' => strtoupper($activityType),
+                'amount' => $activityValue,
+            ]));
+            if ($policyDecision->status === 'APPROVED') {
+                $rewardAmount = (string) $policyDecision->reward_amount;
+                $context['reward_policy_decision_uuid'] = $policyDecision->decision_uuid;
+            } else {
+                $context['reward_policy_decision_uuid'] = $policyDecision->decision_uuid;
+                $context['reward_policy_status'] = $policyDecision->status;
+                $context['reward_policy_reason_code'] = $policyDecision->reason_code;
+            }
+        } catch (\Throwable) {
+            // Existing activity configuration remains the compatibility source until a policy is approved.
+        }
 
         $issuedToday = (string) UserReward::query()
             ->where('user_id', $userId)
@@ -155,31 +174,16 @@ class RewardEngineService
 
     private function add(string $left, string $right): string
     {
-        if (function_exists('bcadd')) {
-            return bcadd($left, $right, 8);
-        }
-
-        return number_format((float) $left + (float) $right, 8, '.', '');
+        return FinancialDecimal::add($left, $right, 8);
     }
 
     private function mul(string $left, string $right): string
     {
-        if (function_exists('bcmul')) {
-            return bcmul($left, $right, 8);
-        }
-
-        return number_format((float) $left * (float) $right, 8, '.', '');
+        return FinancialDecimal::mul($left, $right, 8);
     }
 
     private function compare(string $left, string $right): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($left, $right, 8);
-        }
-
-        $leftFloat = (float) $left;
-        $rightFloat = (float) $right;
-
-        return $leftFloat < $rightFloat ? -1 : ($leftFloat > $rightFloat ? 1 : 0);
+        return FinancialDecimal::compare($left, $right, 8);
     }
 }

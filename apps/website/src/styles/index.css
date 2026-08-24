@@ -6193,3 +6193,525 @@ p {
     width: 100%;
   }
 }
+/* Phase 15B institutional public surfaces */
+.institutional-page-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(203, 164, 75, 0.14), transparent 32rem),
+    radial-gradient(circle at 82% 10%, rgba(96, 165, 250, 0.08), transparent 28rem),
+    #08090b;
+  color: #f5f5f0;
+}
+
+.institutional-hero-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.75fr);
+  gap: clamp(1.25rem, 4vw, 4rem);
+  align-items: center;
+  width: min(1180px, calc(100% - 2rem));
+  min-height: min(820px, calc(100vh - 5rem));
+  margin: 0 auto;
+  padding: clamp(7rem, 14vh, 10rem) 0 3rem;
+}
+
+.institutional-hero-page .eyebrow {
+  margin: 0 0 1rem;
+  color: #d6b15d;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.institutional-hero-page h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(2.65rem, 7vw, 5.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+}
+
+.institutional-hero-page p {
+  max-width: 680px;
+  margin: 1.25rem 0 0;
+  color: rgba(245, 245, 240, 0.72);
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.75;
+}
+
+.institutional-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.institutional-console {
+  border: 1px solid rgba(214, 177, 93, 0.18);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(23, 26, 31, 0.94), rgba(13, 15, 19, 0.94));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
+  padding: 1rem;
+}
+
+.institutional-console div {
+  display: grid;
+  gap: 0.24rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 1rem;
+}
+
+.institutional-console div:last-child {
+  border-bottom: 0;
+}
+
+.institutional-console strong {
+  color: #fffaf0;
+  font-size: 0.95rem;
+}
+
+.institutional-console span {
+  color: rgba(245, 245, 240, 0.58);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.institutional-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0 0 5rem;
+}
+
+.institutional-capability-grid article {
+  min-height: 190px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background: rgba(20, 23, 27, 0.72);
+  padding: 1.25rem;
+}
+
+.institutional-capability-grid svg {
+  color: #d6b15d;
+}
+
+.institutional-capability-grid h2 {
+  margin: 1rem 0 0.45rem;
+  font-size: 1.05rem;
+}
+
+.institutional-capability-grid p {
+  margin: 0;
+  color: rgba(245, 245, 240, 0.62);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+@media (max-width: 860px) {
+  .institutional-hero-page,
+  .institutional-capability-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .institutional-hero-page {
+    min-height: auto;
+    padding-top: 6rem;
+  }
+}
+
+.exchange-hero-terminal,
+.exchange-market-strip,
+.public-page-layout,
+.public-market-table,
+.data-panel,
+.public-card-grid article,
+.status-grid article {
+  border: 1px solid rgba(226, 241, 255, 0.13);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025)),
+    rgba(9, 13, 22, 0.84);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.exchange-hero-terminal {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 18px;
+  width: min(500px, 100%);
+  padding: clamp(18px, 3vw, 26px);
+  overflow: hidden;
+}
+
+.exchange-hero-terminal::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(90deg, transparent, rgba(245, 199, 99, 0.1), transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 8px);
+  opacity: 0.65;
+}
+
+.terminal-topline,
+.market-strip-heading,
+.terminal-action-row,
+.terminal-depth-panel a,
+.market-strip-card span,
+.trade-row,
+.orderbook-columns span {
+  display: flex;
+  align-items: center;
+}
+
+.terminal-topline,
+.market-strip-heading {
+  position: relative;
+  justify-content: space-between;
+  gap: 14px;
+  color: rgba(246, 251, 255, 0.78);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.terminal-topline span,
+.market-strip-heading span,
+.market-strip-heading a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-market-focus {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid rgba(245, 199, 99, 0.2);
+  border-radius: 8px;
+  background: rgba(245, 199, 99, 0.07);
+}
+
+.terminal-market-focus small,
+.data-panel h2,
+.public-card-grid h2,
+.status-grid strong {
+  color: rgba(246, 251, 255, 0.9);
+  font-weight: 900;
+}
+
+.terminal-market-focus strong {
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.positive {
+  color: #5cf6a3;
+}
+
+.negative {
+  color: #ff6b8b;
+}
+
+.terminal-depth-panel {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.terminal-depth-panel p,
+.market-state,
+.data-panel p {
+  margin: 0;
+  color: rgba(225, 239, 255, 0.72);
+}
+
+.terminal-depth-panel a {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(226, 241, 255, 0.08);
+  font-variant-numeric: tabular-nums;
+}
+
+.terminal-depth-panel span,
+.market-table-row strong {
+  color: #f6fbff;
+  font-weight: 900;
+}
+
+.terminal-depth-panel strong,
+.terminal-depth-panel em,
+.market-table-row span,
+.market-table-row em,
+.orderbook-columns b,
+.orderbook-columns em,
+.trade-row {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.terminal-action-row {
+  position: relative;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.terminal-action-row a,
+.market-source-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(226, 241, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(246, 251, 255, 0.84);
+}
+
+.terminal-action-row a {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.market-source-badge {
+  min-height: 24px;
+  padding: 0 9px;
+  color: #f5c763;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.exchange-market-strip {
+  width: min(1180px, calc(100% - 32px));
+  margin: -24px auto 56px;
+  padding: clamp(16px, 3vw, 24px);
+}
+
+.market-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.market-strip-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(226, 241, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.market-strip-card span {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.market-strip-card b {
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-strip-card em {
+  font-style: normal;
+  font-weight: 900;
+}
+
+.public-exchange-page {
+  padding-top: 92px;
+}
+
+.public-page-layout {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto 72px;
+  padding: clamp(20px, 4vw, 42px);
+}
+
+.public-page-heading {
+  display: grid;
+  gap: 14px;
+  max-width: 820px;
+  margin-bottom: 28px;
+}
+
+.public-page-heading h1 {
+  margin: 0;
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: clamp(2.2rem, 6vw, 5rem);
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.public-page-heading p {
+  margin: 0;
+  color: rgba(225, 239, 255, 0.74);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+.public-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.market-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  margin-bottom: 14px;
+  padding: 0 14px;
+  border: 1px solid rgba(245, 199, 99, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(246, 251, 255, 0.76);
+}
+
+.market-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f6fbff;
+  font: inherit;
+}
+
+.public-market-table {
+  overflow: hidden;
+}
+
+.market-table-head,
+.market-table-row {
+  display: grid;
+  grid-template-columns: 1.2fr repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.market-table-head {
+  color: rgba(225, 239, 255, 0.54);
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.market-table-row {
+  border-top: 1px solid rgba(226, 241, 255, 0.08);
+}
+
+.market-detail-grid,
+.status-grid,
+.public-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.market-detail-grid .public-market-table {
+  grid-column: 1 / -1;
+}
+
+.data-panel,
+.status-grid article,
+.public-card-grid article {
+  padding: 20px;
+}
+
+.data-panel h2,
+.public-card-grid h2 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+}
+
+.data-panel-body {
+  display: grid;
+  gap: 10px;
+}
+
+.orderbook-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.orderbook-columns div {
+  display: grid;
+  gap: 8px;
+}
+
+.orderbook-columns span,
+.trade-row {
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+  color: rgba(225, 239, 255, 0.74);
+}
+
+.trade-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.status-grid article,
+.public-card-grid article {
+  display: grid;
+  gap: 10px;
+}
+
+.status-grid svg,
+.public-card-grid svg {
+  color: #f5c763;
+}
+
+@media (max-width: 860px) {
+  .market-strip-grid,
+  .market-detail-grid,
+  .status-grid,
+  .public-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .market-table-head {
+    display: none;
+  }
+
+  .market-table-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 16px;
+  }
+
+  .exchange-hero-terminal {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .exchange-market-strip,
+  .public-page-layout {
+    width: min(100% - 20px, 1180px);
+  }
+
+  .orderbook-columns,
+  .trade-row {
+    grid-template-columns: 1fr;
+  }
+}

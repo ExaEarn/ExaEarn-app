@@ -511,13 +511,19 @@ class AuthController extends Controller
     {
         $userId = $request->user()?->id;
 
-        if ($request->user()?->currentAccessToken()) {
-            $request->user()?->currentAccessToken()?->delete();
+        $token = $request->user()?->currentAccessToken();
+        if ($token && method_exists($token, 'delete')) {
+            $token->delete();
         }
 
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        $guard = Auth::guard();
+        if (method_exists($guard, 'logout')) {
+            $guard->logout();
+        }
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         $this->logAudit($userId, 'auth_logout', $request);
 

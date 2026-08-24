@@ -18,7 +18,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import TradingChart from '../../components/market/TradingChart';
 
-const PRODUCT_TABS = ["Convert", "Spot", "Futures", "Options", "TradFi"];
+const PRODUCT_TABS = ["Convert", "Spot", "Margin", "Futures", "Options", "TradFi"];
 const MOBILE_MODES = ["trade", "chart"];
 const ACCOUNT_TABS = ["positions", "openOrders", "assets", "tools"];
 const TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"];
@@ -88,7 +88,7 @@ const normalizeMarket = (item) => ({
   maintenance_margin_rate: item.maintenance_margin_rate || 0.005,
 });
 
-function Futures({ onBack, onOpenConvert, onOpenSpot, onOpenOptions, onOpenTradFi, onOpenSmart }) {
+function Futures({ onBack, onOpenConvert, onOpenSpot, onOpenMargin, onOpenOptions, onOpenTradFi, onOpenSmart }) {
   const { request, user } = useAuth();
   const [markets, setMarkets] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
@@ -373,7 +373,7 @@ function Futures({ onBack, onOpenConvert, onOpenSpot, onOpenOptions, onOpenTradF
   return (
     <main className="min-h-[100dvh] overflow-x-hidden bg-[#04070d] text-white">
       <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-3 px-2 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-[calc(env(safe-area-inset-top)+8px)] sm:px-3 lg:px-4">
-        <ProductNav onOpenConvert={onOpenConvert} onOpenSpot={onOpenSpot} onOpenOptions={onOpenOptions} onOpenTradFi={onOpenTradFi ?? onOpenSmart} />
+        <ProductNav onOpenConvert={onOpenConvert} onOpenSpot={onOpenSpot} onOpenMargin={onOpenMargin} onOpenOptions={onOpenOptions} onOpenTradFi={onOpenTradFi ?? onOpenSmart} />
 
         <section className="rounded-2xl border border-white/8 bg-[#070d16] px-3 py-2.5">
           <div className="flex items-start justify-between gap-3">
@@ -429,7 +429,7 @@ function Futures({ onBack, onOpenConvert, onOpenSpot, onOpenOptions, onOpenTradF
   );
 }
 
-function ProductNav({ onOpenConvert, onOpenSpot, onOpenOptions, onOpenTradFi }) { return <nav className="rounded-xl border border-white/8 bg-[#070d16]/95 px-2 py-1" aria-label="Trading products"><div className="flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar">{PRODUCT_TABS.map((tab) => { const active = tab === "Futures"; const handler = tab === "Convert" ? onOpenConvert : tab === "Spot" ? onOpenSpot : tab === "Options" ? onOpenOptions : tab === "TradFi" ? onOpenTradFi : undefined; return <button key={tab} type="button" onClick={handler} className={`relative shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold tracking-wide transition sm:px-3 ${active ? "bg-[#d1ab55] text-slate-950 shadow-[0_8px_22px_rgba(209,171,85,.18)]" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"}`}>{tab}</button>; })}</div></nav>; }
+function ProductNav({ onOpenConvert, onOpenSpot, onOpenMargin, onOpenOptions, onOpenTradFi }) { return <nav className="rounded-xl border border-white/8 bg-[#070d16]/95 px-2 py-1" aria-label="Trading products"><div className="flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar">{PRODUCT_TABS.map((tab) => { const active = tab === "Futures"; const handler = tab === "Convert" ? onOpenConvert : tab === "Spot" ? onOpenSpot : tab === "Margin" ? onOpenMargin : tab === "Options" ? onOpenOptions : tab === "TradFi" ? onOpenTradFi : undefined; return <button key={tab} type="button" onClick={handler} className={`relative shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold tracking-wide transition sm:px-3 ${active ? "bg-[#d1ab55] text-slate-950 shadow-[0_8px_22px_rgba(209,171,85,.18)]" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"}`}>{tab}</button>; })}</div></nav>; }
 function MarketSidebar({ markets, selectedSymbol, onSelect, favorites, search, onSearch }) {
   return <div className="min-w-0 rounded-2xl border border-white/8 bg-[#070d16] p-2.5"><div className="text-xs uppercase tracking-[0.18em] text-slate-500">Markets</div><div className="mt-2 rounded-xl bg-white/[0.04] px-3 py-2"><div className="flex items-center gap-2"><Search className="h-4 w-4 text-slate-500" /><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search futures" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /></div></div><div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] px-2 text-[10px] uppercase tracking-[0.16em] text-slate-500"><span>Contract</span><span className="text-right">Last / 24h</span></div><div className="mt-2 space-y-1 overflow-y-auto">{markets.map((market) => <button key={market.symbol} type="button" onClick={() => onSelect(market.symbol)} className={`w-full rounded-xl border px-3 py-2 text-left ${selectedSymbol === market.symbol ? "border-amber-400/30 bg-amber-400/8" : "border-white/8 bg-white/[0.02] hover:bg-white/[0.04]"}`}><div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><Star className={`h-3.5 w-3.5 ${favorites.includes(market.symbol) ? "fill-current text-amber-300" : "text-slate-500"}`} /><div className="min-w-0"><div className="truncate text-sm font-semibold">{market.symbol}</div><div className="text-[11px] text-slate-500">Perpetual</div></div></div><div className="text-right"><div className="font-mono text-xs text-slate-100">{formatPrice(market.last_price)}</div><div className={`text-[11px] ${toNumber(market.price_change_percent) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{formatPct(market.price_change_percent)}</div></div></div></button>)}</div></div>;
 }

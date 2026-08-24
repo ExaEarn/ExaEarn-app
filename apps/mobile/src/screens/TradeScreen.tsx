@@ -4,17 +4,19 @@ import { Modal, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensio
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable } from "../components/AnimatedPressable";
+import { useAuth } from "../context/AuthContext";
 import { colors, fonts } from "../theme/colors";
 
 type TradeScreenProps = { fontsReady: boolean; onBack: () => void };
-type TradePair = { pair: string; base: string; quote: string; name: string; seedPrice: number; colorA: string };
+type TradePair = { pair: string; base: string; quote: string; name: string; colorA: string };
 type OrderBookEntry = { price: number; amount: number; depth: number };
+type MarginAccount = { account_uuid: string; mode: string; market_symbol?: string | null; status: string };
 
 const pairs: TradePair[] = [
-  { pair: "XRP/USDT", base: "XRP", quote: "USDT", name: "XRP Ledger", seedPrice: 1.3572, colorA: "#3b82f6" },
-  { pair: "BTC/USDT", base: "BTC", quote: "USDT", name: "Bitcoin", seedPrice: 68320.2, colorA: "#f59e0b" },
-  { pair: "ETH/USDT", base: "ETH", quote: "USDT", name: "Ethereum", seedPrice: 1964.8, colorA: "#6366f1" },
-  { pair: "SOL/USDT", base: "SOL", quote: "USDT", name: "Solana", seedPrice: 154.7, colorA: "#a855f7" },
+  { pair: "XRP/USDT", base: "XRP", quote: "USDT", name: "XRP Ledger", colorA: "#3b82f6" },
+  { pair: "BTC/USDT", base: "BTC", quote: "USDT", name: "Bitcoin", colorA: "#f59e0b" },
+  { pair: "ETH/USDT", base: "ETH", quote: "USDT", name: "Ethereum", colorA: "#6366f1" },
+  { pair: "SOL/USDT", base: "SOL", quote: "USDT", name: "Solana", colorA: "#a855f7" },
 ];
 const modes = ["Spot", "Margin", "Futures"] as const;
 const orderTypes = ["Market", "Limit", "Stop-Limit"] as const;
@@ -23,15 +25,6 @@ const chartBars = [28, 39, 44, 30, 52, 47, 62, 57, 50, 68, 61, 74];
 
 type Mode = (typeof modes)[number];
 type OrderType = (typeof orderTypes)[number];
-
-function generateOrders(startPrice: number, isBid: boolean, tick: number): OrderBookEntry[] {
-  return Array.from({ length: 8 }).map((_, index) => {
-    const step = 0.0002 * (index + 1);
-    const price = isBid ? startPrice - step : startPrice + step;
-    const amount = 400 + (((index + 1) * 91 + tick * 13) % 680) + Math.random() * 8;
-    return { price: Number(price.toFixed(4)), amount, depth: 18 + ((index * 12 + tick * 3) % 72) };
-  });
-}
 
 function PairBadge({ pair, compact = false }: { pair: TradePair; compact?: boolean }) {
   return <View style={[styles.badge, compact ? styles.badgeCompact : null, { backgroundColor: pair.colorA }]}><Text style={[styles.badgeText, compact ? styles.badgeTextCompact : null]}>{pair.base[0]}</Text></View>;
@@ -61,6 +54,7 @@ function BottomNavItem({ label, icon, active = false, onPress }: { label: string
 export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { request } = useAuth();
   const [pair, setPair] = useState("XRP/USDT");
   const [showPairMenu, setShowPairMenu] = useState(false);
   const [mode, setMode] = useState<Mode>("Spot");
@@ -74,13 +68,19 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showChartModal, setShowChartModal] = useState(false);
   const [pricePulse, setPricePulse] = useState(false);
+  const [marginAccounts, setMarginAccounts] = useState<MarginAccount[]>([]);
+  const [selectedMarginAccount, setSelectedMarginAccount] = useState("");
+  const [borrowMode, setBorrowMode] = useState<"NORMAL" | "AUTO_BORROW" | "AUTO_REPAY">("NORMAL");
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
+  const [orderError, setOrderError] = useState("");
   const [bookTick, setBookTick] = useState(0);
-  const [midPrice, setMidPrice] = useState(1.3572);
-  const [change24h, setChange24h] = useState(-2.6);
+  const [midPrice, setMidPrice] = useState(0);
+  const [change24h, setChange24h] = useState(0);
+  const [askOrders, setAskOrders] = useState<OrderBookEntry[]>([]);
+  const [bidOrders, setBidOrders] = useState<OrderBookEntry[]>([]);
   const [availableBalance] = useState(3240.25);
   const selectedPair = useMemo(() => pairs.find((item) => item.pair === pair) || pairs[0], [pair]);
-  const askOrders = useMemo(() => generateOrders(midPrice + 0.0006, false, bookTick), [midPrice, bookTick]);
-  const bidOrders = useMemo(() => generateOrders(midPrice - 0.0006, true, bookTick), [midPrice, bookTick]);
   const twoColumnLayout = width >= 1100;
   const estimatedCost = useMemo(() => (parseFloat(price || "0") * parseFloat(amount || "0")) || 0, [price, amount]);
   const fee = useMemo(() => estimatedCost * 0.001, [estimatedCost]);
@@ -92,25 +92,119 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
   }, [mode, side, price]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMidPrice((previous) => Number(Math.max(0.0001, previous + (Math.random() - 0.5) * 0.004).toFixed(4)));
-      setChange24h((previous) => Number((previous + (Math.random() - 0.5) * 0.16).toFixed(2)));
-      setPricePulse(true);
-      setTimeout(() => setPricePulse(false), 260);
-      setBookTick((previous) => previous + 1);
-    }, 1800);
-    return () => clearInterval(timer);
-  }, []);
+    let cancelled = false;
+    const pairPath = pair.replace("/", "-");
+    const normalizeRows = (rows: unknown[]): OrderBookEntry[] => {
+      const max = Math.max(1, ...rows.map((row: any) => Number(row?.quantity ?? row?.amount ?? row?.[1] ?? 0)));
+      return rows.slice(0, 8).map((row: any) => {
+        const amountValue = Number(row?.quantity ?? row?.amount ?? row?.[1] ?? 0);
+        return {
+          price: Number(row?.price ?? row?.[0] ?? 0),
+          amount: Number.isFinite(amountValue) ? amountValue : 0,
+          depth: Math.max(4, Math.min(100, (amountValue / max) * 100)),
+        };
+      }).filter((item) => item.price > 0 && item.amount > 0);
+    };
+
+    const loadMarketData = async () => {
+      try {
+        const [tickerPayload, bookPayload] = await Promise.all([
+          request<{ data?: Record<string, unknown> }>(`/api/v1/market/ticker/${pairPath}`, { method: "GET" }),
+          request<{ data?: { bids?: unknown[]; asks?: unknown[] } }>(`/api/v1/market/order-book/${pairPath}?limit=8`, { method: "GET" }),
+        ]);
+        if (cancelled) return;
+
+        const nextPrice = Number(tickerPayload.data?.last_price ?? tickerPayload.data?.reference_price ?? 0);
+        const nextChange = Number(tickerPayload.data?.price_change_percent ?? 0);
+        setMidPrice(Number.isFinite(nextPrice) ? nextPrice : 0);
+        setChange24h(Number.isFinite(nextChange) ? nextChange : 0);
+        setAskOrders(normalizeRows(bookPayload.data?.asks ?? []));
+        setBidOrders(normalizeRows(bookPayload.data?.bids ?? []));
+        setPricePulse(true);
+        setTimeout(() => setPricePulse(false), 260);
+        setBookTick((previous) => previous + 1);
+      } catch {
+        if (cancelled) return;
+        setAskOrders([]);
+        setBidOrders([]);
+      }
+    };
+
+    void loadMarketData();
+    const timer = setInterval(loadMarketData, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [pair, request]);
 
   useEffect(() => {
-    const nextPrice = selectedPair.seedPrice;
-    setMidPrice(nextPrice);
-    if (orderType === "Market") setPrice(nextPrice.toFixed(4));
-  }, [selectedPair, orderType]);
-
-  useEffect(() => {
-    if (orderType === "Market") setPrice(midPrice.toFixed(4));
+    if (orderType === "Market" && midPrice > 0) setPrice(midPrice.toFixed(4));
   }, [midPrice, orderType]);
+
+  useEffect(() => {
+    if (mode !== "Margin" || marginAccounts.length > 0) return;
+
+    let cancelled = false;
+    const loadMarginOverview = async () => {
+      try {
+        const payload = await request<{ accounts?: MarginAccount[] }>("/api/margin/overview", { method: "GET" });
+        if (cancelled) return;
+        const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+        setMarginAccounts(accounts);
+        setSelectedMarginAccount((current) => current || accounts[0]?.account_uuid || "");
+      } catch (error) {
+        if (cancelled) return;
+        setOrderError(error instanceof Error ? error.message : "Unable to load Margin account.");
+      }
+    };
+
+    void loadMarginOverview();
+    return () => {
+      cancelled = true;
+    };
+  }, [marginAccounts.length, mode, request]);
+
+  const submitMarginOrder = async () => {
+    setOrderMessage("");
+    setOrderError("");
+
+    if (!selectedMarginAccount) {
+      setOrderError("Open a Margin account before submitting a Margin order.");
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      setOrderError("Enter a valid order amount.");
+      return;
+    }
+    if (orderType !== "Limit") {
+      setOrderError("Margin mobile orders currently require Limit type with explicit price protection.");
+      return;
+    }
+
+    setOrderSubmitting(true);
+    try {
+      await request("/api/margin/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          account_uuid: selectedMarginAccount,
+          client_order_id: `mobile-margin-${Date.now()}`,
+          pair,
+          side,
+          type: "limit",
+          amount,
+          price,
+          borrow_mode: borrowMode,
+        }),
+      });
+      setShowConfirm(false);
+      setOrderMessage("Margin order submitted to the ExaEarn Spot engine.");
+    } catch (error) {
+      setOrderError(error instanceof Error ? error.message : "Margin order was rejected.");
+    } finally {
+      setOrderSubmitting(false);
+    }
+  };
 
   if (!fontsReady) return <View style={styles.fill} />;
   return (
@@ -131,7 +225,7 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
             </View>
             <View style={styles.headerPriceRow}>
               <View>
-                <Text style={[styles.livePriceText, pricePulse ? styles.livePricePulse : null]}>{midPrice.toFixed(4)}</Text>
+                <Text style={[styles.livePriceText, pricePulse ? styles.livePricePulse : null]}>{midPrice > 0 ? midPrice.toFixed(4) : "--"}</Text>
                 <Text style={[styles.changeText, change24h >= 0 ? styles.changePositive : styles.changeNegative]}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(2)}% (24h)</Text>
               </View>
               <AnimatedPressable onPress={() => setShowChartModal(true)} style={styles.expandChartButton}><Text style={styles.expandChartButtonText}>Expand Chart</Text></AnimatedPressable>
@@ -143,6 +237,7 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
           <View style={styles.modeCard}>
             <View style={styles.segmentShell}>{modes.map((item) => <AnimatedPressable key={item} onPress={() => setMode(item)} style={[styles.segmentButton, mode === item ? styles.segmentButtonActive : null]}><Text style={[styles.segmentButtonText, mode === item ? styles.segmentButtonTextActive : null]}>{item}</Text></AnimatedPressable>)}</View>
             {mode === "Futures" ? <View style={styles.futuresToolbar}><View style={styles.leverageRow}><AnimatedPressable onPress={() => setLeverage((value) => Math.max(1, value - 1))} style={styles.miniIconButton}><Text style={styles.miniIconButtonText}>-</Text></AnimatedPressable><View style={styles.leverageBadge}><Text style={styles.leverageBadgeText}>{leverage}x</Text></View><AnimatedPressable onPress={() => setLeverage((value) => Math.min(125, value + 1))} style={styles.miniIconButton}><Text style={styles.miniIconButtonText}>+</Text></AnimatedPressable></View><View style={styles.marginTypeShell}>{(["Cross", "Isolated"] as const).map((item) => <AnimatedPressable key={item} onPress={() => setMarginType(item)} style={[styles.marginTypeButton, marginType === item ? styles.marginTypeButtonActive : null]}><Text style={[styles.marginTypeText, marginType === item ? styles.marginTypeTextActive : null]}>{item}</Text></AnimatedPressable>)}</View></View> : null}
+            {mode === "Margin" ? <View style={styles.marginOrderToolbar}><Text style={styles.marginOrderLabel}>Borrow Mode</Text><View style={styles.marginTypeShell}>{(["NORMAL", "AUTO_BORROW", "AUTO_REPAY"] as const).map((item) => <AnimatedPressable key={item} onPress={() => setBorrowMode(item)} style={[styles.marginTypeButton, borrowMode === item ? styles.marginTypeButtonActive : null]}><Text style={[styles.marginTypeText, borrowMode === item ? styles.marginTypeTextActive : null]}>{item.replace("_", " ")}</Text></AnimatedPressable>)}</View></View> : null}
           </View>
 
           <View style={[styles.mainGrid, twoColumnLayout ? styles.mainGridDesktop : null]}>
@@ -150,16 +245,18 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
               <View style={styles.orderCard}>
                 <View style={styles.buySellShell}><AnimatedPressable onPress={() => setSide("buy")} style={[styles.buySellButton, side === "buy" ? styles.buySellButtonBuyActive : null]}><Text style={styles.buySellText}>Buy</Text></AnimatedPressable><AnimatedPressable onPress={() => setSide("sell")} style={[styles.buySellButton, side === "sell" ? styles.buySellButtonSellActive : null]}><Text style={styles.buySellText}>Sell</Text></AnimatedPressable></View>
                 <View style={styles.fieldBlock}><Text style={styles.fieldLabel}>Order Type</Text><View style={styles.inlineOptionsWrap}>{orderTypes.map((item) => <AnimatedPressable key={item} onPress={() => setOrderType(item)} style={[styles.inlineOption, orderType === item ? styles.inlineOptionActive : null]}><Text style={[styles.inlineOptionText, orderType === item ? styles.inlineOptionTextActive : null]}>{item}</Text></AnimatedPressable>)}</View></View>
-                <View style={styles.fieldBlock}><Text style={styles.fieldLabel}>Price</Text><TextInput value={price} onChangeText={setPrice} editable={orderType !== "Market"} style={[styles.tradeInput, orderType === "Market" ? styles.tradeInputDisabled : null]} placeholderTextColor="#64748b" /></View>
+                <View style={styles.fieldBlock}><Text style={styles.fieldLabel}>Price</Text><TextInput value={price} onChangeText={setPrice} editable={orderType !== "Market"} style={[styles.tradeInput, orderType === "Market" ? styles.tradeInputDisabled : null]} placeholder="Waiting for ExaEarn market data" placeholderTextColor="#64748b" /></View>
                 <View style={styles.fieldBlock}><Text style={styles.fieldLabel}>Amount</Text><TextInput value={amount} onChangeText={setAmount} placeholder="0.00" placeholderTextColor="#64748b" style={styles.tradeInput} keyboardType="decimal-pad" /></View>
                 <View style={styles.percentagesRow}>{percentages.map((percent) => <AnimatedPressable key={percent} onPress={() => { setSelectedPct(percent); const numericPrice = parseFloat(price || "0"); const maxAmount = numericPrice ? availableBalance / numericPrice : 0; setAmount(((maxAmount * percent) / 100).toFixed(4)); }} style={[styles.percentageButton, selectedPct === percent ? styles.percentageButtonActive : null]}><Text style={[styles.percentageButtonText, selectedPct === percent ? styles.percentageButtonTextActive : null]}>{percent}%</Text></AnimatedPressable>)}</View>
-                <View style={styles.summaryCard}><Text style={styles.summaryLine}>Available Balance: {availableBalance.toFixed(2)} USDT</Text><Text style={styles.summaryLine}>Estimated Cost: {estimatedCost.toFixed(4)} USDT</Text><Text style={styles.summaryLine}>Fee Preview: {fee.toFixed(4)} USDT</Text>{liquidationPrice ? <Text style={styles.summaryWarning}>Liquidation Price: {liquidationPrice.toFixed(4)}</Text> : null}</View>
-                <AnimatedPressable onPress={() => setShowConfirm(true)} style={[styles.submitButton, side === "buy" ? styles.submitButtonBuy : styles.submitButtonSell]}><Text style={[styles.submitButtonText, side === "buy" ? styles.submitButtonTextBuy : styles.submitButtonTextSell]}>{side === "buy" ? "Buy / Long" : "Sell / Short"}</Text></AnimatedPressable>
+                <View style={styles.summaryCard}><Text style={styles.summaryLine}>Available Balance: {availableBalance.toFixed(2)} USDT</Text><Text style={styles.summaryLine}>Estimated Cost: {estimatedCost.toFixed(4)} USDT</Text><Text style={styles.summaryLine}>Fee Preview: {fee.toFixed(4)} USDT</Text>{mode === "Margin" ? <Text style={styles.summaryLine}>Margin Account: {selectedMarginAccount ? "Connected" : "Loading"}</Text> : null}{liquidationPrice ? <Text style={styles.summaryWarning}>Liquidation Price: {liquidationPrice.toFixed(4)}</Text> : null}</View>
+                {orderMessage ? <Text style={styles.orderSuccessText}>{orderMessage}</Text> : null}
+                {orderError ? <Text style={styles.orderErrorText}>{orderError}</Text> : null}
+                <AnimatedPressable onPress={() => setShowConfirm(true)} style={[styles.submitButton, side === "buy" ? styles.submitButtonBuy : styles.submitButtonSell]}><Text style={[styles.submitButtonText, side === "buy" ? styles.submitButtonTextBuy : styles.submitButtonTextSell]}>{mode === "Margin" ? "Submit Margin Order" : side === "buy" ? "Buy / Long" : "Sell / Short"}</Text></AnimatedPressable>
               </View>
 
-              <View style={styles.positionCard}><Text style={styles.sectionTitle}>Open Position</Text><View style={styles.positionGrid}><InfoCell label="Entry Price" value="1.3400" /><InfoCell label="Mark Price" value={midPrice.toFixed(4)} /><InfoCell label="Unrealized PNL" value="+43.21 USDT" positive /><InfoCell label="Margin Used" value="122.40 USDT" /><InfoCell label="Liquidation" value="1.1750" /><AnimatedPressable style={styles.closePositionButton}><Text style={styles.closePositionButtonText}>Close Position</Text></AnimatedPressable></View></View>
+              <View style={styles.positionCard}><Text style={styles.sectionTitle}>Open Position</Text><View style={styles.positionGrid}><InfoCell label="Entry Price" value="--" /><InfoCell label="Mark Price" value={midPrice > 0 ? midPrice.toFixed(4) : "--"} /><InfoCell label="Unrealized PNL" value="--" positive /><InfoCell label="Margin Used" value="--" /><InfoCell label="Liquidation" value="--" /><AnimatedPressable style={styles.closePositionButton}><Text style={styles.closePositionButtonText}>Close Position</Text></AnimatedPressable></View></View>
             </View>
-            <View style={styles.rightColumn}><View style={styles.orderBookCard}><Text style={styles.sectionTitle}>Order Book</Text><View style={styles.orderBookList}>{askOrders.map((item, index) => <BookRow key={`ask-${index}`} item={item} side="sell" />)}</View><View style={styles.midPricePill}><Text style={styles.midPricePillText}>{midPrice.toFixed(4)}</Text></View><View style={styles.orderBookList}>{bidOrders.map((item, index) => <BookRow key={`bid-${index}`} item={item} side="buy" />)}</View></View></View>
+            <View style={styles.rightColumn}><View style={styles.orderBookCard}><Text style={styles.sectionTitle}>Order Book</Text><View style={styles.orderBookList}>{askOrders.map((item, index) => <BookRow key={`ask-${index}`} item={item} side="sell" />)}</View><View style={styles.midPricePill}><Text style={styles.midPricePillText}>{midPrice > 0 ? midPrice.toFixed(4) : "--"}</Text></View><View style={styles.orderBookList}>{bidOrders.map((item, index) => <BookRow key={`bid-${index}`} item={item} side="buy" />)}</View></View></View>
           </View>
 
           <Text style={styles.riskText}>Trading involves risk. Ensure you understand leverage and liquidation before placing an order.</Text>
@@ -169,7 +266,7 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
       <View style={[styles.bottomNavShell, { paddingBottom: insets.bottom }]}><View style={styles.bottomNav}><BottomNavItem label="Home" icon="home-outline" onPress={onBack} /><BottomNavItem label="Markets" icon="bar-chart-outline" /><BottomNavItem label="Trade" icon="diamond-outline" active /><BottomNavItem label="Futures" icon="stats-chart-outline" /><BottomNavItem label="Assets" icon="wallet-outline" /></View></View>
 
       <Modal visible={showPairMenu} transparent animationType="fade" onRequestClose={() => setShowPairMenu(false)}><View style={styles.modalBackdrop}><View style={styles.modalCard}><View style={styles.modalHeaderRow}><Text style={styles.modalTitle}>Select Pair</Text><AnimatedPressable onPress={() => setShowPairMenu(false)} style={styles.modalCloseButton}><Ionicons name="close-outline" size={16} color="#9aa4b2" /></AnimatedPressable></View><View style={styles.pairMenuList}>{pairs.map((item) => <AnimatedPressable key={item.pair} onPress={() => { setPair(item.pair); setShowPairMenu(false); }} style={[styles.pairMenuItem, item.pair === pair ? styles.pairMenuItemActive : null]}><View style={styles.pairMenuIdentity}><PairBadge pair={item} /><View><Text style={styles.pairMenuPair}>{item.pair}</Text><Text style={styles.pairMenuName}>{item.name}</Text></View></View><Text style={styles.pairMenuBase}>{item.base}</Text></AnimatedPressable>)}</View></View></View></Modal>
-      <Modal visible={showConfirm} transparent animationType="fade" onRequestClose={() => setShowConfirm(false)}><View style={styles.modalBackdrop}><View style={styles.confirmCard}><Text style={styles.modalTitle}>Confirm Order</Text><View style={styles.confirmLines}><Text style={styles.confirmLine}>Pair: {pair}</Text><Text style={styles.confirmLine}>Side: {side === "buy" ? "Buy / Long" : "Sell / Short"}</Text><Text style={styles.confirmLine}>Type: {orderType}</Text><Text style={styles.confirmLine}>Price: {price}</Text><Text style={styles.confirmLine}>Amount: {amount || "0"}</Text><Text style={styles.confirmLine}>Fee: {fee.toFixed(4)} USDT</Text><Text style={styles.confirmTotal}>Total: {(estimatedCost + fee).toFixed(4)} USDT</Text></View><View style={styles.confirmActions}><AnimatedPressable onPress={() => setShowConfirm(false)} style={styles.confirmCancelButton}><Text style={styles.confirmCancelText}>Cancel</Text></AnimatedPressable><AnimatedPressable onPress={() => setShowConfirm(false)} style={styles.confirmPrimaryButton}><Text style={styles.confirmPrimaryText}>Confirm</Text></AnimatedPressable></View></View></View></Modal>
+      <Modal visible={showConfirm} transparent animationType="fade" onRequestClose={() => setShowConfirm(false)}><View style={styles.modalBackdrop}><View style={styles.confirmCard}><Text style={styles.modalTitle}>Confirm Order</Text><View style={styles.confirmLines}><Text style={styles.confirmLine}>Mode: {mode}</Text><Text style={styles.confirmLine}>Pair: {pair}</Text><Text style={styles.confirmLine}>Side: {side === "buy" ? "Buy / Long" : "Sell / Short"}</Text><Text style={styles.confirmLine}>Type: {orderType}</Text>{mode === "Margin" ? <Text style={styles.confirmLine}>Borrow Mode: {borrowMode.replace("_", " ")}</Text> : null}<Text style={styles.confirmLine}>Price: {price}</Text><Text style={styles.confirmLine}>Amount: {amount || "0"}</Text><Text style={styles.confirmLine}>Fee: {fee.toFixed(4)} USDT</Text><Text style={styles.confirmTotal}>Total: {(estimatedCost + fee).toFixed(4)} USDT</Text></View><View style={styles.confirmActions}><AnimatedPressable onPress={() => setShowConfirm(false)} style={styles.confirmCancelButton}><Text style={styles.confirmCancelText}>Cancel</Text></AnimatedPressable><AnimatedPressable onPress={mode === "Margin" ? submitMarginOrder : () => setShowConfirm(false)} style={styles.confirmPrimaryButton}><Text style={styles.confirmPrimaryText}>{orderSubmitting ? "Submitting..." : "Confirm"}</Text></AnimatedPressable></View></View></View></Modal>
       <Modal visible={showChartModal} transparent animationType="fade" onRequestClose={() => setShowChartModal(false)}><View style={styles.chartModalBackdrop}><View style={styles.chartModalCard}><View style={styles.modalHeaderRow}><Text style={styles.modalTitle}>{pair} Advanced Chart</Text><AnimatedPressable onPress={() => setShowChartModal(false)} style={styles.modalCloseButton}><Text style={styles.chartCloseText}>Close</Text></AnimatedPressable></View><View style={styles.advancedChartCanvas}><View style={styles.advancedBarsRow}>{Array.from({ length: 42 }).map((_, index) => { const height = 18 + ((index * 19 + bookTick * 7) % 66); return <View key={index} style={[styles.advancedChartBar, { height: `${height}%` }]} />; })}</View></View></View></View></Modal>
     </View>
   );
@@ -206,6 +303,8 @@ const styles = StyleSheet.create({
   segmentButtonText: { color: "#9aa4b2", fontFamily: fonts.semibold, fontSize: 12 },
   segmentButtonTextActive: { color: "#ffffff" },
   futuresToolbar: { marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" },
+  marginOrderToolbar: { marginTop: 12, gap: 8 },
+  marginOrderLabel: { color: "#9aa4b2", fontFamily: fonts.medium, fontSize: 11 },
   leverageRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   miniIconButton: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", backgroundColor: "#0d1424", alignItems: "center", justifyContent: "center" },
   miniIconButtonText: { color: "#ffffff", fontFamily: fonts.semibold, fontSize: 13 },
@@ -243,6 +342,8 @@ const styles = StyleSheet.create({
   summaryCard: { marginTop: 14, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)", backgroundColor: "#0d1424", padding: 12, gap: 4 },
   summaryLine: { color: "#9aa4b2", fontFamily: fonts.body, fontSize: 12 },
   summaryWarning: { color: "#ffb900", fontFamily: fonts.medium, fontSize: 12, marginTop: 2 },
+  orderSuccessText: { marginTop: 10, color: "#18c06c", fontFamily: fonts.medium, fontSize: 12 },
+  orderErrorText: { marginTop: 10, color: "#ff7b89", fontFamily: fonts.medium, fontSize: 12 },
   submitButton: { marginTop: 16, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   submitButtonBuy: { backgroundColor: "#18c06c" },
   submitButtonSell: { backgroundColor: "#ff5b6b" },

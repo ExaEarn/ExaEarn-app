@@ -1,0 +1,136 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'production_enabled' => (bool) env('CUSTODY_PRODUCTION_ENABLED', false),
+    'low_capital_mode' => (bool) env('CUSTODY_LOW_CAPITAL_MODE', true),
+
+    'networks' => [
+        'ethereum' => [
+            'family' => 'evm',
+            'chain_id' => 1,
+            'native_asset' => 'ETH',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('ETHEREUM_MIN_CONFIRMATIONS', 12),
+            'finality_confirmations' => (int) env('ETHEREUM_FINALITY_CONFIRMATIONS', 64),
+            'memo_required' => false,
+            'state' => env('ETHEREUM_CUSTODY_STATE', 'DEGRADED'),
+        ],
+        'base' => [
+            'family' => 'evm',
+            'chain_id' => 8453,
+            'native_asset' => 'ETH',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('BASE_MIN_CONFIRMATIONS', 12),
+            'finality_confirmations' => (int) env('BASE_FINALITY_CONFIRMATIONS', 64),
+            'memo_required' => false,
+            'state' => env('BASE_CUSTODY_STATE', 'DEGRADED'),
+        ],
+        'bsc' => [
+            'family' => 'evm',
+            'chain_id' => 56,
+            'native_asset' => 'BNB',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('BSC_MIN_CONFIRMATIONS', 15),
+            'finality_confirmations' => (int) env('BSC_FINALITY_CONFIRMATIONS', 30),
+            'memo_required' => false,
+            'state' => env('BSC_CUSTODY_STATE', 'DEGRADED'),
+        ],
+        'polygon' => [
+            'family' => 'evm',
+            'chain_id' => 137,
+            'native_asset' => 'MATIC',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('POLYGON_MIN_CONFIRMATIONS', 20),
+            'finality_confirmations' => (int) env('POLYGON_FINALITY_CONFIRMATIONS', 128),
+            'memo_required' => false,
+            'state' => env('POLYGON_CUSTODY_STATE', 'DEGRADED'),
+        ],
+        'bitcoin' => [
+            'family' => 'utxo',
+            'chain_id' => null,
+            'native_asset' => 'BTC',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('BITCOIN_MIN_CONFIRMATIONS', 3),
+            'finality_confirmations' => (int) env('BITCOIN_FINALITY_CONFIRMATIONS', 6),
+            'memo_required' => false,
+            'state' => env('BITCOIN_CUSTODY_STATE', 'DEGRADED'),
+        ],
+        'solana' => [
+            'family' => 'solana',
+            'chain_id' => null,
+            'native_asset' => 'SOL',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('SOLANA_MIN_CONFIRMATIONS', 20),
+            'finality_confirmations' => (int) env('SOLANA_FINALITY_CONFIRMATIONS', 32),
+            'memo_required' => false,
+            'state' => env('SOLANA_CUSTODY_STATE', 'DEGRADED'),
+        ],
+        'xrpl' => [
+            'family' => 'xrpl',
+            'chain_id' => null,
+            'native_asset' => 'XRP',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('XRPL_MIN_CONFIRMATIONS', 1),
+            'finality_confirmations' => (int) env('XRPL_FINALITY_CONFIRMATIONS', 1),
+            'memo_required' => true,
+            'state' => env('XRPL_CUSTODY_STATE', 'DEGRADED'),
+        ],
+        'tron' => [
+            'family' => 'tron',
+            'chain_id' => null,
+            'native_asset' => 'TRX',
+            'deposit_enabled' => true,
+            'withdrawal_enabled' => true,
+            'required_confirmations' => (int) env('TRON_MIN_CONFIRMATIONS', 20),
+            'finality_confirmations' => (int) env('TRON_FINALITY_CONFIRMATIONS', 20),
+            'memo_required' => false,
+            'state' => env('TRON_CUSTODY_STATE', 'DEGRADED'),
+        ],
+    ],
+
+    'assets' => [
+        'ETH' => ['networks' => ['ethereum', 'base'], 'decimals' => 18, 'type' => 'native'],
+        'BNB' => ['networks' => ['bsc'], 'decimals' => 18, 'type' => 'native'],
+        'MATIC' => ['networks' => ['polygon'], 'decimals' => 18, 'type' => 'native'],
+        'BTC' => ['networks' => ['bitcoin'], 'decimals' => 8, 'type' => 'native'],
+        'SOL' => ['networks' => ['solana'], 'decimals' => 9, 'type' => 'native'],
+        'XRP' => ['networks' => ['xrpl'], 'decimals' => 6, 'type' => 'native'],
+        'TRX' => ['networks' => ['tron'], 'decimals' => 6, 'type' => 'native'],
+        'USDT' => ['networks' => ['ethereum', 'base', 'bsc', 'tron'], 'decimals' => 6, 'type' => 'token'],
+        'USDC' => ['networks' => ['ethereum', 'base', 'polygon'], 'decimals' => 6, 'type' => 'token'],
+        'EXA' => ['networks' => ['base'], 'decimals' => 18, 'type' => 'token'],
+    ],
+
+    'limits' => [
+        'default_min_deposit' => env('CUSTODY_MIN_DEPOSIT', '0.00000001'),
+        'default_min_withdrawal' => env('CUSTODY_MIN_WITHDRAWAL', '0.00000001'),
+        'default_max_withdrawal' => env('CUSTODY_MAX_WITHDRAWAL', '1000000'),
+        'dust_threshold' => env('CUSTODY_DUST_THRESHOLD', '0.00000001'),
+    ],
+
+    'fees' => [
+        'default_network_fee' => env('CUSTODY_DEFAULT_NETWORK_FEE', '0'),
+        'default_platform_fee' => env('CUSTODY_DEFAULT_PLATFORM_FEE', '0'),
+        'max_network_fee' => env('CUSTODY_MAX_NETWORK_FEE', '1000'),
+    ],
+
+    'signing' => [
+        'provider' => env('CUSTODY_SIGNING_PROVIDER', 'development_local'),
+        'production_allowed_providers' => ['mpc', 'hsm', 'multisig', 'external_signer'],
+        'large_withdrawal_threshold' => env('CUSTODY_LARGE_WITHDRAWAL_THRESHOLD', '10000'),
+    ],
+
+    'providers' => [
+        'default_timeout_seconds' => (int) env('CUSTODY_PROVIDER_TIMEOUT', 8),
+        'max_requests_per_minute' => (int) env('CUSTODY_PROVIDER_RPM', 120),
+    ],
+];

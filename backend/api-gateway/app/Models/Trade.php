@@ -13,12 +13,17 @@ class Trade extends Model
         'market_id',
         'buy_order_id',
         'sell_order_id',
+        'maker_order_id',
+        'taker_order_id',
         'pair',
+        'sequence',
         'price',
         'amount',
         'quote_amount',
         'maker_fee',
         'taker_fee',
+        'settlement_status',
+        'settlement_reference',
         'executed_at',
         'metadata',
     ];
@@ -46,5 +51,15 @@ class Trade extends Model
     public function sellOrder(): BelongsTo
     {
         return $this->belongsTo(Order::class, 'sell_order_id');
+    }
+
+    public function makerOrder(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'maker_order_id');
+    }
+
+    public function takerOrder(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'taker_order_id');
     }
 }

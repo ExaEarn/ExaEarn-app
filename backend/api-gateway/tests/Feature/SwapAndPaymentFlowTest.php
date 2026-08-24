@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Jobs\ExecuteSwapJob;
 use App\Models\PaymentIntent;
+use App\Models\TreasuryAccount;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,6 +36,7 @@ class SwapAndPaymentFlowTest extends TestCase
             'available_balance' => '1000000',
             'locked_balance' => '0',
         ]);
+        $this->seedFiatTreasuryBacking('USD', '1000');
 
         $quoteResponse = $this->actingAs($user)->postJson('/api/swap/quote', [
             'from_currency' => 'NGN',
@@ -72,6 +74,7 @@ class SwapAndPaymentFlowTest extends TestCase
             'available_balance' => '1000000',
             'locked_balance' => '0',
         ]);
+        $this->seedFiatTreasuryBacking('USD', '1000');
 
         $quote = $this->actingAs($user)->postJson('/api/swap/quote', [
             'from_currency' => 'NGN',
@@ -227,5 +230,13 @@ class SwapAndPaymentFlowTest extends TestCase
         ]);
         $override->assertCreated();
         $this->assertSame('flutterwave', $override->json('routing.provider'));
+    }
+
+    private function seedFiatTreasuryBacking(string $asset, string $amount): void
+    {
+        TreasuryAccount::query()->updateOrCreate(
+            ['provider' => 'nomba', 'currency' => strtoupper($asset)],
+            ['available_balance' => $amount, 'locked_balance' => '0', 'status' => 'active']
+        );
     }
 }

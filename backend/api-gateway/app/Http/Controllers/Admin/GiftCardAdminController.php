@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\GiftCardSubmission;
+use App\Services\GiftCard\GiftCardAdminCenterService;
 use App\Services\GiftCard\GiftCardSellService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,8 +15,18 @@ use Illuminate\Support\Facades\Log;
 class GiftCardAdminController extends Controller
 {
     public function __construct(
-        private readonly GiftCardSellService $giftCardSellService
+        private readonly GiftCardSellService $giftCardSellService,
+        private readonly GiftCardAdminCenterService $adminCenter,
     ) {
+    }
+
+    public function center(Request $request): JsonResponse
+    {
+        $asset = strtoupper((string) $request->query('asset', 'USD'));
+
+        return response()->json([
+            'data' => $this->adminCenter->dashboard($asset),
+        ]);
     }
 
     /**

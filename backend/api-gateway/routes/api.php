@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Admin\AdminSettingController;
+use App\Http\Controllers\Admin\P2POperationsController;
 use App\Http\Controllers\AgriController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ExaPointController;
+use App\Http\Controllers\ExaCardController;
+use App\Http\Controllers\ExaCardWebhookController;
 use App\Http\Controllers\EventStreamController;
 use App\Http\Controllers\FuturesController;
 use App\Http\Controllers\FlightGameController;
@@ -23,6 +26,7 @@ use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserPreferenceController;
 use App\Http\Controllers\WalletController;
+use App\Http\Controllers\CustodyController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PortfolioController;
@@ -31,9 +35,12 @@ use App\Http\Controllers\WithdrawalCenterController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LedgerController;
+use App\Http\Controllers\MarginController;
 use App\Http\Controllers\FiatWithdrawalController;
+use App\Http\Controllers\FiatController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileIdentityController;
+use App\Http\Controllers\PricingController;
 use App\Http\Controllers\KycController;
 use App\Http\Controllers\Admin\KycAdminController;
 use App\Http\Controllers\Admin\AIIntelligenceController;
@@ -49,17 +56,588 @@ use App\Http\Controllers\GiftCardBuyController;
 use App\Http\Controllers\Admin\GiftCardAdminController;
 use App\Http\Controllers\Admin\ExaAiAdminController;
 use App\Http\Controllers\Admin\ExaSkillsAdminController;
+use App\Http\Controllers\Admin\StakingAdminController;
+use App\Http\Controllers\Admin\TradingOperationsController;
+use App\Http\Controllers\Admin\LiquidityOperationsController;
+use App\Http\Controllers\Admin\CustodyOperationsController;
+use App\Http\Controllers\Admin\FiatOperationsController;
+use App\Http\Controllers\Admin\ListingCenterController;
+use App\Http\Controllers\Admin\InstitutionalOperationsController;
+use App\Http\Controllers\Admin\CopyTradingOperationsController;
+use App\Http\Controllers\Admin\MarketMakerOperationsController;
+use App\Http\Controllers\Admin\MarketMakerBotOperationsController;
+use App\Http\Controllers\Admin\OtcOperationsController;
+use App\Http\Controllers\Admin\Phase15OperationsController;
+use App\Http\Controllers\Admin\ComplianceController;
+use App\Http\Controllers\Admin\FinanceController;
+use App\Http\Controllers\Admin\SecurityOperationsController;
+use App\Http\Controllers\Admin\ReliabilityOperationsController;
+use App\Http\Controllers\Admin\PricingRewardsController;
+use App\Http\Controllers\Admin\ExaCardOperationsController;
 use App\Http\Controllers\API\AITradingAssistantController;
 use App\Http\Controllers\API\ExaAiController;
 use App\Http\Controllers\API\ExaSkillsController;
+use App\Http\Controllers\Developer\DeveloperApiController;
+use App\Http\Controllers\Developer\DeveloperPortalController;
+use App\Http\Controllers\InstitutionalController;
+use App\Http\Controllers\ListingPortalController;
+use App\Http\Controllers\MarketMakerController;
+use App\Http\Controllers\MarketMakerBotController;
+use App\Http\Controllers\OtcController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BlockchainEventController;
+use App\Http\Controllers\CopyTradingController;
+use App\Http\Controllers\EligibilityController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
-Route::get('v1/market/klines', [TradeController::class, 'klines']);
+Route::prefix('v1/market')->middleware('throttle:120,1')->group(function (): void {
+    Route::get('symbols', [TradeController::class, 'symbols']);
+    Route::get('summary', [TradeController::class, 'summary']);
+    Route::get('tickers', [TradeController::class, 'tickers']);
+    Route::get('ticker/{symbol}', [TradeController::class, 'ticker']);
+    Route::get('order-book/{symbol}', [TradeController::class, 'orderBook']);
+    Route::get('order-book', [TradeController::class, 'orderBookByQuery']);
+    Route::get('trades/{symbol}', [TradeController::class, 'trades']);
+    Route::get('trades', [TradeController::class, 'tradesByQuery']);
+    Route::get('klines/{symbol}', [TradeController::class, 'candles']);
+    Route::get('klines', [TradeController::class, 'klines']);
+    Route::get('deltas/{symbol}', [TradeController::class, 'marketDeltas']);
+    Route::get('stream/snapshot', [TradeController::class, 'marketStreamSnapshot']);
+    Route::get('health', [TradeController::class, 'marketDataHealth']);
+});
+
+Route::prefix('v1')->middleware('throttle:120,1')->group(function (): void {
+    Route::get('markets', [TradeController::class, 'summary']);
+    Route::get('ticker', [TradeController::class, 'tickers']);
+    Route::get('ticker/24hr', [TradeController::class, 'summary']);
+    Route::get('orderbook', [TradeController::class, 'orderBookByQuery']);
+    Route::get('orderbook/{symbol}', [TradeController::class, 'orderBook']);
+    Route::get('trades', [TradeController::class, 'tradesByQuery']);
+    Route::get('trades/{symbol}', [TradeController::class, 'trades']);
+});
+
+Route::prefix('developer/v1')->middleware(['developer.context', 'throttle:240,1'])->group(function (): void {
+    Route::get('exchange-info', [DeveloperApiController::class, 'exchangeInfo']);
+    Route::get('status', [DeveloperApiController::class, 'apiStatus']);
+    Route::get('markets', [DeveloperApiController::class, 'markets']);
+    Route::get('tickers', [DeveloperApiController::class, 'tickers']);
+    Route::get('ticker/{symbol}', [DeveloperApiController::class, 'ticker']);
+    Route::get('orderbook/{symbol}', [DeveloperApiController::class, 'orderBook']);
+    Route::get('trades/{symbol}', [DeveloperApiController::class, 'trades']);
+    Route::get('klines/{symbol}', [DeveloperApiController::class, 'klines']);
+
+    Route::middleware('developer.api:account.read')->group(function (): void {
+        Route::get('wallet/balances', [DeveloperApiController::class, 'balances']);
+        Route::post('realtime/session', [DeveloperApiController::class, 'realtimeSession']);
+        Route::get('realtime/replay', [DeveloperApiController::class, 'realtimeReplay']);
+    });
+    Route::middleware('developer.api:futures.read')->group(function (): void {
+        Route::get('futures/markets', [DeveloperApiController::class, 'futuresMarkets']);
+        Route::get('futures/open-orders', [FuturesController::class, 'openOrders']);
+        Route::get('futures/orders', [DeveloperApiController::class, 'futuresOrders']);
+        Route::get('futures/orders/{orderUuid}', [FuturesController::class, 'orderDetails']);
+        Route::get('futures/positions', [DeveloperApiController::class, 'futuresPositions']);
+        Route::get('futures/trades', [FuturesController::class, 'trades']);
+        Route::get('futures/margin/status', [FuturesController::class, 'marginStatus']);
+    });
+    Route::middleware('developer.api:futures.trade')->group(function (): void {
+        Route::post('futures/orders/validate', [FuturesController::class, 'validateOrder']);
+        Route::post('futures/orders', [FuturesController::class, 'placeOrder'])->middleware('rate.limit');
+        Route::post('futures/orders/conditional', [FuturesController::class, 'createConditionalOrder'])->middleware('rate.limit');
+        Route::post('futures/orders/batch-cancel', [FuturesController::class, 'batchCancelOrders'])->middleware('rate.limit');
+        Route::delete('futures/orders/{orderUuid}', [FuturesController::class, 'cancelOrder'])->middleware('rate.limit');
+        Route::post('futures/margin/type', [FuturesController::class, 'setMarginType'])->middleware('rate.limit');
+    });
+    Route::middleware('developer.api:margin.read')->group(function (): void {
+        Route::get('margin/overview', [MarginController::class, 'overview']);
+        Route::get('margin/accounts', [DeveloperApiController::class, 'marginAccounts']);
+        Route::get('margin/assets', [MarginController::class, 'assets']);
+        Route::get('margin/pools', [MarginController::class, 'pools']);
+        Route::get('margin/health', [MarginController::class, 'health']);
+        Route::get('margin/loans', [DeveloperApiController::class, 'marginLoans']);
+        Route::get('margin/orders', [MarginController::class, 'orders']);
+        Route::get('margin/interest', [MarginController::class, 'interest']);
+        Route::get('margin/realtime/snapshot', [MarginController::class, 'realtimeSnapshot']);
+    });
+    Route::middleware('developer.api:margin.manage')->group(function (): void {
+        Route::post('margin/accounts', [MarginController::class, 'createAccount'])->middleware('rate.limit');
+        Route::post('margin/transfer', [MarginController::class, 'transfer'])->middleware('rate.limit');
+        Route::post('margin/borrow', [MarginController::class, 'borrow'])->middleware('rate.limit');
+        Route::post('margin/loans/{loanUuid}/repay', [MarginController::class, 'repay'])->middleware('rate.limit');
+        Route::post('margin/orders', [MarginController::class, 'placeOrder'])->middleware('rate.limit');
+        Route::post('margin/orders/{marginOrderUuid}/cancel', [MarginController::class, 'cancelOrder'])->middleware('rate.limit');
+    });
+    Route::middleware('developer.api:convert.read')->group(function (): void {
+        Route::get('convert/meta', [SwapController::class, 'meta']);
+        Route::get('convert/history', [DeveloperApiController::class, 'convertHistory']);
+        Route::get('convert/{swapId}', [SwapController::class, 'show']);
+    });
+    Route::middleware('developer.api:convert.execute')->group(function (): void {
+        Route::post('convert/quote', [SwapController::class, 'quote']);
+        Route::post('convert/execute', [SwapController::class, 'execute'])->middleware('rate.limit');
+    });
+    Route::middleware('developer.api:staking.read')->group(function (): void {
+        Route::get('staking/assets', [StakingController::class, 'assets']);
+        Route::get('staking/products', [StakingController::class, 'products']);
+        Route::get('staking/products/{slug}', [StakingController::class, 'product']);
+        Route::get('staking/portfolio', [StakingController::class, 'portfolio']);
+        Route::get('staking/positions', [StakingController::class, 'positions']);
+        Route::get('staking/positions/{publicId}', [StakingController::class, 'showPosition']);
+        Route::get('staking/rewards', [StakingController::class, 'rewards']);
+        Route::get('staking/transactions', [StakingController::class, 'transactions']);
+    });
+    Route::middleware('developer.api:staking.manage')->group(function (): void {
+        Route::post('staking/terms/accept', [StakingController::class, 'acceptTerms'])->middleware('rate.limit');
+        Route::post('staking/positions', [StakingController::class, 'createPosition'])->middleware('rate.limit');
+        Route::post('staking/positions/{publicId}/unstake', [StakingController::class, 'unstake'])->middleware('rate.limit');
+        Route::post('staking/positions/{publicId}/claim-native-rewards', [StakingController::class, 'claimNativeRewards'])->middleware('rate.limit');
+        Route::post('staking/positions/{publicId}/claim-exatoken-rewards', [StakingController::class, 'claimExaTokenRewards'])->middleware('rate.limit');
+        Route::patch('staking/positions/{publicId}/auto-compound', [StakingController::class, 'updateAutoCompound'])->middleware('rate.limit');
+    });
+    Route::middleware('developer.api:copy.read')->group(function (): void {
+        Route::get('copy/eligibility', [CopyTradingController::class, 'eligibility']);
+        Route::get('copy/leaders', [CopyTradingController::class, 'leaders']);
+        Route::get('copy/leaders/{id}', [CopyTradingController::class, 'leader']);
+        Route::get('copy/relationships', [CopyTradingController::class, 'relationships']);
+        Route::get('copy/orders', [CopyTradingController::class, 'orders']);
+        Route::get('copy/positions', [CopyTradingController::class, 'positions']);
+        Route::get('copy/pnl', [CopyTradingController::class, 'pnl']);
+        Route::get('copy/realtime/replay', [CopyTradingController::class, 'replay']);
+    });
+    Route::middleware('developer.api:copy.manage')->group(function (): void {
+        Route::post('copy/terms/accept', [CopyTradingController::class, 'acceptTerms'])->middleware('rate.limit');
+        Route::post('copy/follow', [CopyTradingController::class, 'follow'])->middleware('rate.limit');
+        Route::patch('copy/follow/{id}', [CopyTradingController::class, 'updateFollow'])->middleware('rate.limit');
+        Route::delete('copy/follow/{id}', [CopyTradingController::class, 'stopFollow'])->middleware('rate.limit');
+    });
+    Route::middleware('developer.api:exaai.read')->group(function (): void {
+        Route::get('exaai/overview', [ExaAiController::class, 'overview']);
+        Route::get('exaai/strategies', [ExaAiController::class, 'strategies']);
+        Route::get('exaai/allocations', [ExaAiController::class, 'allocations']);
+        Route::get('exaai/allocations/active', [ExaAiController::class, 'activeAllocation']);
+        Route::get('exaai/sessions/current', [ExaAiController::class, 'sessionCurrent']);
+        Route::get('exaai/sessions', [DeveloperApiController::class, 'exaAiSessions']);
+        Route::get('exaai/portfolio', [ExaAiController::class, 'portfolio']);
+        Route::get('exaai/positions', [ExaAiController::class, 'positions']);
+        Route::get('exaai/trades', [ExaAiController::class, 'trades']);
+        Route::get('exaai/performance', [ExaAiController::class, 'performance']);
+        Route::get('exaai/realtime/replay', [ExaAiController::class, 'realtimeReplay']);
+        Route::get('exaai/readiness', [ExaAiController::class, 'readiness']);
+    });
+    Route::middleware('developer.api:exaai.manage')->group(function (): void {
+        Route::post('exaai/terms/accept', [ExaAiController::class, 'acceptTerms'])->middleware('rate.limit');
+        Route::post('exaai/allocations', [ExaAiController::class, 'allocationStore'])->middleware('rate.limit');
+        Route::post('exaai/sessions', [ExaAiController::class, 'sessionStore'])->middleware('rate.limit');
+        Route::post('exaai/sessions/{id}/pause', [ExaAiController::class, 'pause'])->middleware('rate.limit');
+        Route::post('exaai/sessions/{id}/resume', [ExaAiController::class, 'resume'])->middleware('rate.limit');
+        Route::post('exaai/sessions/{id}/stop', [ExaAiController::class, 'stop'])->middleware('rate.limit');
+    });
+    Route::middleware('developer.api:spot.trade')->group(function (): void {
+        Route::post('spot/orders', [DeveloperApiController::class, 'createSpotOrder']);
+    });
+    Route::middleware('developer.api:spot.read')->group(function (): void {
+        Route::get('spot/orders/{orderId}', [DeveloperApiController::class, 'getSpotOrder']);
+    });
+});
+
+Route::prefix('developer')->middleware(['auth:sanctum', 'rate.limit'])->group(function (): void {
+    Route::get('projects', [DeveloperPortalController::class, 'projects']);
+    Route::post('projects', [DeveloperPortalController::class, 'createProject']);
+    Route::post('projects/{projectId}/keys', [DeveloperPortalController::class, 'createKey']);
+    Route::post('keys/{keyId}/rotate', [DeveloperPortalController::class, 'rotateKey']);
+    Route::post('keys/{keyId}/disable', [DeveloperPortalController::class, 'disableKey']);
+    Route::post('projects/{projectId}/sandbox/faucet', [DeveloperPortalController::class, 'faucet']);
+    Route::get('projects/{projectId}/webhooks', [DeveloperPortalController::class, 'webhooks']);
+    Route::post('projects/{projectId}/webhooks', [DeveloperPortalController::class, 'createWebhook']);
+    Route::get('projects/{projectId}/webhook-deliveries', [DeveloperPortalController::class, 'deliveries']);
+    Route::post('webhooks/{endpointId}/rotate-secret', [DeveloperPortalController::class, 'rotateWebhookSecret']);
+    Route::post('webhook-deliveries/{deliveryId}/replay', [DeveloperPortalController::class, 'replayDelivery']);
+});
+
+Route::prefix('v1/staking')->middleware('throttle:120,1')->group(function (): void {
+    Route::get('assets', [StakingController::class, 'assets']);
+    Route::get('products', [StakingController::class, 'products']);
+    Route::get('products/{slug}', [StakingController::class, 'product']);
+    Route::get('terms', [StakingController::class, 'terms']);
+    Route::get('apy-history', [StakingController::class, 'apyHistory']);
+    Route::get('exatoken-campaigns', [StakingController::class, 'exaTokenCampaigns']);
+    Route::get('network-statuses', [StakingController::class, 'networkStatuses']);
+    Route::get('unbonding-estimates', [StakingController::class, 'unbondingEstimates']);
+    Route::post('positions', [StakingController::class, 'createPosition'])->middleware('rate.limit');
+
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::get('portfolio', [StakingController::class, 'portfolio']);
+        Route::get('positions', [StakingController::class, 'positions']);
+        Route::get('positions/{publicId}', [StakingController::class, 'showPosition']);
+        Route::post('positions/{publicId}/unstake', [StakingController::class, 'unstake'])->middleware('rate.limit');
+        Route::post('positions/{publicId}/claim-native-rewards', [StakingController::class, 'claimNativeRewards'])->middleware('rate.limit');
+        Route::post('positions/{publicId}/claim-exatoken-rewards', [StakingController::class, 'claimExaTokenRewards'])->middleware('rate.limit');
+        Route::patch('positions/{publicId}/auto-compound', [StakingController::class, 'updateAutoCompound'])->middleware('rate.limit');
+        Route::post('terms/accept', [StakingController::class, 'acceptTerms'])->middleware('rate.limit');
+        Route::get('rewards', [StakingController::class, 'rewards']);
+        Route::get('transactions', [StakingController::class, 'transactions']);
+    });
+});
+
+Route::get('listing/meta', [ListingPortalController::class, 'meta'])->middleware('throttle:120,1');
+
+Route::prefix('listing')->middleware(['auth:sanctum', 'throttle:120,1'])->group(function (): void {
+    Route::get('organizations', [ListingPortalController::class, 'organizations']);
+    Route::post('organizations', [ListingPortalController::class, 'createOrganization'])->middleware('rate.limit');
+    Route::get('applications', [ListingPortalController::class, 'applications']);
+    Route::post('organizations/{organizationId}/applications', [ListingPortalController::class, 'saveDraft'])->middleware('rate.limit');
+    Route::get('applications/{reference}', [ListingPortalController::class, 'show']);
+    Route::post('applications/{reference}/submit', [ListingPortalController::class, 'submit'])->middleware('rate.limit');
+    Route::post('applications/{reference}/messages', [ListingPortalController::class, 'message'])->middleware('rate.limit');
+});
+
+Route::post('webhooks/cards/{provider}', [ExaCardWebhookController::class, 'handle'])->middleware('throttle:120,1');
+
+Route::prefix('cards')->middleware(['auth:sanctum', 'throttle:120,1'])->group(function (): void {
+    Route::get('products', [ExaCardController::class, 'products']);
+    Route::get('realtime/replay', [ExaCardController::class, 'realtimeReplay']);
+    Route::get('/', [ExaCardController::class, 'index']);
+    Route::post('/', [ExaCardController::class, 'store']);
+    Route::post('funding-requests', [ExaCardController::class, 'fund']);
+    Route::get('{cardUuid}', [ExaCardController::class, 'show']);
+    Route::get('{cardUuid}/transactions', [ExaCardController::class, 'transactions']);
+    Route::get('{cardUuid}/authorizations', [ExaCardController::class, 'authorizations']);
+    Route::post('{cardUuid}/funding-quotes', [ExaCardController::class, 'quoteFunding']);
+    Route::post('{cardUuid}/unload', [ExaCardController::class, 'unload']);
+    Route::post('{cardUuid}/freeze', [ExaCardController::class, 'freeze']);
+    Route::post('{cardUuid}/unfreeze', [ExaCardController::class, 'unfreeze']);
+    Route::post('{cardUuid}/report-lost-stolen', [ExaCardController::class, 'reportLostOrStolen']);
+    Route::post('{cardUuid}/terminate', [ExaCardController::class, 'terminate']);
+    Route::put('{cardUuid}/controls', [ExaCardController::class, 'controls']);
+    Route::put('{cardUuid}/limits', [ExaCardController::class, 'limits']);
+    Route::post('{cardUuid}/details-token', [ExaCardController::class, 'detailsToken']);
+});
+
+Route::prefix('v1/pricing')->middleware('throttle:120,1')->group(function (): void {
+    Route::get('fees', [PricingController::class, 'publicFees']);
+    Route::post('preview', [PricingController::class, 'preview'])->middleware('rate.limit');
+});
+
+Route::prefix('institutional')->middleware(['auth:sanctum', 'throttle:120,1'])->group(function (): void {
+    Route::post('apply', [InstitutionalController::class, 'apply'])->middleware('rate.limit');
+    Route::get('applications', [InstitutionalController::class, 'applications']);
+    Route::get('overview', [InstitutionalController::class, 'overview']);
+    Route::get('subaccounts', [InstitutionalController::class, 'subaccounts']);
+    Route::post('subaccounts', [InstitutionalController::class, 'createSubaccount'])->middleware('rate.limit');
+    Route::get('transfers', [InstitutionalController::class, 'transfers']);
+    Route::post('transfers', [InstitutionalController::class, 'transfer'])->middleware('rate.limit');
+    Route::post('transfers/{transferUuid}/approve', [InstitutionalController::class, 'approveTransfer'])->middleware('rate.limit');
+    Route::post('permissions/grant', [InstitutionalController::class, 'grantPermission'])->middleware('rate.limit');
+    Route::get('realtime/replay', [InstitutionalController::class, 'realtimeReplay']);
+    Route::prefix('market-making')->group(function (): void {
+        Route::get('overview', [MarketMakerController::class, 'overview']);
+        Route::post('apply', [MarketMakerController::class, 'apply'])->middleware('rate.limit');
+        Route::get('profiles/{profileUuid}/capital/{symbol}', [MarketMakerController::class, 'capital']);
+        Route::post('profiles/{profileUuid}/inventory/{symbol}', [MarketMakerController::class, 'inventory'])->middleware('rate.limit');
+        Route::get('bots', [MarketMakerBotController::class, 'index']);
+        Route::post('bots', [MarketMakerBotController::class, 'store'])->middleware('rate.limit');
+        Route::get('bots/strategies', [MarketMakerBotController::class, 'strategies']);
+        Route::post('bots/strategies', [MarketMakerBotController::class, 'createStrategy'])->middleware('rate.limit');
+        Route::get('bots/{botUuid}', [MarketMakerBotController::class, 'show']);
+        Route::post('bots/{botUuid}/shadow', [MarketMakerBotController::class, 'shadow'])->middleware('rate.limit');
+        Route::post('bots/{botUuid}/start', [MarketMakerBotController::class, 'start'])->middleware('rate.limit');
+        Route::post('bots/{botUuid}/pause', [MarketMakerBotController::class, 'pause'])->middleware('rate.limit');
+        Route::post('bots/{botUuid}/reduce-only', [MarketMakerBotController::class, 'reduceOnly'])->middleware('rate.limit');
+        Route::post('bots/{botUuid}/mass-cancel', [MarketMakerBotController::class, 'massCancel'])->middleware('rate.limit');
+        Route::post('bots/{botUuid}/hedge', [MarketMakerBotController::class, 'hedge'])->middleware('rate.limit');
+        Route::post('bots/{botUuid}/rebalance', [MarketMakerBotController::class, 'rebalance'])->middleware('rate.limit');
+        Route::post('bots/{botUuid}/shock-check', [MarketMakerBotController::class, 'shock'])->middleware('rate.limit');
+        Route::get('bots/{botUuid}/cycles', [MarketMakerBotController::class, 'cycles']);
+    });
+    Route::prefix('otc')->group(function (): void {
+        Route::get('rfqs', [OtcController::class, 'rfqs']);
+        Route::post('rfqs', [OtcController::class, 'requestQuote'])->middleware('rate.limit');
+        Route::post('rfqs/{rfqUuid}/accept', [OtcController::class, 'accept'])->middleware('rate.limit');
+        Route::get('trades', [OtcController::class, 'trades']);
+    });
+});
+
+Route::prefix('admin/v1/staking')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('assets', [StakingAdminController::class, 'assets']);
+    Route::patch('assets/{assetId}', [StakingAdminController::class, 'updateAsset'])->middleware('rate.limit');
+    Route::post('assets/{assetId}/emergency-pause', [StakingAdminController::class, 'emergencyPause'])->middleware('rate.limit');
+    Route::post('assets/{assetId}/request-mainnet-activation', [StakingAdminController::class, 'requestMainnetActivation'])->middleware('rate.limit');
+    Route::get('products', [StakingAdminController::class, 'products']);
+    Route::post('products', [StakingAdminController::class, 'upsertProduct'])->middleware('rate.limit');
+    Route::put('products', [StakingAdminController::class, 'upsertProduct'])->middleware('rate.limit');
+    Route::get('validators', [StakingAdminController::class, 'validators']);
+    Route::post('validators', [StakingAdminController::class, 'upsertValidator'])->middleware('rate.limit');
+    Route::get('providers/{symbol}/health', [StakingAdminController::class, 'providerHealth']);
+    Route::get('approvals', [StakingAdminController::class, 'approvals']);
+    Route::post('approvals/{publicId}/decision', [StakingAdminController::class, 'approve'])->middleware('rate.limit');
+    Route::get('wallets', [StakingAdminController::class, 'wallets']);
+    Route::get('delegation-batches', [StakingAdminController::class, 'delegationBatches']);
+    Route::get('reward-batches', [StakingAdminController::class, 'rewardBatches']);
+    Route::get('reconciliation-reports', [StakingAdminController::class, 'reconciliationReports']);
+    Route::get('exatoken-campaigns', [StakingAdminController::class, 'exaTokenCampaigns']);
+    Route::get('audit-logs', [StakingAdminController::class, 'auditLogs']);
+});
+
+Route::prefix('admin/v1/listing-center')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [ListingCenterController::class, 'overview']);
+    Route::get('applications', [ListingCenterController::class, 'applications']);
+    Route::post('applications/{reference}/reviews', [ListingCenterController::class, 'review'])->middleware('rate.limit');
+    Route::post('applications/{reference}/recommend', [ListingCenterController::class, 'recommend'])->middleware('rate.limit');
+    Route::post('applications/{reference}/approve', [ListingCenterController::class, 'approve'])->middleware('rate.limit');
+    Route::post('applications/{reference}/asset-configuration', [ListingCenterController::class, 'createAssetConfiguration'])->middleware('rate.limit');
+    Route::post('applications/{reference}/networks', [ListingCenterController::class, 'createNetworkConfiguration'])->middleware('rate.limit');
+    Route::post('applications/{reference}/markets', [ListingCenterController::class, 'createMarket'])->middleware('rate.limit');
+    Route::post('applications/{reference}/tests', [ListingCenterController::class, 'runTests'])->middleware('rate.limit');
+    Route::post('applications/{reference}/final-approval', [ListingCenterController::class, 'requestFinalApproval'])->middleware('rate.limit');
+    Route::post('applications/{reference}/schedule', [ListingCenterController::class, 'schedule'])->middleware('rate.limit');
+    Route::post('applications/{reference}/launch', [ListingCenterController::class, 'launch'])->middleware('rate.limit');
+    Route::post('applications/{reference}/token-migrations', [ListingCenterController::class, 'tokenMigration'])->middleware('rate.limit');
+    Route::post('applications/{reference}/emergency-control', [ListingCenterController::class, 'emergencyControl'])->middleware('rate.limit');
+    Route::post('launch-events/process-due', [ListingCenterController::class, 'processDueLaunchEvents'])->middleware('rate.limit');
+    Route::get('live-assets', [ListingCenterController::class, 'liveAssets']);
+    Route::get('test-runs', [ListingCenterController::class, 'testRuns']);
+    Route::get('schedules', [ListingCenterController::class, 'schedules']);
+    Route::get('contract-validations', [ListingCenterController::class, 'contractValidations']);
+    Route::get('token-migrations', [ListingCenterController::class, 'tokenMigrations']);
+    Route::get('audit-logs', [ListingCenterController::class, 'auditLogs']);
+});
+
+Route::prefix('admin/v1/institutional')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [InstitutionalOperationsController::class, 'overview']);
+    Route::get('applications', [InstitutionalOperationsController::class, 'applications']);
+    Route::post('applications/{uuid}/transition', [InstitutionalOperationsController::class, 'transition'])->middleware('rate.limit');
+    Route::post('applications/{uuid}/activate', [InstitutionalOperationsController::class, 'activate'])->middleware('rate.limit');
+    Route::get('institutions', [InstitutionalOperationsController::class, 'institutions']);
+    Route::post('institutions/{institutionId}/vip', [InstitutionalOperationsController::class, 'vip'])->middleware('rate.limit');
+    Route::post('institutions/{institutionId}/status', [InstitutionalOperationsController::class, 'restrict'])->middleware('rate.limit');
+    Route::post('subaccounts/{uuid}/credit', [InstitutionalOperationsController::class, 'creditSubaccount'])->middleware('rate.limit');
+    Route::post('fee-profiles', [InstitutionalOperationsController::class, 'feeProfile'])->middleware('rate.limit');
+    Route::get('audit-logs', [InstitutionalOperationsController::class, 'auditLogs']);
+});
+
+Route::prefix('admin/v1/operations')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('readiness', [TradingOperationsController::class, 'readiness']);
+    Route::post('reconciliation', [TradingOperationsController::class, 'reconciliation'])->middleware('rate.limit');
+    Route::get('treasury-exposure', [TradingOperationsController::class, 'treasuryExposure']);
+    Route::post('circuit-breakers', [TradingOperationsController::class, 'transitionBreaker'])->middleware('rate.limit');
+    Route::post('markets/{symbol}/pause', [TradingOperationsController::class, 'pauseMarket'])->middleware('rate.limit');
+    Route::post('markets/{symbol}/resume', [TradingOperationsController::class, 'resumeMarket'])->middleware('rate.limit');
+    Route::post('kill-switch', [TradingOperationsController::class, 'killSwitch'])->middleware('rate.limit');
+    Route::put('collateral/{asset}', [TradingOperationsController::class, 'updateCollateral'])->middleware('rate.limit');
+    Route::post('insurance-fund/credit', [TradingOperationsController::class, 'insuranceCredit'])->middleware('rate.limit');
+    Route::post('insurance-fund/use', [TradingOperationsController::class, 'insuranceUse'])->middleware('rate.limit');
+    Route::post('load-probe', [TradingOperationsController::class, 'loadProbe'])->middleware('rate.limit');
+    Route::get('incidents', [TradingOperationsController::class, 'incidents']);
+});
+
+Route::prefix('admin/v1/liquidity')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [LiquidityOperationsController::class, 'overview']);
+    Route::get('readiness', [LiquidityOperationsController::class, 'readiness']);
+    Route::get('sources', [LiquidityOperationsController::class, 'sources']);
+    Route::get('sources/{source}/health', [LiquidityOperationsController::class, 'sourceHealth']);
+    Route::get('books/{symbol}', [LiquidityOperationsController::class, 'consolidatedBook']);
+    Route::post('sor/route-plan', [LiquidityOperationsController::class, 'planRoute'])->middleware('rate.limit');
+    Route::get('treasury/inventory', [LiquidityOperationsController::class, 'treasuryInventory']);
+    Route::post('treasury/buckets', [LiquidityOperationsController::class, 'allocateBucket'])->middleware('rate.limit');
+    Route::get('withdrawal-reserves/{asset}', [LiquidityOperationsController::class, 'withdrawalReserve']);
+    Route::get('net-exposure/{asset}', [LiquidityOperationsController::class, 'netExposure']);
+    Route::post('rebalancing/{asset}', [LiquidityOperationsController::class, 'rebalance'])->middleware('rate.limit');
+    Route::post('market-making/quotes', [LiquidityOperationsController::class, 'marketMakerQuote'])->middleware('rate.limit');
+    Route::post('market-making/cancel-unsafe', [LiquidityOperationsController::class, 'cancelUnsafeMarketMakerQuotes'])->middleware('rate.limit');
+    Route::get('venues/balances', [LiquidityOperationsController::class, 'venueBalances']);
+    Route::post('reconciliation', [LiquidityOperationsController::class, 'reconciliation'])->middleware('rate.limit');
+    Route::post('load-probe', [LiquidityOperationsController::class, 'loadProbe'])->middleware('rate.limit');
+});
+
+Route::prefix('admin/v1/market-makers')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [MarketMakerOperationsController::class, 'overview']);
+    Route::get('applications', [MarketMakerOperationsController::class, 'applications']);
+    Route::post('applications/{uuid}/transition', [MarketMakerOperationsController::class, 'transition'])->middleware('rate.limit');
+    Route::post('applications/{uuid}/activate', [MarketMakerOperationsController::class, 'activate'])->middleware('rate.limit');
+    Route::post('profiles/{profileUuid}/assignments', [MarketMakerOperationsController::class, 'assign'])->middleware('rate.limit');
+    Route::post('profiles/{profileUuid}/agreements', [MarketMakerOperationsController::class, 'agreement'])->middleware('rate.limit');
+    Route::get('profiles/{profileUuid}/capital/{symbol}', [MarketMakerOperationsController::class, 'capital']);
+    Route::post('profiles/{profileUuid}/inventory/{symbol}', [MarketMakerOperationsController::class, 'inventory'])->middleware('rate.limit');
+    Route::post('profiles/{profileUuid}/safety-mode', [MarketMakerOperationsController::class, 'setSafetyMode'])->middleware('rate.limit');
+    Route::post('profiles/{profileUuid}/rebates', [MarketMakerOperationsController::class, 'accrueRebate'])->middleware('rate.limit');
+    Route::post('rebates/{rebateUuid}/pay', [MarketMakerOperationsController::class, 'payRebate'])->middleware('rate.limit');
+    Route::post('profiles/{profileUuid}/mass-cancel', [MarketMakerOperationsController::class, 'massCancel'])->middleware('rate.limit');
+    Route::post('profiles/{profileUuid}/surveillance/related-overlap/{symbol}', [MarketMakerOperationsController::class, 'surveillanceOverlap'])->middleware('rate.limit');
+    Route::post('markets/{symbol}/health', [MarketMakerOperationsController::class, 'health'])->middleware('rate.limit');
+    Route::get('markets/{symbol}/listing-readiness', [MarketMakerOperationsController::class, 'listingReadiness']);
+    Route::get('bots/overview', [MarketMakerBotOperationsController::class, 'overview']);
+    Route::get('bots', [MarketMakerBotOperationsController::class, 'bots']);
+    Route::post('bots/{botUuid}/approve', [MarketMakerBotOperationsController::class, 'approve'])->middleware('rate.limit');
+    Route::post('bots/{botUuid}/transition', [MarketMakerBotOperationsController::class, 'transition'])->middleware('rate.limit');
+    Route::post('bots/{botUuid}/live-cycle', [MarketMakerBotOperationsController::class, 'liveCycle'])->middleware('rate.limit');
+    Route::post('bots/{botUuid}/mass-cancel', [MarketMakerBotOperationsController::class, 'massCancel'])->middleware('rate.limit');
+    Route::post('bots/{botUuid}/shock-check', [MarketMakerBotOperationsController::class, 'shock'])->middleware('rate.limit');
+    Route::post('bots/load-probe', [MarketMakerBotOperationsController::class, 'loadProbe'])->middleware('rate.limit');
+});
+
+Route::prefix('admin/v1/otc')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [OtcOperationsController::class, 'overview']);
+    Route::post('markets', [OtcOperationsController::class, 'upsertMarket'])->middleware('rate.limit');
+    Route::post('providers', [OtcOperationsController::class, 'registerProvider'])->middleware('rate.limit');
+    Route::get('rfqs', [OtcOperationsController::class, 'rfqs']);
+    Route::get('quotes', [OtcOperationsController::class, 'quotes']);
+    Route::get('trades', [OtcOperationsController::class, 'trades']);
+    Route::post('rfqs/{rfqUuid}/providers/{providerUuid}/quotes', [OtcOperationsController::class, 'submitQuote'])->middleware('rate.limit');
+    Route::post('reconciliation', [OtcOperationsController::class, 'reconcile'])->middleware('rate.limit');
+    Route::get('audit-logs', [OtcOperationsController::class, 'auditLogs']);
+});
+
+Route::prefix('admin/v1/phase15')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [Phase15OperationsController::class, 'overview']);
+    Route::get('listing/{reference}/readiness', [Phase15OperationsController::class, 'listingReadiness']);
+    Route::get('risk', [Phase15OperationsController::class, 'risk']);
+    Route::post('reconciliation', [Phase15OperationsController::class, 'reconcile'])->middleware('rate.limit');
+    Route::post('emergency', [Phase15OperationsController::class, 'emergency'])->middleware('rate.limit');
+});
+
+Route::prefix('admin/v1/compliance')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [ComplianceController::class, 'overview']);
+    Route::get('products', [ComplianceController::class, 'products']);
+    Route::match(['get', 'post'], 'jurisdictions', [ComplianceController::class, 'jurisdictions'])->middleware('rate.limit');
+    Route::get('rules', [ComplianceController::class, 'rules']);
+    Route::post('rules/submit', [ComplianceController::class, 'submitRule'])->middleware('rate.limit');
+    Route::post('policy-changes/{changeId}/approve', [ComplianceController::class, 'approveChange'])->middleware('rate.limit');
+    Route::post('policy-changes/{changeId}/reject', [ComplianceController::class, 'rejectChange'])->middleware('rate.limit');
+    Route::post('simulate', [ComplianceController::class, 'simulate'])->middleware('rate.limit');
+    Route::post('impact', [ComplianceController::class, 'impact'])->middleware('rate.limit');
+    Route::get('users/{userId}/eligibility', [ComplianceController::class, 'userEligibility']);
+    Route::post('emergency', [ComplianceController::class, 'emergency'])->middleware('rate.limit');
+});
+
+Route::prefix('admin/v1/finance')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [FinanceController::class, 'overview'])->middleware('check.permission:finance.view');
+    Route::get('backing', [FinanceController::class, 'backing'])->middleware('check.permission:finance.view');
+    Route::get('trial-balance', [FinanceController::class, 'trialBalance'])->middleware('check.permission:finance.view');
+    Route::get('balance-sheet', [FinanceController::class, 'balanceSheet'])->middleware('check.permission:finance.view');
+    Route::get('profit-and-loss', [FinanceController::class, 'profitAndLoss'])->middleware('check.permission:finance.view');
+    Route::get('cash-flow', [FinanceController::class, 'cashFlow'])->middleware('check.permission:finance.view');
+    Route::get('general-ledger', [FinanceController::class, 'generalLedger'])->middleware('check.permission:finance.view');
+    Route::get('product-reconciliation', [FinanceController::class, 'productReconciliation'])->middleware('check.permission:finance.reconcile');
+    Route::get('data-quality', [FinanceController::class, 'dataQuality'])->middleware('check.permission:finance.reconcile');
+    Route::get('treasury', [FinanceController::class, 'treasury'])->middleware('check.permission:finance.view');
+    Route::post('reports/snapshot', [FinanceController::class, 'snapshotReport'])->middleware(['check.permission:finance.export', 'rate.limit']);
+    Route::post('ledger/{reference}/event', [FinanceController::class, 'postLedgerEvent'])->middleware(['check.permission:finance.reconcile', 'rate.limit']);
+    Route::post('adjustments', [FinanceController::class, 'requestAdjustment'])->middleware(['check.permission:finance.adjust.request', 'rate.limit']);
+    Route::post('adjustments/{uuid}/approve', [FinanceController::class, 'approveAdjustment'])->middleware(['check.permission:finance.adjust.approve', 'rate.limit']);
+    Route::post('close/prepare', [FinanceController::class, 'prepareClose'])->middleware(['check.permission:finance.close.prepare', 'rate.limit']);
+    Route::post('close/{periodId}/approve', [FinanceController::class, 'approveClose'])->middleware(['check.permission:finance.close.approve', 'rate.limit']);
+    Route::post('close/{periodId}/reopen-request', [FinanceController::class, 'requestReopenClose'])->middleware(['check.permission:finance.close.prepare', 'rate.limit']);
+    Route::post('close/{periodId}/reopen-approve', [FinanceController::class, 'approveReopenClose'])->middleware(['check.permission:finance.close.approve', 'rate.limit']);
+    Route::get('obligations', [FinanceController::class, 'obligations'])->middleware('check.permission:finance.view');
+    Route::post('obligations', [FinanceController::class, 'obligations'])->middleware(['check.permission:finance.reconcile', 'rate.limit']);
+    Route::post('obligations/{uuid}/settle', [FinanceController::class, 'settleObligation'])->middleware(['check.permission:finance.reconcile', 'rate.limit']);
+    Route::post('opening-balances', [FinanceController::class, 'openingBalances'])->middleware(['check.permission:finance.adjust.request', 'rate.limit']);
+    Route::post('opening-balances/{uuid}/approve', [FinanceController::class, 'approveOpeningBalance'])->middleware(['check.permission:finance.adjust.approve', 'rate.limit']);
+    Route::get('readiness', [FinanceController::class, 'readiness'])->middleware('check.permission:finance.view');
+    Route::get('breaks', [FinanceController::class, 'breaks'])->middleware('check.permission:finance.reconcile');
+    Route::get('dlq', [FinanceController::class, 'dlq'])->middleware('check.permission:finance.reconcile');
+    Route::post('dlq/{uuid}/retry', [FinanceController::class, 'retryDlq'])->middleware(['check.permission:finance.reconcile', 'rate.limit']);
+});
+
+Route::prefix('admin/v1/pricing-rewards')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [PricingRewardsController::class, 'overview'])->middleware('check.permission:finance.view');
+    Route::get('rules', [PricingRewardsController::class, 'rules'])->middleware('check.permission:finance.view');
+    Route::post('rules/request', [PricingRewardsController::class, 'requestRule'])->middleware(['check.permission:finance.adjust.request', 'rate.limit']);
+    Route::post('rules/changes/{changeUuid}/approve', [PricingRewardsController::class, 'approveRule'])->middleware(['check.permission:finance.adjust.approve', 'rate.limit']);
+    Route::post('simulate', [PricingRewardsController::class, 'simulate'])->middleware(['check.permission:finance.view', 'rate.limit']);
+    Route::get('decisions', [PricingRewardsController::class, 'decisions'])->middleware('check.permission:finance.view');
+    Route::match(['get', 'post'], 'reward-rules', [PricingRewardsController::class, 'rewardRules'])->middleware(['check.permission:finance.adjust.request', 'rate.limit']);
+    Route::get('reward-decisions', [PricingRewardsController::class, 'rewardDecisions'])->middleware('check.permission:finance.view');
+    Route::get('shadow-comparisons', [PricingRewardsController::class, 'shadowComparisons'])->middleware('check.permission:finance.reconcile');
+});
+
+Route::prefix('admin/v1/exacard')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [ExaCardOperationsController::class, 'overview'])->middleware('check.permission:finance.view');
+    Route::get('customers', [ExaCardOperationsController::class, 'customers'])->middleware('check.permission:users.view');
+    Route::get('cards', [ExaCardOperationsController::class, 'cards'])->middleware('check.permission:users.view');
+    Route::get('transactions', [ExaCardOperationsController::class, 'transactions'])->middleware('check.permission:finance.view');
+    Route::get('funding', [ExaCardOperationsController::class, 'funding'])->middleware('check.permission:finance.view');
+    Route::get('disputes', [ExaCardOperationsController::class, 'disputes'])->middleware('check.permission:finance.view');
+    Route::get('treasury', [ExaCardOperationsController::class, 'treasury'])->middleware('check.permission:treasury.manage');
+    Route::get('providers', [ExaCardOperationsController::class, 'providers'])->middleware('check.permission:treasury.manage');
+    Route::get('revenue', [ExaCardOperationsController::class, 'revenue'])->middleware('check.permission:finance.view');
+    Route::post('provider-balances', [ExaCardOperationsController::class, 'providerBalance'])->middleware(['check.permission:treasury.manage', 'rate.limit']);
+    Route::post('reconciliation-runs', [ExaCardOperationsController::class, 'reconciliation'])->middleware(['check.permission:finance.reconcile', 'rate.limit']);
+    Route::get('audit-logs', [ExaCardOperationsController::class, 'auditLogs'])->middleware('check.permission:logs.view');
+});
+
+Route::prefix('admin/v1/security-operations')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1', 'check.permission:security.operations'])->group(function (): void {
+    Route::get('overview', [SecurityOperationsController::class, 'overview']);
+    Route::post('evaluate', [SecurityOperationsController::class, 'evaluate'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'cases', [SecurityOperationsController::class, 'cases'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'incidents', [SecurityOperationsController::class, 'incidents'])->middleware('rate.limit');
+    Route::post('emergency', [SecurityOperationsController::class, 'emergency'])->middleware('rate.limit');
+    Route::post('rules', [SecurityOperationsController::class, 'rules'])->middleware('rate.limit');
+});
+
+Route::prefix('admin/v1/reliability')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1', 'check.permission:operations.view'])->group(function (): void {
+    Route::get('overview', [ReliabilityOperationsController::class, 'overview']);
+    Route::match(['get', 'post'], 'services', [ReliabilityOperationsController::class, 'services'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'dependencies', [ReliabilityOperationsController::class, 'dependencies'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'queues', [ReliabilityOperationsController::class, 'queues'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'workers', [ReliabilityOperationsController::class, 'workers'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'backups', [ReliabilityOperationsController::class, 'backups'])->middleware('rate.limit');
+    Route::post('backups/{uuid}/restore-tested', [ReliabilityOperationsController::class, 'markRestoreTested'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'alerts', [ReliabilityOperationsController::class, 'alerts'])->middleware('rate.limit');
+    Route::post('alerts/{uuid}/acknowledge', [ReliabilityOperationsController::class, 'acknowledgeAlert'])->middleware('rate.limit');
+    Route::post('alerts/{uuid}/resolve', [ReliabilityOperationsController::class, 'resolveAlert'])->middleware('rate.limit');
+    Route::get('slos', [ReliabilityOperationsController::class, 'slos']);
+    Route::match(['get', 'post'], 'recovery', [ReliabilityOperationsController::class, 'recovery'])->middleware('rate.limit');
+    Route::post('recovery/{uuid}/approve', [ReliabilityOperationsController::class, 'approveRecovery'])->middleware('rate.limit');
+    Route::post('recovery/{uuid}/execute', [ReliabilityOperationsController::class, 'executeRecovery'])->middleware('rate.limit');
+    Route::get('config-validation', [ReliabilityOperationsController::class, 'configValidation']);
+});
+
+Route::prefix('admin/v1/fiat')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [FiatOperationsController::class, 'overview']);
+    Route::get('provider-health', [FiatOperationsController::class, 'providerHealth']);
+    Route::post('treasury/allocate', [FiatOperationsController::class, 'allocateTreasury'])->middleware('rate.limit');
+    Route::post('withdrawal-reserves/refresh', [FiatOperationsController::class, 'refreshReserve'])->middleware('rate.limit');
+    Route::post('reconciliation', [FiatOperationsController::class, 'reconciliation'])->middleware('rate.limit');
+    Route::post('provider-settlements', [FiatOperationsController::class, 'recordProviderSettlement'])->middleware('rate.limit');
+    Route::post('withdrawals/{withdrawalId}/complete', [FiatOperationsController::class, 'completeWithdrawal'])->middleware('rate.limit');
+    Route::post('withdrawals/{withdrawalId}/fail', [FiatOperationsController::class, 'failWithdrawal'])->middleware('rate.limit');
+    Route::post('refunds', [FiatOperationsController::class, 'refund'])->middleware('rate.limit');
+});
+
+Route::prefix('admin/v1/p2p')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [P2POperationsController::class, 'overview']);
+    Route::get('orders', [P2POperationsController::class, 'orders']);
+    Route::get('ads', [P2POperationsController::class, 'ads']);
+    Route::get('merchants', [P2POperationsController::class, 'merchants']);
+    Route::get('disputes', [P2POperationsController::class, 'disputes']);
+    Route::get('risk', [P2POperationsController::class, 'risk']);
+    Route::get('reconciliation', [P2POperationsController::class, 'reconciliation']);
+    Route::get('payment-methods', [P2POperationsController::class, 'paymentMethods']);
+    Route::get('escrow', [P2POperationsController::class, 'escrow']);
+});
+
+Route::prefix('admin/v1/copy-trading')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [CopyTradingOperationsController::class, 'overview']);
+    Route::post('leaders/{traderId}/approve', [CopyTradingOperationsController::class, 'approveLead'])->middleware('rate.limit');
+    Route::get('orders', [CopyTradingOperationsController::class, 'copyOrders']);
+    Route::get('surveillance', [CopyTradingOperationsController::class, 'surveillance']);
+    Route::get('capacity', [CopyTradingOperationsController::class, 'capacity']);
+    Route::post('leaders/{traderId}/control', [CopyTradingOperationsController::class, 'control'])->middleware('rate.limit');
+    Route::get('public/readiness', [CopyTradingOperationsController::class, 'publicReadiness']);
+    Route::post('public/request-enable', [CopyTradingOperationsController::class, 'requestEnable'])->middleware('rate.limit');
+    Route::post('public/approve-enable', [CopyTradingOperationsController::class, 'approveEnable'])->middleware('rate.limit');
+    Route::post('public/pause', [CopyTradingOperationsController::class, 'publicPause'])->middleware('rate.limit');
+    Route::post('public/resume', [CopyTradingOperationsController::class, 'publicResume'])->middleware('rate.limit');
+    Route::post('public/settings', [CopyTradingOperationsController::class, 'settings'])->middleware('rate.limit');
+    Route::match(['get', 'post'], 'public/markets', [CopyTradingOperationsController::class, 'markets']);
+    Route::match(['get', 'post'], 'public/jurisdictions', [CopyTradingOperationsController::class, 'jurisdictions']);
+    Route::match(['get', 'post'], 'public/terms', [CopyTradingOperationsController::class, 'terms']);
+    Route::match(['get', 'patch'], 'public/complaints', [CopyTradingOperationsController::class, 'complaints']);
+});
 Route::middleware([
     EncryptCookies::class,
     AddQueuedCookiesToResponse::class,
@@ -73,6 +651,7 @@ Route::middleware([
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('user', [AuthController::class, 'me']);
+        Route::get('me/eligibility', [EligibilityController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('2fa/verify', [AuthController::class, 'verifyTwoFactor']);
 
@@ -138,6 +717,7 @@ Route::prefix('webhooks')->group(function (): void {
     Route::post('fiat/flutterwave', [WebhookController::class, 'flutterwaveWithdrawal']);
     Route::post('fiat/nomba', [WebhookController::class, 'nombaWithdrawal']);
     Route::post('fiat-withdrawals/{provider}', [FiatWithdrawalController::class, 'webhook']);
+    Route::post('fiat-payments/{provider}', [FiatController::class, 'webhook'])->middleware('throttle:120,1');
 });
 
 Route::prefix('admin')->group(function (): void {
@@ -174,6 +754,10 @@ Route::prefix('admin')->group(function (): void {
         // Trading Pairs Management
         Route::get('trading', [AdminPlatformController::class, 'pairs']);
         Route::post('trading', [AdminPlatformController::class, 'createPair']);
+        Route::get('margin', [MarginController::class, 'adminOverview']);
+        Route::get('margin/readiness', [MarginController::class, 'readiness']);
+        Route::post('margin/load-probe', [MarginController::class, 'runLoadProbe'])->middleware('rate.limit');
+        Route::post('margin/liquidations/{liquidationId}/execute', [MarginController::class, 'executeLiquidation'])->middleware('rate.limit');
 
         // KYC Management
         Route::get('kyc', [KycAdminController::class, 'flagged']);
@@ -236,6 +820,7 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('unified-trading/balances', [AccountController::class, 'unifiedTradingBalances']);
         Route::post('transfer', [AccountController::class, 'transfer'])->middleware('rate.limit');
         Route::get('transfers', [AccountController::class, 'transferHistory']);
+        Route::get('closure/readiness', [AccountController::class, 'closureReadiness']);
     });
     Route::prefix('exaskills')->group(function (): void {
         Route::get('home', [ExaSkillsController::class, 'home']);
@@ -254,6 +839,9 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
     });
     Route::prefix('wallet')->group(function (): void {
         Route::get('balances', [WalletController::class, 'balances']);
+        Route::get('deposit-address', [CustodyController::class, 'depositAddress']);
+        Route::post('withdrawal-quote', [CustodyController::class, 'withdrawalQuote'])->middleware('rate.limit');
+        Route::post('custody-withdrawals', [CustodyController::class, 'requestWithdrawal'])->middleware('rate.limit');
         Route::get('deposit-addresses', [WalletController::class, 'depositAddresses']);
         Route::post('deposit-address', [WalletController::class, 'generateDepositAddress']);
         Route::post('transfer', [WalletController::class, 'transfer']);
@@ -305,9 +893,35 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
     });
 
     Route::prefix('swap')->group(function (): void {
+        Route::get('meta', [SwapController::class, 'meta']);
+        Route::get('history', [SwapController::class, 'history']);
+        Route::get('reconciliation', [SwapController::class, 'reconciliation']);
         Route::post('quote', [SwapController::class, 'quote']);
         Route::post('execute', [SwapController::class, 'execute'])->middleware('rate.limit');
         Route::get('{swapId}', [SwapController::class, 'show']);
+    });
+
+    Route::prefix('margin')->middleware(['2fa', 'throttle:120,1'])->group(function (): void {
+        Route::get('overview', [MarginController::class, 'overview']);
+        Route::get('accounts', [MarginController::class, 'accounts']);
+        Route::post('accounts', [MarginController::class, 'createAccount'])->middleware('rate.limit');
+        Route::get('assets', [MarginController::class, 'assets']);
+        Route::get('pools', [MarginController::class, 'pools']);
+        Route::post('pools/fund', [MarginController::class, 'fundPool'])->middleware('admin.security');
+        Route::get('health', [MarginController::class, 'health']);
+        Route::post('transfer', [MarginController::class, 'transfer'])->middleware('rate.limit');
+        Route::post('borrow', [MarginController::class, 'borrow'])->middleware('rate.limit');
+        Route::get('loans', [MarginController::class, 'loans']);
+        Route::get('orders', [MarginController::class, 'orders']);
+        Route::get('realtime/snapshot', [MarginController::class, 'realtimeSnapshot']);
+        Route::post('orders', [MarginController::class, 'placeOrder'])->middleware('rate.limit');
+        Route::post('orders/{marginOrderUuid}/cancel', [MarginController::class, 'cancelOrder'])->middleware('rate.limit');
+        Route::post('loans/{loanUuid}/repay', [MarginController::class, 'repay'])->middleware('rate.limit');
+        Route::post('loans/{loanUuid}/accrue', [MarginController::class, 'accrue']);
+        Route::get('interest', [MarginController::class, 'interest']);
+        Route::post('liquidation-check', [MarginController::class, 'liquidationCheck']);
+        Route::get('liquidations', [MarginController::class, 'liquidations']);
+        Route::get('reconciliation', [MarginController::class, 'reconcile'])->middleware('admin.security');
     });
 
     Route::prefix('payments')->group(function (): void {
@@ -373,14 +987,45 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('market/tick', [FuturesController::class, 'marketTick']);
     });
 
+    Route::prefix('v1/copy-trading')->middleware(['2fa', 'throttle:120,1'])->group(function (): void {
+        Route::get('eligibility', [CopyTradingController::class, 'eligibility']);
+        Route::get('leaders', [CopyTradingController::class, 'leaders']);
+        Route::get('lead/profile', [CopyTradingController::class, 'leadProfile']);
+        Route::get('lead/performance', [CopyTradingController::class, 'leadPerformance']);
+        Route::get('lead/earnings', [CopyTradingController::class, 'leadEarnings']);
+        Route::get('leaders/{id}', [CopyTradingController::class, 'leader']);
+        Route::post('follow', [CopyTradingController::class, 'follow'])->middleware('rate.limit');
+        Route::patch('follow/{id}', [CopyTradingController::class, 'updateFollow'])->middleware('rate.limit');
+        Route::delete('follow/{id}', [CopyTradingController::class, 'stopFollow'])->middleware('rate.limit');
+        Route::get('relationships', [CopyTradingController::class, 'relationships']);
+        Route::get('orders', [CopyTradingController::class, 'orders']);
+        Route::get('positions', [CopyTradingController::class, 'positions']);
+        Route::get('pnl', [CopyTradingController::class, 'pnl']);
+        Route::get('realtime/replay', [CopyTradingController::class, 'replay']);
+        Route::post('terms/accept', [CopyTradingController::class, 'acceptTerms'])->middleware('rate.limit');
+        Route::post('complaints', [CopyTradingController::class, 'complain'])->middleware('rate.limit');
+        Route::post('lead/apply', [CopyTradingController::class, 'applyLead'])->middleware('rate.limit');
+    });
+
     Route::prefix('staking')->group(function (): void {
-        Route::get('pools', [StakingController::class, 'pools']);
-        Route::get('mine', [StakingController::class, 'myStakes']);
-        Route::post('pools', [StakingController::class, 'createPool']);
-        Route::post('stake', [StakingController::class, 'stake']);
-        Route::post('{stakeId}/claim', [StakingController::class, 'claim']);
-        Route::post('{stakeId}/compound', [StakingController::class, 'compound']);
-        Route::post('{stakeId}/unstake', [StakingController::class, 'unstake']);
+        Route::any('{legacy?}', [StakingController::class, 'unavailable'])->where('legacy', '.*');
+    });
+
+    Route::prefix('fiat')->group(function (): void {
+        Route::get('currencies', [FiatController::class, 'currencies']);
+        Route::get('banks', [FiatController::class, 'banks']);
+        Route::post('bank-accounts/verify', [FiatController::class, 'verifyBankAccount'])->middleware('rate.limit');
+        Route::get('beneficiaries', [FiatController::class, 'beneficiaries']);
+        Route::get('virtual-accounts', [FiatController::class, 'virtualAccounts']);
+        Route::post('virtual-accounts', [FiatController::class, 'createVirtualAccount'])->middleware('rate.limit');
+        Route::post('withdrawals/quote', [FiatController::class, 'withdrawalQuote']);
+        Route::post('withdrawals', [FiatController::class, 'createWithdrawal'])->middleware('rate.limit');
+        Route::post('withdrawals/{withdrawalId}/submit', [FiatController::class, 'submitWithdrawal'])->middleware('rate.limit');
+        Route::get('withdrawals/{withdrawalId}', [FiatController::class, 'withdrawalStatus']);
+        Route::get('history', [FiatController::class, 'history']);
+        Route::post('pay/intents', [FiatController::class, 'createPayIntent'])->middleware('rate.limit');
+        Route::post('pay/intents/{payIntent}/capture', [FiatController::class, 'capturePayIntent'])->middleware('rate.limit');
+        Route::get('readiness', [FiatController::class, 'readiness']);
     });
 
     Route::prefix('rewards')->group(function (): void {
@@ -505,6 +1150,28 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('trades/{tradeUuid}/rate', [P2PController::class, 'rateTrade']);
     });
 
+    Route::prefix('v1/p2p')->group(function (): void {
+        Route::get('meta', [P2PController::class, 'meta']);
+        Route::get('ads', [P2PController::class, 'ads']);
+        Route::post('ads', [P2PController::class, 'createAd']);
+        Route::get('ads/mine', [P2PController::class, 'myAds']);
+        Route::patch('ads/{adId}', [P2PController::class, 'updateAdStatus']);
+        Route::post('ads/{adId}/pause', [P2PController::class, 'pauseAd']);
+        Route::post('ads/{adId}/resume', [P2PController::class, 'resumeAd']);
+        Route::post('orders', [P2PController::class, 'openOrder']);
+        Route::post('ads/{adId}/orders', [P2PController::class, 'openTrade']);
+        Route::get('orders', [P2PController::class, 'myTrades']);
+        Route::get('orders/{tradeUuid}', [P2PController::class, 'showTrade']);
+        Route::post('orders/{tradeUuid}/mark-paid', [P2PController::class, 'markPaymentSent']);
+        Route::post('orders/{tradeUuid}/release', [P2PController::class, 'release']);
+        Route::post('orders/{tradeUuid}/cancel', [P2PController::class, 'cancel']);
+        Route::post('orders/{tradeUuid}/dispute', [P2PController::class, 'openDispute']);
+        Route::post('orders/{tradeUuid}/evidence', [P2PController::class, 'uploadPaymentProof'])->middleware('rate.limit');
+        Route::post('orders/{tradeUuid}/feedback', [P2PController::class, 'rateTrade']);
+        Route::get('payment-methods', [P2PController::class, 'paymentMethods']);
+        Route::post('payment-methods', [P2PController::class, 'createPaymentMethod'])->middleware('rate.limit');
+    });
+
     Route::prefix('games/flight')->group(function (): void {
         Route::get('my-bets', [FlightGameController::class, 'myBets']);
         Route::post('bets', [FlightGameController::class, 'placeBet'])->middleware('rate.limit');
@@ -618,6 +1285,21 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('monitoring/unwatch', [TreasuryMonitoringController::class, 'stopWatching']);
     });
 
+    Route::prefix('admin/v1/custody')->middleware(['admin.security', 'admin.audit'])->group(function (): void {
+        Route::get('overview', [CustodyOperationsController::class, 'overview']);
+        Route::get('networks', [CustodyOperationsController::class, 'networks']);
+        Route::get('wallets', [CustodyOperationsController::class, 'wallets']);
+        Route::get('deposits', [CustodyOperationsController::class, 'deposits']);
+        Route::get('withdrawals', [CustodyOperationsController::class, 'withdrawals']);
+        Route::get('reconciliation', [CustodyOperationsController::class, 'reconciliation']);
+        Route::get('hot-wallets', [CustodyOperationsController::class, 'hotWallets']);
+        Route::get('withdrawal-reserves', [CustodyOperationsController::class, 'withdrawalReserves']);
+        Route::get('network-fees', [CustodyOperationsController::class, 'networkFees']);
+        Route::get('signers', [CustodyOperationsController::class, 'signers']);
+        Route::post('withdrawals/{withdrawalId}/approve', [CustodyOperationsController::class, 'approveWithdrawal'])->middleware('rate.limit');
+        Route::post('sweeps/evaluate', [CustodyOperationsController::class, 'runSweep'])->middleware('rate.limit');
+    });
+
     Route::prefix('ai')->group(function (): void {
         // Profile management
         Route::get('profile', [AITradingAssistantController::class, 'getProfile']);
@@ -669,17 +1351,35 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('positions', [ExaAiController::class, 'positions']);
         Route::get('trades', [ExaAiController::class, 'trades']);
         Route::get('performance', [ExaAiController::class, 'performance']);
+        Route::post('terms/accept', [ExaAiController::class, 'acceptTerms'])->middleware('rate.limit');
+        Route::get('portfolio', [ExaAiController::class, 'portfolio']);
+        Route::post('decisions', [ExaAiController::class, 'decisionStore'])->middleware('rate.limit');
+        Route::post('decisions/{id}/execute', [ExaAiController::class, 'decisionExecute'])->middleware('rate.limit');
+        Route::get('realtime/replay', [ExaAiController::class, 'realtimeReplay']);
+        Route::get('readiness', [ExaAiController::class, 'readiness']);
     });
     Route::prefix('admin/exaai')->middleware(['admin.security', 'admin.audit'])->group(function (): void {
         Route::get('overview', [ExaAiAdminController::class, 'overview']);
         Route::get('plans', [ExaAiAdminController::class, 'plans']);
+        Route::patch('plans/{id}/entitlements', [ExaAiAdminController::class, 'updatePlanEntitlements']);
+        Route::get('users/{id}/entitlements', [ExaAiAdminController::class, 'userEntitlements']);
         Route::get('strategies', [ExaAiAdminController::class, 'strategies']);
         Route::get('sessions', [ExaAiAdminController::class, 'sessions']);
         Route::get('subscriptions', [ExaAiAdminController::class, 'subscriptions']);
         Route::get('trades', [ExaAiAdminController::class, 'trades']);
         Route::get('audit-logs', [ExaAiAdminController::class, 'auditLogs']);
+        Route::get('readiness', [ExaAiAdminController::class, 'readiness']);
+        Route::get('operations/readiness', [ExaAiAdminController::class, 'operationsReadiness']);
+        Route::post('market-eligibility', [ExaAiAdminController::class, 'marketEligibilityStore']);
+        Route::post('controls', [ExaAiAdminController::class, 'controls']);
+        Route::get('surveillance-cases', [ExaAiAdminController::class, 'surveillanceCases']);
+        Route::post('operations/safe-resume', [ExaAiAdminController::class, 'safeResume']);
+        Route::post('operations/expire-stale-decisions', [ExaAiAdminController::class, 'expireStaleDecisions']);
+        Route::post('operations/auto-disable-markets', [ExaAiAdminController::class, 'autoDisableMarkets']);
+        Route::post('strategies/versions/{id}/transition', [ExaAiAdminController::class, 'transitionStrategy']);
     });
     Route::prefix('admin/giftcard')->middleware(['admin.security', 'admin.audit'])->group(function (): void {
+        Route::get('center', [GiftCardAdminController::class, 'center']);
         Route::get('submissions', [GiftCardAdminController::class, 'submissions']);
         Route::get('submissions/{id}', [GiftCardAdminController::class, 'submissionDetails']);
         Route::post('submissions/{id}/approve', [GiftCardAdminController::class, 'approve']);

@@ -47,7 +47,7 @@ class AuthFlowTest extends TestCase
         $this->assertStringStartsWith('EXA-', (string) $user->unique_user_id);
         $this->assertNotEmpty($user->referral_code);
         $this->assertSame(3, Wallet::query()->where('user_id', $user->id)->count());
-        $this->assertSame(4, InternalAccount::query()->where('user_id', $user->id)->count());
+        $this->assertSame(5, InternalAccount::query()->where('user_id', $user->id)->count());
         $this->assertTrue(ExapointBalance::query()->where('user_id', $user->id)->exists());
         $this->assertTrue(DailyCheckIn::query()->where('user_id', $user->id)->exists());
     }

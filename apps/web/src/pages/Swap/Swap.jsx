@@ -109,6 +109,7 @@ const formatCurrencyValue = (code, value) => {
 const mapError = (message) => {
   const text = String(message || "");
   const lower = text.toLowerCase();
+  if (text.includes("CONVERT_CAPACITY_UNAVAILABLE")) return "Conversion capacity is temporarily unavailable for the destination asset.";
   if (lower.includes("insufficient balance")) return "Insufficient available balance for this conversion.";
   if (lower.includes("quote expired")) return "Your quote expired. Refresh the rate and try again.";
   if (lower.includes("quote not found")) return "The quote is no longer available. Please request a new quote.";
@@ -175,7 +176,9 @@ function Swap({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenTradFi 
   const balanceDecimal = decimal(fromAsset?.available_balance);
   const insufficientBalance = amountDecimal.gt(balanceDecimal);
   const sameAsset = fromCode && toCode && fromCode === toCode;
-  const canQuote = Boolean(user && fromAsset && toAsset && amountDecimal.gt(0) && !sameAsset);
+  const destinationCapacity = toAsset?.conversion_capacity || null;
+  const destinationCapacityUnavailable = Boolean(toAsset && toAsset.type !== "fiat" && toAsset.convert_enabled === false);
+  const canQuote = Boolean(user && fromAsset && toAsset && amountDecimal.gt(0) && !sameAsset && !destinationCapacityUnavailable);
 
   const supportedFiat = useMemo(() => assets.filter((item) => item.type === "fiat"), [assets]);
   const supportedCrypto = useMemo(() => assets.filter((item) => item.type !== "fiat"), [assets]);
@@ -348,10 +351,18 @@ function Swap({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenTradFi 
     return `1 ${fromCode} ˜ ${formatAmount(quote.rate, 8)} ${toCode}`;
   }, [quote, fromCode, toCode, toType]);
 
+  const capacityDisplay = useMemo(() => {
+    if (!destinationCapacity || toType === "fiat") return "Internal settlement";
+    const available = destinationCapacity.available_conversion_capacity || "0";
+    const status = String(destinationCapacity.status || "available").replaceAll("_", " ").toLowerCase();
+    return `${formatAmount(available, 8)} ${toCode} capacity · ${status}`;
+  }, [destinationCapacity, toCode, toType]);
+
   const disabledReason = useMemo(() => {
     if (!user) return "Sign in to use Convert.";
     if (!fromAsset || !toAsset) return "Loading supported assets...";
     if (sameAsset) return "Choose two different assets.";
+    if (destinationCapacityUnavailable) return "Conversion capacity is temporarily unavailable for the destination asset.";
     if (!amount) return "Enter an amount to continue.";
     if (!amountDecimal.gt(0)) return "Enter an amount greater than zero.";
     if (insufficientBalance) return "Insufficient available balance.";
@@ -360,7 +371,7 @@ function Swap({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenTradFi 
     if (!quote?.quote_id) return "Quote unavailable right now.";
     if (expiresIn <= 0) return "Quote expired. Refresh the rate.";
     return "";
-  }, [user, fromAsset, toAsset, sameAsset, amount, amountDecimal, insufficientBalance, quoteLoading, quoteError, quote, expiresIn]);
+  }, [user, fromAsset, toAsset, sameAsset, destinationCapacityUnavailable, amount, amountDecimal, insufficientBalance, quoteLoading, quoteError, quote, expiresIn]);
 
   const handleSelectCode = (code) => {
     if (selectorRole === "from") {
@@ -450,11 +461,12 @@ function Swap({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenTradFi 
                 </button>
               </div>
 
-              <CompactPanel label="To" type={toType} onTypeChange={(type) => handleTypeChange("to", type)} asset={toAsset} onOpenSelector={() => setSelectorRole("to")} quoteSide="to" estimatedReceive={receiveDisplay} rateLine={rateDisplay} quoteLoading={quoteLoading} expiresIn={expiresIn} />
+              <CompactPanel label="To" type={toType} onTypeChange={(type) => handleTypeChange("to", type)} asset={toAsset} onOpenSelector={() => setSelectorRole("to")} quoteSide="to" estimatedReceive={receiveDisplay} rateLine={rateDisplay} capacityLine={capacityDisplay} quoteLoading={quoteLoading} expiresIn={expiresIn} />
 
               <div className="rounded-2xl border border-white/8 bg-[#070d16] p-3">
                 <SummaryRow label="Rate" value={rateDisplay} />
                 <SummaryRow label="Fee" value={feeDisplay} />
+                <SummaryRow label="Capacity" value={capacityDisplay} />
                 <SummaryRow label="You receive" value={receiveDisplay} emphasis />
                 <button type="button" onClick={() => setDetailsOpen(true)} className="mt-3 text-xs font-medium text-amber-300 transition hover:text-amber-200">Rate & fee details &gt;</button>
               </div>
@@ -484,9 +496,9 @@ function Swap({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenTradFi 
 
       {selectorRole ? <SelectorSheet title={selectorRole === "from" ? "Select source asset" : "Select destination asset"} assets={selectorAssets} favorites={favorites} recentCodes={recentCodes} search={selectorSearch} onSearch={setSelectorSearch} onClose={() => setSelectorRole("")} onSelect={handleSelectCode} onToggleFavorite={toggleFavorite} referenceFiat={(selectorRole === "from" ? fromType : toType) === "fiat" ? referenceFiat : []} /> : null}
 
-      {detailsOpen ? <Sheet title="Rate & fee details" onClose={() => setDetailsOpen(false)}><div className="space-y-3 text-sm"><DetailRow label="Indicative rate" value={rateDisplay} /><DetailRow label="ExaEarn fee" value={feeDisplay} /><DetailRow label="Route" value={quote?.route || "Best available route"} /><DetailRow label="Quote validity" value={expiresIn > 0 ? `${expiresIn}s remaining` : "Awaiting fresh quote"} /><DetailRow label="Settlement" value={toType === "fiat" ? `${toCode} wallet settlement` : `${toCode} wallet credit`} /><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-xs text-slate-400">Rates are variable and refresh automatically. Unsupported currencies may still appear in the global registry as coming soon, but only backend-enabled currencies can execute.</div></div></Sheet> : null}
+      {detailsOpen ? <Sheet title="Rate & fee details" onClose={() => setDetailsOpen(false)}><div className="space-y-3 text-sm"><DetailRow label="Indicative rate" value={rateDisplay} /><DetailRow label="ExaEarn fee" value={feeDisplay} /><DetailRow label="Route" value={quote?.route || "Best available route"} /><DetailRow label="Destination capacity" value={capacityDisplay} /><DetailRow label="Quote validity" value={expiresIn > 0 ? `${expiresIn}s remaining` : "Awaiting fresh quote"} /><DetailRow label="Settlement" value={toType === "fiat" ? `${toCode} wallet settlement` : `${toCode} wallet credit`} /><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-xs text-slate-400">Convert is an internal ExaEarn ledger conversion. Blockchain network fees apply only when you withdraw assets externally.</div></div></Sheet> : null}
 
-      {reviewOpen ? <Sheet title="Review conversion" onClose={() => setReviewOpen(false)}><div className="space-y-3"><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3"><DetailRow label="Convert" value={`${amount || "0"} ${fromCode || ""}`.trim()} /><DetailRow label="Receive" value={receiveDisplay} /><DetailRow label="Rate" value={rateDisplay} /><DetailRow label="Fees" value={feeDisplay} /><DetailRow label="Destination" value={`${toCode} wallet`} /><DetailRow label="Quote" value={expiresIn > 0 ? `Rate locked for ${expiresIn}s` : "Refresh required"} /></div><div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-100">The final conversion uses the backend-confirmed quote only, and expired quotes cannot execute.</div><button type="button" onClick={handleExecute} disabled={Boolean(disabledReason) || submitting} className="w-full rounded-2xl bg-[#f0c96b] px-4 py-3 text-sm font-semibold text-[#1d1707] disabled:cursor-not-allowed disabled:opacity-45">{submitting ? "Submitting..." : "Confirm Conversion"}</button></div></Sheet> : null}
+      {reviewOpen ? <Sheet title="Review conversion" onClose={() => setReviewOpen(false)}><div className="space-y-3"><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3"><DetailRow label="Convert" value={`${amount || "0"} ${fromCode || ""}`.trim()} /><DetailRow label="Receive" value={receiveDisplay} /><DetailRow label="Rate" value={rateDisplay} /><DetailRow label="Fees" value={feeDisplay} /><DetailRow label="Network fee" value="0 for internal Convert" /><DetailRow label="Destination" value={`${toCode} Funding wallet`} /><DetailRow label="Quote" value={expiresIn > 0 ? `Rate locked for ${expiresIn}s` : "Refresh required"} /></div><div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-100">The final conversion uses the backend-confirmed quote only, and expired quotes cannot execute.</div><button type="button" onClick={handleExecute} disabled={Boolean(disabledReason) || submitting} className="w-full rounded-2xl bg-[#f0c96b] px-4 py-3 text-sm font-semibold text-[#1d1707] disabled:cursor-not-allowed disabled:opacity-45">{submitting ? "Submitting..." : "Confirm Conversion"}</button></div></Sheet> : null}
 
       {submitResult ? <Sheet title="Conversion submitted" onClose={() => setSubmitResult(null)}><div className="space-y-3"><div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3 text-sm"><DetailRow label="Reference" value={submitResult.swap_id || "--"} /><DetailRow label="Status" value={String(submitResult.status || "queued").toUpperCase()} /><DetailRow label="From" value={`${submitResult.amount_sent} ${submitResult.from_currency}`} /><DetailRow label="To" value={`${submitResult.amount_received} ${submitResult.to_currency}`} /></div><p className="text-xs text-slate-400">Your conversion was queued through the existing ExaEarn swap engine. Balances and recent conversions refresh automatically after submission.</p></div></Sheet> : null}
     </main>
@@ -497,8 +509,52 @@ function ProductNav({ onBack, onOpenTrade, onOpenFutures, onOpenOptions, onOpenT
   return <div className="flex items-center gap-3 overflow-x-auto border-b border-white/8 pb-2"><button type="button" onClick={onBack} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/[0.03] text-slate-300"><ArrowLeft className="h-4 w-4" /></button>{PRODUCT_TABS.map((tab) => { const active = tab === "Convert"; const handler = tab === "Spot" ? onOpenTrade : tab === "Futures" ? onOpenFutures : tab === "Options" ? onOpenOptions : tab === "TradFi" ? onOpenTradFi : undefined; return <button key={tab} type="button" onClick={handler} className={`relative shrink-0 whitespace-nowrap pb-2 text-sm ${active ? "text-white" : "text-slate-500"}`}>{tab}{active ? <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-amber-400" /> : null}</button>; })}</div>;
 }
 
-function CompactPanel({ label, type, onTypeChange, asset, onOpenSelector, amount, onAmountChange, onMax, percentages, onPercent, balanceLabel, estimatedReceive, rateLine, quoteLoading, expiresIn, quoteSide }) {
-  return <div className="rounded-2xl border border-white/8 bg-[#070d16] p-3"><div className="flex items-center justify-between gap-3"><div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</div><div className="inline-flex rounded-xl border border-white/8 bg-white/[0.03] p-1 text-xs">{["crypto", "fiat"].map((item) => <button key={item} type="button" onClick={() => onTypeChange(item)} className={`rounded-lg px-2.5 py-1 ${type === item ? "bg-white text-slate-950" : "text-slate-400"}`}>{item === "crypto" ? "Crypto" : "Fiat"}</button>)}</div></div><button type="button" onClick={onOpenSelector} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left"><div className="min-w-0"><div className="text-sm font-semibold text-white">{asset?.code || "Select"}</div><div className="truncate text-xs text-slate-500">{getAssetLabel(asset)}</div></div><ChevronDown className="h-4 w-4 text-slate-500" /></button>{quoteSide === "from" ? <><div className="mt-3 flex items-center gap-2 rounded-2xl border border-white/8 bg-[#04070d] px-3 py-3"><input value={amount} onChange={(event) => onAmountChange(event.target.value)} inputMode="decimal" placeholder="0.00" className="h-8 w-full bg-transparent text-2xl font-semibold text-white outline-none placeholder:text-slate-600" /><button type="button" onClick={onMax} className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs font-semibold text-amber-200">MAX</button></div><div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500"><span>{balanceLabel}: <span className="text-slate-300">{asset ? formatBalanceDisplay(asset) : "--"}</span></span><div className="flex gap-1">{percentages.map((percent) => <button key={percent} type="button" onClick={() => onPercent(percent)} className="rounded-lg bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300">{percent === 100 ? "MAX" : `${percent}%`}</button>)}</div></div></> : <div className="mt-3 rounded-2xl border border-white/8 bg-[#04070d] px-3 py-3"><div className="text-xs text-slate-500">Estimated receive</div><div className="mt-1 text-2xl font-semibold text-white">{estimatedReceive}</div><div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500"><span>{quoteLoading ? "Fetching best rate..." : rateLine}</span><span>{expiresIn > 0 ? `Rate expires in ${expiresIn}s` : "Indicative rate"}</span></div></div>}</div>;
+function CompactPanel({ label, type, onTypeChange, asset, onOpenSelector, amount, onAmountChange, onMax, percentages, onPercent, balanceLabel, estimatedReceive, rateLine, capacityLine, quoteLoading, expiresIn, quoteSide }) {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-[#070d16] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</div>
+        <div className="inline-flex rounded-xl border border-white/8 bg-white/[0.03] p-1 text-xs">
+          {["crypto", "fiat"].map((item) => (
+            <button key={item} type="button" onClick={() => onTypeChange(item)} className={`rounded-lg px-2.5 py-1 ${type === item ? "bg-white text-slate-950" : "text-slate-400"}`}>
+              {item === "crypto" ? "Crypto" : "Fiat"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <button type="button" onClick={onOpenSelector} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-white">{asset?.code || "Select"}</div>
+          <div className="truncate text-xs text-slate-500">{getAssetLabel(asset)}</div>
+        </div>
+        <ChevronDown className="h-4 w-4 text-slate-500" />
+      </button>
+      {quoteSide === "from" ? (
+        <>
+          <div className="mt-3 flex items-center gap-2 rounded-2xl border border-white/8 bg-[#04070d] px-3 py-3">
+            <input value={amount} onChange={(event) => onAmountChange(event.target.value)} inputMode="decimal" placeholder="0.00" className="h-8 w-full bg-transparent text-2xl font-semibold text-white outline-none placeholder:text-slate-600" />
+            <button type="button" onClick={onMax} className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs font-semibold text-amber-200">MAX</button>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500">
+            <span>{balanceLabel}: <span className="text-slate-300">{asset ? formatBalanceDisplay(asset) : "--"}</span></span>
+            <div className="flex gap-1">
+              {percentages.map((percent) => <button key={percent} type="button" onClick={() => onPercent(percent)} className="rounded-lg bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300">{percent === 100 ? "MAX" : `${percent}%`}</button>)}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="mt-3 rounded-2xl border border-white/8 bg-[#04070d] px-3 py-3">
+          <div className="text-xs text-slate-500">Estimated receive</div>
+          <div className="mt-1 text-2xl font-semibold text-white">{estimatedReceive}</div>
+          <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500">
+            <span>{quoteLoading ? "Fetching best rate..." : rateLine}</span>
+            <span>{expiresIn > 0 ? `Rate expires in ${expiresIn}s` : "Indicative rate"}</span>
+          </div>
+          {capacityLine ? <div className="mt-2 truncate text-xs text-slate-500">{capacityLine}</div> : null}
+        </div>
+      )}
+    </div>
+  );
 }
 function SelectorSheet({ title, assets, favorites, recentCodes, search, onSearch, onClose, onSelect, onToggleFavorite, referenceFiat }) {
   const recent = assets.filter((item) => recentCodes.includes(item.code));
@@ -540,4 +596,3 @@ function InlineMessage({ tone, text }) {
 }
 
 export default Swap;
-

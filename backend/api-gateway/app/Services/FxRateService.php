@@ -49,16 +49,16 @@ class FxRateService
 
     private function add(string $a, string $b): string
     {
-        return function_exists('bcadd') ? bcadd($a, $b, 8) : number_format(((float) $a + (float) $b), 8, '.', '');
+        return FinancialDecimal::add($a, $b, 18);
     }
 
     private function mul(string $a, string $b): string
     {
-        return function_exists('bcmul') ? bcmul($a, $b, 8) : number_format(((float) $a * (float) $b), 8, '.', '');
+        return FinancialDecimal::mul($a, $b, 18);
     }
 
     private function div(string $a, string $b): string
     {
-        return function_exists('bcdiv') ? bcdiv($a, $b, 8) : number_format(((float) $a / (float) $b), 8, '.', '');
+        return FinancialDecimal::div($a, $b, 18);
     }
 }

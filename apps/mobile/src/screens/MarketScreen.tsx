@@ -43,16 +43,6 @@ const marketTabs = ["Crypto", "Spot", "Futures", "P2P"] as const;
 const quickChips = ["XRP", "USDT", "BTC"] as const;
 const rowHeights = [36, 48, 42, 62, 54, 74, 66];
 
-const fallbackPairs: MarketPair[] = [
-  { pair: "BTC/USDT", base: "BTC", quote: "USDT", last: 102840, change24h: 2.84, volume: "1.7B", favorite: true, source: "fallback" },
-  { pair: "ETH/USDT", base: "ETH", quote: "USDT", last: 5418.2, change24h: 1.37, volume: "973.4M", favorite: false, source: "fallback" },
-  { pair: "XRP/USDT", base: "XRP", quote: "USDT", last: 2.92, change24h: 4.61, volume: "181.1M", favorite: true, source: "fallback" },
-  { pair: "SOL/USDT", base: "SOL", quote: "USDT", last: 238.7, change24h: -0.42, volume: "642.2M", favorite: false, source: "fallback" },
-  { pair: "EXA/USDT", base: "EXA", quote: "USDT", last: 0.84, change24h: 8.2, volume: "41.8M", favorite: false, source: "fallback" },
-  { pair: "ONDO/USDT", base: "ONDO", quote: "USDT", last: 1.03, change24h: 7.8, volume: "96.7M", favorite: false, source: "fallback" },
-  { pair: "PEPE/USDT", base: "PEPE", quote: "USDT", last: 0.000012, change24h: -4.92, volume: "314.1M", favorite: false, source: "fallback" },
-];
-
 function compactVolume(value: unknown) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return "0";
@@ -65,10 +55,10 @@ function compactVolume(value: unknown) {
 function normalizeMarket(item: RawMarketPayload, favorite = false): MarketPair {
   const symbol = String(item.symbol || item.pair || "").toUpperCase();
   const [symbolBase, symbolQuote] = symbol.includes("/") ? symbol.split("/") : symbol.split("-");
-  const base = String(item.base || item.base_currency || symbolBase || "").toUpperCase();
-  const quote = String(item.quote || item.quote_currency || symbolQuote || "USDT").toUpperCase();
+  const base = String(item.base || item.base_asset || item.base_currency || symbolBase || "").toUpperCase();
+  const quote = String(item.quote || item.quote_asset || item.quote_currency || symbolQuote || "USDT").toUpperCase();
   const pair = String(item.pair || (base && quote ? `${base}/${quote}` : symbol));
-  const last = Number(item.last ?? item.last_price ?? item.price ?? 0);
+  const last = Number(item.last ?? item.last_price ?? item.last_trade_price ?? item.reference_price ?? item.price ?? 0);
   const change24h = Number(item.change24h ?? item.price_change_percent ?? item.change_24h ?? 0);
 
   return {
@@ -77,7 +67,7 @@ function normalizeMarket(item: RawMarketPayload, favorite = false): MarketPair {
     quote,
     last: Number.isFinite(last) ? last : 0,
     change24h: Number.isFinite(change24h) ? change24h : 0,
-    volume: typeof item.volume === "string" ? item.volume : compactVolume(item.volume),
+    volume: typeof item.volume === "string" ? item.volume : compactVolume(item.quote_volume_24h ?? item.volume),
     favorite: Boolean(item.favorite ?? favorite),
     source: String(item.source || "api"),
     fiat: Number.isFinite(last) ? last : 0,
@@ -117,7 +107,7 @@ export default function MarketScreen({
   const { request } = useAuth();
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
-  const [pairs, setPairs] = useState<MarketPair[]>(fallbackPairs);
+  const [pairs, setPairs] = useState<MarketPair[]>([]);
   const [fiat, setFiat] = useState<"USD" | "NGN">("USD");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeChip, setActiveChip] = useState<(typeof quickChips)[number] | "">("");
@@ -149,7 +139,7 @@ export default function MarketScreen({
   const loadMarkets = async () => {
     setLoading(true);
     try {
-      const payload = await request<{ data?: RawMarketPayload[] }>("/api/trade/markets", { method: "GET" });
+      const payload = await request<{ data?: RawMarketPayload[] }>("/api/v1/market/tickers", { method: "GET" });
       const data = Array.isArray(payload.data) ? payload.data : [];
       if (data.length) {
         setPairs((previous) => {
@@ -165,7 +155,6 @@ export default function MarketScreen({
       }
     } catch {
       setOffline(true);
-      setPairs((previous) => (previous.length ? previous : fallbackPairs));
     } finally {
       setLoading(false);
     }

@@ -20,7 +20,7 @@ class UserPreferenceController extends Controller
     ];
 
     private const DEFAULT_LANGUAGE_REGION = [
-        'language' => 'English',
+        'language' => 'English (Default)',
         'language_code' => 'en',
         'locale' => 'en',
         'direction' => 'ltr',

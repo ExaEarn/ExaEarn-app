@@ -7,9 +7,11 @@ import {
   ArrowDown,
   ArrowRight,
   Bell,
+  BadgeCheck,
   BookOpen,
   Bot,
   BrainCircuit,
+  Building2,
   Check,
   ChartNoAxesCombined,
   CheckCircle2,
@@ -23,6 +25,7 @@ import {
   Gem,
   GraduationCap,
   HandCoins,
+  KeyRound,
   Landmark,
   Layers3,
   Leaf,
@@ -96,6 +99,103 @@ function webAppUrl(path = "") {
 const WEB_APP_SIGNUP_URL = webAppUrl("/register");
 const WEB_APP_LOGIN_URL = webAppUrl("/login");
 
+function resolvePortalUrl(envKey, fallbackPath) {
+  const configuredUrl = import.meta.env[envKey]?.trim();
+  if (configuredUrl && (import.meta.env.DEV || !isLoopbackUrl(configuredUrl))) {
+    return configuredUrl.replace(/\/+$/, "");
+  }
+
+  return fallbackPath;
+}
+
+const DEVELOPER_PORTAL_URL = resolvePortalUrl("VITE_DEVELOPER_PORTAL_URL", "/developers");
+const LISTING_PORTAL_URL = resolvePortalUrl("VITE_LISTING_PORTAL_URL", "/listing");
+
+function resolveApiBaseUrl() {
+  const runtimeUrl = typeof window !== "undefined"
+    ? (window.__EXAEARN_ENV__?.VITE_API_URL || window.__ENV__?.VITE_API_URL || window.VITE_API_URL)
+    : "";
+  const configuredUrl = (import.meta.env.VITE_API_URL || runtimeUrl || "").trim();
+  if (configuredUrl && (import.meta.env.DEV || !isLoopbackUrl(configuredUrl))) {
+    return configuredUrl.replace(/\/+$/, "");
+  }
+
+  return "";
+}
+
+const apiBaseUrl = resolveApiBaseUrl();
+
+function apiUrl(path) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${apiBaseUrl}${normalizedPath}`;
+}
+
+async function fetchJson(path) {
+  const response = await fetch(apiUrl(path), { headers: { Accept: "application/json" } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.message || `Request failed (${response.status})`);
+  }
+  return payload?.data ?? payload;
+}
+
+function pairPath(symbol = "") {
+  return String(symbol).replace("/", "-").toUpperCase();
+}
+
+function displayPrice(value) {
+  if (value === null || value === undefined || value === "") return "Unavailable";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return numeric.toLocaleString(undefined, { maximumFractionDigits: numeric >= 1 ? 2 : 8 });
+}
+
+function displayPercent(value) {
+  if (value === null || value === undefined || value === "") return "0.00%";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return `${numeric >= 0 ? "+" : ""}${numeric.toFixed(2)}%`;
+}
+
+function usePublicMarketData(symbol = null) {
+  const [state, setState] = useState({ loading: true, error: "", tickers: [], book: null, trades: [], health: null });
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      setState((current) => ({ ...current, loading: true, error: "" }));
+      try {
+        const requests = [fetchJson("/api/v1/market/tickers"), fetchJson("/api/v1/market/health")];
+        if (symbol) {
+          requests.push(fetchJson(`/api/v1/market/order-book/${encodeURIComponent(pairPath(symbol))}?limit=12`));
+          requests.push(fetchJson(`/api/v1/market/trades/${encodeURIComponent(pairPath(symbol))}?limit=16`));
+        }
+        const [tickers, health, book, trades] = await Promise.all(requests);
+        if (!mounted) return;
+        setState({
+          loading: false,
+          error: "",
+          tickers: Array.isArray(tickers) ? tickers : [],
+          health,
+          book: book || null,
+          trades: Array.isArray(trades) ? trades : [],
+        });
+      } catch (error) {
+        if (!mounted) return;
+        setState({ loading: false, error: error instanceof Error ? error.message : "Market data is unavailable.", tickers: [], book: null, trades: [], health: null });
+      }
+    }
+    load();
+    const interval = window.setInterval(load, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [symbol]);
+
+  return state;
+}
+
 const fadeUp = {
   hidden: { opacity: 1, y: 10 },
   visible: {
@@ -132,10 +232,10 @@ function Reveal({ children, className = "", delay = 0, as: Component = motion.di
 }
 
 const metrics = [
-  { label: "Secured ecosystem modules", value: "11+" },
-  { label: "Reward rails designed", value: "$2.8M" },
-  { label: "Community access nodes", value: "52K" },
-  { label: "Infrastructure uptime target", value: "99.9%" },
+  { label: "Market data", value: "API-backed" },
+  { label: "Spot routing", value: "OMS-led" },
+  { label: "Balances", value: "Ledger-led" },
+  { label: "Developer access", value: "Sandboxed" },
 ];
 
 const institutionalSignals = [
@@ -275,44 +375,44 @@ const faqs = [
 
 const footerLinks = [
   {
-    title: "Platform",
+    title: "Exchange",
     links: [
-      ["Mobile app", "#mobile"],
-      ["Core features", "#features"],
-      ["Security", "#security"],
-      ["Roadmap", "#roadmap"],
+      ["Markets", "/markets"],
+      ["Trading app", WEB_APP_LOGIN_URL],
+      ["Fees", "/fees"],
+      ["Status", "/status"],
     ],
   },
   {
-    title: "Ecosystem",
+    title: "Build",
     links: [
-      ["Wallet infrastructure", "#ecosystem"],
-      ["ExaToken utility", "#token"],
-      ["Rewards engine", "#why"],
-      ["Marketplace rails", "#features"],
+      ["Developer APIs", DEVELOPER_PORTAL_URL],
+      ["List a token", LISTING_PORTAL_URL],
+      ["Institutional", "/institutional"],
+      ["Security", "/security"],
     ],
   },
   {
     title: "Company",
     links: [
-      ["Community", "#community"],
-      ["Download", "#download"],
-      ["FAQ", "#faq"],
-      ["Launch app", WEB_APP_LOGIN_URL],
+      ["About", "/about"],
+      ["Support", "/support"],
+      ["Legal", "/legal"],
+      ["Risk disclosure", "/risk"],
     ],
   },
 ];
 
 const footerSignals = [
-  ["Protocol", "Online", ShieldCheck],
-  ["Treasury", "Audit-ready", Landmark],
-  ["Network", "Scaling", Network],
+  ["Market data", "API sourced", ChartNoAxesCombined],
+  ["Ledger", "Canonical", Landmark],
+  ["Security", "Policy gated", ShieldCheck],
 ];
 
 const footerHighlights = [
-  ["11+", "ecosystem modules"],
-  ["52K", "access nodes"],
-  ["99.9%", "uptime target"],
+  ["REST", "public market API"],
+  ["WS", "stream-ready protocol"],
+  ["FIX", "future institutional path"],
 ];
 
 const footerChannels = [
@@ -1585,6 +1685,99 @@ function HeroObject() {
   );
 }
 
+function MarketSourceBadge({ source }) {
+  const normalized = String(source || "UNAVAILABLE").replaceAll("_", " ");
+  return <span className="market-source-badge">{normalized}</span>;
+}
+
+function MarketStrip() {
+  const { loading, error, tickers } = usePublicMarketData();
+  const visibleTickers = tickers.slice(0, 6);
+
+  return (
+    <Reveal as={motion.section} className="exchange-market-strip" id="markets">
+      <div className="market-strip-heading">
+        <span><Radio size={16} /> Public markets</span>
+        <a href="/markets">View all markets <ArrowRight size={15} /></a>
+      </div>
+      {error ? (
+        <div className="market-state">Market data API is unreachable: {error}</div>
+      ) : loading ? (
+        <div className="market-state">Loading market data from ExaEarn API...</div>
+      ) : visibleTickers.length === 0 ? (
+        <div className="market-state">No public markets are currently returned by the market data API.</div>
+      ) : (
+        <div className="market-strip-grid">
+          {visibleTickers.map((ticker) => {
+            const change = Number(ticker.price_change_percent ?? 0);
+            return (
+              <a className="market-strip-card" href={`/markets/${pairPath(ticker.symbol)}`} key={ticker.symbol}>
+                <span>
+                  <strong>{ticker.symbol}</strong>
+                  <MarketSourceBadge source={ticker.source} />
+                </span>
+                <b>{displayPrice(ticker.last_price ?? ticker.reference_price)}</b>
+                <em className={change >= 0 ? "positive" : "negative"}>{displayPercent(ticker.price_change_percent)}</em>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </Reveal>
+  );
+}
+
+function ExchangeHeroVisual() {
+  const { loading, error, tickers } = usePublicMarketData();
+  const rows = tickers.slice(0, 5);
+
+  return (
+    <motion.div
+      className="exchange-hero-terminal"
+      initial={{ opacity: 0, scale: 0.96, y: 18 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.85, ease: cinematicEase, delay: 0.15 }}
+    >
+      <div className="terminal-topline">
+        <span><ChartNoAxesCombined size={17} /> ExaEarn Exchange</span>
+        <MarketSourceBadge source={rows[0]?.source || "API"} />
+      </div>
+      <div className="terminal-market-focus">
+        <small>{rows[0]?.symbol || "Market data"}</small>
+        <strong>{rows[0] ? displayPrice(rows[0].last_price ?? rows[0].reference_price) : "Connecting"}</strong>
+        <span className={Number(rows[0]?.price_change_percent ?? 0) >= 0 ? "positive" : "negative"}>
+          {rows[0] ? displayPercent(rows[0].price_change_percent) : "Awaiting API"}
+        </span>
+      </div>
+      <div className="terminal-depth-panel" aria-label="Exchange market data preview">
+        {error ? (
+          <p>Unable to reach the public market data API.</p>
+        ) : loading ? (
+          <p>Loading exchange market data...</p>
+        ) : rows.length === 0 ? (
+          <p>No live public market rows are available yet.</p>
+        ) : (
+          rows.map((ticker) => (
+            <a href={`/markets/${pairPath(ticker.symbol)}`} key={ticker.symbol}>
+              <span>{ticker.symbol}</span>
+              <strong>{displayPrice(ticker.last_price ?? ticker.reference_price)}</strong>
+              <em className={Number(ticker.price_change_percent ?? 0) >= 0 ? "positive" : "negative"}>
+                {displayPercent(ticker.price_change_percent)}
+              </em>
+            </a>
+          ))
+        )}
+      </div>
+      <div className="terminal-action-row">
+        <a href="/markets">Markets</a>
+        <a href={webAppUrl("/trade/spot")}>Spot</a>
+        <a href={webAppUrl("/trade/futures")}>Futures</a>
+        <a href={webAppUrl("/convert")}>Convert</a>
+      </div>
+    </motion.div>
+  );
+}
+
 function Hero({ onOpenDownload, onOpenWallet, isWalletConnected }) {
   const mouseX = useMotionValue(72);
   const mouseY = useMotionValue(40);
@@ -1615,30 +1808,30 @@ function Hero({ onOpenDownload, onOpenWallet, isWalletConnected }) {
       <motion.div className="hero-copy" variants={staggerGroup}>
         <motion.div className="hero-status" variants={fadeUp}>
           <span />
-          ExaEarn protocol environment online
+          Public exchange market data available through ExaEarn APIs
         </motion.div>
-        <motion.p className="eyebrow" variants={fadeUp}>ExaEarn - future digital finance infrastructure</motion.p>
-        <motion.h1 variants={fadeUp}>Enter the intelligent ExaEarn economy.</motion.h1>
+        <motion.p className="eyebrow" variants={fadeUp}>Crypto exchange - markets, wallets, payments, and automation</motion.p>
+        <motion.h1 variants={fadeUp}>Trade crypto. Move money. Do more.</motion.h1>
         <motion.p variants={fadeUp}>
-          A cinematic Web3 financial operating system where wallets, staking,
-          rewards, education, agriculture, commerce, and digital assets connect
-          through one secure intelligence layer.
+          ExaEarn is a digital-asset exchange experience for spot markets, futures,
+          convert, P2P, wallets, fiat rails, Earn products, ExaAI, developer APIs,
+          and institutional workflows.
         </motion.p>
         <motion.div className="hero-actions" variants={fadeUp}>
-          <ButtonLink className="primary" href="#ecosystem">
-            <Rocket size={18} /> Enter Ecosystem
+          <ButtonLink className="primary" href={WEB_APP_SIGNUP_URL}>
+            <Rocket size={18} /> Start Trading
           </ButtonLink>
-          <ButtonLink href="#download" onClick={onOpenDownload}>
-            <Download size={18} /> Download App
+          <ButtonLink href="/markets">
+            <ChartNoAxesCombined size={18} /> View Markets
           </ButtonLink>
           <ButtonLink href="#connect" onClick={onOpenWallet}>
             <Wallet size={18} /> {isWalletConnected ? connectedWalletProfile.address : "Connect Wallet"}
           </ButtonLink>
         </motion.div>
         <motion.div className="hero-proofline" aria-label="Platform proof points" variants={staggerGroup}>
-          <motion.span variants={fadeUp}><ShieldCheck size={15} /> Audit-ready architecture</motion.span>
-          <motion.span variants={fadeUp}><Zap size={15} /> Reward automation</motion.span>
-          <motion.span variants={fadeUp}><Network size={15} /> Multi-module network</motion.span>
+          <motion.span variants={fadeUp}><ShieldCheck size={15} /> Canonical ledger paths</motion.span>
+          <motion.span variants={fadeUp}><Zap size={15} /> API-backed market data</motion.span>
+          <motion.span variants={fadeUp}><Network size={15} /> Spot, Futures, Convert, P2P</motion.span>
         </motion.div>
         <motion.div className="trust-strip" aria-label="Ecosystem indicators" variants={staggerGroup}>
           {metrics.map((metric, index) => (
@@ -1655,8 +1848,8 @@ function Hero({ onOpenDownload, onOpenWallet, isWalletConnected }) {
           ))}
         </motion.div>
       </motion.div>
-      <HeroObject />
-      <a className="scroll-cue" href="#activity" aria-label="Scroll to proof of activity">
+      <ExchangeHeroVisual />
+      <a className="scroll-cue" href="#markets" aria-label="Scroll to public markets">
         <ArrowDown size={18} />
       </a>
     </motion.section>
@@ -2479,10 +2672,9 @@ function DeferredPageSections({ onOpenDownload, onOpenWallet, isWalletConnected 
   return (
     <>
       <ExaAiFloatingAccess />
-      <ProofOfActivity />
+      <MarketStrip />
       <InstitutionalLayer />
       <ExaAiShowcase />
-      <LivingDashboardPreview />
       <MobileShowcase />
       <WhyExaEarn />
       <FeatureGrid />
@@ -2559,11 +2751,407 @@ function WebsiteLanguageSwitcher() {
     </div>
   );
 }
+
+function PublicWebsiteNav({ onOpenDownload, isWalletConnected, onOpenWallet, onDisconnect }) {
+  const links = [
+    ["Markets", "/markets"],
+    ["Fees", "/fees"],
+    ["Security", "/security"],
+    ["Status", "/status"],
+    ["Developers", DEVELOPER_PORTAL_URL],
+  ];
+
+  return (
+    <motion.nav
+      className="topbar"
+      aria-label="Primary navigation"
+      initial={{ y: -18, opacity: 1, filter: "blur(2px)" }}
+      animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+      transition={{ duration: 0.58, ease: cinematicEase, delay: 0.04 }}
+    >
+      <motion.a className="brand" href="/" whileHover={{ scale: 1.025 }}>
+        <img src={logo} alt="ExaEarn" />
+        <span>ExaEarn</span>
+      </motion.a>
+      <div className="nav-links">
+        {links.map(([label, href]) => (
+          <motion.a key={label} href={href} whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }}>
+            {label}
+          </motion.a>
+        ))}
+      </div>
+      <div className="nav-actions">
+        <WebsiteLanguageSwitcher />
+        <motion.a className="nav-action primary" href={WEB_APP_SIGNUP_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+          <Rocket size={16} /> Launch App
+        </motion.a>
+        <WalletAccountControl isConnected={isWalletConnected} onOpenWallet={onOpenWallet} onDisconnect={onDisconnect} />
+      </div>
+      <div className="mobile-connect-action">
+        <WalletAccountControl isConnected={isWalletConnected} onOpenWallet={onOpenWallet} onDisconnect={onDisconnect} label="Connect" />
+      </div>
+      <details className="mobile-menu">
+        <summary aria-label="Open navigation menu">
+          <Menu size={22} />
+        </summary>
+        <div className="mobile-menu-panel">
+          <div className="mobile-menu-links">
+            {links.map(([label, href]) => (
+              <a href={href} key={label}>{label}</a>
+            ))}
+          </div>
+          <WebsiteLanguageSwitcher />
+          <div className="mobile-auth-actions" aria-label="Account actions">
+            <a href={WEB_APP_LOGIN_URL}>Sign in</a>
+            <a href={WEB_APP_SIGNUP_URL}>Sign up</a>
+          </div>
+          <div className="mobile-store-actions" aria-label="Download app">
+            <a href="#download" onClick={onOpenDownload}><Download size={17} /> App Store</a>
+            <a href="#download" onClick={onOpenDownload}><Play size={17} /> Play Store</a>
+          </div>
+        </div>
+      </details>
+    </motion.nav>
+  );
+}
+
+function PublicPageShell({ children, onOpenDownload, isWalletConnected, onOpenWallet, onDisconnect }) {
+  return (
+    <main className="site-shell public-exchange-page">
+      <div className="cursor-spotlight" aria-hidden="true" />
+      <PublicWebsiteNav
+        onOpenDownload={onOpenDownload}
+        isWalletConnected={isWalletConnected}
+        onOpenWallet={onOpenWallet}
+        onDisconnect={onDisconnect}
+      />
+      {children}
+      <Footer onOpenDownload={onOpenDownload} />
+    </main>
+  );
+}
+
+function PublicMarketsPage({ symbol }) {
+  const [query, setQuery] = useState("");
+  const selectedSymbol = symbol ? symbol.replace("-", "/").toUpperCase() : null;
+  const { loading, error, tickers, book, trades } = usePublicMarketData(selectedSymbol);
+  const filteredTickers = tickers.filter((ticker) => String(ticker.symbol || "").toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <section className="public-page-layout">
+      <div className="public-page-heading">
+        <p className="eyebrow">ExaEarn markets</p>
+        <h1>{selectedSymbol || "Public crypto markets"}</h1>
+        <p>Explore API-backed ExaEarn market data. Internal ExaEarn markets are separated from external reference data by source metadata.</p>
+        <div className="public-page-actions">
+          <a className="nav-action primary" href={WEB_APP_SIGNUP_URL}><Rocket size={16} /> Start Trading</a>
+          <a className="nav-action" href={DEVELOPER_PORTAL_URL}><KeyRound size={16} /> Market API</a>
+        </div>
+      </div>
+
+      {selectedSymbol ? (
+        <div className="market-detail-grid">
+          <MarketTable tickers={filteredTickers} loading={loading} error={error} />
+          <DataPanel title="Order Book" empty="No public order book levels are currently returned.">
+            {book?.bids?.length || book?.asks?.length ? (
+              <div className="orderbook-columns">
+                <div>
+                  <strong>Bids</strong>
+                  {(book.bids || []).slice(0, 12).map((level, index) => (
+                    <span key={`bid-${index}`}><em>{displayPrice(level.price)}</em><b>{displayPrice(level.quantity)}</b></span>
+                  ))}
+                </div>
+                <div>
+                  <strong>Asks</strong>
+                  {(book.asks || []).slice(0, 12).map((level, index) => (
+                    <span key={`ask-${index}`}><em>{displayPrice(level.price)}</em><b>{displayPrice(level.quantity)}</b></span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </DataPanel>
+          <DataPanel title="Recent Trades" empty="No public trades are currently returned for this market.">
+            {trades.length ? trades.map((trade) => (
+              <span className="trade-row" key={trade.trade_id || `${trade.sequence}-${trade.timestamp}`}>
+                <b>{displayPrice(trade.price)}</b>
+                <em>{displayPrice(trade.quantity)}</em>
+                <small>{trade.timestamp ? new Date(trade.timestamp).toLocaleTimeString() : "recent"}</small>
+              </span>
+            )) : null}
+          </DataPanel>
+        </div>
+      ) : (
+        <>
+          <label className="market-search">
+            <Search size={17} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search markets" aria-label="Search markets" />
+          </label>
+          <MarketTable tickers={filteredTickers} loading={loading} error={error} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function MarketTable({ tickers, loading, error }) {
+  if (error) return <div className="market-state">Market data API is unreachable: {error}</div>;
+  if (loading) return <div className="market-state">Loading public markets...</div>;
+  if (!tickers.length) return <div className="market-state">No public markets matched this request.</div>;
+
+  return (
+    <div className="public-market-table">
+      <div className="market-table-head">
+        <span>Market</span><span>Last price</span><span>24h change</span><span>24h volume</span><span>Source</span>
+      </div>
+      {tickers.map((ticker) => {
+        const change = Number(ticker.price_change_percent ?? 0);
+        return (
+          <a href={`/markets/${pairPath(ticker.symbol)}`} className="market-table-row" key={ticker.symbol}>
+            <strong>{ticker.symbol}</strong>
+            <span>{displayPrice(ticker.last_price ?? ticker.reference_price)}</span>
+            <em className={change >= 0 ? "positive" : "negative"}>{displayPercent(ticker.price_change_percent)}</em>
+            <span>{displayPrice(ticker.quote_volume_24h)}</span>
+            <MarketSourceBadge source={ticker.source} />
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+function DataPanel({ title, empty, children }) {
+  return (
+    <section className="data-panel">
+      <h2>{title}</h2>
+      <div className="data-panel-body">{children || <p>{empty}</p>}</div>
+    </section>
+  );
+}
+
+function PublicStatusPage() {
+  const { loading, error, health } = usePublicMarketData();
+  const checks = [
+    ["Website", "Operational from this build"],
+    ["Public REST API", error ? "Unavailable from browser" : "Reachable"],
+    ["Market Data", health?.status || (loading ? "Checking" : error ? "Unavailable" : "Reachable")],
+    ["Developer API", "Documented separately"],
+  ];
+
+  return (
+    <section className="public-page-layout">
+      <div className="public-page-heading">
+        <p className="eyebrow">Exchange status</p>
+        <h1>System status and market-data freshness</h1>
+        <p>Status uses reachable ExaEarn endpoints where available and avoids reporting unverified uptime claims.</p>
+      </div>
+      <div className="status-grid">
+        {checks.map(([label, value]) => (
+          <article key={label}>
+            <CheckCircle2 size={20} />
+            <strong>{label}</strong>
+            <span>{value}</span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PublicFeesPage() {
+  const [state, setState] = useState({ loading: true, error: "", fees: null });
+  useEffect(() => {
+    let mounted = true;
+    fetchJson("/api/v1/pricing/fees")
+      .then((fees) => mounted && setState({ loading: false, error: "", fees }))
+      .catch((error) => mounted && setState({ loading: false, error: error.message || "Fee policy is unavailable.", fees: null }));
+    return () => { mounted = false; };
+  }, []);
+
+  const rows = Array.isArray(state.fees) ? state.fees : Object.entries(state.fees || {}).map(([key, value]) => ({ product: key, ...value }));
+
+  return (
+    <section className="public-page-layout">
+      <div className="public-page-heading">
+        <p className="eyebrow">Fees</p>
+        <h1>Transparent exchange fee policy</h1>
+        <p>Public fees are read from ExaEarn pricing endpoints. Account-specific VIP, institutional, promotional and jurisdictional rules apply only after authentication.</p>
+      </div>
+      {state.error ? <div className="market-state">{state.error}</div> : state.loading ? <div className="market-state">Loading fee policy...</div> : (
+        <div className="public-market-table">
+          <div className="market-table-head"><span>Product</span><span>Maker</span><span>Taker</span><span>Status</span><span>Source</span></div>
+          {rows.length ? rows.map((row, index) => (
+            <div className="market-table-row" key={row.product || index}>
+              <strong>{row.product || row.market_type || "Fee rule"}</strong>
+              <span>{row.maker_fee_bps ?? row.maker ?? "Policy"}</span>
+              <span>{row.taker_fee_bps ?? row.taker ?? "Policy"}</span>
+              <span>{row.status || "Active where eligible"}</span>
+              <MarketSourceBadge source="PRICING API" />
+            </div>
+          )) : <div className="market-state">No active public fee rule returned.</div>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PublicTrustPage({ kind = "security" }) {
+  const isLegal = ["legal", "terms", "privacy", "risk", "restricted-jurisdictions"].includes(kind);
+  const title = isLegal ? "Legal, risk and availability" : kind === "about" ? "About ExaEarn" : kind === "support" ? "Support" : "Security at ExaEarn";
+  const copy = isLegal
+    ? "ExaEarn features are provided subject to jurisdiction, product eligibility, operational policy and applicable approvals. This page avoids representing approvals that are not externally verified."
+    : "ExaEarn separates user identity, KYC status, wallet security, market operations, canonical ledger accounting and administrative permissions into protected backend systems.";
+
+  const cards = isLegal ? [
+    ["Risk disclosure", "Digital assets are volatile and may lose value. Trading access depends on product rules and user eligibility."],
+    ["Jurisdictions", "Some products may be unavailable or restricted based on residence, verification level or local requirements."],
+    ["Privacy", "Profile, account and financial data should be handled through authenticated APIs and protected operational controls."],
+    ["Terms", "Commercial use, API use, listings and institutional access are governed by separate product workflows."],
+  ] : [
+    ["Account security", "Authentication, verification status and withdrawal protections are server-controlled."],
+    ["Financial integrity", "Balances and settlement rely on canonical double-entry ledger services."],
+    ["Market integrity", "Internal market data is separated from external reference feeds."],
+    ["Operational controls", "Admin, risk, incident and emergency workflows are role-gated and audited."],
+  ];
+
+  return (
+    <section className="public-page-layout">
+      <div className="public-page-heading">
+        <p className="eyebrow">{isLegal ? "Disclosures" : "Trust center"}</p>
+        <h1>{title}</h1>
+        <p>{copy}</p>
+      </div>
+      <div className="public-card-grid">
+        {cards.map(([cardTitle, cardCopy]) => (
+          <article key={cardTitle}>
+            <ShieldCheck size={22} />
+            <h2>{cardTitle}</h2>
+            <p>{cardCopy}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PublicGatewayPage({ type }) {
+  const isListing = type === "listing";
+  const title = isListing ? "List a digital asset on ExaEarn" : "Build with ExaEarn APIs";
+  const copy = isListing
+    ? "Projects can begin listing readiness through ExaEarn's token listing workflow, with market, custody, compliance, liquidity and launch checks handled before activation."
+    : "Developers can integrate public market data, sandbox flows, signed private APIs, webhooks and realtime streams through the dedicated ExaEarn developer platform.";
+  const href = isListing ? LISTING_PORTAL_URL : DEVELOPER_PORTAL_URL;
+  const cards = isListing ? [
+    ["Application", "Project details, assets, network support and operational contacts."],
+    ["Review", "Compliance, custody, liquidity, market-data and launch-readiness checks."],
+    ["Launch", "Approved markets move through controlled activation and monitoring."],
+  ] : [
+    ["Public market data", "Ticker, order book, trades, candles and exchange-status contracts."],
+    ["Signed APIs", "Scoped API keys, request signing, nonce protection and idempotency."],
+    ["Sandbox", "Isolated developer environment for testing without production financial impact."],
+  ];
+
+  return (
+    <section className="public-page-layout">
+      <div className="public-page-heading">
+        <p className="eyebrow">{isListing ? "Listing portal" : "Developer platform"}</p>
+        <h1>{title}</h1>
+        <p>{copy}</p>
+        <div className="public-page-actions">
+          <a className="nav-action primary" href={href}><ArrowRight size={16} /> Open {isListing ? "Listing Portal" : "Developer Portal"}</a>
+          <a className="nav-action" href="/markets"><ChartNoAxesCombined size={16} /> View Markets</a>
+        </div>
+      </div>
+      <div className="public-card-grid">
+        {cards.map(([cardTitle, cardCopy]) => (
+          <article key={cardTitle}>
+            {isListing ? <BadgeCheck size={22} /> : <KeyRound size={22} />}
+            <h2>{cardTitle}</h2>
+            <p>{cardCopy}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function InstitutionalWebsitePage({ mode = "overview" }) {
+  const isApply = mode === "apply";
+  return (
+    <main className="site-shell institutional-page-shell">
+      <nav className="topbar" aria-label="Institutional navigation">
+        <a className="brand" href="/">
+          <img src={logo} alt="ExaEarn" />
+          <span>ExaEarn</span>
+        </a>
+        <div className="nav-links">
+          <a href="/#features">Platform</a>
+          <a href="/institutional">Institutional</a>
+          <a href={webAppUrl("/login")}>Sign in</a>
+        </div>
+        <div className="nav-actions">
+          <WebsiteLanguageSwitcher />
+          <a className="nav-action primary" href={isApply ? webAppUrl("/register") : "/institutional/apply"}>
+            <Rocket size={16} /> {isApply ? "Open Application" : "Apply"}
+          </a>
+        </div>
+      </nav>
+
+      <section className="institutional-hero-page">
+        <div>
+          <p className="eyebrow">ExaEarn Institutional</p>
+          <h1>{isApply ? "Apply for Institutional Access" : "Institutional accounts for serious digital-asset operations."}</h1>
+          <p>
+            {isApply
+              ? "Start in the authenticated ExaEarn app so KYB, ownership, team access and treasury controls are attached to the correct master account."
+              : "VIP fee tiers, segregated subaccounts, team permissions, scoped APIs, treasury transfers and consolidated reports on ExaEarn's canonical ledger."}
+          </p>
+          <div className="institutional-hero-actions">
+            <a href={webAppUrl("/register")} className="nav-action primary"><ShieldCheck size={16} /> Start Secure Application</a>
+            <a href={webAppUrl("/login")} className="nav-action">Sign in</a>
+          </div>
+        </div>
+        <div className="institutional-console" aria-label="Institutional capability summary">
+          {[
+            ["Master account", "KYB-gated ownership and institutional lifecycle"],
+            ["Subaccounts", "Treasury, spot, futures, margin and API desks"],
+            ["Team RBAC", "Maker-checker controls with auditable permissions"],
+            ["VIP Fees", "Product-specific maker/taker schedules"],
+            ["API Segregation", "Subaccount-scoped developer keys"],
+          ].map(([title, copy]) => (
+            <div key={title}>
+              <strong>{title}</strong>
+              <span>{copy}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="institutional-capability-grid">
+        {[
+          [Building2, "Institutional onboarding", "Applications move through review, recommendation, approval and activation with maker-checker controls."],
+          [Network, "Desk-level segregation", "Each desk maps to canonical ledger accounts; no parallel wallet balance model is introduced."],
+          [KeyRound, "Developer API isolation", "API keys can be scoped to an institution and subaccount so automation cannot leak across desks."],
+          [Landmark, "Treasury operations", "Internal transfers settle through immutable double-entry ledger transactions."],
+          [BadgeCheck, "VIP and fee governance", "Standard, contractual and market-maker fee profiles are configured server-side."],
+          [UsersRound, "Team permissions", "Owners can delegate treasury, trading, reporting and approval access without sharing credentials."],
+        ].map(([Icon, title, copy]) => (
+          <article key={title}>
+            <Icon size={22} />
+            <h2>{title}</h2>
+            <p>{copy}</p>
+          </article>
+        ))}
+      </section>
+    </main>
+  );
+}
+
 function App() {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   useCinematicPageEffects();
+  const currentPath = typeof window !== "undefined" ? window.location.pathname.replace(/\/+$/, "") || "/" : "/";
 
   const openDownloadModal = (event) => {
     event?.preventDefault();
@@ -2587,79 +3175,76 @@ function App() {
     setIsWalletConnected(false);
   };
 
+  if (currentPath === "/institutional" || currentPath === "/institutional/apply") {
+    return <InstitutionalWebsitePage mode={currentPath.endsWith("/apply") ? "apply" : "overview"} />;
+  }
+
+  const publicPageProps = {
+    onOpenDownload: openDownloadModal,
+    isWalletConnected,
+    onOpenWallet: openWalletModal,
+    onDisconnect: disconnectWallet,
+  };
+
+  if (currentPath === "/markets" || currentPath.startsWith("/markets/")) {
+    return (
+      <PublicPageShell {...publicPageProps}>
+        <PublicMarketsPage symbol={currentPath.startsWith("/markets/") ? currentPath.split("/").pop() : null} />
+        <DownloadAppModal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} />
+        <WalletOnboardingModal isOpen={isWalletModalOpen} onClose={closeWalletModal} isConnected={isWalletConnected} onConnected={() => setIsWalletConnected(true)} onDisconnect={disconnectWallet} />
+      </PublicPageShell>
+    );
+  }
+
+  if (currentPath === "/status") {
+    return (
+      <PublicPageShell {...publicPageProps}>
+        <PublicStatusPage />
+        <DownloadAppModal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} />
+        <WalletOnboardingModal isOpen={isWalletModalOpen} onClose={closeWalletModal} isConnected={isWalletConnected} onConnected={() => setIsWalletConnected(true)} onDisconnect={disconnectWallet} />
+      </PublicPageShell>
+    );
+  }
+
+  if (currentPath === "/fees") {
+    return (
+      <PublicPageShell {...publicPageProps}>
+        <PublicFeesPage />
+        <DownloadAppModal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} />
+        <WalletOnboardingModal isOpen={isWalletModalOpen} onClose={closeWalletModal} isConnected={isWalletConnected} onConnected={() => setIsWalletConnected(true)} onDisconnect={disconnectWallet} />
+      </PublicPageShell>
+    );
+  }
+
+  if (["/security", "/legal", "/terms", "/privacy", "/risk", "/restricted-jurisdictions", "/about", "/support"].includes(currentPath)) {
+    return (
+      <PublicPageShell {...publicPageProps}>
+        <PublicTrustPage kind={currentPath.slice(1)} />
+        <DownloadAppModal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} />
+        <WalletOnboardingModal isOpen={isWalletModalOpen} onClose={closeWalletModal} isConnected={isWalletConnected} onConnected={() => setIsWalletConnected(true)} onDisconnect={disconnectWallet} />
+      </PublicPageShell>
+    );
+  }
+
+  if (currentPath === "/developers" || currentPath === "/listing") {
+    return (
+      <PublicPageShell {...publicPageProps}>
+        <PublicGatewayPage type={currentPath.slice(1)} />
+        <DownloadAppModal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} />
+        <WalletOnboardingModal isOpen={isWalletModalOpen} onClose={closeWalletModal} isConnected={isWalletConnected} onConnected={() => setIsWalletConnected(true)} onDisconnect={disconnectWallet} />
+      </PublicPageShell>
+    );
+  }
+
   return (
     <main className="site-shell">
       <div className="cursor-spotlight" aria-hidden="true" />
-      <motion.nav
-        className="topbar"
-        aria-label="Primary navigation"
-        initial={{ y: -18, opacity: 1, filter: "blur(2px)" }}
-        animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-        transition={{ duration: 0.58, ease: cinematicEase, delay: 0.04 }}
-      >
-        <motion.a className="brand" href="#top" whileHover={{ scale: 1.025 }}>
-          <img src={logo} alt="ExaEarn" />
-          <span>ExaEarn</span>
-        </motion.a>
-        <div className="nav-links">
-          {["Activity", "ExaAi", "Dashboard", "Features", "Security"].map((item) => (
-            <motion.a
-              key={item}
-              href={`#${item.toLowerCase()}`}
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.96 }}
-            >
-              {item}
-            </motion.a>
-          ))}
-        </div>
-        <div className="nav-actions">
-          <WebsiteLanguageSwitcher />
-          <motion.a className="nav-action primary" href={WEB_APP_SIGNUP_URL} whileHover={{ y: -3, scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-            <Rocket size={16} /> Launch App
-          </motion.a>
-          <WalletAccountControl
-            isConnected={isWalletConnected}
-            onOpenWallet={openWalletModal}
-            onDisconnect={disconnectWallet}
-          />
-        </div>
-        <div className="mobile-connect-action">
-          <WalletAccountControl
-            isConnected={isWalletConnected}
-            onOpenWallet={openWalletModal}
-            onDisconnect={disconnectWallet}
-            label="Connect"
-          />
-        </div>
-        <details className="mobile-menu">
-          <summary aria-label="Open navigation menu">
-            <Menu size={22} />
-          </summary>
-          <div className="mobile-menu-panel">
-          <div className="mobile-menu-links">
-              <a href="#activity">Activity</a>
-              <a href="#exaai">ExaAi</a>
-              <a href="#dashboard">Dashboard</a>
-              <a href="#features">Features</a>
-              <a href="#security">Security</a>
-            </div>
-            <WebsiteLanguageSwitcher />
-            <div className="mobile-auth-actions" aria-label="Account actions">
-              <a href={WEB_APP_LOGIN_URL}>Sign in</a>
-              <a href={WEB_APP_SIGNUP_URL}>Sign up</a>
-            </div>
-            <div className="mobile-store-actions" aria-label="Download app">
-              <a href="#download" onClick={openDownloadModal}>
-                <Download size={17} /> App Store
-              </a>
-              <a href="#download" onClick={openDownloadModal}>
-                <Play size={17} /> Play Store
-              </a>
-            </div>
-          </div>
-        </details>
-      </motion.nav>
+      <PublicWebsiteNav
+        onOpenDownload={openDownloadModal}
+        isWalletConnected={isWalletConnected}
+        onOpenWallet={openWalletModal}
+        onDisconnect={disconnectWallet}
+      />
       <Hero onOpenDownload={openDownloadModal} onOpenWallet={openWalletModal} isWalletConnected={isWalletConnected} />
       <DeferredPageSections
         onOpenDownload={openDownloadModal}

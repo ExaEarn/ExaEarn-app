@@ -5,6 +5,8 @@ use App\Http\Middleware\AdminSecurityLayer;
 use App\Http\Middleware\AllowPrivateNetworkCors;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\DevAuthBypass;
+use App\Http\Middleware\DeveloperApiAuth;
+use App\Http\Middleware\DeveloperApiRequestContext;
 use App\Http\Middleware\EnsureUserRole;
 use App\Http\Middleware\LogUserActivity;
 use App\Http\Middleware\RateLimitMiddleware;
@@ -57,6 +59,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'dev.auth' => DevAuthBypass::class,
+            'developer.api' => DeveloperApiAuth::class,
+            'developer.context' => DeveloperApiRequestContext::class,
             'role' => EnsureUserRole::class,
             'security.layer' => SecurityMiddleware::class,
             'admin.security' => AdminSecurityLayer::class,

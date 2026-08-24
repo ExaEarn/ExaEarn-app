@@ -6,39 +6,53 @@ namespace App\Http\Controllers;
 
 use App\Models\Swap;
 use App\Models\Wallet;
+use App\Services\ConvertBackingService;
 use App\Services\SwapEngineService;
+use App\Services\SwapReconciliationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
 
 class SwapController extends Controller
 {
-    public function __construct(private readonly SwapEngineService $swapEngineService)
+    public function __construct(
+        private readonly SwapEngineService $swapEngineService,
+        private readonly ConvertBackingService $backingService,
+        private readonly SwapReconciliationService $reconciliationService,
+    )
     {
     }
 
     public function meta(Request $request): JsonResponse
     {
         $supportedFiat = collect((array) config('swap.supported_fiat', []))
-            ->map(fn (string $code): array => [
-                'code' => strtoupper($code),
-                'type' => 'fiat',
-                'network' => 'fiat',
-                'decimals' => 2,
-                'convert_enabled' => true,
-                'status' => 'available',
-            ]);
+            ->map(function (string $code): array {
+                $capacity = $this->backingService->capacityFor($code);
+
+                return [
+                    'code' => strtoupper($code),
+                    'type' => 'fiat',
+                    'network' => 'fiat',
+                    'decimals' => 2,
+                    'convert_enabled' => $capacity['status'] !== 'CONVERT_DISABLED',
+                    'status' => strtolower((string) $capacity['status']),
+                    'conversion_capacity' => $capacity,
+                ];
+            });
 
         $supportedCrypto = collect((array) config('swap.supported_crypto', []))
             ->map(function (string $code): array {
                 $asset = (array) (config('wallet.assets.' . strtoupper($code)) ?? []);
+                $capacity = $this->backingService->capacityFor($code);
+
                 return [
                     'code' => strtoupper($code),
                     'type' => 'crypto',
                     'network' => (string) ($asset['network'] ?? 'crypto'),
                     'decimals' => (int) ($asset['decimals'] ?? 8),
-                    'convert_enabled' => true,
-                    'status' => 'available',
+                    'convert_enabled' => $capacity['status'] !== 'CONVERT_DISABLED',
+                    'status' => strtolower((string) $capacity['status']),
+                    'conversion_capacity' => $capacity,
                 ];
             });
 
@@ -110,24 +124,29 @@ class SwapController extends Controller
                 (string) $payload['amount']
             );
         } catch (RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => $e->getMessage() === 'CONVERT_CAPACITY_UNAVAILABLE'
+                    ? 'CONVERT_CAPACITY_UNAVAILABLE'
+                    : 'CONVERT_QUOTE_FAILED',
+            ], 422);
         }
 
-        return response()->json([
-            'data' => [
-                'quote_id' => $quote->quote_id,
-                'from_currency' => $quote->from_currency,
-                'to_currency' => $quote->to_currency,
-                'amount' => $quote->amount_sent,
-                'receive_amount' => $quote->amount_received,
-                'rate' => $quote->rate,
-                'fee' => $quote->fee,
-                'route' => $quote->route,
-                'expires_in' => max(0, now()->diffInSeconds($quote->expires_at, false)),
-                'expires_at' => $quote->expires_at?->toISOString(),
-                'metadata' => $quote->metadata,
-            ],
-        ], 201);
+        $data = [
+            'quote_id' => $quote->quote_id,
+            'from_currency' => $quote->from_currency,
+            'to_currency' => $quote->to_currency,
+            'amount' => $quote->amount_sent,
+            'receive_amount' => $quote->amount_received,
+            'rate' => $quote->rate,
+            'fee' => $quote->fee,
+            'route' => $quote->route,
+            'expires_in' => max(0, now()->diffInSeconds($quote->expires_at, false)),
+            'expires_at' => $quote->expires_at?->toISOString(),
+            'metadata' => $quote->metadata,
+        ];
+
+        return response()->json(array_merge($data, ['data' => $data]), 201);
     }
 
     public function execute(Request $request): JsonResponse
@@ -160,6 +179,13 @@ class SwapController extends Controller
             ->paginate((int) $request->query('per_page', 20));
 
         return response()->json(['data' => $swaps]);
+    }
+
+    public function reconciliation(Request $request): JsonResponse
+    {
+        abort_unless(in_array((string) $request->user()?->role, ['admin', 'super_admin'], true), 403);
+
+        return response()->json(['data' => $this->reconciliationService->report()]);
     }
 
     public function show(Request $request, string $swapId): JsonResponse

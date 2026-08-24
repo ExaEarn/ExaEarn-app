@@ -18,6 +18,7 @@ import {
   Loader2,
   MoreHorizontal,
   Plus,
+  Search,
   Settings,
   Sparkles,
   Star,
@@ -93,6 +94,7 @@ const Swap = lazy(() => import("./pages/Swap/Swap"));
 const Withdraw = lazy(() => import("./pages/Withdraw/Withdraw"));
 const FiatWithdrawalPage = lazy(() => import("./pages/Withdraw/FiatWithdrawalPage"));
 const MorePage = lazy(() => import("./pages/More/MorePage"));
+const ExaCardPage = lazy(() => import("./pages/ExaCard/ExaCardPage"));
 const AITradingAssistantPage = lazy(() => import("./pages/AI/AITradingAssistantPage"));
 const SupportCenter = lazy(() => import("./pages/Support/SupportCenter"));
 const LiveSupportChat = lazy(() => import("./pages/Support/LiveSupportChat"));
@@ -110,6 +112,8 @@ const Trade = lazy(() => import("./pages/trade/Trade"));
 const Futures = lazy(() => import("./pages/futures/Futures"));
 const Options = lazy(() => import("./pages/futures/Options"));
 const SmartMoney = lazy(() => import("./pages/futures/SmartMoney"));
+const Margin = lazy(() => import("./pages/margin/Margin"));
+const InstitutionalHub = lazy(() => import("./pages/Institutional/InstitutionalHub"));
 
 function AnimatedCounter({ end = 125480, duration = 0.8 }) {
   const target = Number(end);
@@ -333,6 +337,30 @@ const marketAssets = [
   { symbol: "EXA", pair: "EXA/USDT", price: "$0.84", change: "+8.20%", heat: "hot" },
 ];
 
+const HOME_MARKET_SELECTION_KEY = "exaearn.dashboard.marketPairs";
+const HOME_MARKET_FAVORITES_KEY = "exaearn.dashboard.favoriteMarketPairs";
+const DEFAULT_HOME_MARKET_PAIR_KEYS = marketAssets.map((asset) => asset.pair);
+const DEFAULT_HOME_MARKET_FAVORITES = ["BTC/USDT", "XRP/USDT"];
+
+function readStoredArray(key) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredArray(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Local dashboard personalization is best effort.
+  }
+}
+
 function formatMarketPrice(value) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return "--";
@@ -439,6 +467,10 @@ export default function App() {
   const [notificationLoading, setNotificationLoading] = useState(false);
   const { pairs: livePairs, setPairs: setLivePairs } = useMarketData();
   const [homeMarketFilter, setHomeMarketFilter] = useState("Top");
+  const [homeMarketPickerOpen, setHomeMarketPickerOpen] = useState(false);
+  const [homeMarketSearch, setHomeMarketSearch] = useState("");
+  const [homeMarketPairKeys, setHomeMarketPairKeys] = useState(() => readStoredArray(HOME_MARKET_SELECTION_KEY) ?? DEFAULT_HOME_MARKET_PAIR_KEYS);
+  const [homeMarketFavoriteKeys, setHomeMarketFavoriteKeys] = useState(() => readStoredArray(HOME_MARKET_FAVORITES_KEY) ?? DEFAULT_HOME_MARKET_FAVORITES);
   const isAuthenticated = Boolean(user);
   const showAiQuickLaunch = isAuthenticated && ["trade", "futures", "options", "smartMoney"].includes(currentPage);
   const unreadNotificationCount = useMemo(
@@ -522,25 +554,72 @@ export default function App() {
     });
   }, []);
 
-  const homeMarketPairs = useMemo(() => {
-    const source = livePairs.length ? livePairs : marketAssets.map((asset) => ({
+  const allHomeMarketPairs = useMemo(() => {
+    const fallbackPairs = marketAssets.map((asset) => ({
       pair: asset.pair,
       base: asset.symbol,
       quote: "USDT",
       last: Number(asset.price.replace(/[$,]/g, "")),
       change24h: Number(asset.change.replace("%", "")),
       volume: "Live",
-      favorite: asset.symbol === "BTC" || asset.symbol === "XRP",
     }));
 
-    const sorted = [...source].sort((left, right) => {
+    const source = livePairs.length ? livePairs : fallbackPairs;
+    const byPair = new Map();
+
+    source.forEach((item) => {
+      const pairKey = item.pair || [item.base, item.quote].filter(Boolean).join("/");
+      if (!pairKey || byPair.has(pairKey)) return;
+      const [baseFromPair, quoteFromPair] = pairKey.split("/");
+      byPair.set(pairKey, {
+        ...item,
+        pair: pairKey,
+        base: item.base || baseFromPair || pairKey,
+        quote: item.quote || quoteFromPair || "USDT",
+        last: Number(item.last ?? item.price ?? 0),
+        change24h: Number(item.change24h ?? item.change ?? 0),
+        volume: item.volume ?? item.volume24h ?? "Live",
+        favorite: homeMarketFavoriteKeys.includes(pairKey),
+      });
+    });
+
+    return Array.from(byPair.values());
+  }, [homeMarketFavoriteKeys, livePairs]);
+
+  useEffect(() => {
+    writeStoredArray(HOME_MARKET_SELECTION_KEY, homeMarketPairKeys);
+  }, [homeMarketPairKeys]);
+
+  useEffect(() => {
+    writeStoredArray(HOME_MARKET_FAVORITES_KEY, homeMarketFavoriteKeys);
+  }, [homeMarketFavoriteKeys]);
+  const homeMarketPairs = useMemo(() => {
+    const selected = allHomeMarketPairs.filter((pair) => homeMarketPairKeys.includes(pair.pair));
+    const filtered = homeMarketFilter === "Fav" ? selected.filter((pair) => pair.favorite) : selected;
+    const sorted = [...filtered].sort((left, right) => {
       if (homeMarketFilter === "Gainers") return right.change24h - left.change24h;
       if (homeMarketFilter === "Fav") return Number(Boolean(right.favorite)) - Number(Boolean(left.favorite));
       return right.last - left.last;
     });
 
     return sorted.slice(0, isExchangeEcosystem ? 8 : 5);
-  }, [homeMarketFilter, isExchangeEcosystem, livePairs]);
+  }, [allHomeMarketPairs, homeMarketFavoriteKeys, homeMarketFilter, homeMarketPairKeys, isExchangeEcosystem]);
+
+  const dashboardTickerPairs = useMemo(() => {
+    const visible = homeMarketPairs.length ? homeMarketPairs : allHomeMarketPairs.filter((pair) => homeMarketPairKeys.includes(pair.pair));
+    return visible.length ? visible : allHomeMarketPairs.slice(0, 5);
+  }, [allHomeMarketPairs, homeMarketPairKeys, homeMarketPairs]);
+
+  const addableHomeMarketPairs = useMemo(() => {
+    const query = homeMarketSearch.trim().toLowerCase();
+    return allHomeMarketPairs
+      .filter((pair) => !homeMarketPairKeys.includes(pair.pair))
+      .filter((pair) => {
+        if (!query) return true;
+        return [pair.pair, pair.base, pair.quote].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
+      })
+      .slice(0, 12);
+  }, [allHomeMarketPairs, homeMarketPairKeys, homeMarketSearch]);
 
   useEffect(() => {
     const splashTimer = setTimeout(() => {
@@ -862,6 +941,7 @@ export default function App() {
         onBack={() => setCurrentPage("home")}
         onOpenConvert={() => setCurrentPage("swap")}
         onOpenFutures={() => setCurrentPage("futures")}
+        onOpenMargin={() => setCurrentPage("margin")}
         onOpenOptions={() => setCurrentPage("options")}
         onOpenTradFi={() => setCurrentPage("smartMoney")}
       />
@@ -873,11 +953,15 @@ export default function App() {
         onBack={() => setCurrentPage("home")}
         onOpenConvert={() => setCurrentPage("swap")}
         onOpenSpot={() => setCurrentPage("trade")}
+        onOpenMargin={() => setCurrentPage("margin")}
         onOpenOptions={() => setCurrentPage("options")}
         onOpenTradFi={() => setCurrentPage("smartMoney")}
         onOpenSmart={() => setCurrentPage("smartMoney")}
       />
     );
+  }
+  if (currentPage === "margin") {
+    return <Margin onBack={() => setCurrentPage("trade")} onOpenSpot={() => setCurrentPage("trade")} onOpenFutures={() => setCurrentPage("futures")} />;
   }
   if (currentPage === "options") {
     return <Options onBack={() => setCurrentPage("futures")} onOpenSmartMoney={() => setCurrentPage("smartMoney")} />;
@@ -1166,6 +1250,7 @@ export default function App() {
     return (
       <SettingsPage
         onBack={() => setCurrentPage("home")}
+        onOpenInstitutional={() => setCurrentPage("institutional")}
         onOpenLanguageRegion={() => setCurrentPage("languageRegion")}
         onOpenCurrencyPreference={() => setCurrentPage("currencyPreference")}
         onOpenMarketAnalytics={() => setCurrentPage("marketAnalyticsSettings")}
@@ -1178,6 +1263,9 @@ export default function App() {
         }}
       />
     );
+  }
+  if (currentPage === "institutional") {
+    return <InstitutionalHub onBack={() => setCurrentPage("settings")} />;
   }
   if (currentPage === "languageRegion") {
     return <LanguageRegionPage onBack={() => setCurrentPage("settings")} />;
@@ -1234,8 +1322,12 @@ export default function App() {
         onOpenToken={() => setCurrentPage("token")}
         onOpenTransactions={() => setCurrentPage("transactions")}
         onOpenSports={() => setCurrentPage("exascout")}
+        onOpenExaCard={() => setCurrentPage("exacard")}
       />
     );
+  }
+  if (currentPage === "exacard") {
+    return <ExaCardPage onBack={() => setCurrentPage("more")} />;
   }
   if (currentPage === "aiAssistant") {
     return <AITradingAssistantPage onBack={() => setCurrentPage("more")} />;
@@ -1309,7 +1401,21 @@ export default function App() {
       setCurrentPage("more");
     }
   };
+  const addHomeMarketPair = (pairKey) => {
+    if (!pairKey) return;
+    setHomeMarketPairKeys((previous) => (previous.includes(pairKey) ? previous : [...previous, pairKey]));
+    setHomeMarketPickerOpen(false);
+    setHomeMarketSearch("");
+  };
+
+  const removeHomeMarketPair = (pairKey) => {
+    setHomeMarketPairKeys((previous) => previous.filter((item) => item !== pairKey));
+  };
+
   const toggleHomeMarketFavorite = (pairKey) => {
+    setHomeMarketFavoriteKeys((previous) =>
+      previous.includes(pairKey) ? previous.filter((item) => item !== pairKey) : [...previous, pairKey]
+    );
     setLivePairs((previous) =>
       previous.map((item) => (item.pair === pairKey ? { ...item, favorite: !item.favorite } : item))
     );
@@ -1527,7 +1633,7 @@ export default function App() {
                 <span>{t("dashboard.liveMarket")}</span>
                 <h2>{t("dashboard.exchangeMarkets")}</h2>
               </div>
-              <button type="button" className="market-add-main" onClick={() => setCurrentPage("market")}>
+              <button type="button" className="market-add-main" onClick={() => setHomeMarketPickerOpen((open) => !open)} aria-expanded={homeMarketPickerOpen}>
                 <Plus size={14} aria-hidden="true" />
                 {t("dashboard.addCrypto")}
               </button>
@@ -1535,13 +1641,16 @@ export default function App() {
 
             <div className="market-ticker" aria-label="Live market ticker">
               <div className="market-ticker-track">
-                {[...marketAssets, ...marketAssets].map((asset, index) => (
-                  <div className={`ticker-chip ticker-${asset.heat}`} key={`${asset.symbol}-${index}`}>
-                    <strong>{asset.symbol}</strong>
-                    <span>{asset.price}</span>
-                    <em>{asset.change}</em>
-                  </div>
-                ))}
+                {[...dashboardTickerPairs, ...dashboardTickerPairs].map((asset, index) => {
+                  const positive = Number(asset.change24h) >= 0;
+                  return (
+                    <div className={`ticker-chip ticker-${positive ? "hot" : "cool"}`} key={`${asset.pair}-${index}`}>
+                      <strong>{asset.base}</strong>
+                      <span>${formatMarketPrice(asset.last)}</span>
+                      <em>{positive ? "+" : ""}{Number(asset.change24h).toFixed(2)}%</em>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1562,6 +1671,37 @@ export default function App() {
                 <span className="live-market-badge">{t("dashboard.live")}</span>
               </div>
 
+              {homeMarketPickerOpen ? (
+                <div className="home-market-picker" role="dialog" aria-label="Add crypto to dashboard">
+                  <div className="home-market-picker-search">
+                    <Search size={14} aria-hidden="true" />
+                    <input
+                      value={homeMarketSearch}
+                      onChange={(event) => setHomeMarketSearch(event.target.value)}
+                      placeholder="Search BTC, ETH, SOL..."
+                      aria-label="Search crypto markets"
+                    />
+                    <button type="button" onClick={() => setHomeMarketPickerOpen(false)} aria-label="Close add crypto">
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div className="home-market-picker-list">
+                    {addableHomeMarketPairs.length ? (
+                      addableHomeMarketPairs.map((pair) => (
+                        <button type="button" key={pair.pair} onClick={() => addHomeMarketPair(pair.pair)}>
+                          <span>{pair.base}<small>/{pair.quote}</small></span>
+                          <strong>${formatMarketPrice(pair.last)}</strong>
+                          <em className={Number(pair.change24h) >= 0 ? "positive" : "negative"}>{Number(pair.change24h) >= 0 ? "+" : ""}{Number(pair.change24h).toFixed(2)}%</em>
+                          <Plus size={13} aria-hidden="true" />
+                        </button>
+                      ))
+                    ) : (
+                      <p>All available crypto markets are already on your dashboard.</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="exchange-table-head">
                 <span>{t("dashboard.pair")}</span>
                 <span>{t("dashboard.lastPrice")}</span>
@@ -1569,51 +1709,80 @@ export default function App() {
               </div>
 
               <div className="exchange-market-list">
-                {homeMarketPairs.map((pair) => {
-                  const positive = pair.change24h >= 0;
-                  return (
-                    <button type="button" className="exchange-row" key={pair.pair} onClick={() => setCurrentPage("market")}>
-                      <div className="exchange-pair">
+                {homeMarketPairs.length ? (
+                  homeMarketPairs.map((pair) => {
+                    const positive = pair.change24h >= 0;
+                    return (
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="exchange-row"
+                        key={pair.pair}
+                        onClick={() => setCurrentPage("market")}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") setCurrentPage("market");
+                        }}
+                      >
+                        <div className="exchange-pair">
+                          <button
+                            type="button"
+                            className={`exchange-star ${pair.favorite ? "active" : ""}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleHomeMarketFavorite(pair.pair);
+                            }}
+                            aria-label={`${pair.favorite ? "Unpin" : "Pin"} ${pair.pair}`}
+                          >
+                            <Star size={13} aria-hidden="true" />
+                          </button>
+                          <span>{pair.base}</span>
+                          <small>/{pair.quote}</small>
+                        </div>
+                        <div className="exchange-price">
+                          <strong>${formatMarketPrice(pair.last)}</strong>
+                          <small>{t("dashboard.volume")} {pair.volume}</small>
+                        </div>
+                        <div className={`exchange-change ${positive ? "positive" : "negative"}`}>
+                          {positive ? "+" : ""}{Number(pair.change24h).toFixed(2)}%
+                        </div>
                         <button
                           type="button"
-                          className={`exchange-star ${pair.favorite ? "active" : ""}`}
+                          className="exchange-remove"
                           onClick={(event) => {
                             event.stopPropagation();
-                            toggleHomeMarketFavorite(pair.pair);
+                            removeHomeMarketPair(pair.pair);
                           }}
-                          aria-label={`Pin ${pair.pair}`}
+                          aria-label={`Remove ${pair.pair} from dashboard`}
                         >
-                          <Star size={13} aria-hidden="true" />
+                          <X size={12} aria-hidden="true" />
                         </button>
-                        <span>{pair.base}</span>
-                        <small>/{pair.quote}</small>
+                        <div className="exchange-spark" aria-hidden="true">
+                          {[34, 48, 42, 62, 54, 74, 66].map((height, index) => (
+                            <span key={index} style={{ height: `${positive ? height : 92 - height}%` }} />
+                          ))}
+                        </div>
                       </div>
-                      <div className="exchange-price">
-                        <strong>${formatMarketPrice(pair.last)}</strong>
-                        <small>{t("dashboard.volume")} {pair.volume}</small>
-                      </div>
-                      <div className={`exchange-change ${positive ? "positive" : "negative"}`}>
-                        {positive ? "+" : ""}{Number(pair.change24h).toFixed(2)}%
-                      </div>
-                      <div className="exchange-spark" aria-hidden="true">
-                        {[34, 48, 42, 62, 54, 74, 66].map((height, index) => (
-                          <span key={index} style={{ height: `${positive ? height : 92 - height}%` }} />
-                        ))}
-                      </div>
-                    </button>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="exchange-empty-watchlist">
+                    <strong>No crypto selected</strong>
+                    <span>Add BTC, ETH, SOL or any supported market to show it here when you log in.</span>
+                    <button type="button" onClick={() => setHomeMarketPickerOpen(true)}>Add Crypto</button>
+                  </div>
+                )}
               </div>
 
               <div className="quick-add-crypto">
-                <span>{t("dashboard.quickAdd")}</span>
+                <span>{homeMarketPairKeys.length} shown</span>
                 <div>
-                  {["BTC", "ETH", "XRP", "SOL"].map((symbol) => (
-                    <button type="button" key={symbol} onClick={() => setCurrentPage("market")}>
-                      <Plus size={11} aria-hidden="true" />
-                      {symbol}
-                    </button>
-                  ))}
+                  <button type="button" onClick={() => setHomeMarketPickerOpen(true)}>
+                    <Plus size={11} aria-hidden="true" />
+                    Add Crypto
+                  </button>
+                  <button type="button" onClick={() => setHomeMarketPairKeys(DEFAULT_HOME_MARKET_PAIR_KEYS)}>
+                    Reset
+                  </button>
                 </div>
               </div>
             </div>

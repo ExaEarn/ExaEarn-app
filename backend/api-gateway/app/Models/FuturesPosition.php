@@ -20,10 +20,13 @@ class FuturesPosition extends Model
         'leverage',
         'margin_type',
         'margin',
+        'isolated_margin',
         'maintenance_margin',
         'unrealized_pnl',
         'realized_pnl',
+        'accumulated_funding',
         'liquidation_price',
+        'bankruptcy_price',
         'status',
         'metadata',
     ];
@@ -33,10 +36,13 @@ class FuturesPosition extends Model
         'mark_price' => 'decimal:8',
         'quantity' => 'decimal:8',
         'margin' => 'decimal:8',
+        'isolated_margin' => 'decimal:8',
         'maintenance_margin' => 'decimal:8',
         'unrealized_pnl' => 'decimal:8',
         'realized_pnl' => 'decimal:8',
+        'accumulated_funding' => 'decimal:8',
         'liquidation_price' => 'decimal:8',
+        'bankruptcy_price' => 'decimal:8',
         'leverage' => 'integer',
         'margin_type' => 'string',
         'metadata' => 'array',
@@ -52,4 +58,3 @@ class FuturesPosition extends Model
         return $this->belongsTo(User::class);
     }
 }
-

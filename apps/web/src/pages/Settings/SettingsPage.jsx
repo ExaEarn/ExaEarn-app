@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 
-function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods, onOpenActivityLogs }) {
+function SettingsPage({ onBack, onOpenInstitutional, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods, onOpenActivityLogs }) {
   const { theme, setTheme } = useTheme();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -112,6 +112,7 @@ function SettingsPage({ onBack, onOpenLanguageRegion, onOpenCurrencyPreference, 
   );
 
   const paymentWalletItems = [
+    { icon: Landmark, title: "Institutional & VIP", action: onOpenInstitutional },
     { icon: Coins, title: "Payment Currency", action: onOpenPaymentCurrency },
     { icon: CreditCard, title: "Payment Methods", action: onOpenPaymentMethods },
     { icon: Wallet, title: "Linked Wallets" },

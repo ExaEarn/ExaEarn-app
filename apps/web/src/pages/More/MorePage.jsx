@@ -22,7 +22,7 @@ import {
 const moreItems = [
   { id: "exabank", label: "ExaBank", icon: Building2 },
   { id: "exalife", label: "ExaLife", icon: HeartPulse },
-  { id: "exacard", label: "ExaCard", icon: CreditCard },
+  { id: "exacard", label: "ExaCard", icon: CreditCard, action: "exacard" },
   { id: "exaai", label: "ExaAI", icon: Bot, badge: "NEW", action: "aiAssistant" },
   { id: "token", label: "Token", icon: Coins, action: "token" },
   { id: "transactions", label: "Transactions", icon: ReceiptText, action: "transactions" },
@@ -48,6 +48,7 @@ function MorePage({
   onOpenToken,
   onOpenTransactions,
   onOpenSports,
+  onOpenExaCard,
 }) {
   const handleOpenItem = (item) => {
     if (item.action === "rewards") {
@@ -70,6 +71,9 @@ function MorePage({
     }
     if (item.action === "sports") {
       onOpenSports?.();
+    }
+    if (item.action === "exacard") {
+      onOpenExaCard?.();
     }
   };
 

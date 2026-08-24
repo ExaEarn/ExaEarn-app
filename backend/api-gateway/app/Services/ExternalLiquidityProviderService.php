@@ -40,6 +40,10 @@ class ExternalLiquidityProviderService
     public function placeExternalOrder(array $order): array
     {
         if ((bool) config('services.binance.simulate', true)) {
+            if (app()->environment('production')) {
+                throw new \RuntimeException('Simulated external liquidity execution is prohibited in production.');
+            }
+
             return [
                 'status' => 'filled',
                 'source' => 'binance',

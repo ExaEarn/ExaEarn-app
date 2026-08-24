@@ -51,6 +51,10 @@ class ExaAiExecutionService
 
     public function evaluateSession(ExaAiSession $session): bool
     {
+        if (in_array($session->mode, ['paper', 'shadow'], true)) {
+            return false;
+        }
+
         $signal = $this->selectSignal($session);
         if (! $signal) {
             return false;
@@ -65,12 +69,18 @@ class ExaAiExecutionService
             return false;
         }
 
-        $marketType = $this->resolveMarketType($session, $signal);
-        $execution = $marketType === 'futures'
-            ? $this->executeFutures($session, $signal)
-            : $this->executeSpot($session, $signal);
+        $execution = $this->executeSignal($session, $signal);
 
         return $execution instanceof ExaAiOrder;
+    }
+
+    public function executeSignal(ExaAiSession $session, TradingSignal $signal): ExaAiOrder
+    {
+        $marketType = $this->resolveMarketType($session, $signal);
+
+        return $marketType === 'futures'
+            ? $this->executeFutures($session, $signal)
+            : $this->executeSpot($session, $signal);
     }
 
     private function executeSpot(ExaAiSession $session, TradingSignal $signal): ExaAiOrder

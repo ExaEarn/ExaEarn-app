@@ -102,13 +102,18 @@ class FuturesController extends Controller
         $payload = $request->validate([
             'symbol' => ['required', 'string', 'max:32'],
             'type' => ['required', 'string', 'in:market,limit,stop-market,stop-limit,trailing-stop'],
+            'time_in_force' => ['nullable', 'string', 'in:GTC,IOC,FOK,gtc,ioc,fok'],
             'side' => ['required', 'string', 'in:long,short'],
+            'reduce_only' => ['nullable', 'boolean'],
+            'post_only' => ['nullable', 'boolean'],
             'price' => ['nullable', 'numeric', 'gt:0'],
             'stop_price' => ['nullable', 'numeric', 'gt:0'],
+            'trigger_source' => ['nullable', 'string', 'in:MARK,LAST,INDEX,mark,last,index'],
             'trailing_distance' => ['nullable', 'numeric', 'gt:0'],
             'quantity' => ['required', 'numeric', 'gt:0'],
             'leverage' => ['required', 'integer', 'min:1', 'max:100'],
             'metadata' => ['nullable', 'array'],
+            'client_order_id' => ['nullable', 'string', 'max:80'],
         ]);
 
         try {
@@ -174,9 +179,13 @@ class FuturesController extends Controller
         $payload = $request->validate([
             'symbol' => ['required', 'string', 'max:32'],
             'type' => ['required', 'string', 'in:market,limit,stop-market,stop-limit,trailing-stop'],
+            'time_in_force' => ['nullable', 'string', 'in:GTC,IOC,FOK,gtc,ioc,fok'],
             'side' => ['required', 'string', 'in:long,short'],
+            'reduce_only' => ['nullable', 'boolean'],
+            'post_only' => ['nullable', 'boolean'],
             'price' => ['nullable', 'numeric', 'gt:0'],
             'stop_price' => ['nullable', 'numeric', 'gt:0'],
+            'trigger_source' => ['nullable', 'string', 'in:MARK,LAST,INDEX,mark,last,index'],
             'trailing_distance' => ['nullable', 'numeric', 'gt:0'],
             'quantity' => ['required', 'numeric', 'gt:0'],
             'leverage' => ['required', 'integer', 'min:1', 'max:100'],

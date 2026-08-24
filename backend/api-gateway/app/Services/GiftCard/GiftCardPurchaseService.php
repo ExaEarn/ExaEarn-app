@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\GiftCard;
 
 use App\Models\GiftcardOrder;
-use App\Models\Wallet;
 use App\Models\User;
+use App\Services\FinancialDecimal;
 use App\Services\LedgerService;
+use App\Services\ReservationService;
+use App\Services\SettlementService;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -18,6 +20,9 @@ class GiftCardPurchaseService
     public function __construct(
         private readonly GiftCardFeeCalculator $feeCalculator,
         private readonly LedgerService $ledgerService,
+        private readonly ReservationService $reservations,
+        private readonly SettlementService $settlement,
+        private readonly GiftCardProviderManager $providers,
     ) {
     }
 
@@ -34,67 +39,103 @@ class GiftCardPurchaseService
     public function purchaseGiftCard(
         User $user,
         string $brand,
-        float $cardValue,
+        int|float|string $cardValue,
         string $deliveryEmail,
         string $currency = 'USD',
         string $walletType = 'funding',
         array $metadata = []
     ): GiftcardOrder {
         return DB::transaction(function () use ($user, $brand, $cardValue, $deliveryEmail, $currency, $walletType, $metadata) {
+            $cardValue = FinancialDecimal::normalize((string) $cardValue, self::SCALE);
+            $asset = strtoupper($currency);
             // 1. Calculate all fees
-            $feeBreakdown = $this->feeCalculator->calculateFees($brand, $cardValue, $currency);
+            $feeBreakdown = $this->feeCalculator->calculateFees($brand, (float) $cardValue, $currency);
+            $totalCost = FinancialDecimal::normalize((string) $feeBreakdown['total_cost_to_user'], self::SCALE);
+            $userCharge = FinancialDecimal::normalize((string) $feeBreakdown['user_charge'], self::SCALE);
 
-            // 2. Verify user has sufficient balance
-            $wallet = $this->verifyAndLockWallet($user->id, $currency, (float) $feeBreakdown['total_cost_to_user']);
+            // 2. Reserve user funds through canonical reservation service.
+            $reservation = $this->reservations->reserveUserAccount(
+                $user->id,
+                $walletType,
+                $asset,
+                $totalCost,
+                'giftcard_purchase',
+                'giftcard_order',
+                null,
+                'giftcard-purchase:'.$user->id.':'.$brand.':'.$deliveryEmail.':'.$cardValue.':'.now()->format('YmdHis'),
+                ['brand' => $brand, 'delivery_email' => $deliveryEmail],
+            );
 
             // 3. Create order record with fee details
-            $order = $this->createGiftcardOrder($user, $brand, $feeBreakdown, $walletType, $currency, $metadata);
+            $order = $this->createGiftcardOrder($user, $brand, $feeBreakdown, $walletType, $asset, $metadata + [
+                'reservation_id' => $reservation->reservation_id,
+                'pricing_snapshot' => $this->pricingSnapshot($feeBreakdown, $asset),
+                'delivery_email' => $deliveryEmail,
+            ]);
 
-            // 4. Deduct from wallet (atomic)
-            $this->deductFromWallet($wallet, (float) $feeBreakdown['total_cost_to_user']);
+            $providerResult = $this->providers->provider((string) ($metadata['provider'] ?? null))->purchase([
+                'brand' => $brand,
+                'card_value' => $cardValue,
+                'currency' => $asset,
+                'delivery_email' => $deliveryEmail,
+                'idempotency_key' => 'provider:giftcard:'.$order->reference,
+                'scenario' => $metadata['provider_scenario'] ?? null,
+            ]);
 
-            // 5. Record ledger entries (double-entry accounting)
-            $this->recordLedgerEntries($user->id, $order->id, $feeBreakdown, $currency);
+            if (in_array($providerResult['status'] ?? null, ['FAILED', 'OUT_OF_STOCK'], true)) {
+                $this->reservations->release((string) $reservation->reservation_id, null, ['provider_result' => $providerResult]);
+                $order->update([
+                    'status' => 'failed',
+                    'metadata' => array_merge($order->metadata ?? [], [
+                        'provider_result' => $providerResult,
+                        'reservation_status' => 'released',
+                    ]),
+                ]);
 
-            // 6. Call external API to purchase (if configured)
-            $this->callExternalGiftCardApi($order, $brand, $cardValue, $deliveryEmail);
+                throw new RuntimeException((string) ($providerResult['reason'] ?? 'Gift card provider could not fulfill this order.'));
+            }
 
-            // 7. Update order status to completed
+            if (($providerResult['status'] ?? null) === 'PROVIDER_UNKNOWN') {
+                $order->update([
+                    'status' => 'provider_unknown',
+                    'metadata' => array_merge($order->metadata ?? [], [
+                        'provider_result' => $providerResult,
+                        'provider_reference' => $providerResult['provider_reference'] ?? null,
+                        'reservation_id' => $reservation->reservation_id,
+                    ]),
+                ]);
+
+                return $order->fresh();
+            }
+
+            $settlementReference = 'giftcard_purchase:'.$order->id;
+            $this->settlement->giftcardPurchaseSettle(
+                (string) $reservation->reservation_id,
+                $settlementReference,
+                $cardValue,
+                $userCharge,
+                [
+                    'giftcard_order_id' => $order->id,
+                    'provider_reference' => $providerResult['provider_reference'] ?? null,
+                    'pricing_snapshot' => $this->pricingSnapshot($feeBreakdown, $asset),
+                ],
+            );
+
             $order->update([
                 'status' => 'completed',
                 'delivered_at' => now(),
                 'metadata' => array_merge($order->metadata ?? [], [
-                    'delivery_email' => $deliveryEmail,
+                    'provider_result' => $providerResult,
+                    'provider_reference' => $providerResult['provider_reference'] ?? null,
+                    'settlement_reference' => $settlementReference,
+                    'settlement_path' => 'canonical_ledger',
                     'ledger_recorded' => true,
+                    'delivery_state' => 'DELIVERED',
                 ]),
             ]);
 
             return $order->fresh();
         });
-    }
-
-    /**
-     * Verify user wallet and lock for update.
-     */
-    private function verifyAndLockWallet(int $userId, string $currency, float $totalCost): Wallet
-    {
-        $wallet = Wallet::where('user_id', $userId)
-            ->where('currency', strtoupper($currency))
-            ->lockForUpdate()
-            ->first();
-
-        if (!$wallet) {
-            throw new RuntimeException("User wallet not found for {$currency}");
-        }
-
-        $availableBalance = (float) $wallet->available_balance;
-        if ($availableBalance < $totalCost) {
-            throw new RuntimeException(
-                "Insufficient balance. Available: {$availableBalance}, Required: {$totalCost}"
-            );
-        }
-
-        return $wallet;
     }
 
     /**
@@ -129,139 +170,31 @@ class GiftCardPurchaseService
         ]);
     }
 
-    /**
-     * Deduct amount from user's wallet.
-     */
-    private function deductFromWallet(Wallet $wallet, float $amount): void
-    {
-        $newBalance = bcsub(
-            (string) $wallet->available_balance,
-            (string) $amount,
-            self::SCALE
-        );
-
-        if (bccomp($newBalance, '0', self::SCALE) < 0) {
-            throw new RuntimeException('Wallet balance would go negative');
-        }
-
-        $wallet->update(['available_balance' => $newBalance]);
-    }
-
-    /**
-     * Record all ledger entries for complete accounting.
-     */
-    private function recordLedgerEntries(int $userId, int $orderId, array $feeBreakdown, string $currency): void
-    {
-        $reference = "gcp:{$orderId}";
-
-        $this->ledgerService->giftcardPurchase(
-            $userId,
-            (float) $feeBreakdown['card_value'],
-            (float) $feeBreakdown['user_charge'],
-            $currency,
-            "{$reference}:purchase",
-            $orderId
-        );
-
-        $apiFee = (float) $feeBreakdown['api_fee'];
-        $deliveryFee = (float) $feeBreakdown['delivery_fee'];
-        if ($apiFee > 0 || $deliveryFee > 0) {
-            $this->ledgerService->giftcardApiFeeDeduction(
-                $apiFee,
-                $deliveryFee,
-                $currency,
-                "{$reference}:api_fee"
-            );
-        }
-
-        $platformProfit = (float) $feeBreakdown['platform_profit'];
-        if ($platformProfit > 0) {
-            $this->ledgerService->recordPlatformProfit(
-                $platformProfit,
-                $currency,
-                "{$reference}:profit",
-                $orderId
-            );
-        }
-    }
-
-    /**
-     * Call external gift card provider API.
-     * Placeholder for actual API integration (Tango, Runa, Tillo, etc.)
-     */
-    private function callExternalGiftCardApi(
-        GiftcardOrder $order,
-        string $brand,
-        float $cardValue,
-        string $deliveryEmail
-    ): void
-    {
-        // TODO: Implement actual API calls to:
-        // - Tango Card API
-        // - Runa API
-        // - Tillo API
-        // - etc.
-        
-        // For now, simulate successful purchase
-        $order->update([
-            'metadata' => array_merge($order->metadata ?? [], [
-                'api_transaction_id' => 'api_' . uniqid(),
-                'api_response' => [
-                    'status' => 'success',
-                    'brand' => $brand,
-                    'amount' => $cardValue,
-                    'delivery_email' => $deliveryEmail,
-                ],
-            ]),
-        ]);
-    }
-
     public function refundPurchase(int $orderId, string $reason = 'user_request'): GiftcardOrder
     {
         return DB::transaction(function () use ($orderId, $reason) {
             $order = GiftcardOrder::lockForUpdate()->findOrFail($orderId);
 
             if ($order->status === 'refunded') {
-                throw new RuntimeException('Order already refunded');
+                return $order;
             }
 
-            $refundAmount = (float) $order->amount;
+            $refundAmount = FinancialDecimal::normalize((string) $order->amount, self::SCALE);
+            $refundReference = "giftcard_refund:{$orderId}";
+            $this->settlement->giftcardRefundCredit(
+                (int) $order->user_id,
+                (string) $order->currency,
+                $refundAmount,
+                $refundReference,
+                ['giftcard_order_id' => $order->id, 'reason' => $reason],
+            );
 
-            // Restore wallet
-            $wallet = Wallet::where('user_id', $order->user_id)
-                ->where('currency', $order->currency)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $wallet->update([
-                'available_balance' => bcadd(
-                    (string) $wallet->available_balance,
-                    (string) $refundAmount,
-                    self::SCALE
-                ),
-            ]);
-
-            // Record refund in ledger (skip ledger entry to avoid negative balance issues in refund path)
-            try {
-                $this->ledgerService->giftcardRefund(
-                    $order->user_id,
-                    $refundAmount,
-                    $order->currency,
-                    "gcr:{$orderId}",
-                    $orderId,
-                    $reason
-                );
-            } catch (\Exception $e) {
-                // If ledger refund fails (e.g., treasury account doesn't have balance), still complete the refund to user
-                \Illuminate\Support\Facades\Log::warning("Ledger refund recording failed for order {$orderId}: " . $e->getMessage());
-            }
-
-            // Update order
             $order->update([
                 'status' => 'refunded',
                 'metadata' => array_merge($order->metadata ?? [], [
                     'refund_reason' => $reason,
                     'refunded_at' => now(),
+                    'refund_reference' => $refundReference,
                 ]),
             ]);
 
@@ -275,6 +208,19 @@ class GiftCardPurchaseService
     private function generateReference(string $prefix): string
     {
         return "{$prefix}-" . strtoupper(\Illuminate\Support\Str::random(8)) . '-' . now()->timestamp;
+    }
+
+    private function pricingSnapshot(array $feeBreakdown, string $asset): array
+    {
+        return [
+            'pricing_rule_id' => $feeBreakdown['pricing_rule_id'] ?? null,
+            'rule_version' => $feeBreakdown['rule_version'] ?? null,
+            'gross_amount' => (string) $feeBreakdown['card_value'],
+            'provider_cost' => (string) $feeBreakdown['card_value'],
+            'exaearn_fee' => (string) $feeBreakdown['user_charge'],
+            'currency' => strtoupper($asset),
+            'timestamp' => now()->toIso8601String(),
+        ];
     }
 
     /**

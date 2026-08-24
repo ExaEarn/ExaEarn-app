@@ -18,7 +18,7 @@ class ExaAiRiskService
             throw new RuntimeException('ExaAI session is not active.');
         }
 
-        if ($session->subscription->status !== 'active') {
+        if ($session->subscription->status !== 'active' || ($session->subscription->ends_at && $session->subscription->ends_at->isPast())) {
             throw new RuntimeException('ExaAI subscription is not active.');
         }
 

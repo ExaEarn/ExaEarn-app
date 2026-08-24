@@ -156,6 +156,7 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
   const [lockedRate, setLockedRate] = useState<GiftcardRate | null>(null);
   const [lockSeconds, setLockSeconds] = useState(0);
   const [latestOrder, setLatestOrder] = useState<GiftcardOrder | null>(null);
+  const [orders, setOrders] = useState<GiftcardOrder[]>([]);
   const [rateLoading, setRateLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -216,10 +217,20 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
     let active = true;
     const loadInventory = async () => {
       try {
-        const items = await fetchGiftcardInventory(request);
-        if (active) setInventory(items);
+        const [items, userOrders] = await Promise.all([
+          fetchGiftcardInventory(request),
+          fetchGiftcardOrders(request, 5),
+        ]);
+        if (active) {
+          setInventory(items);
+          setOrders(userOrders);
+          setLatestOrder(userOrders[0] || null);
+        }
       } catch {
-        if (active) setInventory([]);
+        if (active) {
+          setInventory([]);
+          setOrders([]);
+        }
       }
     };
     void loadInventory();
@@ -319,8 +330,9 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
         setPin("");
       } else {
         try {
-          const orders = await fetchGiftcardOrders(request, 1);
-          setLatestOrder(orders[0] || null);
+          const userOrders = await fetchGiftcardOrders(request, 5);
+          setOrders(userOrders);
+          setLatestOrder(userOrders[0] || null);
         } catch {
           setLatestOrder(null);
         }
@@ -488,9 +500,10 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
                 <View style={styles.latestOrder}>
                   <Text style={styles.valueText}>Latest Order Status</Text>
                   <Text style={styles.feedbackText}>Reference: {latestOrder.reference || latestOrder.id || "-"}</Text>
-                  <Text style={styles.feedbackText}>Status: {latestOrder.status || "-"}</Text>
+                  <Text style={styles.feedbackText}>Status: {statusLabel(latestOrder)}</Text>
                   <Text style={styles.feedbackText}>Risk Level: {latestOrder.risk_level || "-"}</Text>
-                  {latestOrder.metadata?.delivery?.masked_code ? <Text style={styles.feedbackText}>Delivery: {latestOrder.metadata.delivery.masked_code}</Text> : null}
+                  {deliverySummary(latestOrder) ? <Text style={styles.feedbackText}>Delivery: {deliverySummary(latestOrder)}</Text> : null}
+                  {latestOrder.metadata?.provider_reference ? <Text style={styles.feedbackText}>Provider Ref: {latestOrder.metadata.provider_reference}</Text> : null}
                 </View>
               ) : null}
             </View>
@@ -518,6 +531,27 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
                   <Text style={styles.providerText}>{item}</Text>
                 </View>
               ))}
+            </View>
+          </View>
+
+          <View style={styles.supportedCard}>
+            <Text style={styles.sectionTitle}>Recent Giftcard Activity</Text>
+            <Text style={styles.mutedText}>Track purchases, delivery, provider review, refunds, sell reviews, and payout states.</Text>
+            <View style={styles.orderList}>
+              {orders.length ? orders.map((order) => (
+                <View key={String(order.id ?? order.reference)} style={styles.orderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.valueText}>{order.reference || `Order #${order.id}`}</Text>
+                    <Text style={styles.feedbackText}>{order.type || "giftcard"} - {order.currency || ""} {String(order.amount || "")}</Text>
+                    {deliverySummary(order) ? <Text style={styles.feedbackText}>Delivery: {deliverySummary(order)}</Text> : null}
+                  </View>
+                  <View style={styles.statusPill}>
+                    <Text style={styles.statusPillText}>{statusLabel(order)}</Text>
+                  </View>
+                </View>
+              )) : (
+                <Text style={styles.feedbackText}>No Giftcard activity yet.</Text>
+              )}
             </View>
           </View>
         </Animated.View>
@@ -548,6 +582,23 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
       </Modal>
     </LinearGradient>
   );
+}
+
+function statusLabel(order: GiftcardOrder) {
+  const status = String(order.status || "pending").replace(/_/g, " ").toUpperCase();
+  if (status === "PROVIDER UNKNOWN") return "PROVIDER REVIEW";
+  if (status === "REFUNDED") return "REFUNDED";
+  if (status === "PAID OUT") return "PAYOUT COMPLETE";
+  if (order.metadata?.delivery_state) return String(order.metadata.delivery_state).replace(/_/g, " ").toUpperCase();
+  return status;
+}
+
+function deliverySummary(order: GiftcardOrder) {
+  const maskedCodes = order.metadata?.delivery?.masked_codes;
+  if (Array.isArray(maskedCodes) && maskedCodes.length) return maskedCodes.join(", ");
+  if (order.metadata?.delivery?.masked_code) return order.metadata.delivery.masked_code;
+  if (order.metadata?.delivery_state) return String(order.metadata.delivery_state).replace(/_/g, " ");
+  return "";
 }
 
 const styles = StyleSheet.create({
@@ -699,6 +750,26 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 12,
   },
+  orderList: { marginTop: 14, gap: 10 },
+  orderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.035)",
+    padding: 12,
+  },
+  statusPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(249,226,173,0.28)",
+    backgroundColor: "rgba(249,226,173,0.10)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  statusPillText: { color: colors.auric300, fontSize: 10, fontFamily: fonts.semibold },
   modalBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.72)", padding: 16 },
   confirmCard: { width: "100%", maxWidth: 430, borderRadius: 20, borderWidth: 1, borderColor: "rgba(244,207,126,0.28)", backgroundColor: "#120b22", padding: 16 },
   confirmText: { color: "rgba(237,233,254,0.84)", fontFamily: fonts.body, fontSize: 12, marginTop: 10 },

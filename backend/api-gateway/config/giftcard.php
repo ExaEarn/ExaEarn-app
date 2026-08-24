@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'provider' => [
+        'default' => env('GIFTCARD_PROVIDER', 'fake'),
+        'fake_enabled' => env('GIFTCARD_FAKE_PROVIDER_ENABLED', false),
+        'fake_scenario' => env('GIFTCARD_FAKE_PROVIDER_SCENARIO', 'SUCCESS'),
+    ],
+
     'supported_currencies' => [
         'NGN',
         'ZAR',

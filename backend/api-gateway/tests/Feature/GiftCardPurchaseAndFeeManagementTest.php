@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\GiftcardOrder;
+use App\Models\LedgerEntry;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\GiftCard\GiftCardFeeCalculator;
@@ -109,9 +110,11 @@ class GiftCardPurchaseAndFeeManagementTest extends TestCase
         $this->assertArrayHasKey('brand', $order->metadata);
         $this->assertEquals('amazon', $order->metadata['brand']);
         
-        // Verify wallet balance decreased
-        $wallet = $user->wallets()->where('currency', 'USD')->first();
-        $this->assertLessThan(500, $wallet->available_balance);
+        // Canonical ledger is the financial source of truth; the legacy wallet
+        // row remains a compatibility projection and is not directly mutated.
+        $ledgerBalance = app(\App\Services\LedgerService::class)->getBalance($user->id, 'USD', 'funding');
+        $this->assertLessThan(500, (float) $ledgerBalance);
+        $this->assertEquals('canonical_ledger', $order->metadata['settlement_path']);
     }
 
     /**
@@ -129,7 +132,7 @@ class GiftCardPurchaseAndFeeManagementTest extends TestCase
         ]);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Insufficient balance');
+        $this->expectExceptionMessage('Insufficient available balance');
 
         $this->purchaseService->purchaseGiftCard(
             $user,
@@ -225,17 +228,17 @@ class GiftCardPurchaseAndFeeManagementTest extends TestCase
             'USD'
         );
 
-        $balanceAfterPurchase = $user->wallets()->where('currency', 'USD')->first()->available_balance;
-        $this->assertLessThan($originalBalance, $balanceAfterPurchase);
+        $balanceAfterPurchase = app(\App\Services\LedgerService::class)->getBalance($user->id, 'USD', 'funding');
+        $this->assertLessThan($originalBalance, (float) $balanceAfterPurchase);
 
         // Refund
         $refundedOrder = $this->purchaseService->refundPurchase($order->id, 'user_request');
         
         $this->assertEquals('refunded', $refundedOrder->status);
         
-        // Verify wallet restored
-        $balanceAfterRefund = $user->wallets()->where('currency', 'USD')->first()->available_balance;
-        $this->assertEquals($originalBalance, $balanceAfterRefund);
+        // Verify canonical ledger restored the user funding account.
+        $balanceAfterRefund = app(\App\Services\LedgerService::class)->getBalance($user->id, 'USD', 'funding');
+        $this->assertEquals($originalBalance, (float) $balanceAfterRefund);
     }
 
     /**
@@ -261,12 +264,17 @@ class GiftCardPurchaseAndFeeManagementTest extends TestCase
         );
 
         // Verify ledger entries were created
-        $entries = \App\Models\LedgerEntry::query()
-            ->where('reference', 'LIKE', "gcp:{$order->id}%")
+        $entries = LedgerEntry::query()
+            ->where('reference', "giftcard_purchase:{$order->id}")
             ->get();
 
-        // Should have entries for: purchase, API fee, and profit (if any)
+        // User debit, provider-settlement credit, and platform fee credit when charged.
         $this->assertGreaterThanOrEqual(2, $entries->count());
+        $sum = '0';
+        foreach ($entries as $entry) {
+            $sum = \App\Services\FinancialDecimal::add($sum, (string) $entry->amount, 18);
+        }
+        $this->assertEquals('0.000000000000000000', \App\Services\FinancialDecimal::normalize($sum, 18));
     }
 
     /**

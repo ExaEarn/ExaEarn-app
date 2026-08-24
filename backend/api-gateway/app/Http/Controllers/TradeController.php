@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Models\Market;
 use App\Models\Order;
 use App\Models\Trade;
+use App\Services\MarketDataService;
 use App\Services\SmartOrderRoutingService;
 use App\Services\TradeService;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ class TradeController extends Controller
 {
     public function __construct(
         private readonly TradeService $tradeService,
+        private readonly MarketDataService $marketDataService,
         private readonly SmartOrderRoutingService $sor,
     )
     {
@@ -23,7 +25,43 @@ class TradeController extends Controller
 
     public function markets(): JsonResponse
     {
-        return response()->json(['data' => $this->tradeService->listMarkets()]);
+        return response()->json(['data' => $this->marketDataService->tickers()]);
+    }
+
+    public function symbols(): JsonResponse
+    {
+        return response()->json(['data' => $this->marketDataService->symbols()]);
+    }
+
+    public function tickers(): JsonResponse
+    {
+        return response()->json(['data' => $this->marketDataService->tickers()]);
+    }
+
+    public function summary(): JsonResponse
+    {
+        return response()->json(['data' => array_map(static fn (array $ticker): array => [
+            'trading_pair' => str_replace('/', '_', (string) ($ticker['symbol'] ?? '')),
+            'symbol' => $ticker['symbol'] ?? null,
+            'base_asset' => $ticker['base_asset'] ?? null,
+            'quote_asset' => $ticker['quote_asset'] ?? null,
+            'last_price' => $ticker['last_price'] ?? $ticker['reference_price'] ?? null,
+            'bid' => $ticker['best_bid'] ?? null,
+            'ask' => $ticker['best_ask'] ?? null,
+            'high_24h' => $ticker['high_24h'] ?? null,
+            'low_24h' => $ticker['low_24h'] ?? null,
+            'base_volume_24h' => $ticker['base_volume_24h'] ?? '0',
+            'quote_volume_24h' => $ticker['quote_volume_24h'] ?? '0',
+            'market_type' => $ticker['market_type'] ?? 'spot',
+            'market_status' => $ticker['status'] ?? $ticker['market_data_status'] ?? 'UNKNOWN',
+            'source' => $ticker['source'] ?? null,
+            'timestamp' => $ticker['updated_at'] ?? now()->toISOString(),
+        ], $this->marketDataService->tickers())]);
+    }
+
+    public function ticker(string $symbol): JsonResponse
+    {
+        return response()->json(['data' => $this->marketDataService->ticker($this->normalizePair($symbol))]);
     }
 
     public function createMarket(Request $request): JsonResponse
@@ -69,6 +107,9 @@ class TradeController extends Controller
             'price' => ['nullable', 'numeric', 'gt:0'],
             'stop_price' => ['nullable', 'numeric', 'gt:0'],
             'trigger_order_type' => ['nullable', 'string', 'in:market,limit'],
+            'time_in_force' => ['nullable', 'string', 'in:GTC,IOC,FOK,gtc,ioc,fok'],
+            'post_only' => ['nullable', 'boolean'],
+            'client_order_id' => ['nullable', 'string', 'max:80'],
             'smart_routing' => ['nullable', 'boolean'],
             'max_slippage' => ['nullable', 'numeric', 'gt:0', 'lte:5'],
             'metadata' => ['nullable', 'array'],
@@ -109,6 +150,9 @@ class TradeController extends Controller
                 array_merge($payload['metadata'] ?? [], [
                     'stop_price' => isset($payload['stop_price']) ? (string) $payload['stop_price'] : null,
                     'trigger_order_type' => $payload['trigger_order_type'] ?? null,
+                    'time_in_force' => isset($payload['time_in_force']) ? strtoupper((string) $payload['time_in_force']) : null,
+                    'post_only' => (bool) ($payload['post_only'] ?? false),
+                    'client_order_id' => $payload['client_order_id'] ?? null,
                 ])
             );
         } catch (RuntimeException $exception) {
@@ -183,7 +227,7 @@ class TradeController extends Controller
 
     public function orderBook(string $pair): JsonResponse
     {
-        return response()->json(['data' => $this->tradeService->getOrderBook($this->normalizePair($pair), 50)]);
+        return response()->json(['data' => $this->marketDataService->orderBook($this->normalizePair($pair), 50)]);
     }
 
     public function orderBookByQuery(Request $request): JsonResponse
@@ -194,7 +238,7 @@ class TradeController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->tradeService->getOrderBook(
+            'data' => $this->marketDataService->orderBook(
                 $this->normalizePair((string) $payload['pair']),
                 (int) ($payload['limit'] ?? 50)
             ),
@@ -203,7 +247,7 @@ class TradeController extends Controller
 
     public function trades(string $pair): JsonResponse
     {
-        return response()->json(['data' => $this->tradeService->getRecentTrades($this->normalizePair($pair), 100)]);
+        return response()->json(['data' => $this->marketDataService->recentTrades($this->normalizePair($pair), 100)]);
     }
 
     public function tradesByQuery(Request $request): JsonResponse
@@ -214,7 +258,7 @@ class TradeController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->tradeService->getRecentTrades(
+            'data' => $this->marketDataService->recentTrades(
                 $this->normalizePair((string) $payload['pair']),
                 (int) ($payload['limit'] ?? 100)
             ),
@@ -224,7 +268,7 @@ class TradeController extends Controller
     public function candles(Request $request, string $pair): JsonResponse
     {
         return response()->json([
-            'data' => $this->tradeService->getCandles(
+            'data' => $this->marketDataService->candles(
                 $this->normalizePair($pair),
                 (string) $request->query('timeframe', '1m'),
                 (int) $request->query('limit', 100)
@@ -242,7 +286,7 @@ class TradeController extends Controller
         ]);
 
         return response()->json([
-            'data' => $this->tradeService->getCandles(
+            'data' => $this->marketDataService->candles(
                 $this->normalizePair((string) $payload['pair']),
                 (string) ($payload['timeframe'] ?? $payload['interval'] ?? '1m'),
                 (int) ($payload['limit'] ?? 200)
@@ -258,7 +302,7 @@ class TradeController extends Controller
             'limit' => ['nullable', 'integer', 'min:1', 'max:2000'],
         ]);
 
-        $candles = $this->tradeService->getCandles(
+        $candles = $this->marketDataService->candles(
             $this->normalizePair((string) $payload['symbol']),
             (string) ($payload['interval'] ?? '1m'),
             (int) ($payload['limit'] ?? 500)
@@ -266,13 +310,60 @@ class TradeController extends Controller
 
         return response()->json([
             'data' => array_map(static fn (array $candle): array => [
-                'time' => (int) ($candle['timestamp'] ?? 0),
+                'time' => (int) ($candle['open_time'] ?? $candle['timestamp'] ?? 0),
+                'open_time' => (int) ($candle['open_time'] ?? 0),
+                'close_time' => (int) ($candle['close_time'] ?? 0),
                 'open' => (string) ($candle['open'] ?? '0'),
                 'high' => (string) ($candle['high'] ?? '0'),
                 'low' => (string) ($candle['low'] ?? '0'),
                 'close' => (string) ($candle['close'] ?? '0'),
-                'volume' => (string) ($candle['volume'] ?? '0'),
+                'volume' => (string) ($candle['base_volume'] ?? $candle['volume'] ?? '0'),
+                'base_volume' => (string) ($candle['base_volume'] ?? $candle['volume'] ?? '0'),
+                'quote_volume' => (string) ($candle['quote_volume'] ?? '0'),
+                'trade_count' => (int) ($candle['trade_count'] ?? 0),
+                'source' => (string) ($candle['source'] ?? MarketDataService::SOURCE_INTERNAL),
             ], $candles),
+        ]);
+    }
+
+    public function marketDeltas(Request $request, string $symbol): JsonResponse
+    {
+        $payload = $request->validate([
+            'after_sequence' => ['nullable', 'integer', 'min:0'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:1000'],
+        ]);
+
+        return response()->json([
+            'data' => $this->marketDataService->deltas(
+                $this->normalizePair($symbol),
+                (int) ($payload['after_sequence'] ?? 0),
+                (int) ($payload['limit'] ?? 500)
+            ),
+        ]);
+    }
+
+    public function marketStreamSnapshot(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'topics' => ['required', 'array', 'min:1', 'max:50'],
+            'topics.*' => ['required', 'string', 'max:80'],
+            'after_sequence' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        return response()->json([
+            'data' => $this->marketDataService->streamTopicsPayload(
+                $payload['topics'],
+                (int) ($payload['after_sequence'] ?? 0)
+            ),
+        ]);
+    }
+
+    public function marketDataHealth(Request $request): JsonResponse
+    {
+        $symbol = $request->query('symbol');
+
+        return response()->json([
+            'data' => $this->marketDataService->health(is_string($symbol) && $symbol !== '' ? $this->normalizePair($symbol) : null),
         ]);
     }
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Services\ExaAiOperationalReadinessService;
+use App\Services\ExaAiProductionService;
 use App\Services\ExaAiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +14,11 @@ use RuntimeException;
 
 class ExaAiController extends Controller
 {
-    public function __construct(private readonly ExaAiService $exaAi)
+    public function __construct(
+        private readonly ExaAiService $exaAi,
+        private readonly ExaAiProductionService $production,
+        private readonly ExaAiOperationalReadinessService $readiness,
+    )
     {
     }
 
@@ -88,7 +94,8 @@ class ExaAiController extends Controller
         $payload = $request->validate([
             'allocation_id' => ['required', 'integer'],
             'strategy_id' => ['required', 'integer'],
-            'mode' => ['nullable', 'string', 'in:live,demo'],
+            'mode' => ['nullable', 'string', 'in:paper,shadow,live,demo'],
+            'live_authorization' => ['nullable', 'boolean'],
             'duration' => ['nullable', 'string', 'in:24h,7d,30d,90d,manual'],
             'max_daily_loss' => ['nullable', 'numeric', 'gte:0'],
             'max_drawdown_percent' => ['nullable', 'numeric', 'gte:0'],
@@ -156,5 +163,79 @@ class ExaAiController extends Controller
     {
         $period = (string) $request->query('period', '30d');
         return response()->json(['success' => true, 'data' => $this->exaAi->performance($request->user(), $period)]);
+    }
+
+    public function acceptTerms(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'terms_version' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->production->acceptTerms($request->user(), (string) ($payload['terms_version'] ?? 'phase13-v1')),
+        ]);
+    }
+
+    public function portfolio(Request $request): JsonResponse
+    {
+        try {
+            $portfolio = $this->production->ensurePortfolio($request->user());
+        } catch (RuntimeException $exception) {
+            return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['success' => true, 'data' => $portfolio]);
+    }
+
+    public function decisionStore(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'idempotency_key' => ['required', 'string', 'max:160'],
+            'product' => ['required', 'string', 'in:spot,futures'],
+            'symbol' => ['required', 'string', 'max:40'],
+            'action' => ['nullable', 'string', 'max:40'],
+            'side' => ['required', 'string', 'in:buy,sell,long,short'],
+            'order_type' => ['nullable', 'string', 'in:market,limit'],
+            'requested_notional' => ['required', 'numeric', 'gt:0'],
+            'reference_price' => ['nullable', 'numeric', 'gt:0'],
+            'confidence' => ['required', 'integer', 'min:0', 'max:100'],
+            'max_age_seconds' => ['nullable', 'integer', 'min:5', 'max:300'],
+            'market_snapshot' => ['required', 'array'],
+            'market_snapshot.updated_at' => ['required', 'date'],
+            'market_snapshot.last_price' => ['nullable', 'numeric', 'gt:0'],
+            'signal_payload' => ['nullable', 'array'],
+        ]);
+
+        try {
+            $decision = $this->production->createDecision($request->user(), $payload);
+        } catch (RuntimeException $exception) {
+            return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['success' => true, 'data' => $decision], $decision->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function decisionExecute(Request $request, int $id): JsonResponse
+    {
+        try {
+            $decision = $this->production->executeDecision($request->user(), $id);
+        } catch (RuntimeException $exception) {
+            return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['success' => true, 'data' => $decision]);
+    }
+
+    public function realtimeReplay(Request $request): JsonResponse
+    {
+        $afterSequence = (int) $request->query('after_sequence', 0);
+
+        return response()->json(['success' => true, 'data' => $this->production->replay($request->user(), $afterSequence)]);
+    }
+
+    public function readiness(): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => $this->readiness->report()]);
     }
 }

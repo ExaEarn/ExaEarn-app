@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Services\GiftCard;
 
 use App\Models\GiftcardOrder;
-use App\Models\Wallet;
 use App\Models\User;
-use App\Repositories\WalletRepository;
+use App\Services\FinancialDecimal;
 use App\Services\LedgerService;
+use App\Services\ReservationService;
+use App\Services\SettlementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -26,8 +27,9 @@ class GiftCardBuyService
         private readonly GiftCardInventoryService $inventoryService,
         private readonly GiftCardBuyFraudDetectionService $fraudDetection,
         private readonly GiftCardDeliveryService $deliveryService,
-        private readonly WalletRepository $walletRepository,
         private readonly LedgerService $ledgerService,
+        private readonly ReservationService $reservations,
+        private readonly SettlementService $settlement,
     ) {
     }
 
@@ -46,18 +48,20 @@ class GiftCardBuyService
     public function purchaseCards(
         User $user,
         string $brand,
-        float $cardValue,
+        int|float|string $cardValue,
         int $quantity,
         string $currency = 'USD',
         string $paymentWalletCurrency = 'USD'
     ): array {
+        $cardValue = FinancialDecimal::normalize((string) $cardValue, 8);
+        $paymentWalletCurrency = strtoupper($paymentWalletCurrency);
         // 1. Validate request
         if ($quantity < 1 || $quantity > 100) {
             throw new RuntimeException('Quantity must be between 1 and 100');
         }
 
         // 2. Check inventory availability
-        $availability = $this->inventoryService->checkAvailability($brand, $cardValue, $quantity);
+        $availability = $this->inventoryService->checkAvailability($brand, (float) $cardValue, $quantity);
         if (!$availability['available']) {
             throw new RuntimeException(
                 "Insufficient inventory. Required: {$quantity}, Available: {$availability['count']}"
@@ -65,19 +69,21 @@ class GiftCardBuyService
         }
 
         // 3. Calculate pricing
-        $pricing = $this->pricingEngine->calculateTotalPrice($brand, $cardValue, $quantity, $currency);
-        $totalPayment = $pricing['total'];
+        $pricing = $this->pricingEngine->calculateTotalPrice($brand, $cardValue, $quantity, $currency, [
+            'user_id' => $user->id,
+            'provider' => strtolower($brand),
+        ]);
+        $totalPayment = FinancialDecimal::normalize((string) $pricing['total'], 8);
+        $subtotal = FinancialDecimal::normalize((string) $pricing['subtotal'], 8);
+        $platformFee = FinancialDecimal::normalize((string) $pricing['platform_fee'], 8);
 
-        // 4. Check wallet balance
-        $wallet = $this->walletRepository->findOrCreate($user->id, $paymentWalletCurrency);
-        if ($wallet->available_balance < $totalPayment) {
-            throw new RuntimeException(
-                "Insufficient wallet balance. Required: {$totalPayment}, Available: {$wallet->available_balance}"
-            );
+        // 4. Check canonical funding balance
+        if (!$this->ledgerService->hasBalance($user->id, $totalPayment, $paymentWalletCurrency, 'funding')) {
+            throw new RuntimeException("Insufficient wallet balance. Required: {$totalPayment}");
         }
 
         // 5. Perform fraud analysis
-        $fraudAnalysis = $this->fraudDetection->analyzeRisk($user, $brand, $totalPayment, $quantity);
+        $fraudAnalysis = $this->fraudDetection->analyzeRisk($user, $brand, (float) $totalPayment, $quantity);
 
         // 6. Handle auto-reject immediately
         if ($fraudAnalysis['auto_decision'] === 'reject') {
@@ -117,10 +123,23 @@ class GiftCardBuyService
                 $paymentWalletCurrency,
                 $pricing,
                 $totalPayment,
-                $wallet,
+                $subtotal,
+                $platformFee,
                 $fraudAnalysis,
                 $reservedCards
             ) {
+                $reservation = $this->reservations->reserveUserAccount(
+                    $user->id,
+                    'funding',
+                    $paymentWalletCurrency,
+                    $totalPayment,
+                    'giftcard_purchase',
+                    'giftcard_buy_order',
+                    null,
+                    'giftcard-buy:'.$user->id.':'.$brand.':'.uniqid('', true),
+                    ['brand' => $brand, 'quantity' => $quantity],
+                );
+
                 // 8a. Create order
                 $order = GiftcardOrder::create([
                     'user_id' => $user->id,
@@ -147,49 +166,29 @@ class GiftCardBuyService
                         'auto_decision' => $fraudAnalysis['auto_decision'],
                         'card_ids' => $reservedCards->pluck('id')->toArray(),
                         'payment_wallet_currency' => $paymentWalletCurrency,
+                        'reservation_id' => $reservation->reservation_id,
+                        'pricing_snapshot' => [
+                            'gross_amount' => $subtotal,
+                            'provider_cost' => $subtotal,
+                            'exaearn_fee' => $platformFee,
+                            'currency' => $paymentWalletCurrency,
+                            'central_pricing' => $pricing['pricing_snapshot'] ?? null,
+                            'timestamp' => now()->toIso8601String(),
+                        ],
                     ],
                 ]);
 
-                // 8b. Debit wallet
-                $wallet->available_balance -= $totalPayment;
-                $wallet->locked_balance += $totalPayment;
-                $wallet->save();
-
-                // 8c. Create ledger entries (double-entry)
-                $reference = $order->reference;
-
-                // Debit user wallet
-                $this->ledgerService->addEntry(
-                    account_id: $wallet->id,
-                    amount: (string) (-$totalPayment),
-                    asset: $paymentWalletCurrency,
-                    reference: $reference,
-                    type: 'giftcard_purchase_debit',
-                    userId: $user->id,
-                    metadata: [
-                        'order_id' => $order->id,
-                        'brand' => $brand,
-                        'quantity' => $quantity,
-                    ]
-                );
-
-                // Credit platform treasury
-                $treasuryAccount = $this->getTreasuryAccount($paymentWalletCurrency);
-                $this->ledgerService->addEntry(
-                    account_id: $treasuryAccount->id,
-                    amount: (string) $totalPayment,
-                    asset: $paymentWalletCurrency,
-                    reference: $reference,
-                    type: 'giftcard_purchase_credit',
-                    metadata: [
-                        'order_id' => $order->id,
-                        'user_id' => $user->id,
-                        'brand' => $brand,
-                    ]
-                );
-
-                // 8d. Fulfill inventory for auto-approved orders
+                // 8b. Fulfill inventory for auto-approved orders after canonical settlement.
                 if ($fraudAnalysis['auto_decision'] === 'approve') {
+                    $settlementReference = 'giftcard_purchase:'.$order->id;
+                    $this->settlement->giftcardPurchaseSettle(
+                        (string) $reservation->reservation_id,
+                        $settlementReference,
+                        $subtotal,
+                        $platformFee,
+                        ['giftcard_order_id' => $order->id, 'brand' => $brand, 'quantity' => $quantity],
+                    );
+
                     $this->inventoryService->fulfillCards(
                         $reservedCards,
                         $user->id,
@@ -206,6 +205,13 @@ class GiftCardBuyService
                         $order,
                         $reservedCards->pluck('id')->toArray()
                     );
+
+                    $order->metadata = array_merge($order->metadata ?? [], [
+                        'settlement_reference' => $settlementReference,
+                        'settlement_path' => 'canonical_ledger',
+                        'delivery_state' => 'DELIVERED',
+                    ]);
+                    $order->save();
 
                     return [
                         'order_id' => $order->id,
@@ -269,6 +275,26 @@ class GiftCardBuyService
         try {
             return DB::transaction(function () use ($order, $approvedBy) {
                 $cardIds = $order->metadata['card_ids'] ?? [];
+                $reservationId = (string) data_get($order->metadata, 'reservation_id');
+                if ($reservationId === '') {
+                    throw new RuntimeException('Gift card reservation is missing.');
+                }
+
+                if (!data_get($order->metadata, 'settlement_reference')) {
+                    $settlementReference = 'giftcard_purchase:'.$order->id;
+                    $this->settlement->giftcardPurchaseSettle(
+                        $reservationId,
+                        $settlementReference,
+                        (string) data_get($order->metadata, 'subtotal', $order->amount),
+                        (string) data_get($order->metadata, 'platform_fee', '0'),
+                        ['giftcard_order_id' => $order->id, 'approved_by' => $approvedBy],
+                    );
+                    $order->metadata = array_merge($order->metadata ?? [], [
+                        'settlement_reference' => $settlementReference,
+                        'settlement_path' => 'canonical_ledger',
+                    ]);
+                    $order->save();
+                }
 
                 // Fulfill inventory
                 $cardModels = \App\Models\GiftCardInventory::query()
@@ -285,6 +311,7 @@ class GiftCardBuyService
                     'status' => 'delivered',
                     'processed_at' => now(),
                     'delivered_at' => now(),
+                    'metadata' => array_merge($order->metadata ?? [], ['delivery_state' => 'DELIVERED']),
                 ]);
 
                 Log::info('Gift card purchase approved by admin', [
@@ -340,15 +367,13 @@ class GiftCardBuyService
 
                 $this->inventoryService->releaseReservation($cardModels);
 
-                // Refund wallet
-                $wallet = $this->walletRepository->findOrCreate(
-                    $order->user_id,
-                    $order->currency
-                );
-
-                $wallet->available_balance += $order->amount;
-                $wallet->locked_balance -= $order->amount;
-                $wallet->save();
+                $reservationId = (string) data_get($order->metadata, 'reservation_id');
+                if ($reservationId !== '') {
+                    $this->reservations->release($reservationId, null, [
+                        'rejection_reason' => $reason,
+                        'giftcard_order_id' => $order->id,
+                    ]);
+                }
 
                 // Update order
                 $order->update([
@@ -381,23 +406,4 @@ class GiftCardBuyService
         }
     }
 
-    /**
-     * Get treasury account (create if not exists).
-     *
-     * @param string $currency
-     * @return Wallet
-     */
-    private function getTreasuryAccount(string $currency): Wallet
-    {
-        // TODO: Create a dedicated treasury account/wallet for gift card platform
-        // For now, use a system account
-        $treasuryUser = User::query()
-            ->where('email', 'treasury@exaearn.local')
-            ->firstOrCreate(['email' => 'treasury@exaearn.local'], [
-                'name' => 'Gift Card Treasury',
-                'password' => bcrypt(str_random(32)),
-            ]);
-
-        return $this->walletRepository->findOrCreate($treasuryUser->id, $currency);
-    }
 }

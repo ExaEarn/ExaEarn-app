@@ -7,6 +7,12 @@ const defaultModuleActions = {
   wallets: ["view ledger", "freeze wallet", "queue sweep", "reconcile"],
   transactions: ["view receipt", "mark reviewed", "flag suspicious", "export trail"],
   trading: ["pause pair", "update limits", "adjust fee", "open order book"],
+  exaai: ["view readiness", "update entitlements", "pause strategy", "safe resume", "disable new risk", "review alerts"],
+  "listing-center": ["review application", "recommend approval", "configure asset", "run listing tests", "schedule launch", "emergency control"],
+  institutional: ["review application", "activate institution", "set VIP tier", "restrict account", "create fee profile", "view audit"],
+  otc: ["configure market", "register LP", "review RFQ", "submit quote", "run reconciliation", "view audit"],
+  "market-makers": ["review application", "activate profile", "assign market", "check capital", "run health snapshot", "mass cancel"],
+  margin: ["run reconciliation", "view lending pools", "review liquidations", "review bad debt", "pause margin asset"],
   p2p: ["freeze trade", "release escrow", "open dispute", "message trader"],
   staking: ["pause pool", "update APR", "settle rewards", "view positions"],
   rewards: ["pause rule", "edit rule", "run simulation", "view claims"],
@@ -17,6 +23,7 @@ const defaultModuleActions = {
   crowdfunding: ["approve campaign", "reject campaign", "freeze campaign", "view votes", "view tx"],
   lottery: ["close draw", "verify winners", "publish result", "audit fairness"],
   giftcard: ["update rate", "disable card", "approve order", "view inventory"],
+  exacard: ["run reconciliation", "review disputes", "check treasury", "view provider health", "audit card controls"],
   campaigns: ["schedule broadcast", "pause campaign", "view analytics", "duplicate"],
   kyc: ["approve KYC", "reject KYC", "request resubmission", "flag risk"],
   treasury: ["approve withdrawal", "queue sweep", "lock wallet", "run solvency check"],
@@ -94,6 +101,94 @@ const modulePayloads = {
       { pair: "EXA/XRP", fee: "0.15%", min: "25", max: "50,000", precision: "4", status: "paused" },
     ],
     actions: defaultModuleActions.trading,
+  },
+  "/admin/exaai": {
+    headline: "ExaAI operations, entitlement controls, strategy governance, and risk state",
+    stats: [
+      { label: "System Operations", value: "Backend required" },
+      { label: "Active Sessions", value: "Backend required" },
+      { label: "Private Realtime", value: "Sequenced" },
+    ],
+    rows: [
+      { area: "Entitlements", status: "server-side", note: "Plans unlock capability limits without forcing a risk strategy." },
+      { area: "Strategies", status: "governed", note: "Strategy versions move through review states before production." },
+      { area: "Execution", status: "canonical", note: "Live mode routes through normal Spot/Futures risk, OMS and ledger paths." },
+    ],
+    actions: defaultModuleActions.exaai,
+  },
+  "/admin/listing-center": {
+    headline: "Token application review, integration testing, launch scheduling, and post-listing controls",
+    stats: [
+      { label: "Applications", value: "Backend required" },
+      { label: "Live Listings", value: "Backend required" },
+      { label: "Launch Gate", value: "Maker-checker" },
+    ],
+    rows: [
+      { area: "Applicant Portal", status: "active", note: "External teams submit applications through the dedicated listing portal." },
+      { area: "Review Workflow", status: "gated", note: "Compliance, technical, security, liquidity, and final approvals are separated." },
+      { area: "Listing Launch", status: "pre-launch only", note: "Approval does not activate deposits, withdrawals, or trading." },
+    ],
+    actions: defaultModuleActions["listing-center"],
+  },
+  "/admin/institutional": {
+    headline: "Institutional accounts, VIP tiers, subaccounts, API segregation, and treasury controls",
+    stats: [
+      { label: "Institutions", value: "Backend required" },
+      { label: "Applications", value: "Backend required" },
+      { label: "Maker-checker", value: "Enabled" },
+    ],
+    rows: [
+      { area: "Applications", status: "review workflow", note: "KYB and risk state transitions are maker-checker controlled." },
+      { area: "Subaccounts", status: "canonical ledger", note: "Subaccounts map to account projections; no duplicate wallet balance source." },
+      { area: "VIP Fees", status: "server-side", note: "Fee profile snapshots are calculated by backend fee services." },
+      { area: "API Segregation", status: "scoped", note: "Developer API keys can be scoped to institution and subaccount." },
+    ],
+    actions: defaultModuleActions.institutional,
+  },
+  "/admin/market-makers": {
+    headline: "Market maker and liquidity provider operations",
+    stats: [
+      { label: "Applications", value: "Backend required" },
+      { label: "Profiles", value: "Backend required" },
+      { label: "Assignments", value: "Backend required" },
+    ],
+    rows: [
+      { area: "Program", status: "maker-checker", note: "Only approved institutional MARKET_MAKER subaccounts can activate." },
+      { area: "Capital", status: "canonical ledger", note: "Readiness checks use institutional subaccount ledger projections." },
+      { area: "Liquidity", status: "no fake volume", note: "Quote health is separated from real OMS executions and market volume." },
+      { area: "Controls", status: "enabled", note: "Safety mode, mass cancel, rebates and surveillance are audited." },
+    ],
+    actions: defaultModuleActions["market-makers"],
+  },
+  "/admin/otc": {
+    headline: "Institutional OTC, RFQ and block trading operations",
+    stats: [
+      { label: "Open RFQs", value: "Backend required" },
+      { label: "Providers", value: "Backend required" },
+      { label: "Settlements", value: "Backend required" },
+    ],
+    rows: [
+      { area: "RFQ Engine", status: "server authoritative", note: "Quotes, expiry, acceptance and settlement are backend controlled." },
+      { area: "Liquidity Providers", status: "explicit opt-in", note: "Phase 15C market makers are not OTC LPs until configured." },
+      { area: "Settlement", status: "canonical ledger", note: "Internal MM settlement posts balanced ledger entries." },
+      { area: "Market Data", status: "isolated", note: "OTC trades do not update public Spot last price or candles by default." },
+    ],
+    actions: defaultModuleActions.otc,
+  },
+  "/admin/margin": {
+    headline: "Margin risk, lending pool health, liquidations, and reconciliation",
+    stats: [
+      { label: "Data source", value: "Backend required" },
+      { label: "Controls", value: "Monitored" },
+      { label: "Unsafe actions", value: "Disabled" },
+    ],
+    rows: [
+      { area: "Accounts", status: "backend required", note: "Use /api/margin/accounts for authenticated operational data." },
+      { area: "Lending pools", status: "backend required", note: "No synthetic pool liquidity is displayed." },
+      { area: "Liquidations", status: "backend required", note: "Admin cannot choose prices or fabricate liquidations." },
+      { area: "Reconciliation", status: "backend required", note: "Findings must come from MarginReconciliationService." },
+    ],
+    actions: defaultModuleActions.margin,
   },
   "/admin/p2p": {
     headline: "Escrow-backed peer marketplace supervision",
@@ -185,6 +280,11 @@ const modulePayloads = {
       { card: "Steam USD", rate: "790/1$", orders: "34", status: "disabled" },
     ],
     actions: defaultModuleActions.giftcard,
+  },
+  "/admin/exacard": {
+    headline: "Card issuance, funding, authorizations, disputes, treasury, and provider operations",
+    rows: [],
+    actions: defaultModuleActions.exacard,
   },
   "/admin/campaigns": {
     headline: "Lifecycle management for ecosystem campaigns, waitlists, and promotions",
@@ -401,12 +501,12 @@ export async function fetchAdminBootstrap() {
     permissionsByRole: {
       super_admin: ["*"],
       admin: [
-        "dashboard.view", "users.view", "wallets.view", "transactions.view", "trade.manage", "staking.manage", "reward.manage",
+        "dashboard.view", "users.view", "wallets.view", "transactions.view", "trade.manage", "listing.manage", "institutional.manage", "liquidity.manage", "staking.manage", "reward.manage",
         "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage", "giftcard.manage",
         "campaign.manage", "kyc.review", "notifications.send", "logs.view", "security.view", "settings.manage", "system.view",
       ],
       moderator: [
-        "dashboard.view", "users.view", "transactions.view", "trade.manage", "reward.manage", "staking.manage",
+        "dashboard.view", "users.view", "transactions.view", "trade.manage", "listing.manage", "institutional.manage", "liquidity.manage", "reward.manage", "staking.manage",
         "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage",
         "giftcard.manage", "campaign.manage", "kyc.review", "logs.view", "security.view", "system.view",
       ],
@@ -418,6 +518,207 @@ export async function fetchAdminBootstrap() {
 export async function fetchModuleData(path) {
   const moduleKey = getModuleKeyFromPath(path);
   try {
+    if (path === "/admin/exacard") {
+      const [overview, cards, transactions, providers, revenue] = await Promise.all([
+        adminHttp.get("/v1/exacard/overview"),
+        adminHttp.get("/v1/exacard/cards"),
+        adminHttp.get("/v1/exacard/transactions"),
+        adminHttp.get("/v1/exacard/providers"),
+        adminHttp.get("/v1/exacard/revenue"),
+      ]);
+      const summary = overview.data?.data ?? {};
+      const providerData = providers.data?.data ?? {};
+      const revenueData = revenue.data?.data ?? {};
+      const cardRows = cards.data?.data?.data ?? cards.data?.data ?? [];
+      const txRows = transactions.data?.data?.data ?? transactions.data?.data ?? [];
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "ExaCard operations",
+        rows: [
+          ...cardRows.slice(0, 12).map((card) => ({
+            card: card.card_uuid,
+            user_id: card.user_id,
+            product: card.card_product,
+            currency: card.currency,
+            last_four: card.last_four ? `**** ${card.last_four}` : "tokenized",
+            status: card.status,
+          })),
+          ...txRows.slice(0, 8).map((tx) => ({
+            transaction: tx.transaction_uuid,
+            merchant: tx.merchant ?? tx.type,
+            amount: `${tx.billing_currency} ${tx.billing_amount}`,
+            status: tx.status,
+            type: tx.type,
+          })),
+        ],
+        actions: defaultModuleActions.exacard,
+        stats: [
+          { label: "Total Cards", value: `${summary.cards_total ?? 0}` },
+          { label: "Active Cards", value: `${summary.cards_active ?? 0}` },
+          { label: "Open Disputes", value: `${summary.open_disputes ?? 0}` },
+          { label: "Provider", value: providerData.active_provider?.status ?? summary.provider_health?.status ?? "UNKNOWN" },
+          { label: "Rebalance Required", value: `${summary.treasury?.rebalance_required_count ?? 0}` },
+          { label: "Card Fee Revenue", value: `${revenueData.funding_fee_total ?? "0"}` },
+        ],
+        source: "api",
+      };
+    }
+
+    if (path === "/admin/giftcard") {
+      const response = await adminHttp.get("/giftcard/center");
+      const payload = response.data?.data ?? {};
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "Giftcard operations",
+        rows: payload.rows ?? [],
+        actions: [
+          "approve order",
+          "reject order",
+          "review provider unknown",
+          "run reconciliation",
+          "view treasury",
+          "review fraud",
+        ],
+        stats: payload.stats ?? [],
+        sections: payload.sections ?? {},
+        treasury: payload.treasury,
+        reconciliation: payload.reconciliation,
+        audit: payload.audit ?? [],
+        source: "api",
+      };
+    }
+
+    if (path === "/admin/listing-center") {
+      const [overview, applications] = await Promise.all([
+        adminHttp.get("/v1/listing-center/overview"),
+        adminHttp.get("/v1/listing-center/applications"),
+      ]);
+      const rows = applications.data?.data?.data ?? applications.data?.data ?? [];
+      const summary = overview.data?.data ?? {};
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "Token listing center",
+        rows,
+        actions: defaultModuleActions["listing-center"],
+        stats: [
+          { label: "Applications", value: `${summary.applications ?? 0}` },
+          { label: "Approved", value: `${summary.approved ?? 0}` },
+          { label: "Integration", value: `${summary.integration ?? 0}` },
+          { label: "Live", value: `${summary.live ?? 0}` },
+        ],
+        source: "api",
+      };
+    }
+
+    if (path === "/admin/exaai") {
+      const [overview, plans, readiness, operations, sessions] = await Promise.all([
+        adminHttp.get("/exaai/overview"),
+        adminHttp.get("/exaai/plans"),
+        adminHttp.get("/exaai/readiness"),
+        adminHttp.get("/exaai/operations/readiness"),
+        adminHttp.get("/exaai/sessions"),
+      ]);
+      const summary = overview.data?.data ?? {};
+      const readinessData = readiness.data?.data ?? {};
+      const operationsData = operations.data?.data ?? {};
+      const planRows = plans.data?.data ?? [];
+      const sessionRows = sessions.data?.data?.data ?? sessions.data?.data ?? [];
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "ExaAI operations",
+        rows: [
+          ...planRows.map((plan) => ({
+            plan: plan.name,
+            code: plan.code,
+            capital_limit: plan.effective_entitlements?.maximum_ai_capital ?? plan.capital_limit,
+            strategies: (plan.effective_entitlements?.allowed_strategies ?? plan.strategy_access ?? []).join(", "),
+            status: plan.is_active ? "active" : "disabled",
+          })),
+          ...sessionRows.slice(0, 10).map((session) => ({
+            session: session.id,
+            user: session.user?.email ?? session.user_id,
+            strategy: session.strategy?.name ?? session.strategy_definition_id,
+            mode: session.mode,
+            status: session.status,
+          })),
+        ],
+        actions: defaultModuleActions.exaai,
+        stats: [
+          { label: "System Operations", value: operationsData.system_operations ?? readinessData.exaai_system_operations ?? "UNKNOWN" },
+          { label: "Health Mode", value: operationsData.mode ?? readinessData.operational_health ?? "UNKNOWN" },
+          { label: "Active Sessions", value: `${summary.active_sessions ?? 0}` },
+          { label: "Regulatory", value: operationsData.regulatory_external_approval ?? readinessData.regulatory_external_approval ?? "PENDING" },
+        ],
+        source: "api",
+      };
+    }
+
+    if (path === "/admin/institutional") {
+      const [overview, applications] = await Promise.all([
+        adminHttp.get("/v1/institutional/overview"),
+        adminHttp.get("/v1/institutional/applications"),
+      ]);
+      const summary = overview.data?.data ?? overview.data ?? {};
+      const rows = applications.data?.data?.data ?? applications.data?.data ?? [];
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "Institutional & VIP operations",
+        rows,
+        actions: defaultModuleActions.institutional,
+        stats: [
+          { label: "Institutions", value: `${summary.institutions ?? 0}` },
+          { label: "Applications", value: `${summary.applications ?? rows.length ?? 0}` },
+          { label: "Subaccounts", value: `${summary.subaccounts ?? 0}` },
+          { label: "Pending Transfers", value: `${summary.pending_transfers ?? 0}` },
+        ],
+        source: "api",
+      };
+    }
+
+    if (path === "/admin/market-makers") {
+      const [overview, applications] = await Promise.all([
+        adminHttp.get("/v1/market-makers/overview"),
+        adminHttp.get("/v1/market-makers/applications"),
+      ]);
+      const summary = overview.data?.data ?? overview.data ?? {};
+      const rows = applications.data?.data?.data ?? applications.data?.data ?? [];
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "Market maker operations",
+        rows,
+        actions: defaultModuleActions["market-makers"],
+        stats: [
+          { label: "Pending Applications", value: `${summary.applications_pending ?? 0}` },
+          { label: "Active Profiles", value: `${summary.active_profiles ?? 0}` },
+          { label: "Assignments", value: `${summary.active_assignments ?? 0}` },
+          { label: "Open Cases", value: `${(summary.open_incidents ?? 0) + (summary.open_surveillance_cases ?? 0)}` },
+        ],
+        source: "api",
+      };
+    }
+
+    if (path === "/admin/otc") {
+      const [overview, rfqs] = await Promise.all([
+        adminHttp.get("/v1/otc/overview"),
+        adminHttp.get("/v1/otc/rfqs"),
+      ]);
+      const summary = overview.data?.data ?? overview.data ?? {};
+      const rows = rfqs.data?.data?.data ?? rfqs.data?.data ?? [];
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "OTC / RFQ operations",
+        rows,
+        actions: defaultModuleActions.otc,
+        stats: [
+          { label: "Open RFQs", value: `${summary.open_rfqs ?? 0}` },
+          { label: "Active LPs", value: `${summary.active_providers ?? 0}` },
+          { label: "Settled Trades", value: `${summary.settled_trades ?? 0}` },
+          { label: "Risk Events", value: `${summary.open_risk_events ?? 0}` },
+        ],
+        source: "api",
+      };
+    }
+
     const response = await adminHttp.get(path.replace("/admin", ""));
     if (isHtmlFallbackResponse(response.data)) {
       throw new Error("Admin API route served the frontend shell.");
@@ -432,7 +733,7 @@ export async function fetchModuleData(path) {
       headline: modulePayloads[path]?.headline ?? "Module view",
       rows,
       actions: modulePayloads[path]?.actions ?? defaultModuleActions[moduleKey] ?? [],
-      stats: modulePayloads[path]?.stats,
+      stats: response.data?.stats ?? modulePayloads[path]?.stats,
       source: "api",
     };
   } catch {
