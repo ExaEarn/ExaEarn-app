@@ -29,11 +29,14 @@ The app is a Vite SPA. `apps/developers/vercel.json` rewrites all direct routes 
 
 - Typecheck: `PASS`
 - Local production build: `PASS`
-- Production deployment: pending Vercel deployment execution
-- Live verification: pending deployed URL
+- Production deployment: `PASS`
+- Production URL: `https://exaearn-developers-nine.vercel.app`
+- Project alias: `https://exaearn-developers-kendrick9470s-projects.vercel.app`
+- Live verification: `PASS` for homepage, direct-route refresh, and static assets
+- API connection: `FAIL` until `https://api.exaearn.com` resolves to the deployed ExaEarn backend
 
 ## Custom Domain
 
 Preferred future custom domain: `developers.exaearn.com`.
 
-Status: `READY_FOR_CONFIGURATION` unless the domain is attached in Vercel and DNS is verified.
+Status: `READY_FOR_CONFIGURATION`.
