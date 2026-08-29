@@ -107,7 +107,7 @@ function AuthProvider({ children }) {
       }
       const requestUrl = `${normalizedBase}${normalizedPath}`;
 
-      const { headers: optionHeaders, timeoutMs = localApiPreview ? 5000 : 15000, signal: externalSignal, ...restOptions } = options || {};
+      const { headers: optionHeaders, timeoutMs = localApiPreview ? 5000 : (apiBaseUrl.includes("127.0.0.1") || apiBaseUrl.includes("localhost") ? 60000 : 15000), signal: externalSignal, ...restOptions } = options || {};
 
       const headers = {
         Accept: "application/json",

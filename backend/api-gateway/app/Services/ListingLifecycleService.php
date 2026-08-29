@@ -27,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
+use App\Services\PersonalizedContent\ProductEventContentService;
 
 class ListingLifecycleService
 {
@@ -814,6 +815,16 @@ class ListingLifecycleService
 
         if ($event->event_type === 'ANNOUNCEMENT') {
             $event->forceFill(['status' => 'EXECUTED', 'executed_at' => now(), 'result' => ['announcement' => 'READY_FOR_PUBLICATION']])->save();
+            $asset = (array) $application->asset_information;
+            $symbol = strtoupper((string) ($asset['symbol'] ?? $asset['ticker'] ?? ''));
+            app(ProductEventContentService::class)->ingest('market.listing.activated', (string) $event->event_uuid, [
+                'title' => $symbol !== '' ? "{$symbol} market launch" : 'New ExaEarn market launch',
+                'body' => $symbol !== '' ? "Explore the verified {$symbol} market launch on ExaEarn." : 'Explore the latest verified market launch on ExaEarn.',
+                'asset' => $symbol !== '' ? $symbol : null,
+                'entity_type' => 'listing_application',
+                'entity_id' => (string) $application->id,
+                'priority' => 70,
+            ]);
             return ['event' => 'ANNOUNCEMENT', 'status' => 'EXECUTED'];
         }
 

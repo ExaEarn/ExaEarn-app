@@ -196,10 +196,13 @@ function Game({ onBack }) {
   const liveActivity = state?.live_bets ?? [];
   const currentStage = stageLabel(displayMultiplier);
   const enabledAssets = state?.settings?.enabled_assets || [selectedAsset];
+  const productControl = state?.settings?.product_control || {};
+  const isRealMoneyReady = productControl.real_money_mode === "READY";
+  const entryMode = isRealMoneyReady ? "real" : "demo";
   const balanceEntry = balances.find((item) => item.asset === selectedAsset || item.currency === selectedAsset || item.symbol === selectedAsset);
   const assetBalance = toNumber(balanceEntry?.available ?? balanceEntry?.balance ?? 0);
+  const displayBalance = entryMode === "demo" ? 1000 : assetBalance;
   const historySelection = selectedHistory || history[0] || null;
-  const canEnterAmount = assetBalance > 0;
 
   const myOpenEntries = useMemo(() => {
     const currentRound = state?.round?.round_uuid;
@@ -211,10 +214,11 @@ function Game({ onBack }) {
   }, []);
 
   const applyAmountPreset = useCallback((index, percentage) => {
-    const computed = assetBalance > 0 ? (assetBalance * percentage) / 100 : 0;
+    const available = entryMode === "demo" ? displayBalance : assetBalance;
+    const computed = available > 0 ? (available * percentage) / 100 : 0;
     const formatted = computed > 0 ? computed.toFixed(8).replace(/\.?0+$/, "") : "0";
     handlePanelChange(index, "amount", formatted);
-  }, [assetBalance, handlePanelChange]);
+  }, [assetBalance, displayBalance, entryMode, handlePanelChange]);
 
   const panelError = useCallback((index) => {
     const panel = panels[index];
@@ -223,9 +227,9 @@ function Game({ onBack }) {
     if (!user) return "Sign in to enter a round.";
     if (!round || round.status !== "betting") return "This round is not accepting new entries right now.";
     if (!amount || amount <= 0) return "Enter a valid entry amount.";
-    if (amount > assetBalance) return `Available balance is ${formatMoney(assetBalance, selectedAsset)}.`;
+    if (entryMode === "real" && amount > assetBalance) return `Available balance is ${formatMoney(assetBalance, selectedAsset)}.`;
     return "";
-  }, [assetBalance, authReady, panels, round, selectedAsset, user]);
+  }, [assetBalance, authReady, entryMode, panels, round, selectedAsset, user]);
 
   const enterRound = async (index) => {
     const issue = panelError(index);
@@ -244,10 +248,10 @@ function Game({ onBack }) {
       const payload = await request("/api/games/flight/bets", {
         method: "POST",
         timeoutMs: 12000,
-        body: JSON.stringify({ asset: selectedAsset, stake: panel.amount, panel_slot: index + 1, auto_cashout: panel.autoCollect || null }),
+        body: JSON.stringify({ asset: selectedAsset, stake: panel.amount, mode: entryMode, panel_slot: index + 1, auto_cashout: panel.autoCollect || null }),
         headers: { "X-Idempotency-Key": `flight-entry-${index + 1}-${Date.now()}` },
       });
-      setMessage(`Entry confirmed for ${formatMoney(payload?.data?.stake || panel.amount, selectedAsset)}.`);
+      setMessage(`${entryMode === "demo" ? "Demo e" : "E"}ntry confirmed for ${formatMoney(payload?.data?.stake || panel.amount, selectedAsset)}.`);
       await Promise.all([fetchState(), fetchBalances()]);
     } catch (actionError) {
       setError(actionError.message || "Unable to enter this round.");
@@ -285,6 +289,7 @@ function Game({ onBack }) {
             <div><p className="text-xs uppercase tracking-[0.28em] text-[var(--exa-text-muted)]">ExaEarn Games</p><h1 className="text-xl font-semibold sm:text-2xl">EXAEARN Aviation</h1></div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[#a7b2d6]">
+            <span className={`rounded-full border px-3 py-1.5 ${entryMode === "demo" ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100" : "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"}`}>{entryMode === "demo" ? "DEMO / FREE PLAY" : "REAL-MONEY ENABLED"}</span>
             <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1.5">Play</span>
             <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1.5">My Entries</span>
             <span className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1.5">Round History</span>
@@ -295,7 +300,7 @@ function Game({ onBack }) {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_390px]">
           <section className="overflow-hidden rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="text-xs uppercase tracking-[0.28em] text-[var(--exa-text-muted)]">Game Balance</p><div className="mt-1 flex items-center gap-2 text-lg font-semibold text-[#f4f7ff]"><Wallet className="h-4 w-4 text-[var(--exa-gold)]" />{formatMoney(assetBalance, selectedAsset)}</div></div>
+              <div><p className="text-xs uppercase tracking-[0.28em] text-[var(--exa-text-muted)]">{entryMode === "demo" ? "Demo Credits" : "Game Balance"}</p><div className="mt-1 flex items-center gap-2 text-lg font-semibold text-[#f4f7ff]"><Wallet className="h-4 w-4 text-[var(--exa-gold)]" />{formatMoney(displayBalance, selectedAsset)}</div>{entryMode === "demo" ? <p className="mt-1 text-xs text-cyan-100/80">Demo credits have no withdrawal value and do not affect your ExaEarn balances.</p> : null}</div>
               <div className="flex items-center gap-2 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2"><select value={selectedAsset} onChange={(event) => setSelectedAsset(event.target.value)} className="bg-transparent text-sm font-medium outline-none">{enabledAssets.map((asset) => <option key={asset} value={asset} className="bg-[var(--exa-surface-elevated)] text-[var(--exa-text-primary)]">{asset}</option>)}</select></div>
             </div>
 
@@ -330,7 +335,7 @@ function Game({ onBack }) {
                 <div key={index} className="rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
                   <div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-[0.24em] text-[var(--exa-text-muted)]">Entry {index + 1}</p><h3 className="mt-1 text-lg font-semibold">{selectedAsset}</h3></div><div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1 text-xs text-[var(--exa-text-muted)]">Auto Collect {panel.autoCollect || "--"}Ã—</div></div>
                   <div className="mt-4 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                    <div className="flex items-center justify-between text-xs text-[var(--exa-text-muted)]"><span>Entry Amount</span><span>Available {formatMoney(assetBalance, selectedAsset)}</span></div>
+                    <div className="flex items-center justify-between text-xs text-[var(--exa-text-muted)]"><span>Entry Amount</span><span>{entryMode === "demo" ? "Demo only" : `Available ${formatMoney(assetBalance, selectedAsset)}`}</span></div>
                     <div className="mt-2 flex items-center gap-2"><input value={panel.amount} onChange={(event) => handlePanelChange(index, "amount", event.target.value)} className="w-full bg-transparent text-2xl font-semibold outline-none" /><span className="text-sm text-[#9fb4ff]">{selectedAsset}</span></div>
                     <div className="mt-3 flex flex-wrap gap-2">{[1, 5, 10, 50].map((amount) => <button key={amount} type="button" onClick={() => handlePanelChange(index, "amount", String(toNumber(panel.amount || 0) + amount))} className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-1 text-xs text-[var(--exa-text-secondary)]">+{amount}</button>)}</div>
                   </div>
@@ -370,7 +375,10 @@ function Game({ onBack }) {
 
           <section className="space-y-4 rounded-[28px] border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
             <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-[#8fe3b8]" /><h2 className="text-lg font-semibold">Fairness Verification</h2></div>
-            <p className="text-sm text-[#9aa7cf]">Each round publishes a server-seed hash before takeoff and reveals the seed after completion so completed rounds can be verified independently.</p>
+            <p className="text-sm text-[#9aa7cf]">Each round publishes a server-seed hash before takeoff and reveals the seed after completion so completed rounds can be verified independently. No external fairness audit is claimed.</p>
+            <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs text-cyan-100">
+              Product control: {productControl.product_classification || "REGULATED_GAMBLING"} · Real-money public mode {isRealMoneyReady ? "enabled" : "disabled pending legal/regulatory approval"}
+            </div>
             <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-sm text-[var(--exa-text-secondary)]"><div className="flex items-center justify-between"><span>Round</span><span>#{historySelection?.round_number ?? round?.round_number ?? "--"}</span></div><div className="mt-2 flex items-center justify-between"><span>Hash</span><span className="max-w-[180px] truncate">{historySelection?.server_seed_hash || round?.server_seed_hash || "--"}</span></div><div className="mt-2 flex items-center justify-between"><span>Multiplier</span><span>{historySelection?.crash_multiplier ? formatMultiplier(historySelection.crash_multiplier) : "Pending"}</span></div><div className="mt-2 flex items-center justify-between"><span>Completed</span><span>{formatTime(historySelection?.settled_at)}</span></div></div>
             <button
               type="button"

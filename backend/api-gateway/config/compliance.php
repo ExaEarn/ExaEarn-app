@@ -8,7 +8,7 @@ return [
     'default_verified_country' => env('COMPLIANCE_DEFAULT_COUNTRY'),
     'high_risk_products' => [
         'FUTURES', 'MARGIN', 'FIAT_WITHDRAWAL', 'CRYPTO_WITHDRAWAL', 'COPY_TRADING_FUTURES',
-        'EXAAI_FUTURES', 'API_TRADING', 'OTC', 'MARKET_MAKING', 'MM_BOT',
+        'EXAAI_FUTURES', 'API_TRADING', 'OTC', 'MARKET_MAKING', 'MM_BOT', 'AGRITECH_INVESTMENT',
     ],
     'products' => [
         'SPOT' => ['risk_category' => 'STANDARD', 'default_policy' => 'REQUIRE_KYC'],
@@ -29,6 +29,7 @@ return [
         'NFT' => ['risk_category' => 'STANDARD', 'default_policy' => 'REQUIRE_KYC'],
         'CROWDFUND' => ['risk_category' => 'HIGH', 'default_policy' => 'REQUIRE_KYC'],
         'AGRITECH' => ['risk_category' => 'HIGH', 'default_policy' => 'REQUIRE_KYC'],
+        'AGRITECH_INVESTMENT' => ['risk_category' => 'HIGH', 'default_policy' => 'DENY'],
         'EXASKILLS' => ['risk_category' => 'LOW', 'default_policy' => 'ALLOW'],
         'GAME' => ['risk_category' => 'HIGH', 'default_policy' => 'REQUIRE_KYC'],
         'CARD' => ['risk_category' => 'HIGH', 'default_policy' => 'REQUIRE_KYC'],

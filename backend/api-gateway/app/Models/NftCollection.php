@@ -15,6 +15,10 @@ class NftCollection extends Model
         'creator_wallet',
         'royalty_percentage',
         'utility_type',
+        'chain',
+        'contract_address',
+        'verification_status',
+        'status',
         'metadata',
     ];
 

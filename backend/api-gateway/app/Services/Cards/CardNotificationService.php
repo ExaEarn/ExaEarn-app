@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Cards;
 
-use App\Models\Notification;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
@@ -77,22 +76,14 @@ class CardNotificationService
     private function send(User $user, string $type, string $title, string $message, array $data, array $channels): void
     {
         $reference = $data['funding_uuid'] ?? $data['card_uuid'] ?? $data['reference'] ?? $data['dispute_uuid'] ?? sha1($type.json_encode($data));
-        $exists = Notification::query()
-            ->where('user_id', $user->id)
-            ->where('type', $type)
-            ->where('data', 'like', '%'.$reference.'%')
-            ->exists();
-
-        if ($exists) {
-            return;
-        }
 
         try {
-            $this->notifications->create($user, $type, $title, $message, $channels, [
+            $this->notifications->emit($user, $type, [
                 ...$data,
-                'notification_reference' => $reference,
-                'product' => 'exacard',
-            ]);
+                'title' => $title,
+                'message' => $message,
+                'deep_link' => '/exacard',
+            ], (string) $reference, $channels);
         } catch (Throwable $exception) {
             Log::warning('ExaCard notification delivery failed', [
                 'user_id' => $user->id,

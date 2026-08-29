@@ -29,7 +29,7 @@ const moreItems = [
   { id: "sports", label: "Sports Talent Pool", icon: Trophy, action: "sports" },
   { id: "support", label: "Customer Support", icon: Headphones, action: "helpSupport" },
   { id: "foundation", label: "ExaEarn Foundation", icon: HandHeart },
-  { id: "exapay", label: "ExaPay", icon: Wallet },
+  { id: "exapay", label: "ExaPay", icon: Wallet, action: "exapay" },
   { id: "exalabs", label: "ExaLabs", icon: FlaskConical },
   { id: "academy", label: "ExaAcademy", icon: GraduationCap },
   { id: "rewards", label: "Rewards", icon: Gift, badge: "HOT", action: "rewards" },
@@ -49,6 +49,7 @@ function MorePage({
   onOpenTransactions,
   onOpenSports,
   onOpenExaCard,
+  onOpenExaPay,
 }) {
   const handleOpenItem = (item) => {
     if (item.action === "rewards") {
@@ -74,6 +75,9 @@ function MorePage({
     }
     if (item.action === "exacard") {
       onOpenExaCard?.();
+    }
+    if (item.action === "exapay") {
+      onOpenExaPay?.();
     }
   };
 

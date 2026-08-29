@@ -1,4 +1,4 @@
-export const campaignData = [
+const demoCampaignData = [
   {
     id: "cmp-1",
     title: "Solar Mesh for Rural Clinics",
@@ -136,3 +136,6 @@ export const campaignData = [
     },
   },
 ];
+
+export const campaignData =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_CROWDFUNDING_MOCKS === "true" ? demoCampaignData : [];

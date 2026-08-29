@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\NftService;
+use App\Services\NftMediaService;
+use App\Models\NftMediaAsset;
+use App\Models\NftReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 class NftController extends Controller
 {
@@ -78,7 +82,7 @@ class NftController extends Controller
             'metadata' => ['nullable', 'array'],
         ]);
 
-        $nft = $this->nftService->mint($request->user(), $payload);
+        $nft = $this->nftService->mint($request->user(), array_merge($payload, ['idempotency_key' => $request->header('Idempotency-Key')]));
 
         return response()->json([
             'message' => 'Financial NFT minted.',
@@ -128,7 +132,7 @@ class NftController extends Controller
             'expires_at' => ['nullable', 'date'],
         ]);
 
-        $listing = $this->nftService->createListing($request->user(), $nftId, $payload);
+        $listing = $this->nftService->createListing($request->user(), $nftId, array_merge($payload, ['idempotency_key' => $request->header('Idempotency-Key')]));
 
         return response()->json([
             'message' => 'NFT listed for sale.',
@@ -143,7 +147,7 @@ class NftController extends Controller
             'buyer_wallet' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $sale = $this->nftService->buyListing($request->user(), $listingId, $payload);
+        $sale = $this->nftService->buyListing($request->user(), $listingId, array_merge($payload, ['idempotency_key' => $request->header('Idempotency-Key')]));
 
         return response()->json([
             'message' => 'NFT purchased.',
@@ -191,5 +195,60 @@ class NftController extends Controller
             'message' => 'Auction finalized.',
             'data' => $auction,
         ]);
+    }
+
+    public function report(Request $request, int $nftId): JsonResponse
+    {
+        $payload = $request->validate([
+            'report_type' => ['required', 'string', 'max:80'],
+            'listing_id' => ['nullable', 'integer'],
+            'reason' => ['nullable', 'string', 'max:4000'],
+            'evidence' => ['nullable', 'array'],
+        ]);
+
+        return response()->json([
+            'message' => 'NFT report submitted for review.',
+            'data' => $this->nftService->report($request->user(), $nftId, $payload),
+        ], 201);
+    }
+
+    public function uploadMedia(Request $request, NftMediaService $media): JsonResponse
+    {
+        $payload = $request->validate([
+            'file' => ['required', 'file'],
+            'nft_id' => ['nullable', 'integer', 'exists:nfts,id'],
+            'collection_id' => ['nullable', 'integer', 'exists:nft_collections,id'],
+            'media_type' => ['required', 'string', 'max:40'],
+            'visibility' => ['nullable', 'string', 'max:20'],
+            'name' => ['nullable', 'string', 'max:120'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'attributes' => ['nullable', 'array'],
+        ]);
+
+        try {
+            return response()->json(['message' => 'NFT media uploaded.', 'data' => $media->upload($request->user(), $payload['file'], $payload)], 201);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function uploadReportEvidence(Request $request, NftReport $report, NftMediaService $media): JsonResponse
+    {
+        $payload = $request->validate(['file' => ['required', 'file']]);
+
+        try {
+            return response()->json(['message' => 'NFT report evidence uploaded.', 'data' => $media->uploadEvidence($request->user(), $report, $payload['file'])], 201);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function privateMedia(Request $request, NftMediaAsset $mediaAsset, NftMediaService $media): JsonResponse
+    {
+        try {
+            return response()->json(['data' => ['url' => $media->privateUrl($request->user(), $mediaAsset)]]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 403);
+        }
     }
 }

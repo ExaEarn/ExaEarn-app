@@ -11,7 +11,7 @@ class NftAuction extends Model
     protected $fillable = [
         'auction_uuid', 'nft_id', 'seller_user_id', 'seller_wallet', 'starting_price_exa',
         'current_highest_bid_exa', 'highest_bidder_user_id', 'highest_bidder_wallet', 'status',
-        'auction_tx_hash', 'starts_at', 'ends_at', 'metadata',
+        'auction_tx_hash', 'bid_reservation_id', 'starts_at', 'ends_at', 'metadata',
     ];
 
     protected $casts = [

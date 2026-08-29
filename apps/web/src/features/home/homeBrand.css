@@ -1,0 +1,126 @@
+.uh-brand-mark {
+  display: grid !important;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid #8e793a;
+  background: #171814;
+  color: #e4c66e;
+  border-radius: 6px;
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.uh-identity > span:not(.uh-brand-mark) {
+  display: grid;
+  min-width: 0;
+}
+
+/* The parent scroll area already reserves the fixed navigation height. */
+.universal-home {
+  padding-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+  .universal-home {
+    padding-bottom: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .universal-home {
+    padding-top: 9px;
+  }
+
+  .uh-header {
+    min-height: 38px;
+    margin-bottom: 8px;
+  }
+
+  .uh-header-actions > button,
+  .uh-notification-wrap > button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .uh-portfolio {
+    padding: 13px;
+  }
+
+  .uh-balance {
+    font-size: 27px;
+  }
+
+  .uh-actions {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .uh-reward {
+    margin-top: 8px;
+    padding: 7px 10px;
+  }
+
+  .uh-section {
+    margin-top: 12px;
+  }
+
+  .uh-section-heading {
+    margin-bottom: 6px;
+  }
+
+  .uh-section-heading h2 {
+    font-size: 15px;
+  }
+
+  .uh-trade-grid button {
+    min-height: 68px;
+    padding: 9px;
+  }
+
+  .uh-markets {
+    padding: 10px;
+  }
+
+  .uh-tabs button {
+    padding: 5px 9px;
+  }
+
+  .uh-market-row {
+    min-height: 39px;
+  }
+
+  .uh-product-list {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .uh-product {
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .uh-product-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .uh-product small {
+    display: none;
+  }
+
+  .uh-more-grid button {
+    min-height: 56px;
+    gap: 4px;
+  }
+
+  .uh-promotion {
+    margin-top: 12px;
+    padding: 10px 12px;
+  }
+
+  .uh-personalize {
+    margin-top: 7px;
+    padding-block: 6px;
+  }
+}

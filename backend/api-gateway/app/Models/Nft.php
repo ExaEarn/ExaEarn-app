@@ -16,7 +16,7 @@ class Nft extends Model
         'nft_uuid', 'token_id', 'contract_address', 'collection_id', 'user_id', 'utility_type', 'name', 'symbol',
         'creator_wallet', 'owner_wallet', 'tier', 'level', 'status', 'mint_fee_exa', 'current_value_exa',
         'earnings_generated_exa', 'metadata_url', 'mint_tx_hash', 'last_event_tx_hash', 'last_synced_at',
-        'benefits', 'upgrade_options', 'metadata',
+        'benefits', 'upgrade_options', 'metadata', 'chain', 'token_standard', 'mint_status', 'moderation_status', 'metadata_hash', 'media_url', 'minted_at',
     ];
 
     protected $casts = [
@@ -24,6 +24,7 @@ class Nft extends Model
         'current_value_exa' => 'decimal:8',
         'earnings_generated_exa' => 'decimal:8',
         'last_synced_at' => 'datetime',
+        'minted_at' => 'datetime',
         'benefits' => 'array',
         'upgrade_options' => 'array',
         'metadata' => 'array',
@@ -52,5 +53,10 @@ class Nft extends Model
     public function auctions(): HasMany
     {
         return $this->hasMany(NftAuction::class, 'nft_id');
+    }
+
+    public function mediaAssets(): HasMany
+    {
+        return $this->hasMany(NftMediaAsset::class, 'nft_id');
     }
 }

@@ -38,6 +38,12 @@ import Register from "./pages/auth/Register";
 import { isLocalApiPreview } from "./config/apiConfig";
 import DashboardCustomizer from "./features/dashboard/DashboardCustomizer";
 import { defaultDashboardPreferences, loadDashboard, resetDashboard, saveDashboard } from "./features/dashboard/dashboardApi";
+import ResponsiveDashboard from "./features/dashboard/ResponsiveDashboard";
+import UniversalHome from "./features/home/UniversalHome";
+import ForYouFeed from "./features/home/ForYouFeed";
+import { usePersonalizedContent } from "./features/home/usePersonalizedContent";
+import { resolveHomeConfiguration } from "./features/home/homePersonalization";
+import { useResponsive } from "./hooks/useResponsive";
 import "./features/dashboard/dashboard.css";
 import "./features/dashboard/criticalAlerts.css";
 import "./styles/App.css";
@@ -95,6 +101,7 @@ const Withdraw = lazy(() => import("./pages/Withdraw/Withdraw"));
 const FiatWithdrawalPage = lazy(() => import("./pages/Withdraw/FiatWithdrawalPage"));
 const MorePage = lazy(() => import("./pages/More/MorePage"));
 const ExaCardPage = lazy(() => import("./pages/ExaCard/ExaCardPage"));
+const ExaPayMerchantPage = lazy(() => import("./pages/ExaPay/ExaPayMerchantPage"));
 const AITradingAssistantPage = lazy(() => import("./pages/AI/AITradingAssistantPage"));
 const SupportCenter = lazy(() => import("./pages/Support/SupportCenter"));
 const LiveSupportChat = lazy(() => import("./pages/Support/LiveSupportChat"));
@@ -102,6 +109,7 @@ const HelpSupportCenter = lazy(() => import("./pages/Support/HelpSupportCenter")
 const KYCVerification = lazy(() => import("./pages/KYC/KYCVerification"));
 const ReferralProgram = lazy(() => import("./pages/Referral/ReferralProgram"));
 const NotificationSettings = lazy(() => import("./pages/Notifications/NotificationSettings"));
+const ActivityCenter = lazy(() => import("./pages/Notifications/ActivityCenter"));
 const AboutExaEarn = lazy(() => import("./pages/About/AboutExaEarn"));
 const ChangePassword = lazy(() => import("./pages/Security/ChangePassword"));
 const LoginDevices = lazy(() => import("./pages/Security/LoginDevices"));
@@ -109,6 +117,9 @@ const ActivityLogs = lazy(() => import("./pages/Security/ActivityLogs"));
 const Market = lazy(() => import("./pages/market/Market"));
 const CryptoMarkets = lazy(() => import("./pages/market/CryptoMarkets"));
 const Trade = lazy(() => import("./pages/trade/Trade"));
+const ResponsiveMarketPage = lazy(() => import("./pages/market/ResponsiveMarketPage"));
+const ResponsiveTradePage = lazy(() => import("./pages/trade/ResponsiveTradePage"));
+const ResponsiveAssetsPage = lazy(() => import("./pages/Assets/ResponsiveAssetsPage"));
 const Futures = lazy(() => import("./pages/futures/Futures"));
 const Options = lazy(() => import("./pages/futures/Options"));
 const SmartMoney = lazy(() => import("./pages/futures/SmartMoney"));
@@ -430,11 +441,18 @@ function getAuthUrl(page) {
 
 export default function App() {
   const { user, setUser, logout, apiBaseUrl, request } = useAuth();
+  const personalizedContent = usePersonalizedContent(request, Boolean(user));
+  const { isDesktop } = useResponsive();
   const { t } = useLanguage();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [authPage, setAuthPageState] = useState(getAuthPageFromLocation);
   const [portfolioValue, setPortfolioValue] = useState("0");
   const [portfolioCurrency, setPortfolioCurrency] = useState("USDT");
+  const [portfolioDayPnl, setPortfolioDayPnl] = useState(null);
+  const [portfolioDayPnlPercent, setPortfolioDayPnlPercent] = useState(null);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioError, setPortfolioError] = useState("");
+  const [earnApy, setEarnApy] = useState(null);
   const [showSplash, setShowSplash] = useState(false);
   const [currentPage, setCurrentPage] = useState("home");
   const [p2pInitialSide, setP2pInitialSide] = useState("buy");
@@ -465,7 +483,7 @@ export default function App() {
   const [dashboardPreferenceBusy, setDashboardPreferenceBusy] = useState(false);
   const localApiPreview = isLocalApiPreview();
   const [notificationLoading, setNotificationLoading] = useState(false);
-  const { pairs: livePairs, setPairs: setLivePairs } = useMarketData();
+  const { pairs: livePairs, setPairs: setLivePairs, loading: marketLoading, offline: marketOffline, refresh: refreshMarkets } = useMarketData();
   const [homeMarketFilter, setHomeMarketFilter] = useState("Top");
   const [homeMarketPickerOpen, setHomeMarketPickerOpen] = useState(false);
   const [homeMarketSearch, setHomeMarketSearch] = useState("");
@@ -502,6 +520,7 @@ export default function App() {
       setDashboardPreferenceBusy(false);
     }
   };
+  const homeConfiguration = useMemo(() => resolveHomeConfiguration(dashboardPreferences), [dashboardPreferences]);
 
   const restoreDefaultDashboard = async () => {
     setDashboardPreferenceBusy(true);
@@ -641,49 +660,44 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, [campaignNews]);
 
+  const loadHomePortfolio = useCallback(async () => {
+    if (!user) return;
+    setPortfolioLoading(true);
+    setPortfolioError("");
+    try {
+      const payload = await request("/api/portfolio", { method: "GET", timeoutMs: localApiPreview ? 3500 : 9000 });
+      const data = payload?.data ?? payload;
+      setPortfolioValue(data?.total_value ?? "0");
+      setPortfolioCurrency(data?.currency ?? "USDT");
+      setPortfolioDayPnl(data?.day_pnl ?? data?.pnl_24h ?? null);
+      setPortfolioDayPnlPercent(data?.day_pnl_percent ?? data?.pnl_24h_percent ?? null);
+    } catch (error) {
+      setPortfolioError(error?.message || "Unable to load portfolio.");
+    } finally {
+      setPortfolioLoading(false);
+    }
+  }, [localApiPreview, request, user]);
+
   useEffect(() => {
-    let ignore = false;
+    loadHomePortfolio();
+  }, [loadHomePortfolio]);
 
-    const fetchPortfolio = async () => {
-      const base = apiBaseUrl?.replace(/\/+$/, "") || "";
-      if (!base || !user) {
-        return;
-      }
-
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), localApiPreview ? 3500 : 9000);
-
-      try {
-        const response = await fetch(`${base}/api/portfolio`, {
-          credentials: "include",
-          signal: controller.signal,
-          headers: {
-            Accept: "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = await response.json();
-        if (!ignore && payload?.data) {
-          setPortfolioValue(payload.data.total_value ?? "0");
-          setPortfolioCurrency(payload.data.currency ?? "USDT");
-        }
-      } catch {
-        // best-effort portfolio bootstrap
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
-    };
-
-    fetchPortfolio();
-
-    return () => {
-      ignore = true;
-    };
-  }, [apiBaseUrl, localApiPreview, user]);
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    request("/api/v1/staking/products", { method: "GET", timeoutMs: localApiPreview ? 3500 : 9000 })
+      .then((payload) => {
+        if (!active) return;
+        const products = Array.isArray(payload?.data) ? payload.data : [];
+        const values = products
+          .map((item) => Number(item.displayed_apy))
+          .filter((value) => Number.isFinite(value) && value > 0)
+          .map((value) => value <= 1 ? value * 100 : value);
+        setEarnApy(values.length ? Math.max(...values).toLocaleString(undefined, { maximumFractionDigits: 2 }) : null);
+      })
+      .catch(() => setEarnApy(null));
+    return () => { active = false; };
+  }, [localApiPreview, request, user]);
 
   const loadRewards = useCallback(async () => {
     if (!user) return;
@@ -714,6 +728,10 @@ export default function App() {
     loadRewards();
   }, [loadRewards]);
 
+  useEffect(() => {
+    if (currentPage === "staking") loadRewardHistory();
+  }, [currentPage, loadRewardHistory]);
+
   const claimReward = useCallback(async () => {
     if (!user || rewardBusy) return;
 
@@ -728,7 +746,7 @@ export default function App() {
       setRewardProgress(payload?.data?.progress ?? null);
       await loadRewardHistory();
     } catch {
-      await loadRewards();
+      await Promise.all([loadRewards(), loadRewardHistory()]);
     } finally {
       setRewardBusy(false);
     }
@@ -802,11 +820,10 @@ export default function App() {
   }, [loadNotifications, user]);
 
   const openNotifications = useCallback(async () => {
-    setNotificationOpen((open) => !open);
-    if (!notificationOpen) {
-      await loadNotifications();
-    }
-  }, [loadNotifications, notificationOpen]);
+    setNotificationOpen(false);
+    await loadNotifications();
+    setCurrentPage("activityCenter");
+  }, [loadNotifications]);
 
   const openNotification = useCallback(async (notification) => {
     if (!notification?.id) return;
@@ -923,26 +940,63 @@ export default function App() {
   }
   if (currentPage === "market") {
     return (
-      <Market
+      <ResponsiveMarketPage
+        MarketComponent={Market}
+        user={user}
+        portfolioValue={portfolioValue}
+        portfolioCurrency={portfolioCurrency}
+        portfolioLoading={portfolioLoading}
+        unreadNotifications={unreadNotificationCount}
+        onNavigate={setCurrentPage}
         onBack={() => setCurrentPage("home")}
         onOpenTrade={() => setCurrentPage("trade")}
         onOpenFutures={() => setCurrentPage("futures")}
+        onNotificationOpen={() => setNotificationOpen(true)}
+        showAiQuickLaunch={showAiQuickLaunch}
+        onAiAssistantOpen={() => setCurrentPage("aiAssistant")}
         onOpenP2P={() => openP2PPage()}
         onOpenCrypto={() => setCurrentPage("cryptoMarkets")}
       />
     );
   }
   if (currentPage === "cryptoMarkets") {
-    return <CryptoMarkets onBack={() => setCurrentPage("market")} onOpenTrade={() => setCurrentPage("trade")} />;
+    return (
+      <ResponsiveMarketPage
+        MarketComponent={CryptoMarkets}
+        user={user}
+        portfolioValue={portfolioValue}
+        portfolioCurrency={portfolioCurrency}
+        portfolioLoading={portfolioLoading}
+        unreadNotifications={unreadNotificationCount}
+        onNavigate={setCurrentPage}
+        onBack={() => setCurrentPage("market")}
+        onOpenTrade={() => setCurrentPage("trade")}
+        onOpenFutures={() => setCurrentPage("futures")}
+        onNotificationOpen={() => setNotificationOpen(true)}
+        showAiQuickLaunch={showAiQuickLaunch}
+        onAiAssistantOpen={() => setCurrentPage("aiAssistant")}
+        onOpenP2P={() => openP2PPage()}
+      />
+    );
   }
   if (currentPage === "trade") {
     return (
-      <Trade
+      <ResponsiveTradePage
+        TradeComponent={Trade}
+        user={user}
+        portfolioValue={portfolioValue}
+        portfolioCurrency={portfolioCurrency}
+        portfolioLoading={portfolioLoading}
+        unreadNotifications={unreadNotificationCount}
+        onNavigate={setCurrentPage}
         onBack={() => setCurrentPage("home")}
         onOpenConvert={() => setCurrentPage("swap")}
         onOpenFutures={() => setCurrentPage("futures")}
         onOpenMargin={() => setCurrentPage("margin")}
         onOpenOptions={() => setCurrentPage("options")}
+        onNotificationOpen={() => setNotificationOpen(true)}
+        showAiQuickLaunch={showAiQuickLaunch}
+        onAiAssistantOpen={() => setCurrentPage("aiAssistant")}
         onOpenTradFi={() => setCurrentPage("smartMoney")}
       />
     );
@@ -984,6 +1038,9 @@ export default function App() {
 
   if (currentPage === "campaigns") {
     return <Campaigns onBack={() => setCurrentPage("home")} />;
+  }
+  if (currentPage === "forYou") {
+    return <ForYouFeed request={request} onBack={() => setCurrentPage("home")} onNavigate={setCurrentPage} />;
   }
   if (currentPage === "agriculture") {
     return (
@@ -1117,7 +1174,18 @@ export default function App() {
     return <InstructorDashboard onBack={() => setCurrentPage("edtech")} />;
   }
   if (currentPage === "staking") {
-    return <StakingDashboard onBack={() => setCurrentPage("home")} />;
+    return <>
+      <StakingDashboard
+        onBack={() => setCurrentPage("home")}
+        dailyRewardProgress={rewardProgress}
+        dailyRewardHistory={rewardHistory}
+        dailyRewardLoading={rewardLoading}
+        dailyRewardBusy={rewardBusy}
+        onClaimDailyReward={claimReward}
+        onOpenDailyRewards={() => { setRewardModalOpen(true); loadRewardHistory(); }}
+      />
+      {rewardModalOpen ? <DailyRewardModal progress={rewardProgress} history={rewardHistory} lastReward={lastReward} busy={rewardBusy} onClose={() => setRewardModalOpen(false)} onClaim={claimReward} onOpenMystery={openMysteryBox} onRedeem={redeemReward} /> : null}
+    </>;
   }
   if (currentPage === "p2pMarketplace") {
     return (
@@ -1137,7 +1205,17 @@ export default function App() {
   }
   if (currentPage === "assets") {
     return (
-      <Assets
+      <ResponsiveAssetsPage
+        AssetsComponent={Assets}
+        user={user}
+        portfolioValue={portfolioValue}
+        portfolioCurrency={portfolioCurrency}
+        portfolioLoading={portfolioLoading}
+        unreadNotifications={unreadNotificationCount}
+        onNavigate={setCurrentPage}
+        onNotificationOpen={() => setNotificationOpen(true)}
+        showAiQuickLaunch={showAiQuickLaunch}
+        onAiAssistantOpen={() => setCurrentPage("aiAssistant")}
         onBack={() => setCurrentPage("home")}
         onOpenSend={() => setCurrentPage("send")}
         onOpenAddFunds={() => setCurrentPage("addFunds")}
@@ -1203,6 +1281,7 @@ export default function App() {
           setActivityLogsReturnPage("profile");
           setCurrentPage("activityLogs");
         }}
+        onOpenPersonalization={() => setDashboardCustomizerOpen(true)}
         user={user}
         onLogout={async () => {
           await logout();
@@ -1224,7 +1303,10 @@ export default function App() {
     return <ReferralProgram onBack={() => setCurrentPage(referralReturnPage)} user={user} />;
   }
   if (currentPage === "notificationSettings") {
-    return <NotificationSettings onBack={() => setCurrentPage("profile")} />;
+    return <NotificationSettings request={request} onBack={() => setCurrentPage("activityCenter")} />;
+  }
+  if (currentPage === "activityCenter") {
+    return <ActivityCenter request={request} onBack={() => setCurrentPage("home")} onNavigate={setCurrentPage} onOpenPreferences={() => setCurrentPage("notificationSettings")} />;
   }
   if (currentPage === "aboutExaEarn") {
     return <AboutExaEarn onBack={() => setCurrentPage("profile")} />;
@@ -1248,20 +1330,31 @@ export default function App() {
   }
   if (currentPage === "settings") {
     return (
-      <SettingsPage
-        onBack={() => setCurrentPage("home")}
-        onOpenInstitutional={() => setCurrentPage("institutional")}
-        onOpenLanguageRegion={() => setCurrentPage("languageRegion")}
-        onOpenCurrencyPreference={() => setCurrentPage("currencyPreference")}
-        onOpenMarketAnalytics={() => setCurrentPage("marketAnalyticsSettings")}
-        onOpenNotificationPreferences={() => setCurrentPage("notificationSettings")}
-        onOpenPaymentCurrency={() => setCurrentPage("paymentCurrency")}
-        onOpenPaymentMethods={() => setCurrentPage("paymentMethods")}
-        onOpenActivityLogs={() => {
-          setActivityLogsReturnPage("settings");
-          setCurrentPage("activityLogs");
-        }}
-      />
+      <>
+        <SettingsPage
+          onBack={() => setCurrentPage("home")}
+          onOpenInstitutional={() => setCurrentPage("institutional")}
+          onOpenLanguageRegion={() => setCurrentPage("languageRegion")}
+          onOpenCurrencyPreference={() => setCurrentPage("currencyPreference")}
+          onOpenMarketAnalytics={() => setCurrentPage("marketAnalyticsSettings")}
+          onOpenNotificationPreferences={() => setCurrentPage("notificationSettings")}
+          onOpenPaymentCurrency={() => setCurrentPage("paymentCurrency")}
+          onOpenPaymentMethods={() => setCurrentPage("paymentMethods")}
+          onOpenPersonalization={() => setDashboardCustomizerOpen(true)}
+          onOpenActivityLogs={() => {
+            setActivityLogsReturnPage("settings");
+            setCurrentPage("activityLogs");
+          }}
+        />
+        <DashboardCustomizer
+          open={dashboardCustomizerOpen}
+          preferences={dashboardPreferences}
+          busy={dashboardPreferenceBusy}
+          onClose={() => setDashboardCustomizerOpen(false)}
+          onSave={persistDashboardPreferences}
+          onReset={restoreDefaultDashboard}
+        />
+      </>
     );
   }
   if (currentPage === "institutional") {
@@ -1323,11 +1416,15 @@ export default function App() {
         onOpenTransactions={() => setCurrentPage("transactions")}
         onOpenSports={() => setCurrentPage("exascout")}
         onOpenExaCard={() => setCurrentPage("exacard")}
+        onOpenExaPay={() => setCurrentPage("exapay")}
       />
     );
   }
   if (currentPage === "exacard") {
     return <ExaCardPage onBack={() => setCurrentPage("more")} />;
+  }
+  if (currentPage === "exapay") {
+    return <ExaPayMerchantPage onBack={() => setCurrentPage("more")} />;
   }
   if (currentPage === "aiAssistant") {
     return <AITradingAssistantPage onBack={() => setCurrentPage("more")} />;
@@ -1347,6 +1444,7 @@ export default function App() {
   if (currentPage === "supportCenter") {
     return (
       <SupportCenter
+        request={request}
         onBack={() => setCurrentPage("home")}
         onOpenLiveChat={() => {
           setChatReturnPage("supportCenter");
@@ -1356,7 +1454,7 @@ export default function App() {
     );
   }
   if (currentPage === "liveSupportChat") {
-    return <LiveSupportChat onBack={() => setCurrentPage(chatReturnPage)} />;
+    return <LiveSupportChat request={request} onBack={() => setCurrentPage(chatReturnPage)} onOpenTicketCenter={() => setCurrentPage("supportCenter")} />;
   }
 
   const activeNews = campaignNews[activeNewsIndex];
@@ -1431,9 +1529,85 @@ export default function App() {
     : features;
 
   return (
-    <div className={`home-screen text-white exa-bg app-shell dashboard-ecosystem dashboard-ecosystem-${primaryEcosystemClass}`}>
+    <div className={`home-screen text-white exa-bg dashboard-ecosystem dashboard-ecosystem-${primaryEcosystemClass}`}>
       <div className="home-scroll-area">
-        <div className="w-full px-0 pt-4 pb-6">
+        {isDesktop ? (
+          <ResponsiveDashboard
+            user={user}
+            apiBaseUrl={apiBaseUrl}
+            portfolioValue={portfolioValue}
+            portfolioCurrency={portfolioCurrency}
+            portfolioDayPnl={portfolioDayPnl}
+            portfolioDayPnlPercent={portfolioDayPnlPercent}
+            portfolioLoading={portfolioLoading}
+            portfolioError={portfolioError}
+            onRetryPortfolio={loadHomePortfolio}
+            rewardProgress={rewardProgress}
+            rewardLoading={rewardLoading}
+            rewardBusy={rewardBusy}
+            onClaimReward={claimReward}
+            onOpenRewards={() => { setRewardModalOpen(true); loadRewardHistory(); }}
+            markets={livePairs}
+            marketLoading={marketLoading}
+            marketOffline={marketOffline}
+            onRetryMarkets={refreshMarkets}
+            notifications={notifications}
+            notificationLoading={notificationLoading}
+            notificationOpen={notificationOpen}
+            unreadNotifications={unreadNotificationCount}
+            onToggleNotifications={openNotifications}
+            onCloseNotifications={() => setNotificationOpen(false)}
+            onOpenNotification={openNotification}
+            onPersonalize={() => setDashboardCustomizerOpen(true)}
+            onNavigate={setCurrentPage}
+            personalizedContent={personalizedContent.items}
+            personalizedContentLoading={personalizedContent.loading}
+            onContentInteraction={personalizedContent.interact}
+            criticalAlerts={dashboardCriticalAlerts}
+            earnApy={earnApy}
+            configuration={homeConfiguration}
+            onLogout={logout}
+            showAiQuickLaunch={showAiQuickLaunch}
+            onAiAssistantOpen={() => setCurrentPage("aiAssistant")}
+          />
+        ) : (
+          <UniversalHome
+            user={user}
+            apiBaseUrl={apiBaseUrl}
+            portfolioValue={portfolioValue}
+            portfolioCurrency={portfolioCurrency}
+            portfolioDayPnl={portfolioDayPnl}
+            portfolioDayPnlPercent={portfolioDayPnlPercent}
+            portfolioLoading={portfolioLoading}
+            portfolioError={portfolioError}
+            onRetryPortfolio={loadHomePortfolio}
+            rewardProgress={rewardProgress}
+            rewardLoading={rewardLoading}
+            rewardBusy={rewardBusy}
+            onClaimReward={claimReward}
+            onOpenRewards={() => { setRewardModalOpen(true); loadRewardHistory(); }}
+            markets={livePairs}
+            marketLoading={marketLoading}
+            marketOffline={marketOffline}
+            onRetryMarkets={refreshMarkets}
+            notifications={notifications}
+            notificationLoading={notificationLoading}
+            notificationOpen={notificationOpen}
+            unreadNotificationCount={unreadNotificationCount}
+            onToggleNotifications={openNotifications}
+            onCloseNotifications={() => setNotificationOpen(false)}
+            onOpenNotification={openNotification}
+            onPersonalize={() => setDashboardCustomizerOpen(true)}
+            onNavigate={setCurrentPage}
+            personalizedContent={personalizedContent.items}
+            personalizedContentLoading={personalizedContent.loading}
+            onContentInteraction={personalizedContent.interact}
+            criticalAlerts={dashboardCriticalAlerts}
+            earnApy={earnApy}
+            configuration={homeConfiguration}
+          />
+        )}
+        <div hidden aria-hidden="true" className="legacy-dashboard-presentation w-full px-0 pt-4 pb-6">
           <div className="home-main-card dashboard-ecosystem-grid p-4 shadow-xl glass-card rounded-3xl sm:p-5">
           <header className="home-profile-card flex items-center justify-between mb-4 sm:mb-6 campaign-card">
             <div className="flex items-center min-w-0 gap-3 sm:gap-4">
@@ -1815,7 +1989,7 @@ export default function App() {
               label={t("dashboard.market")}
               onClick={() => setCurrentPage("market")}
             />
-            <NavItem icon={<Gem size={21} />} label={t("dashboard.trade")} onClick={() => setCurrentPage("trade")} />
+            <NavItem icon={<Gem size={21} />} label={t("dashboard.trade")} emphasized onClick={() => setCurrentPage("trade")} />
             <NavItem icon={<Handshake size={21} />} label={t("dashboard.p2p")} onClick={() => setCurrentPage("p2pMarketplace")} />
             <NavItem icon={<Wallet size={21} />} label={t("dashboard.assets")} onClick={() => setCurrentPage("assets")} />
           </nav>
@@ -1900,12 +2074,12 @@ export default function App() {
   );
 }
 
-function NavItem({ icon, label, active, imageIcon = false, onClick }) {
+function NavItem({ icon, label, active, emphasized = false, imageIcon = false, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`nav-item border-0 bg-transparent ${active ? "active" : ""}`}
+      className={`nav-item border-0 bg-transparent ${active ? "active" : ""} ${emphasized ? "nav-item-trade" : ""}`}
     >
       <div className={`nav-icon ${imageIcon ? "image-icon" : ""}`}>{icon}</div>
       <div className="nav-label">{label}</div>

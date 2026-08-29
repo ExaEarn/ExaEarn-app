@@ -6,12 +6,14 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Services\DashboardExperienceRegistry;
+use App\Services\ExperienceRecommendationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class UserPreferenceController extends Controller
 {
+    public function __construct(private readonly ExperienceRecommendationService $recommendations) {}
     private const CURRENCIES = ['USD', 'NGN', 'EUR', 'GBP', 'BTC', 'ETH'];
 
     private const SUPPORTED_LANGUAGE_CODES = [
@@ -42,13 +44,19 @@ class UserPreferenceController extends Controller
         $payload = $request->validate([
             'mode' => ['required', Rule::in(['all', 'personalized'])],
             'primary_interest' => ['nullable', Rule::in(DashboardExperienceRegistry::KEYS)],
-            'selected_interests' => ['array', 'max:3'],
+            'selected_interests' => ['array', 'max:6'],
             'selected_interests.*' => ['distinct', Rule::in(DashboardExperienceRegistry::KEYS)],
             'hidden_widgets' => ['sometimes', 'array'],
             'hidden_widgets.*' => ['string', 'max:64'],
             'widget_order' => ['sometimes', 'array'],
             'widget_order.*' => ['string', 'max:64'],
             'onboarding_completed' => ['sometimes', 'boolean'],
+            'experience_level' => ['sometimes', Rule::in(ExperienceRecommendationService::EXPERIENCES)],
+            'primary_goal' => ['sometimes', Rule::in(ExperienceRecommendationService::GOALS)],
+            'interests' => ['sometimes', 'array', 'max:3'],
+            'interests.*' => ['distinct', Rule::in(ExperienceRecommendationService::INTERESTS)],
+            'selected_mode' => ['sometimes', Rule::in(ExperienceRecommendationService::MODES)],
+            'onboarding_version' => ['sometimes', 'integer', 'min:4'],
         ]);
         $selected = array_values($payload['selected_interests'] ?? []);
         if (($payload['primary_interest'] ?? null) && !in_array($payload['primary_interest'], $selected, true)) {
@@ -59,11 +67,20 @@ class UserPreferenceController extends Controller
         }
         $user = $request->user();
         $preferences = (array) ($user->preferences ?? []);
-        $preferences['dashboard'] = array_merge($this->dashboardPayload($request), $payload, [
+        $dashboard = array_merge($this->dashboardPayload($request), $payload, [
             'selected_interests' => $selected,
             'primary_interest' => $payload['mode'] === 'all' ? null : ($payload['primary_interest'] ?? $selected[0] ?? null),
             'updated_at' => now()->toIso8601String(),
         ]);
+        if (isset($dashboard['experience_level'], $dashboard['primary_goal'])) {
+            $interests = array_values($dashboard['interests'] ?? $this->recommendations->inferInterests((string) $dashboard['primary_goal']));
+            $result = $this->recommendations->recommend((string) $dashboard['experience_level'], (string) $dashboard['primary_goal'], $interests);
+            $dashboard['interests'] = $interests;
+            $dashboard['recommended_mode'] = $result['recommended_mode'];
+            $dashboard['selected_mode'] = $payload['selected_mode'] ?? $dashboard['selected_mode'] ?? $result['recommended_mode'];
+            $dashboard['recommendation_reason_codes'] = $result['reason_codes'];
+        }
+        $preferences['dashboard'] = $dashboard;
         $user->forceFill(['preferences' => $preferences])->save();
         AuditLog::create(['user_id' => $user->id, 'action' => 'dashboard.personalized', 'ip_address' => $request->ip(), 'device' => (string) $request->userAgent(), 'metadata' => ['mode' => $payload['mode'], 'primary_interest' => $preferences['dashboard']['primary_interest'], 'selected_interests' => $selected], 'created_at' => now()]);
         return response()->json(['status' => 'success', 'message' => 'Dashboard preferences updated.', 'data' => $preferences['dashboard']]);
@@ -181,6 +198,8 @@ class UserPreferenceController extends Controller
         return array_merge([
             'mode' => 'all', 'primary_interest' => null, 'selected_interests' => [],
             'hidden_widgets' => [], 'widget_order' => [], 'onboarding_completed' => false,
+            'experience_level' => null, 'primary_goal' => null, 'interests' => [],
+            'recommended_mode' => null, 'selected_mode' => 'lite', 'onboarding_version' => null, 'completed_at' => null,
         ], (array) ($preferences['dashboard'] ?? []));
     }
 }

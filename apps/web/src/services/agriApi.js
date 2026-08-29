@@ -6,7 +6,7 @@ function normalizeBaseUrl(apiBaseUrl) {
   return apiBaseUrl.endsWith("/") ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
 }
 
-async function apiRequest({ apiBaseUrl, token, path, method = "GET", body }) {
+async function apiRequest({ apiBaseUrl, token, path, method = "GET", body, idempotencyKey }) {
   const baseUrl = normalizeBaseUrl(apiBaseUrl);
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -14,6 +14,7 @@ async function apiRequest({ apiBaseUrl, token, path, method = "GET", body }) {
       Accept: "application/json",
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -56,15 +57,15 @@ export function fetchAgriProject({ apiBaseUrl, token, projectId }) {
   });
 }
 
-export function investInAgriProject({ apiBaseUrl, token, projectId, sharesOwned, metadata = {} }) {
+export function investInAgriProject({ apiBaseUrl, token, projectId, sharesOwned, idempotencyKey }) {
   return apiRequest({
     apiBaseUrl,
     token,
     path: `/api/agriculture/projects/${projectId}/invest`,
     method: "POST",
+    idempotencyKey,
     body: {
       shares_owned: sharesOwned,
-      metadata,
     },
   });
 }

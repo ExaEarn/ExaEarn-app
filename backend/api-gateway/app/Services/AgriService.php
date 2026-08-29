@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Services\AgriTech\AgriInvestmentService;
 use App\Jobs\CalculateHarvestReturnsJob;
 use App\Jobs\DistributeInvestorRewardsJob;
 use App\Jobs\VerifyFarmReportsJob;
@@ -26,6 +27,7 @@ class AgriService
     public function __construct(
         private readonly BlockchainService $blockchainService,
         private readonly RewardEngineService $rewardEngineService,
+        private readonly AgriInvestmentService $investmentService,
     ) {
     }
 
@@ -46,7 +48,6 @@ class AgriService
         return FarmingProject::query()
             ->with([
                 'share',
-                'investments.user:id,name,email',
                 'leases.farmer',
                 'produceUpdates' => fn ($query) => $query->latest('recorded_at'),
             ])
@@ -57,7 +58,9 @@ class AgriService
     {
         $project = $this->project($projectId);
         $share = $project->share;
-        $invested = (string) $project->investments()->sum('investment_amount');
+        $invested = (string) $project->investments()
+            ->where('financial_status', 'SETTLED_IN_ESCROW')
+            ->sum('investment_amount');
 
         return [
             'project' => $project,
@@ -125,6 +128,15 @@ class AgriService
                 'status' => $payload['status'] ?? 'draft',
                 'verification_documents' => $payload['verification_documents'] ?? null,
                 'metadata' => $payload['metadata'] ?? null,
+                'product_type' => strtoupper((string) ($payload['product_type'] ?? 'FARM_PROJECT')),
+                'economic_type' => strtoupper((string) ($payload['economic_type'] ?? 'NON_INVESTMENT_SUPPORT')),
+                'currency' => strtoupper((string) ($payload['currency'] ?? config('agriculture.financial.default_asset', 'USDT'))),
+                'legal_status' => strtoupper((string) ($payload['legal_status'] ?? 'PENDING_REVIEW')),
+                'verification_status' => strtoupper((string) ($payload['verification_status'] ?? 'UNVERIFIED')),
+                'public_funding_enabled' => (bool) ($payload['public_funding_enabled'] ?? false),
+                'funding_deadline' => $payload['funding_deadline'] ?? null,
+                'risk_disclosures' => $payload['risk_disclosures'] ?? null,
+                'settlement_policy' => $payload['settlement_policy'] ?? null,
             ]);
 
             $share = FarmShare::query()->create([
@@ -137,7 +149,12 @@ class AgriService
                 'metadata' => $payload['share_metadata'] ?? null,
             ]);
 
-            if ((bool) config('agriculture.blockchain.enabled')) {
+            if (
+                (bool) config('agriculture.blockchain.enabled')
+                && (bool) config('agriculture.tokenized_investment_enabled', false)
+                && $project->economic_type === 'TOKENIZED_INVESTMENT'
+                && $project->legal_status === 'APPROVED'
+            ) {
                 $tokenization = $this->blockchainService->tokenizeFarmProject([
                     'project_id' => $project->id,
                     'project_name' => $project->project_name,
@@ -161,86 +178,13 @@ class AgriService
 
     public function invest(User $user, int $projectId, array $payload): FarmInvestment
     {
-        $project = FarmingProject::query()->with('share')->findOrFail($projectId);
-        if (!in_array($project->status, ['open', 'funded', 'active'], true)) {
-            throw new RuntimeException('Project is not open for investments.');
-        }
-
-        return DB::transaction(function () use ($user, $project, $payload): FarmInvestment {
-            $share = FarmShare::query()->where('project_id', $project->id)->lockForUpdate()->firstOrFail();
-            $requestedShares = (int) $payload['shares_owned'];
-
-            if ($requestedShares <= 0 || $requestedShares > $share->shares_available) {
-                throw new RuntimeException('Requested shares are not available.');
-            }
-
-            $investmentAmount = $this->mul((string) $requestedShares, (string) $share->price_per_share);
-            $lockedUntil = $project->expected_harvest_date
-                ? $project->expected_harvest_date->endOfDay()
-                : now()->addMonths((int) $project->duration);
-
-            $ownershipReference = null;
-            $blockchainMetadata = [];
-            if ((bool) config('agriculture.blockchain.enabled')) {
-                $ownership = $this->blockchainService->recordFarmInvestment([
-                    'user_id' => $user->id,
-                    'project_id' => $project->id,
-                    'shares_owned' => $requestedShares,
-                    'investment_amount' => $investmentAmount,
-                ]);
-                $ownershipReference = $ownership['ownership_reference'] ?? $ownership['tx_hash'] ?? null;
-                $blockchainMetadata = ['ownership' => $ownership];
-            }
-
-            $investment = FarmInvestment::query()->create([
-                'user_id' => $user->id,
-                'project_id' => $project->id,
-                'shares_owned' => $requestedShares,
-                'investment_amount' => $investmentAmount,
-                'status' => 'locked',
-                'ownership_reference' => $ownershipReference,
-                'locked_until' => $lockedUntil,
-                'metadata' => array_merge($payload['metadata'] ?? [], $blockchainMetadata),
-            ]);
-
-            $share->shares_available -= $requestedShares;
-            $share->save();
-
-            if ($share->shares_available === 0 && $project->status === 'open') {
-                $project->status = 'funded';
-                $project->save();
-            }
-
-            $rewardAmount = $this->mul(
-                (string) $investmentAmount,
-                (string) config('agriculture.rewards.funding_multiplier', '1')
-            );
-
-            $reward = $this->rewardEngineService->issueReward(
-                $user->id,
-                (string) config('agriculture.rewards.investment_activity', 'agriculture_reward'),
-                (string) $investmentAmount,
-                [
-                    'activity_key' => 'agri-investment:' . $investment->id,
-                    'project_id' => $project->id,
-                    'investment_id' => $investment->id,
-                    'reward_amount_override' => $rewardAmount,
-                ]
-            );
-
-            AgriReward::query()->create([
-                'user_id' => $user->id,
-                'project_id' => $project->id,
-                'investment_id' => $investment->id,
-                'activity_type' => 'investment_funding',
-                'reward_amount' => $reward->reward_amount,
-                'status' => $reward->status,
-                'reward_reference' => (string) $reward->id,
-                'metadata' => ['user_reward_id' => $reward->id],
-            ]);
-
-            return $investment->fresh(['project.share']);
-        });
+        return $this->investmentService->purchase(
+            $user,
+            $projectId,
+            (int) $payload['shares_owned'],
+            (string) ($payload['idempotency_key'] ?? ''),
+            (array) ($payload['context'] ?? []),
+        );
     }
 
     public function applyFarmer(User $user, array $payload): Farmer
@@ -252,6 +196,9 @@ class AgriService
                 'location' => $payload['location'],
                 'experience_years' => $payload['experience_years'],
                 'verification_status' => 'pending',
+                'state' => 'APPLIED',
+                'identity_status' => $user->kyc_verified_at ? 'VERIFIED' : 'PENDING',
+                'land_verification_status' => 'PENDING',
                 'identity_documents' => $payload['identity_documents'] ?? null,
                 'equipment_details' => $payload['equipment_details'] ?? null,
                 'geo_metadata' => $payload['geo_metadata'] ?? null,
@@ -265,7 +212,17 @@ class AgriService
         $this->assertRole($user, ['admin']);
 
         $farmer = Farmer::query()->findOrFail($farmerId);
-        $farmer->verification_status = $status;
+        $state = strtoupper($status);
+        if (!in_array($state, ['UNDER_REVIEW', 'NEEDS_INFORMATION', 'VERIFIED', 'APPROVED', 'SUSPENDED', 'REJECTED', 'DEACTIVATED'], true)) {
+            throw new RuntimeException('Invalid farmer review state.');
+        }
+        if ($state === 'APPROVED' && ($farmer->identity_status !== 'VERIFIED' || $farmer->land_verification_status !== 'VERIFIED')) {
+            throw new RuntimeException('Identity and land verification must be completed before farmer approval.');
+        }
+        $farmer->state = $state;
+        $farmer->verification_status = strtolower($state);
+        $farmer->reviewed_by = $user->id;
+        $farmer->reviewed_at = now();
         $farmer->save();
 
         if ($status === 'approved' && $farmer->user_id) {
@@ -392,20 +349,7 @@ class AgriService
 
     public function queueHarvestSettlement(User $user, int $projectId, array $payload): void
     {
-        $this->assertRole($user, ['admin']);
-        FarmingProject::query()->findOrFail($projectId);
-
-        CalculateHarvestReturnsJob::dispatch(
-            $projectId,
-            (string) $payload['gross_revenue'],
-            (string) ($payload['costs'] ?? '0')
-        )->onQueue('agriculture');
-
-        DistributeInvestorRewardsJob::dispatch(
-            $projectId,
-            (string) $payload['gross_revenue'],
-            (string) ($payload['costs'] ?? '0')
-        )->onQueue('agriculture');
+        throw new RuntimeException('Legacy harvest settlement is disabled. Use verified harvest revenue settlement.');
     }
 
     public function calculateHarvestReturns(int $projectId, string $grossRevenue, string $costs): void
@@ -425,51 +369,7 @@ class AgriService
 
     public function distributeHarvestReturns(int $projectId, string $grossRevenue, string $costs): void
     {
-        $project = FarmingProject::query()->with('investments')->findOrFail($projectId);
-        $netRevenue = $this->sub($grossRevenue, $costs);
-        $totalShares = (string) max(1, (int) $project->investments()->sum('shares_owned'));
-        $investorShare = (string) config('agriculture.harvest.default_investor_profit_share', 70);
-        $distributable = $this->div($this->mul($netRevenue, $investorShare), '100');
-
-        foreach ($project->investments as $investment) {
-            $weight = $this->div((string) $investment->shares_owned, $totalShares);
-            $amount = $this->mul($distributable, $weight);
-
-            $reward = AgriReward::query()->create([
-                'user_id' => $investment->user_id,
-                'project_id' => $project->id,
-                'investment_id' => $investment->id,
-                'activity_type' => 'harvest_return',
-                'reward_amount' => $amount,
-                'status' => 'pending_distribution',
-                'metadata' => [
-                    'gross_revenue' => $grossRevenue,
-                    'costs' => $costs,
-                    'net_revenue' => $netRevenue,
-                ],
-            ]);
-
-            if ((bool) config('agriculture.blockchain.enabled')) {
-                $distribution = $this->blockchainService->distributeAgriReward([
-                    'user_id' => $investment->user_id,
-                    'project_id' => $project->id,
-                    'investment_id' => $investment->id,
-                    'amount' => $amount,
-                    'reward_id' => $reward->id,
-                ]);
-
-                $reward->status = 'distributed';
-                $reward->reward_reference = $distribution['tx_hash'] ?? null;
-                $reward->metadata = array_merge($reward->metadata ?? [], ['distribution' => $distribution]);
-                $reward->save();
-            }
-
-            $investment->status = 'settled';
-            $investment->save();
-        }
-
-        $project->status = 'harvested';
-        $project->save();
+        throw new RuntimeException('Legacy projected reward distribution is disabled. Verified revenue is required.');
     }
 
     public function verifyProduceUpdate(int $trackingId): void
@@ -479,12 +379,13 @@ class AgriService
         $hasCoordinates = isset($geoMetadata['lat'], $geoMetadata['lng']);
         $hasImages = count($update->images ?? []) > 0;
 
-        $update->verification_status = $hasCoordinates || $hasImages ? 'verified' : 'pending_review';
+        $update->verification_status = 'pending_external_verification';
         $update->metadata = array_merge($update->metadata ?? [], [
             'verified_at' => now()->toISOString(),
             'auto_checks' => [
                 'has_coordinates' => $hasCoordinates,
                 'has_images' => $hasImages,
+                'note' => 'Automated completeness checks do not verify agricultural truth.',
             ],
         ]);
         $update->save();
@@ -499,28 +400,16 @@ class AgriService
 
     private function mul(string $left, string $right): string
     {
-        if (function_exists('bcmul')) {
-            return bcmul($left, $right, 8);
-        }
-
-        return number_format((float) $left * (float) $right, 8, '.', '');
+        return FinancialDecimal::mul($left, $right);
     }
 
     private function sub(string $left, string $right): string
     {
-        if (function_exists('bcsub')) {
-            return bcsub($left, $right, 8);
-        }
-
-        return number_format((float) $left - (float) $right, 8, '.', '');
+        return FinancialDecimal::sub($left, $right);
     }
 
     private function div(string $left, string $right): string
     {
-        if (function_exists('bcdiv')) {
-            return bcdiv($left, $right, 8);
-        }
-
-        return number_format((float) $left / max((float) $right, 0.00000001), 8, '.', '');
+        return FinancialDecimal::div($left, $right);
     }
 }

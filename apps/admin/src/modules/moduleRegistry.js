@@ -1,5 +1,10 @@
 import { DashboardPage } from "../pages/DashboardPage";
 import { ModulePage } from "../pages/ModulePage";
+import { ContentManagerPage } from "../pages/ContentManagerPage";
+import { FlightGameOperationsPage } from "../pages/FlightGameOperationsPage";
+import { NotificationOperationsPage } from "../pages/NotificationOperationsPage";
+import { SupportOperationsPage } from "../pages/SupportOperationsPage";
+import { CrowdfundingOperationsPage } from "../pages/CrowdfundingOperationsPage";
 
 export const routeRegistry = {
   "/admin": { key: "dashboard", element: DashboardPage },
@@ -21,14 +26,17 @@ export const routeRegistry = {
   "/admin/agritech": { key: "agritech", element: ModulePage },
   "/admin/sports": { key: "sports", element: ModulePage },
   "/admin/edtech": { key: "edtech", element: ModulePage },
-  "/admin/crowdfunding": { key: "crowdfunding", element: ModulePage },
+  "/admin/crowdfunding": { key: "crowdfunding", element: CrowdfundingOperationsPage },
   "/admin/lottery": { key: "lottery", element: ModulePage },
+  "/admin/games-flight": { key: "games-flight", element: FlightGameOperationsPage },
   "/admin/giftcard": { key: "giftcard", element: ModulePage },
   "/admin/exacard": { key: "exacard", element: ModulePage },
-  "/admin/campaigns": { key: "campaigns", element: ModulePage },
+  "/admin/exapay": { key: "exapay", element: ModulePage },
+  "/admin/campaigns": { key: "campaigns", element: ContentManagerPage },
   "/admin/kyc": { key: "kyc", element: ModulePage },
   "/admin/treasury": { key: "treasury", element: ModulePage },
-  "/admin/notifications": { key: "notifications", element: ModulePage },
+  "/admin/notifications": { key: "notifications", element: NotificationOperationsPage },
+  "/admin/support": { key: "support", element: SupportOperationsPage },
   "/admin/logs": { key: "logs", element: ModulePage },
   "/admin/security": { key: "security", element: ModulePage },
   "/admin/admins": { key: "admins", element: ModulePage },

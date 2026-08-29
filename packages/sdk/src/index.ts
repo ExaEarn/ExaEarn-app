@@ -100,6 +100,40 @@ export type ExaEarnAiAllocationRequest = {
   amount: string;
 };
 
+export type ExaPayPaymentIntentRequest = {
+  amount: string;
+  currency: string;
+  idempotency_key: string;
+  payer_user_id?: number;
+  description?: string;
+  merchant_reference?: string;
+  customer_reference?: string;
+  environment?: "SANDBOX" | "PRODUCTION" | ExaEarnEnvironment;
+  capture_mode?: "AUTOMATIC" | "MANUAL";
+  payment_method?: string;
+  expires_at?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ExaPayPaymentLinkRequest = {
+  title: string;
+  description?: string;
+  amount_mode?: "FIXED" | "VARIABLE";
+  amount?: string;
+  currency?: string;
+  maximum_uses?: number;
+  success_url?: string;
+  cancel_url?: string;
+  expires_at?: string;
+  customer_fields?: string[];
+};
+
+export type ExaPayRefundRequest = {
+  payment_reference: string;
+  currency: string;
+  reason: string;
+};
+
 export class ExaEarnRequestError extends Error {
   public readonly status: number;
   public readonly code: string;
@@ -255,6 +289,38 @@ export class ExaEarnClient {
 
   pauseExaAiSession(id: number) {
     return this.request("POST", `/api/developer/v1/exaai/sessions/${id}/pause`, {}, true);
+  }
+
+  exaPayMerchants() {
+    return this.request("GET", "/api/developer/v1/exapay/merchants", undefined, true);
+  }
+
+  exaPayOverview(merchantId: string) {
+    return this.request("GET", `/api/developer/v1/exapay/merchants/${encodeURIComponent(merchantId)}/overview`, undefined, true);
+  }
+
+  exaPayPayments(merchantId: string, params = "") {
+    return this.request("GET", `/api/developer/v1/exapay/merchants/${encodeURIComponent(merchantId)}/payments${params ? `?${params}` : ""}`, undefined, true);
+  }
+
+  createExaPayIntent(merchantId: string, payload: ExaPayPaymentIntentRequest) {
+    return this.request("POST", `/api/developer/v1/exapay/merchants/${encodeURIComponent(merchantId)}/payment-intents`, payload, true);
+  }
+
+  captureExaPayIntent(payIntent: string) {
+    return this.request("POST", `/api/developer/v1/exapay/payment-intents/${encodeURIComponent(payIntent)}/capture`, {}, true);
+  }
+
+  exaPayPaymentLinks(merchantId: string) {
+    return this.request("GET", `/api/developer/v1/exapay/merchants/${encodeURIComponent(merchantId)}/payment-links`, undefined, true);
+  }
+
+  createExaPayPaymentLink(merchantId: string, payload: ExaPayPaymentLinkRequest) {
+    return this.request("POST", `/api/developer/v1/exapay/merchants/${encodeURIComponent(merchantId)}/payment-links`, payload, true);
+  }
+
+  refundExaPayPayment(merchantId: string, payload: ExaPayRefundRequest) {
+    return this.request("POST", `/api/developer/v1/exapay/merchants/${encodeURIComponent(merchantId)}/refunds`, payload, true);
   }
 
   private async request<T = unknown>(

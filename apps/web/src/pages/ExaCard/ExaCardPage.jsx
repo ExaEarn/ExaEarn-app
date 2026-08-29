@@ -1,420 +1,169 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
-  Ban,
-  CreditCard,
-  Eye,
-  LoaderCircle,
-  Lock,
-  RefreshCw,
-  ShieldAlert,
-  ShieldCheck,
-  SlidersHorizontal,
-  WalletCards,
+  ArrowLeft, ChevronRight, CircleDollarSign, CreditCard, Eye,
+  LockKeyhole, LoaderCircle, MoreHorizontal, ShieldAlert,
+  ShieldCheck, SlidersHorizontal, Sparkles, WalletCards, X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
-  createFundingQuote,
-  freezeCard,
-  fundCard,
-  getCardAuthorizations,
-  getCardDetailsToken,
-  getCardRealtimeReplay,
-  getCardProducts,
-  getCardTransactions,
-  getCards,
-  issueCard,
-  reportCardLostOrStolen,
-  unloadCard,
-  unfreezeCard,
-  updateCardControls,
-  updateCardLimits,
+  createFundingQuote, freezeCard, fundCard, getCardAuthorizations,
+  getCardDetailsToken, getCardProducts, getCardRealtimeReplay, getCardTransactions,
+  getCards, issueCard, reportCardLostOrStolen, unloadCard, unfreezeCard,
+  updateCardControls, updateCardLimits,
 } from "../../services/exaCardApi";
 
 function money(value, currency = "USD") {
-  const n = Number(value || 0);
-  return `${currency} ${Number.isFinite(n) ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}`;
+  const amount = Number(value || 0);
+  return `${currency} ${Number.isFinite(amount) ? amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}`;
 }
 
-function idem(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+function idem(prefix) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 
 export default function ExaCardPage({ onBack }) {
   const { request } = useAuth();
   const [products, setProducts] = useState([]);
-  const [provider, setProvider] = useState(null);
   const [cards, setCards] = useState([]);
   const [selectedCardUuid, setSelectedCardUuid] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("USD_VIRTUAL");
-  const [amount, setAmount] = useState("50");
-  const [sourceAsset, setSourceAsset] = useState("USD");
-  const [unloadAmount, setUnloadAmount] = useState("25");
-  const [quote, setQuote] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [authorizations, setAuthorizations] = useState([]);
+  const [amount, setAmount] = useState("50");
+  const [sourceAsset, setSourceAsset] = useState("USD");
+  const [quote, setQuote] = useState(null);
   const [dailyLimit, setDailyLimit] = useState("");
   const [busy, setBusy] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [realtimeState, setRealtimeState] = useState({ status: "connecting", sequence: 0 });
-
+  const [notice, setNotice] = useState("");
+  const [sheet, setSheet] = useState("");
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [unloadAmount, setUnloadAmount] = useState("");
+  const [activityFilter, setActivityFilter] = useState("All");
+  const [realtimeState, setRealtimeState] = useState("connecting");
   const selectedCard = useMemo(() => cards.find((card) => card.card_uuid === selectedCardUuid) || cards[0], [cards, selectedCardUuid]);
   const product = useMemo(() => products.find((item) => item.product_code === selectedProduct) || products[0], [products, selectedProduct]);
+  const available = selectedCard?.balance?.available;
+  const pending = authorizations.filter((item) => !["DECLINED", "COMPLETED", "CANCELED"].includes(String(item.status).toUpperCase()));
+  const activity = [...transactions, ...pending.map((item) => ({ ...item, transaction_uuid: item.authorization_uuid, billing_amount: item.amount, billing_currency: item.currency, type: "AUTHORIZATION" }))].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const filteredActivity = activityFilter === "All" ? activity : activity.filter((item) => String(item.status).toUpperCase() === activityFilter.toUpperCase());
 
   useEffect(() => {
     let mounted = true;
-    async function load() {
-      setBusy("loading");
-      setError("");
-      try {
-        const [productPayload, cardPayload] = await Promise.all([getCardProducts(request), getCards(request)]);
-        if (!mounted) return;
-        setProducts(productPayload.products || []);
-        setProvider(productPayload.provider || null);
-        setCards(Array.isArray(cardPayload) ? cardPayload : []);
-        setSelectedCardUuid((Array.isArray(cardPayload) && cardPayload[0]?.card_uuid) || "");
-      } catch (loadError) {
-        if (mounted) setError(loadError.message || "Unable to load ExaCard.");
-      } finally {
-        if (mounted) setBusy("");
-      }
-    }
-    load();
-    return () => {
-      mounted = false;
-    };
+    Promise.all([getCardProducts(request), getCards(request)]).then(([catalog, result]) => {
+      if (!mounted) return;
+      setProducts(catalog.products || []);
+      setCards(Array.isArray(result) ? result : []);
+      setSelectedCardUuid((Array.isArray(result) && result[0]?.card_uuid) || "");
+    }).catch((loadError) => mounted && setError(loadError.message || "We couldn't load your ExaCard."));
+    return () => { mounted = false; };
   }, [request]);
 
   useEffect(() => {
-    if (!selectedCard?.card_uuid) {
-      setTransactions([]);
-      setAuthorizations([]);
-      return;
-    }
-
+    if (!selectedCard?.card_uuid) return undefined;
     let mounted = true;
-    async function loadActivity() {
-      try {
-        const [tx, auths] = await Promise.all([
-          getCardTransactions(request, selectedCard.card_uuid),
-          getCardAuthorizations(request, selectedCard.card_uuid),
-        ]);
-        if (!mounted) return;
-        setTransactions(Array.isArray(tx) ? tx : []);
-        setAuthorizations(Array.isArray(auths) ? auths : []);
-        setDailyLimit(selectedCard.limits?.daily ? String(selectedCard.limits.daily) : "");
-      } catch {
-        if (mounted) {
-          setTransactions([]);
-          setAuthorizations([]);
-        }
-      }
-    }
-    loadActivity();
-    return () => {
-      mounted = false;
-    };
+    Promise.all([getCardTransactions(request, selectedCard.card_uuid), getCardAuthorizations(request, selectedCard.card_uuid)]).then(([tx, auths]) => {
+      if (mounted) { setTransactions(Array.isArray(tx) ? tx : []); setAuthorizations(Array.isArray(auths) ? auths : []); setDailyLimit(selectedCard.limits?.daily ? String(selectedCard.limits.daily) : ""); }
+    }).catch(() => mounted && setError("Couldn't load card activity."));
+    return () => { mounted = false; };
   }, [request, selectedCard?.card_uuid]);
 
   useEffect(() => {
     let mounted = true;
-    let timer;
-
-    async function applyRealtime() {
-      try {
-        const replay = await getCardRealtimeReplay(request, realtimeState.sequence);
-        if (!mounted) return;
-        const events = replay.events || [];
-        if (replay.reconcile_required) {
-          await refreshCards();
-        }
-        for (const event of events) {
-          const card = event.payload?.card;
-          if (card?.card_uuid) {
-            setCards((prev) => {
-              const exists = prev.some((item) => item.card_uuid === card.card_uuid);
-              return exists ? prev.map((item) => (item.card_uuid === card.card_uuid ? card : item)) : [card, ...prev];
-            });
-            setSelectedCardUuid((current) => current || card.card_uuid);
-          }
-        }
-        if (events.some((event) => String(event.event_type || "").startsWith("card.transaction") || String(event.event_type || "").startsWith("card.authorization") || String(event.event_type || "").startsWith("card.refund") || String(event.event_type || "").startsWith("card.chargeback"))) {
-          const activeCardUuid = selectedCard?.card_uuid;
-          if (activeCardUuid) {
-            const [tx, auths] = await Promise.all([
-              getCardTransactions(request, activeCardUuid),
-              getCardAuthorizations(request, activeCardUuid),
-            ]);
-            if (mounted) {
-              setTransactions(Array.isArray(tx) ? tx : []);
-              setAuthorizations(Array.isArray(auths) ? auths : []);
-            }
-          }
-        }
-        setRealtimeState({ status: replay.reconcile_required ? "reconciled" : "live", sequence: replay.latest_sequence || realtimeState.sequence });
-      } catch {
-        if (mounted) setRealtimeState((current) => ({ ...current, status: "degraded" }));
-      } finally {
-        if (mounted) timer = window.setTimeout(applyRealtime, 10000);
-      }
-    }
-
-    applyRealtime();
-    return () => {
-      mounted = false;
-      window.clearTimeout(timer);
+    const poll = async () => {
+      try { const replay = await getCardRealtimeReplay(request, 0); if (mounted) setRealtimeState(replay.reconcile_required ? "delayed" : "live"); }
+      catch { if (mounted) setRealtimeState("delayed"); }
     };
-  }, [request, realtimeState.sequence, selectedCard?.card_uuid]);
+    poll();
+    const timer = window.setInterval(poll, 15000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [request]);
 
   async function refreshCards() {
     const next = await getCards(request);
     setCards(Array.isArray(next) ? next : []);
-    if (!selectedCardUuid && Array.isArray(next) && next[0]) setSelectedCardUuid(next[0].card_uuid);
   }
-
   async function runAction(name, action, success) {
-    setBusy(name);
-    setError("");
-    setMessage("");
-    try {
-      await action();
-      setMessage(success);
-      await refreshCards();
-    } catch (actionError) {
-      setError(actionError.message || "The card action could not be completed.");
-    } finally {
-      setBusy("");
-    }
+    setBusy(name); setError(""); setNotice("");
+    try { await action(); setNotice(success); await refreshCards(); }
+    catch (actionError) { setError(actionError.message || "The card action could not be completed."); }
+    finally { setBusy(""); }
   }
-
   async function handleIssue() {
-    await runAction("issue", async () => {
-      const card = await issueCard(request, { productCode: selectedProduct, idempotencyKey: idem("issue-card") });
-      setSelectedCardUuid(card.card_uuid);
-    }, "ExaCard issued successfully.");
+    await runAction("issue", async () => { const card = await issueCard(request, { productCode: selectedProduct, idempotencyKey: idem("issue-card") }); setSelectedCardUuid(card.card_uuid); }, "Your ExaCard is ready.");
   }
-
   async function handleQuote() {
     if (!selectedCard) return;
-    setBusy("quote");
-    setError("");
-    setMessage("");
-    try {
-      const nextQuote = await createFundingQuote(request, selectedCard.card_uuid, { sourceAsset, amount });
-      setQuote(nextQuote);
-      setMessage("Funding quote created. Review total debit before funding.");
-    } catch (quoteError) {
-      setError(quoteError.message || "Unable to create quote.");
-    } finally {
-      setBusy("");
-    }
+    setBusy("quote"); setError("");
+    try { setQuote(await createFundingQuote(request, selectedCard.card_uuid, { sourceAsset, amount })); }
+    catch (quoteError) { setError(quoteError.message || "We couldn't create a funding quote."); }
+    finally { setBusy(""); }
   }
-
   async function handleFund() {
     if (!quote) return;
-    await runAction("fund", async () => {
-      await fundCard(request, { quoteUuid: quote.quote_uuid, idempotencyKey: idem("fund-card") });
-      setQuote(null);
-    }, "Card funding submitted. Provider-confirmed funding settles through the ledger.");
+    await runAction("fund", async () => { await fundCard(request, { quoteUuid: quote.quote_uuid, idempotencyKey: idem("fund-card") }); setQuote(null); setSheet(""); }, "Funding submitted.");
   }
-
+  async function toggleFreeze() {
+    if (!selectedCard) return;
+    const frozen = ["FROZEN", "BLOCKED"].includes(String(selectedCard.status).toUpperCase());
+    if (!frozen && !window.confirm("Freeze this card? New card payments will be declined until you unfreeze it.")) return;
+    await runAction("freeze", () => frozen ? unfreezeCard(request, selectedCard.card_uuid, "User requested unfreeze.") : freezeCard(request, selectedCard.card_uuid, "User requested temporary freeze."), frozen ? "Card unfrozen." : "Card frozen.");
+  }
+  async function showDetails() {
+    if (!selectedCard) return;
+    await runAction("details", () => getCardDetailsToken(request, selectedCard.card_uuid), "Secure card details requested. Follow the provider's secure display flow.");
+  }
   async function handleUnload() {
-    if (!selectedCard) return;
-    await runAction("unload", async () => {
-      await unloadCard(request, selectedCard.card_uuid, { amount: unloadAmount, idempotencyKey: idem("unload-card") });
-    }, "Unload submitted and settled back to your funding account after provider confirmation.");
+    if (!selectedCard || !unloadAmount) return;
+    await runAction("unload", () => unloadCard(request, selectedCard.card_uuid, { amount: unloadAmount, idempotencyKey: idem("unload-card") }), "Unload submitted.");
+    setUnloadAmount("");
+    setSheet("");
   }
 
-  async function toggleOnline() {
-    if (!selectedCard) return;
-    await runAction("controls", async () => {
-      const updated = await updateCardControls(request, selectedCard.card_uuid, { online: !selectedCard.controls?.online });
-      setCards((prev) => prev.map((card) => (card.card_uuid === updated.card_uuid ? updated : card)));
-    }, "Card control updated.");
-  }
-
-  async function updateDailyLimit() {
-    if (!selectedCard || !dailyLimit) return;
-    await runAction("limits", async () => {
-      await updateCardLimits(request, selectedCard.card_uuid, { daily: dailyLimit });
-    }, "Card limit updated.");
-  }
-
-  return (
-    <main className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
-      <header className="sticky top-0 z-30 border-b border-[var(--exa-border)] bg-[var(--exa-surface)]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
-          <button type="button" onClick={onBack} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold-light)]" aria-label="Back">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--exa-gold-light)]">ExaCard</p>
-            <h1 className="text-xl font-semibold sm:text-2xl">Cards, funding, controls and activity</h1>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto grid max-w-6xl gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <Panel>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-[var(--exa-text-secondary)]">Provider mode</p>
-              <h2 className="mt-1 text-lg font-semibold">{provider?.provider || "ExaCard"} {provider?.mode ? `(${provider.mode})` : ""}</h2>
-            </div>
-            <span className="rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-3 py-1 text-xs font-semibold text-[var(--exa-gold-light)]">{provider?.status || "Loading"}</span>
-          </div>
-          <p className={`mt-3 rounded-xl border px-3 py-2 text-xs ${realtimeState.status === "degraded" ? "border-amber-400/25 bg-amber-400/10 text-amber-100" : "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"}`}>
-            Realtime {realtimeState.status}. Last sequence {realtimeState.sequence}.
-          </p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {products.map((item) => (
-              <button key={item.product_code} type="button" onClick={() => setSelectedProduct(item.product_code)} className={`rounded-2xl border p-4 text-left transition ${selectedProduct === item.product_code ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]"}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <CreditCard className="h-5 w-5 text-[var(--exa-gold-light)]" />
-                  <span className="text-xs text-[var(--exa-text-muted)]">{item.enabled ? "Enabled" : "Disabled"}</span>
-                </div>
-                <h3 className="mt-3 font-semibold">{item.product_code.replace("_", " ")}</h3>
-                <p className="mt-1 text-sm text-[var(--exa-text-secondary)]">{item.currency} {item.type?.toLowerCase()} card</p>
-              </button>
-            ))}
-          </div>
-
-          <button type="button" onClick={handleIssue} disabled={busy === "issue" || !product?.enabled} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--exa-gold)] px-4 py-3 font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-50 sm:w-auto">
-            {busy === "issue" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <WalletCards className="h-4 w-4" />} Issue selected card
-          </button>
-        </Panel>
-
-        <Panel>
-          <h2 className="text-lg font-semibold">Your cards</h2>
-          <div className="mt-4 space-y-3">
-            {cards.length ? cards.map((card) => (
-              <button key={card.card_uuid} type="button" onClick={() => setSelectedCardUuid(card.card_uuid)} className={`w-full rounded-2xl border p-4 text-left ${selectedCard?.card_uuid === card.card_uuid ? "border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)]" : "border-[var(--exa-border)] bg-[var(--exa-surface-elevated)]"}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold">{card.network || "CARD"} **** {card.last_four || "----"}</span>
-                  <span className="text-xs text-[var(--exa-text-muted)]">{card.status}</span>
-                </div>
-                <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">{money(card.balance?.available, card.currency)} available</p>
-              </button>
-            )) : <p className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-sm text-[var(--exa-text-muted)]">No ExaCard has been issued yet.</p>}
-          </div>
-        </Panel>
-
-        <Panel wide>
-          <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-            <div>
-              <h2 className="text-lg font-semibold">Fund selected card</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Field label="Source asset" value={sourceAsset} onChange={(value) => setSourceAsset(value.toUpperCase())} />
-                <Field label="Card amount" value={amount} onChange={setAmount} />
-                <ActionButton onClick={handleQuote} disabled={!selectedCard || busy === "quote"} icon={busy === "quote" ? LoaderCircle : SlidersHorizontal} spin={busy === "quote"}>Quote</ActionButton>
-              </div>
-            </div>
-            <Summary quote={quote} onConfirm={handleFund} busy={busy === "fund"} />
-          </div>
-        </Panel>
-
-        {selectedCard ? (
-          <Panel wide>
-            <div className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
-              <div>
-                <h2 className="text-lg font-semibold">Security controls</h2>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <ActionButton onClick={toggleOnline} disabled={busy === "controls"} icon={Lock}>Online: {selectedCard.controls?.online ? "On" : "Off"}</ActionButton>
-                  <ActionButton onClick={() => runAction("freeze", () => freezeCard(request, selectedCard.card_uuid, "User requested temporary freeze."), "Card frozen.")} icon={Ban}>Freeze</ActionButton>
-                  <ActionButton onClick={() => runAction("unfreeze", () => unfreezeCard(request, selectedCard.card_uuid, "User requested unfreeze."), "Card unfrozen.")} icon={RefreshCw}>Unfreeze</ActionButton>
-                  <ActionButton onClick={() => runAction("details", () => getCardDetailsToken(request, selectedCard.card_uuid), "Secure card-detail token created. Sensitive details remain provider-hosted.")} icon={Eye}>View details</ActionButton>
-                  <ActionButton onClick={() => runAction("lost", () => reportCardLostOrStolen(request, selectedCard.card_uuid, "User reported card lost or stolen."), "Card blocked and report recorded.")} icon={ShieldAlert}>Report lost/stolen</ActionButton>
-                </div>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">Unload and limits</h2>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <Field label="Unload amount" value={unloadAmount} onChange={setUnloadAmount} />
-                  <ActionButton onClick={handleUnload} disabled={busy === "unload"} icon={WalletCards}>Unload</ActionButton>
-                  <Field label="Daily limit" value={dailyLimit} onChange={setDailyLimit} />
-                  <ActionButton onClick={updateDailyLimit} disabled={busy === "limits"} icon={SlidersHorizontal}>Save limit</ActionButton>
-                </div>
-              </div>
-            </div>
-          </Panel>
-        ) : null}
-
-        <Panel wide>
-          <div className="grid gap-5 lg:grid-cols-2">
-            <ActivityList title="Recent transactions" items={transactions} empty="Card transactions will appear after provider webhooks are processed." />
-            <ActivityList title="Authorizations" items={authorizations} empty="Open card authorizations appear here." />
-          </div>
-        </Panel>
-
-        {message ? <p className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200 lg:col-span-2">{message}</p> : null}
-        {error ? <p className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200 lg:col-span-2">{error}</p> : null}
-        {busy === "loading" ? <p className="text-sm text-[var(--exa-text-muted)] lg:col-span-2">Loading ExaCard...</p> : null}
-      </section>
-    </main>
-  );
-}
-
-function Panel({ children, wide = false }) {
-  return <div className={`rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-5 ${wide ? "lg:col-span-2" : ""}`}>{children}</div>;
-}
-
-function Field({ label, value, onChange }) {
-  return (
-    <label className="text-sm text-[var(--exa-text-secondary)]">
-      {label}
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 text-[var(--exa-text-primary)] outline-none focus:border-[var(--exa-border-active)]" />
-    </label>
-  );
-}
-
-function ActionButton({ children, disabled, icon: Icon, onClick, spin = false }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 text-sm font-semibold text-[var(--exa-text-primary)] transition hover:border-[var(--exa-border-active)] disabled:opacity-50">
-      <Icon className={`h-4 w-4 text-[var(--exa-gold-light)] ${spin ? "animate-spin" : ""}`} /> {children}
-    </button>
-  );
-}
-
-function Summary({ quote, onConfirm, busy }) {
-  return (
-    <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
-      <h3 className="font-semibold">Funding summary</h3>
-      {quote ? (
-        <div className="mt-3 space-y-2 text-sm text-[var(--exa-text-secondary)]">
-          <Line label="Card receives" value={money(quote.card_amount, quote.card_currency)} />
-          <Line label="Card fee" value={money(quote.card_fee, quote.source_asset)} />
-          <Line label="Provider fee" value={money(quote.provider_fee, quote.source_asset)} />
-          <Line label="Total debit" value={money(quote.total_debit, quote.source_asset)} />
-          <button type="button" onClick={onConfirm} disabled={busy} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--exa-gold)] px-4 py-3 font-semibold text-[var(--exa-gold-contrast)] disabled:opacity-50">
-            {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Confirm funding
-          </button>
-        </div>
-      ) : <p className="mt-3 text-sm text-[var(--exa-text-muted)]">Create a quote to see provider-confirmed funding details.</p>}
-    </div>
-  );
-}
-
-function ActivityList({ title, items, empty }) {
-  return (
-    <div>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <div className="mt-4 space-y-2">
-        {items.length ? items.slice(0, 8).map((item) => (
-          <div key={item.transaction_uuid || item.authorization_uuid} className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-semibold">{item.merchant || item.type || item.status}</span>
-              <span className="text-[var(--exa-text-muted)]">{item.status}</span>
-            </div>
-            <p className="mt-1 text-[var(--exa-text-secondary)]">{money(item.billing_amount || item.amount, item.billing_currency || item.currency)}</p>
-          </div>
-        )) : <p className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-sm text-[var(--exa-text-muted)]">{empty}</p>}
+  return <main className="min-h-screen bg-[var(--exa-bg-primary)] text-[var(--exa-text-primary)]">
+    <header className="border-b border-[var(--exa-border)] bg-[var(--exa-surface)]/90 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
+        <button type="button" onClick={onBack} aria-label="Back" className="icon-button"><ArrowLeft className="h-5 w-5" /></button>
+        <div><p className="eyebrow">ExaCard</p><h1 className="text-xl font-semibold">Your card</h1></div>
+        {selectedCard && <span className={`ml-auto status-badge ${selectedCard.status === "ACTIVE" ? "status-good" : "status-warn"}`}>{selectedCard.status}</span>}
       </div>
+    </header>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10">
+      {error && <div role="alert" className="mb-5 flex items-center justify-between rounded-xl border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100"><span>{error}</span><button type="button" onClick={() => setError("")} aria-label="Dismiss error"><X className="h-4 w-4" /></button></div>}
+      {notice && <div role="status" className="mb-5 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-4 text-sm text-emerald-100">{notice}</div>}
+      {!selectedCard ? <EmptyState product={product} onIssue={handleIssue} busy={busy === "issue"} onProduct={setSelectedProduct} products={products} /> : <>
+        <section className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,.9fr)]">
+          <CardVisual card={selectedCard} frozen={["FROZEN", "BLOCKED"].includes(String(selectedCard.status).toUpperCase())} />
+          <div className="space-y-5 lg:pt-5">
+            <div><p className="eyebrow">Available to spend</p><p className="balance-value">{available == null ? "--" : money(available, selectedCard.currency)}</p><p className="mt-2 text-sm text-[var(--exa-text-secondary)]">{selectedCard.type === "VIRTUAL" ? "Virtual ExaCard" : "ExaCard"} <span className="mx-2 text-[var(--exa-text-muted)]">•</span> {selectedCard.currency}</p></div>
+            <div className="grid grid-cols-2 gap-3"><Stat label="Pending" value={money(pending.reduce((sum, item) => sum + Number(item.amount || 0), 0), selectedCard.currency)} /><Stat label="Card balance" value={money(selectedCard.balance?.total ?? available, selectedCard.currency)} /></div>
+            <div className="quick-actions"><QuickAction label="Fund" icon={CircleDollarSign} onClick={() => setSheet("fund")} /><QuickAction label="Details" icon={Eye} onClick={showDetails} /><QuickAction label={String(selectedCard.status).toUpperCase() === "FROZEN" ? "Unfreeze" : "Freeze"} icon={LockKeyhole} onClick={toggleFreeze} /><QuickAction label="More" icon={MoreHorizontal} onClick={() => setSheet("more")} /></div>
+          </div>
+        </section>
+        <section className="mt-10 grid gap-6 lg:grid-cols-[1.25fr_.75fr]">
+          <Panel><div className="section-heading"><div><p className="eyebrow">Activity</p><h2>Recent activity</h2></div><button type="button" className="text-button">View all <ChevronRight className="h-4 w-4" /></button></div><div className="filter-row">{["All", "Completed", "Pending", "Declined"].map((filter) => <button type="button" key={filter} onClick={() => setActivityFilter(filter)} className={activityFilter === filter ? "filter-active" : "filter-button"}>{filter}</button>)}</div><div className="mt-3">{filteredActivity.length ? filteredActivity.slice(0, 8).map((item) => <ActivityRow key={item.transaction_uuid || item.authorization_uuid} item={item} currency={selectedCard.currency} onClick={() => setSelectedActivity(item)} />) : <EmptyInline text="Your card activity will appear here." />}</div></Panel>
+          <div className="space-y-6"><Panel><div className="section-heading"><div><p className="eyebrow">Protection</p><h2>Card controls</h2></div><ShieldCheck className="h-5 w-5 text-[var(--exa-gold-light)]" /></div><Control label="Online payments" enabled={selectedCard.controls?.online} onClick={() => runAction("controls", () => updateCardControls(request, selectedCard.card_uuid, { online: !selectedCard.controls?.online }), "Card control updated.")} busy={busy === "controls"} /><Control label="International payments" enabled={selectedCard.controls?.international} onClick={() => runAction("controls", () => updateCardControls(request, selectedCard.card_uuid, { international: !selectedCard.controls?.international }), "Card control updated.")} busy={busy === "controls"} /><Control label="ATM withdrawals" enabled={selectedCard.controls?.atm} onClick={() => runAction("controls", () => updateCardControls(request, selectedCard.card_uuid, { atm: !selectedCard.controls?.atm }), "Card control updated.")} busy={busy === "controls"} /></Panel><Panel><div className="section-heading"><div><p className="eyebrow">Guardrails</p><h2>Spending limits</h2></div><SlidersHorizontal className="h-5 w-5 text-[var(--exa-gold-light)]" /></div><Limit label="Daily spending" value={selectedCard.limits?.daily} max={selectedCard.limits?.daily} /><Limit label="Monthly spending" value={selectedCard.limits?.monthly} max={selectedCard.limits?.monthly} /><div className="mt-4 flex gap-2"><input aria-label="Daily spending limit" value={dailyLimit} onChange={(event) => setDailyLimit(event.target.value)} placeholder="Daily limit" className="field" /><button type="button" onClick={() => runAction("limits", () => updateCardLimits(request, selectedCard.card_uuid, { daily: dailyLimit }), "Spending limit updated.")} disabled={!dailyLimit || busy === "limits"} className="gold-button px-3">Save</button></div></Panel></div>
+        </section>
+        {realtimeState === "delayed" && <p className="mt-5 text-sm text-amber-200">Card activity may be temporarily delayed.</p>}
+      </>}
     </div>
-  );
+    {sheet === "fund" && <FundSheet amount={amount} setAmount={setAmount} sourceAsset={sourceAsset} setSourceAsset={setSourceAsset} quote={quote} onQuote={handleQuote} onFund={handleFund} busy={busy} onClose={() => { setSheet(""); setQuote(null); }} />}
+    {sheet === "more" && <MoreSheet onClose={() => setSheet("")} onLost={() => runAction("lost", () => reportCardLostOrStolen(request, selectedCard.card_uuid, "User reported card lost or stolen."), "Card blocked and report recorded.")} onUnload={() => setSheet("unload")} />}
+    {sheet === "unload" && <UnloadSheet amount={unloadAmount} setAmount={setUnloadAmount} onClose={() => setSheet("")} onUnload={handleUnload} busy={busy === "unload"} />}
+    {selectedActivity && <ActivityDetails item={selectedActivity} currency={selectedCard?.currency} onClose={() => setSelectedActivity(null)} />}
+  </main>;
 }
 
-function Line({ label, value }) {
-  return <div className="flex items-center justify-between gap-3"><span>{label}</span><strong className="text-[var(--exa-text-primary)]">{value}</strong></div>;
-}
+function CardVisual({ card, frozen }) { return <div className={`exa-card-visual ${frozen ? "exa-card-frozen" : ""}`}><div className="flex items-start justify-between"><span className="font-semibold tracking-[.18em]">EXAEARN</span><Sparkles className="h-5 w-5 text-[var(--exa-gold)]" /></div><div className="mt-12"><div className="chip" /><p className="mt-5 text-lg tracking-[.22em]">•••• •••• •••• {card.last_four || "----"}</p></div><div className="mt-10 flex items-end justify-between"><div><p className="card-label">Cardholder</p><p className="mt-1 font-semibold uppercase">{card.nickname || "ExaEarn member"}</p></div><div><p className="card-label">Valid thru</p><p className="mt-1 font-semibold">{card.expiry_month && card.expiry_year ? `${String(card.expiry_month).padStart(2, "0")}/${String(card.expiry_year).slice(-2)}` : "--/--"}</p></div><span className="text-xs font-semibold tracking-[.16em]">{card.type || "VIRTUAL"}</span></div>{frozen && <div className="absolute inset-0 flex items-center justify-center rounded-3xl bg-black/45 text-sm font-semibold tracking-[.16em] text-white">CARD FROZEN</div>}</div>; }
+function EmptyState({ product, products, onProduct, onIssue, busy }) { return <section className="mx-auto max-w-4xl py-4 lg:py-12"><div className="grid items-center gap-8 lg:grid-cols-[.85fr_1.15fr]"><CardVisual card={{ type: "VIRTUAL", last_four: null, nickname: "Your name", expiry_month: null, expiry_year: null }} /><div><p className="eyebrow">ExaCard</p><h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Your ExaCard is waiting.</h2><p className="mt-4 max-w-md text-[var(--exa-text-secondary)]">Spend your ExaEarn balance wherever your ExaCard is supported.</p><select aria-label="Card product" value={product?.product_code || ""} onChange={(event) => onProduct(event.target.value)} className="field mt-6 max-w-xs">{products.filter((item) => item.enabled).map((item) => <option key={item.product_code} value={item.product_code}>{item.currency} virtual card</option>)}</select><button type="button" onClick={onIssue} disabled={busy || !product?.enabled} className="gold-button mt-4">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} Get ExaCard</button><p className="mt-5 text-xs text-[var(--exa-text-muted)]">Eligibility and verification requirements apply.</p></div></div></section>; }
+function FundSheet({ amount, setAmount, sourceAsset, setSourceAsset, quote, onQuote, onFund, busy, onClose }) { return <Modal title="Fund ExaCard" onClose={onClose}><div className="grid gap-4 sm:grid-cols-2"><label className="label">From<select value={sourceAsset} onChange={(event) => setSourceAsset(event.target.value)} className="field mt-2"><option>USD</option><option>USDT</option><option>USDC</option></select></label><label className="label">Amount<input type="number" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} className="field mt-2" /></label></div><div className="mt-3 flex gap-2">{["50", "100", "250", "500"].map((value) => <button type="button" key={value} onClick={() => setAmount(value)} className="filter-button">${value}</button>)}</div>{quote ? <div className="summary-box mt-6"><Line label="You receive" value={money(quote.card_amount, quote.card_currency)} /><Line label="Fee" value={money(Number(quote.card_fee || 0) + Number(quote.provider_fee || 0), quote.source_asset)} /><Line label="Total" value={money(quote.total_debit, quote.source_asset)} />{quote.expires_at && <p className="mt-3 text-xs text-[var(--exa-text-muted)]">Quote expires {new Date(quote.expires_at).toLocaleTimeString()}</p>}<button type="button" onClick={onFund} disabled={busy === "fund"} className="gold-button mt-5 w-full">{busy === "fund" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Fund Card</button></div> : <button type="button" onClick={onQuote} disabled={busy === "quote"} className="gold-button mt-6 w-full">{busy === "quote" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <SlidersHorizontal className="h-4 w-4" />} Review funding</button>}</Modal>; }
+function MoreSheet({ onClose, onLost, onUnload }) { return <Modal title="Card management" onClose={onClose}><button type="button" onClick={onUnload} className="management-row"><WalletCards className="h-5 w-5" /> Unload card balance <ChevronRight className="ml-auto h-4 w-4" /></button><button type="button" onClick={onLost} className="management-row text-red-200"><ShieldAlert className="h-5 w-5" /> Report lost or stolen <ChevronRight className="ml-auto h-4 w-4" /></button></Modal>; }
+function Modal({ title, children, onClose }) { return <div className="modal-backdrop" role="presentation"><div role="dialog" aria-modal="true" aria-labelledby="modal-title" className="modal-sheet"><div className="section-heading"><h2 id="modal-title">{title}</h2><button type="button" onClick={onClose} className="icon-button" aria-label="Close"><X className="h-5 w-5" /></button></div>{children}</div></div>; }
+function Panel({ children }) { return <section className="surface-panel">{children}</section>; }
+function Stat({ label, value }) { return <div className="stat-box"><p>{label}</p><strong>{value}</strong></div>; }
+function QuickAction({ label, icon: Icon, onClick }) { return <button type="button" onClick={onClick} className="quick-action"><span><Icon className="h-5 w-5" /></span><small>{label}</small></button>; }
+function Control({ label, enabled, onClick, busy }) { return <div className="control-row"><span>{label}<small>{enabled ? "Enabled" : "Disabled"}</small></span><button type="button" aria-label={`${label}: ${enabled ? "Enabled" : "Disabled"}`} onClick={onClick} disabled={busy} className={`toggle ${enabled ? "toggle-on" : ""}`}><span /></button></div>; }
+function Limit({ label, value, max }) { const numeric = Number(value || 0); return <div className="mb-4"><div className="flex justify-between text-sm"><span className="text-[var(--exa-text-secondary)]">{label}</span><strong>{value ? money(value) : "Not set"}</strong></div><div className="limit-track"><span style={{ width: `${max ? Math.min(100, numeric / Number(max) * 100) : 0}%` }} /></div></div>; }
+function ActivityRow({ item, currency, onClick }) { const positive = String(item.type).toUpperCase().includes("FUND") || Number(item.billing_amount || item.amount || 0) < 0; return <button type="button" onClick={onClick} className="activity-row w-full text-left"><span className="merchant-icon"><CreditCard className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate">{item.merchant || (item.type === "AUTHORIZATION" ? "Card verification" : "Card activity")}</strong><small>{item.created_at ? new Date(item.created_at).toLocaleDateString() : "Recently"}</small></span><span className="text-right"><strong className={positive ? "text-emerald-300" : ""}>{positive ? "+" : "-"}{money(Math.abs(Number(item.billing_amount || item.amount || 0)), item.billing_currency || item.currency || currency)}</strong><small className="block">{item.status}</small></span></button>; }
+function UnloadSheet({ amount, setAmount, onClose, onUnload, busy }) { return <Modal title="Unload card balance" onClose={onClose}><label className="label">Amount<input type="number" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} className="field mt-2" placeholder="Amount to return" /></label><p className="mt-3 text-sm text-[var(--exa-text-secondary)]">Funds return to your ExaEarn funding wallet.</p><button type="button" onClick={onUnload} disabled={!amount || busy} className="gold-button mt-6 w-full">{busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <WalletCards className="h-4 w-4" />} Unload balance</button></Modal>; }
+function ActivityDetails({ item, currency, onClose }) { const amount = Number(item.billing_amount || item.amount || 0); return <Modal title={item.merchant || (item.type === "AUTHORIZATION" ? "Card verification" : "Card activity")} onClose={onClose}><div className="space-y-3"><Line label="Amount" value={money(Math.abs(amount), item.billing_currency || item.currency || currency)} /><Line label="Status" value={item.status || "Unknown"} /><Line label="Date" value={item.created_at ? new Date(item.created_at).toLocaleString() : "Unavailable"} />{item.transaction_uuid && <Line label="Reference" value={item.transaction_uuid} />}</div></Modal>; }
+function EmptyInline({ text }) { return <div className="empty-inline"><CreditCard className="mx-auto mb-2 h-6 w-6" /><p>{text}</p></div>; }
+function Line({ label, value }) { return <div className="flex justify-between gap-3 text-sm"><span className="text-[var(--exa-text-secondary)]">{label}</span><strong>{value}</strong></div>; }

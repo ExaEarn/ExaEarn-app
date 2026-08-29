@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Staking\Contracts\SecureSignerInterface;
 use App\Domain\Staking\Services\HttpSecureSigner;
+use App\Contracts\NftMediaStorageProviderInterface;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 use App\Models\AutoTradingStrategy;
@@ -20,6 +21,7 @@ use App\Policies\DeviceTokenPolicy;
 use App\Policies\NotificationPolicy;
 use App\Policies\TradingSignalPolicy;
 use App\Services\PortfolioService;
+use App\Services\NftLocalMediaStorageProvider;
 use App\Services\RealtimeStreamService;
 use App\Services\ReferralService;
 use App\Services\RewardEngineService;
@@ -38,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(SecureSignerInterface::class, HttpSecureSigner::class);
         $this->app->bind(ExternalSpotVenue::class, BinanceSpotVenueAdapter::class);
+        $this->app->bind(NftMediaStorageProviderInterface::class, NftLocalMediaStorageProvider::class);
     }
 
     /**

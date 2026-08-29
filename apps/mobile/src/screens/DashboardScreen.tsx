@@ -16,8 +16,13 @@ type DashboardScreenProps = {
   onOpenExaCard?: () => void;
   onOpenGiftcard?: () => void;
   onOpenMarket?: () => void;
+  onOpenNotifications?: () => void;
   onOpenStaking?: () => void;
+  onOpenSupport?: () => void;
   onOpenTrade?: () => void;
+  onOpenCrowdfunding?: () => void;
+  onOpenExaSkills?: () => void;
+  onOpenNft?: () => void;
 };
 
 type Balance = {
@@ -66,6 +71,7 @@ const features = [
   { label: "ExaCard", image: featureAssets.giftcard, icon: "card-outline" as const, tone: "#f9e2ad" },
   { label: "Gift Cards", image: featureAssets.giftcard, icon: "gift-outline" as const, tone: "#f9e2ad" },
   { label: "ExaEarn Staking", image: featureAssets.earn, icon: "cash-outline" as const, tone: "#67e8f9" },
+  { label: "Support", image: featureAssets.more, icon: "headset-outline" as const, tone: "#93c5fd" },
   { label: "Games", image: featureAssets.games, icon: "game-controller-outline" as const, tone: "#c4b5fd" },
   { label: "NFT Market", image: featureAssets.nft, icon: "diamond-outline" as const, tone: "#93c5fd" },
   { label: "Crowdfund", image: featureAssets.crowdfund, icon: "people-outline" as const, tone: "#facc15" },
@@ -204,7 +210,7 @@ function DailyRewardCard({
   );
 }
 
-export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftcard, onOpenMarket, onOpenStaking, onOpenTrade }: DashboardScreenProps) {
+export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftcard, onOpenMarket, onOpenNotifications, onOpenStaking, onOpenSupport, onOpenTrade, onOpenCrowdfunding, onOpenExaSkills, onOpenNft }: DashboardScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { user, logout, request, apiBaseUrl } = useAuth();
@@ -213,6 +219,7 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
   const [liveMarkets, setLiveMarkets] = useState<MarketItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [checkins, setCheckins] = useState<CheckInItem[]>([]);
+  const [flightState, setFlightState] = useState<Record<string, unknown> | null>(null);
   const [marketFilter, setMarketFilter] = useState("Top");
   const [activePanel, setActivePanel] = useState("Home");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -289,9 +296,9 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
       },
       Games: {
         icon: "game-controller-outline",
-        title: "GameFi Arcade",
-        body: "Join reward games, lotteries, and engagement quests connected to your Exa points.",
-        action: "Browse Games",
+        title: "EXA Flight",
+        body: "Free-play flight rounds with no withdrawable value. Real-money mode remains disabled pending external approval.",
+        action: "Open Demo",
       },
       "NFT Market": {
         icon: "diamond-outline",
@@ -375,12 +382,13 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
     setLoading(true);
     setMessage("");
     try {
-      const [walletPayload, pointsPayload, historyPayload, notificationsPayload, marketsPayload] = await Promise.allSettled([
+      const [walletPayload, pointsPayload, historyPayload, notificationsPayload, marketsPayload, flightPayload] = await Promise.allSettled([
         request<Record<string, unknown>>("/api/wallet/balances", { method: "GET" }),
         request<Record<string, unknown>>("/api/points", { method: "GET" }),
         request<Record<string, unknown>>("/api/checkin/history", { method: "GET" }),
         request<Record<string, unknown>>("/api/notifications/unread", { method: "GET" }),
         request<Record<string, unknown>>("/api/trade/markets", { method: "GET" }),
+        request<Record<string, unknown>>("/api/games/flight/state", { method: "GET" }),
       ]);
 
       if (walletPayload.status === "fulfilled") {
@@ -403,6 +411,11 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
       if (marketsPayload.status === "fulfilled") {
         const normalized = normalizeMarkets(marketsPayload.value);
         if (normalized.length) setLiveMarkets(normalized);
+      }
+
+      if (flightPayload.status === "fulfilled") {
+        const data = flightPayload.value.data;
+        setFlightState(data && typeof data === "object" ? (data as Record<string, unknown>) : flightPayload.value);
       }
 
       if (walletPayload.status === "rejected" && pointsPayload.status === "rejected" && marketsPayload.status === "rejected") {
@@ -484,7 +497,7 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
             </View>
             <View style={styles.headerActions}>
               <View style={styles.notificationMenu}>
-                <AnimatedPressable style={styles.iconButton} onPress={() => setNotificationsOpen((value) => !value)}>
+                <AnimatedPressable style={styles.iconButton} onPress={() => onOpenNotifications ? onOpenNotifications() : setNotificationsOpen((value) => !value)}>
                   <Ionicons name="notifications-outline" size={18} color="rgba(255,255,255,0.62)" />
                   {unreadCount ? (
                     <View style={styles.notificationCount}>
@@ -645,7 +658,23 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
                       onOpenStaking();
                       return;
                     }
-                    if (item.label === "More" || item.label === "Games" || item.label === "NFT Market" || item.label === "Crowdfund" || item.label === "Agritech" || item.label === "EdTech") {
+                    if (item.label === "Support" && onOpenSupport) {
+                      onOpenSupport();
+                      return;
+                    }
+                    if (item.label === "Crowdfund" && onOpenCrowdfunding) {
+                      onOpenCrowdfunding();
+                      return;
+                    }
+                    if (item.label === "EdTech" && onOpenExaSkills) {
+                      onOpenExaSkills();
+                      return;
+                    }
+                    if (item.label === "NFT Market" && onOpenNft) {
+                      onOpenNft();
+                      return;
+                    }
+                    if (item.label === "More" || item.label === "Games" || item.label === "NFT Market" || item.label === "Agritech" || item.label === "EdTech") {
                       setActivePanel(item.label);
                       return;
                     }
@@ -685,6 +714,48 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
               ))}
             </View>
           </View>
+
+          {activePanel === "Games" ? (
+            <View style={styles.flightMobileCard}>
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="min-w-0 flex-1">
+                  <Text className="text-[9px] uppercase tracking-[1.7px] text-cyan-100/80" style={{ fontFamily: fonts.semibold }}>
+                    EXA Flight Demo
+                  </Text>
+                  <Text className="mt-1 text-[17px] text-violet-50" style={{ fontFamily: fonts.display }}>
+                    Free play only
+                  </Text>
+                  <Text className="mt-1 text-[10px] leading-4 text-violet-100/68" style={{ fontFamily: fonts.body }}>
+                    Demo credits have no withdrawal value and do not affect your ExaEarn balance.
+                  </Text>
+                </View>
+                <View style={styles.flightDemoBadge}>
+                  <Text className="text-[9px] text-cyan-50" style={{ fontFamily: fonts.semibold }}>DEMO</Text>
+                </View>
+              </View>
+
+              <View style={styles.flightInfoGrid}>
+                {[
+                  ["Round", `#${String((flightState?.round as Record<string, unknown> | undefined)?.round_number ?? "--")}`],
+                  ["State", String((flightState?.round as Record<string, unknown> | undefined)?.round_state ?? (flightState?.round as Record<string, unknown> | undefined)?.status ?? "Unavailable")],
+                  ["Realtime", flightState ? "Backend authoritative" : "Reconnect to refresh"],
+                  ["Fairness", "Seed hash + reveal"],
+                ].map(([label, value]) => (
+                  <View key={label} style={styles.flightInfoCell}>
+                    <Text className="text-[8px] uppercase tracking-[1.2px] text-violet-100/42" style={{ fontFamily: fonts.semibold }}>{label}</Text>
+                    <Text className="mt-1 text-[10px] text-violet-50" numberOfLines={2} style={{ fontFamily: fonts.semibold }}>{value}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.flightSafetyBox}>
+                <Ionicons name="shield-checkmark-outline" size={15} color="#a7f3d0" />
+                <Text className="ml-2 flex-1 text-[10px] leading-4 text-emerald-100/82" style={{ fontFamily: fonts.body }}>
+                  Real-money EXA Flight is disabled. If enabled later, KYC, jurisdiction, responsible-gaming limits and treasury checks are enforced server-side.
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.marketSection}>
             <View className="mb-2 flex-row items-center justify-between">
@@ -947,6 +1018,46 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
     backgroundColor: "rgba(255,255,255,0.04)",
     padding: 16,
+  },
+  flightMobileCard: {
+    marginTop: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.18)",
+    backgroundColor: "rgba(8,18,32,0.72)",
+    padding: 14,
+  },
+  flightDemoBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(103,232,249,0.28)",
+    backgroundColor: "rgba(103,232,249,0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  flightInfoGrid: {
+    marginTop: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  flightInfoCell: {
+    width: "48%",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.035)",
+    padding: 10,
+  },
+  flightSafetyBox: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.18)",
+    backgroundColor: "rgba(16,185,129,0.08)",
+    padding: 10,
   },
   headerActions: {
     flexDirection: "row",

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DeviceToken;
 use App\Models\Notification;
+use App\Models\NotificationPreference;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -106,11 +107,11 @@ class NotificationController extends Controller
     {
         $this->authorize('delete', $notification);
 
-        $notification->delete();
+        $notification->archive();
 
         return response()->json([
             'success' => true,
-            'message' => 'Notification deleted',
+            'message' => 'Notification archived',
         ]);
     }
 
@@ -121,11 +122,79 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
 
-        Notification::where('user_id', $user->id)->delete();
+        Notification::where('user_id', $user->id)
+            ->whereNull('archived_at')
+            ->update([
+                'status' => 'archived',
+                'archived_at' => now(),
+            ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'All notifications deleted',
+            'message' => 'All notifications archived',
+        ]);
+    }
+
+    public function preferences(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $scopes = [
+            'transactions', 'trading', 'payments', 'earn', 'ecosystem',
+            'giftcards', 'exacard', 'exapay', 'exaskills', 'agritech',
+            'crowdfunding', 'rewards', 'support', 'security', 'marketing',
+        ];
+
+        if ($request->isMethod('put')) {
+            $validated = $request->validate([
+                'preferences' => 'required|array',
+                'preferences.*.scope' => 'required|string',
+                'preferences.*.in_app_enabled' => 'sometimes|boolean',
+                'preferences.*.email_enabled' => 'sometimes|boolean',
+                'preferences.*.push_enabled' => 'sometimes|boolean',
+                'preferences.*.marketing_consent' => 'sometimes|boolean',
+            ]);
+
+            foreach ($validated['preferences'] as $preference) {
+                $scope = strtolower((string) $preference['scope']);
+                if (!in_array($scope, $scopes, true)) {
+                    continue;
+                }
+
+                $mandatory = in_array($scope, ['security', 'transactions'], true);
+                NotificationPreference::query()->updateOrCreate(
+                    ['user_id' => $user->id, 'scope' => $scope],
+                    [
+                        'in_app_enabled' => $mandatory ? true : (bool) ($preference['in_app_enabled'] ?? true),
+                        'email_enabled' => $mandatory ? true : (bool) ($preference['email_enabled'] ?? true),
+                        'push_enabled' => $mandatory ? true : (bool) ($preference['push_enabled'] ?? true),
+                        'marketing_consent' => $scope === 'marketing' && (bool) ($preference['marketing_consent'] ?? false),
+                    ],
+                );
+            }
+        }
+
+        $stored = NotificationPreference::query()
+            ->where('user_id', $user->id)
+            ->get()
+            ->keyBy('scope');
+
+        $data = collect($scopes)->map(function (string $scope) use ($stored): array {
+            $preference = $stored->get($scope);
+            $mandatory = in_array($scope, ['security', 'transactions'], true);
+
+            return [
+                'scope' => $scope,
+                'mandatory' => $mandatory,
+                'in_app_enabled' => $mandatory ? true : (bool) ($preference->in_app_enabled ?? true),
+                'email_enabled' => $mandatory ? true : (bool) ($preference->email_enabled ?? true),
+                'push_enabled' => $mandatory ? true : (bool) ($preference->push_enabled ?? true),
+                'marketing_consent' => $scope === 'marketing' ? (bool) ($preference->marketing_consent ?? false) : null,
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
         ]);
     }
 

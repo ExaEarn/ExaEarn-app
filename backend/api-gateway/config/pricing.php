@@ -46,6 +46,7 @@ return [
         'MARKET_MAKER',
         'INSTITUTIONAL',
         'LISTING',
+        'AGRITECH',
     ],
 
     'reward_daily_cap_default' => env('PRICING_REWARD_DAILY_CAP_DEFAULT', '100000'),

@@ -24,6 +24,7 @@ const defaultModuleActions = {
   lottery: ["close draw", "verify winners", "publish result", "audit fairness"],
   giftcard: ["update rate", "disable card", "approve order", "view inventory"],
   exacard: ["run reconciliation", "review disputes", "check treasury", "view provider health", "audit card controls"],
+  exapay: ["review merchant", "approve KYB", "restrict merchant", "run reconciliation", "view payment", "view webhook"],
   campaigns: ["schedule broadcast", "pause campaign", "view analytics", "duplicate"],
   kyc: ["approve KYC", "reject KYC", "request resubmission", "flag risk"],
   treasury: ["approve withdrawal", "queue sweep", "lock wallet", "run solvency check"],
@@ -286,6 +287,11 @@ const modulePayloads = {
     rows: [],
     actions: defaultModuleActions.exacard,
   },
+  "/admin/exapay": {
+    headline: "Merchant payments, hosted checkout, payment links, refunds, disputes, settlement, and reconciliation",
+    rows: [],
+    actions: defaultModuleActions.exapay,
+  },
   "/admin/campaigns": {
     headline: "Lifecycle management for ecosystem campaigns, waitlists, and promotions",
     rows: [
@@ -502,12 +508,12 @@ export async function fetchAdminBootstrap() {
       super_admin: ["*"],
       admin: [
         "dashboard.view", "users.view", "wallets.view", "transactions.view", "trade.manage", "listing.manage", "institutional.manage", "liquidity.manage", "staking.manage", "reward.manage",
-        "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage", "giftcard.manage",
+        "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage", "games.view", "games.manage", "games.pause", "games.risk", "games.reconcile", "games.responsible_gaming", "games.settings", "giftcard.manage",
         "campaign.manage", "kyc.review", "notifications.send", "logs.view", "security.view", "settings.manage", "system.view",
       ],
       moderator: [
         "dashboard.view", "users.view", "transactions.view", "trade.manage", "listing.manage", "institutional.manage", "liquidity.manage", "reward.manage", "staking.manage",
-        "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage",
+        "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage", "games.view", "games.reconcile",
         "giftcard.manage", "campaign.manage", "kyc.review", "logs.view", "security.view", "system.view",
       ],
       support: ["dashboard.view", "users.view", "transactions.view", "kyc.review", "logs.view", "notifications.send"],
@@ -559,6 +565,49 @@ export async function fetchModuleData(path) {
           { label: "Provider", value: providerData.active_provider?.status ?? summary.provider_health?.status ?? "UNKNOWN" },
           { label: "Rebalance Required", value: `${summary.treasury?.rebalance_required_count ?? 0}` },
           { label: "Card Fee Revenue", value: `${revenueData.funding_fee_total ?? "0"}` },
+        ],
+        source: "api",
+      };
+    }
+
+    if (path === "/admin/exapay") {
+      const [overview, merchants, reports, reconciliation] = await Promise.all([
+        adminHttp.get("/exapay/overview"),
+        adminHttp.get("/exapay/merchants"),
+        adminHttp.get("/exapay/reports"),
+        adminHttp.get("/exapay/reconciliation"),
+      ]);
+      const summary = overview.data?.data ?? {};
+      const merchantRows = merchants.data?.data ?? [];
+      const reportData = reports.data?.data ?? {};
+      const reconciliationData = reconciliation.data?.data ?? {};
+
+      return {
+        headline: modulePayloads[path]?.headline ?? "ExaPay operations",
+        rows: [
+          ...merchantRows.slice(0, 16).map((merchant) => ({
+            merchant: merchant.business_name,
+            merchant_id: merchant.merchant_id,
+            country: merchant.country,
+            kyb: merchant.kyb_status,
+            risk: merchant.risk_status,
+            status: merchant.status,
+            environment: merchant.environment,
+          })),
+          ...(reportData.webhook_events ?? []).slice(0, 8).map((event) => ({
+            event: event.event_type,
+            merchant_id: event.merchant_id,
+            resource: event.resource_id,
+            status: event.status,
+          })),
+        ],
+        actions: defaultModuleActions.exapay,
+        stats: [
+          { label: "Active Merchants", value: `${summary.merchants?.active ?? 0}` },
+          { label: "Under Review", value: `${summary.merchants?.under_review ?? 0}` },
+          { label: "Captured Payments", value: `${summary.payments?.captured ?? 0}` },
+          { label: "Pending Payments", value: `${summary.payments?.pending ?? 0}` },
+          { label: "Reconciliation", value: reconciliationData.status ?? "UNKNOWN" },
         ],
         source: "api",
       };

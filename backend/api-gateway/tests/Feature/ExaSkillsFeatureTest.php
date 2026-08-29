@@ -7,11 +7,24 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\Admin;
 use App\Models\Course;
+use App\Models\Lesson;
+use App\Models\Quiz;
+use App\Models\QuizQuestion;
 use App\Models\SkillsCategory;
 use App\Models\SkillsChallenge;
 use App\Models\SkillsCredential;
+use App\Models\SkillsInstructorEarning;
+use App\Models\SkillsInstructorPayout;
+use App\Models\SkillsMediaAsset;
 use App\Models\SkillsOpportunity;
+use App\Models\SkillsOrganization;
+use App\Models\SkillsOrganizationMember;
+use App\Models\SkillsSubscription;
+use App\Models\SkillsTaxPolicy;
+use App\Services\AccountClosureSafetyService;
 use App\Models\Role;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
@@ -433,5 +446,242 @@ class ExaSkillsFeatureTest extends TestCase
             ->postJson("/api/admin/exaskills/challenges/{$challenge->slug}/payout-winner", ['winner_user_id' => $winner->id])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
+    }
+
+    public function test_instructor_course_media_review_publish_progress_assessment_and_credential_flow(): void
+    {
+        Storage::fake('local');
+        $instructor = User::factory()->create(['kyc_level' => 2]);
+        $this->actingAs($instructor)->postJson('/api/exaskills/instructors/apply', [
+            'display_name' => 'Production Instructor',
+            'headline' => 'Teaches exchange product design',
+            'bio' => 'Experienced product instructor.',
+        ])->assertCreated();
+        DB::table('instructor_profiles')->where('user_id', $instructor->id)->update(['status' => 'approved', 'approved_at' => now()]);
+
+        $course = $this->actingAs($instructor)->postJson('/api/exaskills/courses', [
+            'title' => 'Exchange UX Production',
+            'description' => 'Build trustworthy exchange user experiences.',
+            'price' => '0',
+            'credential_available' => true,
+        ])->assertCreated()->assertJsonPath('data.status', 'draft')->json('data');
+
+        $lesson = $this->actingAs($instructor)->postJson("/api/exaskills/courses/{$course['id']}/lessons", [
+            'title' => 'Information hierarchy',
+            'content' => 'A lesson with actual server-side progress.',
+            'minimum_watch_seconds' => 5,
+        ])->assertCreated()->json('data');
+
+        $media = $this->actingAs($instructor)->post("/api/exaskills/courses/{$course['id']}/media", [
+            'lesson_id' => $lesson['id'],
+            'asset_type' => 'LESSON_DOCUMENT',
+            'visibility' => 'private',
+            'media' => UploadedFile::fake()->create('lesson.pdf', 64, 'application/pdf'),
+        ])->assertCreated()->assertJsonPath('data.processing_state', 'READY')->json('data');
+
+        $learner = User::factory()->create();
+        $this->actingAs($learner)->get("/api/exaskills/media/{$media['id']}")->assertForbidden();
+        $this->actingAs($instructor)->postJson("/api/exaskills/courses/{$course['id']}/submit-review")->assertOk()->assertJsonPath('data.status', 'ready_for_review');
+
+        $admin = $this->admin('skills-review-admin@example.com');
+        $this->actingAs($admin)->postJson("/api/admin/exaskills/courses/{$course['id']}/review", [
+            'action' => 'APPROVE',
+            'reason' => 'Course content and media are acceptable.',
+        ])->assertOk()->assertJsonPath('data.status', 'approved');
+        $this->actingAs($instructor)->postJson("/api/exaskills/courses/{$course['id']}/publish")->assertOk()->assertJsonPath('data.status', 'published');
+
+        $this->actingAs($learner)->postJson("/api/exaskills/courses/{$course['id']}/enroll")->assertCreated();
+        $this->actingAs($learner)->get("/api/exaskills/media/{$media['id']}")->assertOk();
+
+        $quiz = Quiz::query()->create(['course_id' => $course['id'], 'passing_score' => 70, 'time_limit' => 600, 'max_attempts' => 2, 'metadata' => ['version' => 1]]);
+        $question = QuizQuestion::query()->create(['quiz_id' => $quiz->id, 'question' => 'What controls the final grade?', 'options' => ['Server', 'Browser'], 'correct_answer' => 'Server', 'order_index' => 1]);
+
+        $this->actingAs($learner)->postJson("/api/exaskills/courses/{$course['id']}/lessons/{$lesson['id']}/complete", ['watch_seconds' => 5])->assertOk()->assertJsonPath('data.status', 'completed');
+        $this->actingAs($learner)->withHeader('Idempotency-Key', 'assessment-1')->postJson("/api/exaskills/courses/{$course['id']}/assessment/attempts", [
+            'answers' => [(string) $question->id => 'Server'],
+        ])->assertCreated()->assertJsonPath('data.passed', true);
+        $this->actingAs($learner)->withHeader('Idempotency-Key', 'assessment-1')->postJson("/api/exaskills/courses/{$course['id']}/assessment/attempts", [
+            'answers' => [(string) $question->id => 'Browser'],
+        ])->assertCreated()->assertJsonPath('data.passed', true);
+
+        $this->assertDatabaseHas('course_enrollments', ['user_id' => $learner->id, 'course_id' => $course['id'], 'completed' => true]);
+        $credential = SkillsCredential::query()->where('user_id', $learner->id)->where('course_id', $course['id'])->firstOrFail();
+        $this->getJson("/api/exaskills/verify/{$credential->credential_code}")->assertOk()->assertJsonPath('data.status', 'verified');
+        $this->actingAs($admin)->postJson("/api/admin/exaskills/credentials/{$credential->credential_code}/revoke", ['reason' => 'Test revocation'])->assertOk()->assertJsonPath('data.status', 'revoked');
+    }
+
+    public function test_instructor_payout_is_idempotent_ledger_backed_and_reconciles(): void
+    {
+        $instructor = User::factory()->create();
+        SkillsInstructorEarning::query()->create([
+            'instructor_user_id' => $instructor->id,
+            'asset' => 'USDT',
+            'gross_amount' => '100.00000000',
+            'platform_fee_amount' => '20.00000000',
+            'net_amount' => '80.00000000',
+            'status' => 'pending',
+            'reference' => 'skills-earning-payout-test',
+        ]);
+        Account::query()->create(['user_id' => $instructor->id, 'account_type' => 'skills_instructor_payable', 'asset' => 'USDT', 'balance' => '80.000000000000000000']);
+
+        $payout = $this->actingAs($instructor)->withHeader('Idempotency-Key', 'skills-payout-1')->postJson('/api/exaskills/instructors/payouts', [
+            'asset' => 'USDT',
+            'amount' => '80',
+        ])->assertCreated()->assertJsonPath('data.status', 'REQUESTED')->json('data');
+        $this->actingAs($instructor)->withHeader('Idempotency-Key', 'skills-payout-1')->postJson('/api/exaskills/instructors/payouts', [
+            'asset' => 'USDT',
+            'amount' => '80',
+        ])->assertCreated()->assertJsonPath('data.id', $payout['id']);
+
+        $admin = $this->admin('skills-payout-admin-2@example.com');
+        $this->actingAs($admin)->postJson("/api/admin/exaskills/instructor-payouts/{$payout['id']}/approve")->assertOk()->assertJsonPath('data.status', 'COMPLETED');
+        $this->actingAs($admin)->postJson("/api/admin/exaskills/instructor-payouts/{$payout['id']}/approve")->assertOk()->assertJsonPath('data.status', 'COMPLETED');
+        $this->assertSame('80.000000000000000000', (string) Account::query()->where('user_id', $instructor->id)->where('account_type', 'funding')->where('asset', 'USDT')->firstOrFail()->balance);
+        $this->actingAs($admin)->getJson('/api/admin/exaskills/reconciliation')->assertOk()->assertJsonPath('data.status', 'PASS');
+        $this->assertDatabaseCount('skills_instructor_payouts', 1);
+    }
+
+    public function test_subscription_activation_cancellation_expiry_and_entitlement_are_server_authoritative(): void
+    {
+        $learner = User::factory()->create();
+        $instructor = User::factory()->create();
+        $course = Course::query()->create([
+            'created_by' => $instructor->id,
+            'title' => 'Subscription Course',
+            'slug' => 'subscription-course',
+            'description' => 'Subscription eligible course.',
+            'difficulty' => 'beginner',
+            'duration' => 60,
+            'price' => '25.00000000',
+            'settlement_asset' => 'USDT',
+            'status' => 'published',
+            'credential_available' => true,
+            'published_at' => now(),
+        ]);
+        Account::query()->create(['user_id' => $learner->id, 'account_type' => 'funding', 'asset' => 'USDT', 'balance' => '100.000000000000000000']);
+
+        $first = $this->actingAs($learner)->withHeader('Idempotency-Key', 'skills-sub-1')->postJson('/api/exaskills/subscriptions', [
+            'plan_code' => 'INDIVIDUAL',
+            'billing_cycle' => 'monthly',
+        ])->assertCreated()->assertJsonPath('data.status', 'ACTIVE')->json('data');
+        $this->actingAs($learner)->withHeader('Idempotency-Key', 'skills-sub-1')->postJson('/api/exaskills/subscriptions', [
+            'plan_code' => 'INDIVIDUAL',
+            'billing_cycle' => 'monthly',
+        ])->assertCreated()->assertJsonPath('data.id', $first['id']);
+
+        $this->actingAs($learner)->get("/api/exaskills/media/999999")->assertNotFound();
+        $this->assertTrue(app(\App\Services\ExaSkillsService::class)->hasCourseEntitlement($learner, $course));
+
+        $this->actingAs($learner)->postJson("/api/exaskills/subscriptions/{$first['id']}/cancel", ['at_period_end' => false])->assertOk()->assertJsonPath('data.status', 'CANCELLED');
+        SkillsSubscription::query()->whereKey($first['id'])->update(['status' => 'ACTIVE', 'ends_at' => now()->subMinute()]);
+        $this->assertSame(1, app(\App\Services\ExaSkillsService::class)->expireSubscriptions());
+        $this->assertFalse(app(\App\Services\ExaSkillsService::class)->hasCourseEntitlement($learner->fresh(), $course));
+    }
+
+    public function test_tax_policy_profile_and_withholding_software_are_auditable_without_claiming_external_review(): void
+    {
+        $instructor = User::factory()->create();
+        $this->actingAs($instructor)->postJson('/api/exaskills/instructors/apply', [
+            'display_name' => 'Tax Instructor',
+            'headline' => 'Instructor',
+            'bio' => 'Instructor profile.',
+        ])->assertCreated();
+
+        $this->actingAs($instructor)->postJson('/api/exaskills/instructors/tax-profile', [
+            'legal_name' => 'Tax Instructor LLC',
+            'entity_type' => 'BUSINESS',
+            'country' => 'US',
+            'tax_residency' => 'US',
+            'tax_identifier' => 'private-tax-id',
+        ])->assertOk()->assertJsonPath('data.tax_verification_status', 'PENDING');
+
+        $admin = $this->admin('skills-tax-admin@example.com');
+        $policy = $this->actingAs($admin)->postJson('/api/admin/exaskills/tax-policies', [
+            'country' => 'US',
+            'entity_type' => 'BUSINESS',
+            'outcome' => 'WITHHOLD',
+            'withholding_rate' => '0.10000000',
+            'policy_version' => 'test-policy-v1',
+            'status' => 'APPROVED',
+        ])->assertCreated()->assertJsonPath('data.metadata.external_tax_review_required', true)->json('data');
+
+        $profile = \App\Models\InstructorProfile::query()->where('user_id', $instructor->id)->firstOrFail();
+        $decision = app(\App\Services\ExaSkillsService::class)->taxDecision($profile, 'USDT', '100.00000000');
+        $this->assertSame('WITHHOLD', $decision['outcome']);
+        $this->assertSame('10.00000000', $decision['withholding_amount']);
+        $this->assertDatabaseHas('skills_tax_policies', ['id' => $policy['id'], 'policy_version' => 'test-policy-v1']);
+        $this->assertDatabaseMissing('instructor_profiles', ['tax_identifier_hash' => 'private-tax-id']);
+    }
+
+    public function test_business_training_seats_assignments_and_employer_moderation(): void
+    {
+        $owner = User::factory()->create();
+        $learner = User::factory()->create();
+        $course = Course::query()->create([
+            'created_by' => $owner->id,
+            'title' => 'Business Training Course',
+            'slug' => 'business-training-course',
+            'description' => 'Course for teams.',
+            'difficulty' => 'intermediate',
+            'duration' => 60,
+            'price' => '0.00000000',
+            'settlement_asset' => 'USDT',
+            'status' => 'published',
+            'credential_available' => true,
+            'published_at' => now(),
+        ]);
+
+        $organization = $this->actingAs($owner)->postJson('/api/exaskills/business/organizations', [
+            'name' => 'ExaSkills Business',
+            'country' => 'US',
+            'industry' => 'Fintech',
+        ])->assertCreated()->assertJsonPath('data.status', 'PENDING_REVIEW')->json('data');
+        SkillsOrganization::query()->whereKey($organization['id'])->update(['status' => 'APPROVED', 'kyb_status' => 'APPROVED']);
+        SkillsOrganizationMember::query()->create(['organization_id' => $organization['id'], 'user_id' => $learner->id, 'email' => $learner->email, 'role' => 'LEARNER', 'status' => 'ACTIVE', 'accepted_at' => now()]);
+
+        $this->actingAs($owner)->postJson("/api/exaskills/business/organizations/{$organization['id']}/seats", ['count' => 1])->assertCreated()->assertJsonPath('data.created', 1);
+        $this->actingAs($owner)->postJson("/api/exaskills/business/organizations/{$organization['id']}/programs", [
+            'title' => 'Exchange Onboarding',
+            'required_course_ids' => [$course->id],
+        ])->assertCreated()->assertJsonPath('data.status', 'ACTIVE');
+
+        app(\App\Services\ExaSkillsService::class)->assignCourse($owner, SkillsOrganization::query()->findOrFail($organization['id']), $course, $learner);
+        $this->assertTrue(app(\App\Services\ExaSkillsService::class)->hasCourseEntitlement($learner, $course));
+
+        $opportunity = $this->actingAs($owner)->postJson("/api/exaskills/business/organizations/{$organization['id']}/opportunities", [
+            'title' => 'Verified Product Designer',
+            'description' => 'Work on verified fintech learning products.',
+            'required_skills' => ['Product Design'],
+            'required_credentials' => ['EXASKILLS'],
+        ])->assertCreated()->assertJsonPath('data.status', 'UNDER_REVIEW')->json('data');
+        $admin = $this->admin('skills-employer-admin@example.com');
+        $this->actingAs($admin)->postJson("/api/admin/exaskills/opportunities/{$opportunity['id']}/moderate", [
+            'action' => 'PUBLISH',
+            'reason' => 'Legitimate verified employer opportunity.',
+        ])->assertOk()->assertJsonPath('data.status', 'open');
+    }
+
+    public function test_account_closure_blocks_active_exaskills_obligations(): void
+    {
+        $user = User::factory()->create();
+        SkillsSubscription::query()->create(['user_id' => $user->id, 'plan_code' => 'INDIVIDUAL', 'status' => 'ACTIVE', 'billing_cycle' => 'monthly', 'amount' => '0', 'settlement_asset' => 'USDT', 'starts_at' => now(), 'ends_at' => now()->addMonth()]);
+
+        $readiness = app(AccountClosureSafetyService::class)->readiness($user->id);
+        $this->assertFalse($readiness['can_close']);
+        $this->assertContains('active_subscription', array_column($readiness['blockers'], 'reason'));
+    }
+
+    private function admin(string $email): Admin
+    {
+        $role = Role::query()->create(['name' => 'skills-admin-'.str()->random(6)]);
+
+        return Admin::query()->create([
+            'name' => 'Skills Admin',
+            'email' => $email,
+            'password' => Hash::make('StrongPassword123!'),
+            'role_id' => $role->id,
+            'status' => 'active',
+            'two_factor_enabled' => true,
+        ]);
     }
 }

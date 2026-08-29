@@ -1,6 +1,16 @@
 <?php
 
 return [
+    'mode' => env('AGRITECH_MODE', 'sandbox'),
+    'public_investment_enabled' => (bool) env('AGRITECH_PUBLIC_INVESTMENT_ENABLED', false),
+    'tokenized_investment_enabled' => (bool) env('AGRITECH_TOKENIZED_INVESTMENT_ENABLED', false),
+    'external_verification_required' => true,
+    'financial' => [
+        'default_asset' => env('AGRITECH_DEFAULT_ASSET', 'USDT'),
+        'high_value_disbursement_threshold' => env('AGRITECH_HIGH_VALUE_DISBURSEMENT_THRESHOLD', '10000'),
+    ],
+    'product_types' => ['FARM_PROJECT', 'FARM_SHARE', 'CROP_FUNDING', 'LEASE', 'PRODUCE_MARKETPLACE', 'REWARD_PROGRAM'],
+    'economic_types' => ['NON_INVESTMENT_SUPPORT', 'PREPURCHASE', 'LEASE', 'REWARD_BASED', 'REVENUE_SHARE', 'INVESTMENT', 'TOKENIZED_INVESTMENT'],
     'blockchain' => [
         'enabled' => env('AGRI_BLOCKCHAIN_ENABLED', false),
     ],

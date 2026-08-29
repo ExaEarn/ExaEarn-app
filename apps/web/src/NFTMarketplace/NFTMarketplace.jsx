@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BarChart3, CreditCard, LandPlot, ShieldCheck, Sparkles, TrendingUp, WalletCards } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { buyNftListing, createNftAuction, createNftListing, fetchMyNfts, fetchNftCollections, fetchNftDashboard, fetchNftMarketplace, mintFinancialNft, subscribeToFinancialNft, upgradeFinancialNft } from "../services/nftApi";
+import { buyNftListing, createNftAuction, createNftListing, fetchMyNfts, fetchNftCollections, fetchNftDashboard, fetchNftMarketplace, mintFinancialNft, subscribeToFinancialNft, upgradeFinancialNft, uploadNftMedia } from "../services/nftApi";
 
 const utilityCatalog = [
   { id: "staking", label: "Staking NFT", phase: "Phase 1", revenue: "Entry fee + staking commission" },
@@ -37,6 +37,7 @@ export default function NFTMarketplace({ onBack }) {
   const apiBaseUrl = import.meta.env.VITE_API_URL?.trim() || "";
   const [walletAddress, setWalletAddress] = useState("");
   const [mintForm, setMintForm] = useState({ utility_type: "staking", name: "", tier: "standard" });
+  const [mintMedia, setMintMedia] = useState(null);
   const [marketFilter, setMarketFilter] = useState({ utility_type: "all", phase: "all" });
   const [dashboard, setDashboard] = useState(null);
   const [marketplace, setMarketplace] = useState([]);
@@ -72,6 +73,7 @@ export default function NFTMarketplace({ onBack }) {
   const utilities = useMemo(() => collections.length ? collections.map((item) => ({ id: item.utility_type, label: item.name, phase: item.metadata?.phase || "Live", revenue: `${item.royalty_percentage / 100}% royalty` })) : utilityCatalog, [collections]);
   const summary = dashboard?.summary || {};
   const prompts = dashboard?.upgrade_prompts || [];
+  const marketplaceAssets = useMemo(() => marketplace.map((item) => item.nft ? { ...item.nft, listing: item } : item), [marketplace]);
 
   const requireWallet = () => {
     if (!walletAddress) {
@@ -97,8 +99,14 @@ export default function NFTMarketplace({ onBack }) {
   const onMint = async (event) => {
     event.preventDefault();
     if (!requireWallet()) return;
-    await runAction(() => mintFinancialNft({ apiBaseUrl, token, payload: { utility_type: mintForm.utility_type, name: mintForm.name, wallet_address: walletAddress, tier: mintForm.tier } }), "Financial NFT minted.");
+    await runAction(async () => {
+      const minted = await mintFinancialNft({ apiBaseUrl, token, payload: { utility_type: mintForm.utility_type, name: mintForm.name, wallet_address: walletAddress, tier: mintForm.tier } });
+      if (mintMedia && minted?.data?.id) {
+        await uploadNftMedia({ apiBaseUrl, token, file: mintMedia, nftId: minted.data.id, mediaType: mintMedia.type?.startsWith("video/") ? "VIDEO" : mintMedia.type?.startsWith("audio/") ? "AUDIO" : "IMAGE", visibility: "PUBLIC", name: mintForm.name });
+      }
+    }, mintMedia ? "Financial NFT minted and media uploaded." : "Financial NFT minted.");
     setMintForm((current) => ({ ...current, name: "" }));
+    setMintMedia(null);
   };
 
   const onUpgrade = async (asset) => {
@@ -184,6 +192,12 @@ export default function NFTMarketplace({ onBack }) {
             <form className="space-y-4" onSubmit={onMint}>
               <select value={mintForm.utility_type} onChange={(event) => setMintForm((current) => ({ ...current, utility_type: event.target.value }))} className="w-full rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none">{utilityCatalog.map((item) => <option key={item.id} value={item.id} className="bg-[var(--exa-surface)]">{item.label}</option>)}</select>
               <input value={mintForm.name} onChange={(event) => setMintForm((current) => ({ ...current, name: event.target.value }))} placeholder="Exa Pro Yield Passport" className="w-full rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none placeholder:text-[var(--exa-text-muted)]" />
+              <label className="block rounded-2xl border border-dashed border-emerald-300/30 bg-emerald-400/8 p-4 text-sm text-[var(--exa-text-secondary)]">
+                <span className="block font-semibold text-emerald-100">NFT media</span>
+                <span className="mt-1 block text-xs text-[var(--exa-text-muted)]">Images, supported audio, and supported video are validated and hashed server-side.</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,audio/mpeg" onChange={(event) => setMintMedia(event.target.files?.[0] || null)} className="mt-3 block w-full text-xs text-[var(--exa-text-secondary)] file:mr-3 file:rounded-full file:border-0 file:bg-emerald-300 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-950" />
+                {mintMedia ? <span className="mt-2 block text-xs text-emerald-100">{mintMedia.name} selected</span> : null}
+              </label>
               <select value={mintForm.tier} onChange={(event) => setMintForm((current) => ({ ...current, tier: event.target.value }))} className="w-full rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-3 text-sm text-[var(--exa-text-primary)] outline-none"><option value="standard" className="bg-[var(--exa-surface)]">Standard</option><option value="pro" className="bg-[var(--exa-surface)]">Pro</option><option value="institutional" className="bg-[var(--exa-surface)]">Institutional</option></select>
               <button type="submit" disabled={state.busy || state.loading} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 disabled:opacity-60"><Sparkles className="h-4 w-4" />{state.busy ? "Processing..." : "Mint financial NFT"}</button>
             </form>
@@ -211,6 +225,7 @@ export default function NFTMarketplace({ onBack }) {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {myAssets.map((asset) => (
               <div key={asset.id} className="rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
+                {asset.media_url ? <img src={asset.media_url} alt={asset.name} className="mb-4 aspect-[4/3] w-full rounded-2xl object-cover" loading="lazy" /> : <div className="mb-4 flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-[var(--exa-border)] bg-white/5 text-xs text-[var(--exa-text-muted)]">Media preview pending</div>}
                 <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">{asset.utility_type.replaceAll("_", " ")}</p>
                 <h3 className="mt-2 text-lg font-semibold text-[var(--exa-text-primary)]">{asset.name}</h3>
                 <div className="mt-4 space-y-2 text-sm text-[var(--exa-text-secondary)]">
@@ -232,8 +247,9 @@ export default function NFTMarketplace({ onBack }) {
 
         <Section title="Marketplace" subtitle="Secondary trading captures fees, upgrades demand, and royalty-style value" action={<div className="flex gap-2"><select value={marketFilter.utility_type} onChange={(event) => { const next = { ...marketFilter, utility_type: event.target.value }; setMarketFilter(next); loadData(next); }} className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs text-[var(--exa-text-secondary)]"><option value="all">All utilities</option>{utilityCatalog.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><select value={marketFilter.phase} onChange={(event) => { const next = { ...marketFilter, phase: event.target.value }; setMarketFilter(next); loadData(next); }} className="rounded-full border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-3 py-2 text-xs text-[var(--exa-text-secondary)]"><option value="all">All phases</option><option value="phase_1">Phase 1</option><option value="phase_2">Phase 2</option><option value="phase_3">Phase 3</option></select></div>}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {marketplace.map((asset) => (
+            {marketplaceAssets.map((asset) => (
               <div key={asset.id} className="rounded-3xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
+                {asset.media_url ? <img src={asset.media_url} alt={asset.name} className="mb-4 aspect-[4/3] w-full rounded-2xl object-cover" loading="lazy" /> : <div className="mb-4 flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-[var(--exa-border)] bg-white/5 text-xs text-[var(--exa-text-muted)]">Media preview pending</div>}
                 <p className="text-xs uppercase tracking-[0.24em] text-amber-300">{asset.utility_type.replaceAll("_", " ")}</p>
                 <h3 className="mt-2 text-lg font-semibold text-[var(--exa-text-primary)]">{asset.name}</h3>
                 <div className="mt-4 space-y-2 text-sm text-[var(--exa-text-secondary)]">

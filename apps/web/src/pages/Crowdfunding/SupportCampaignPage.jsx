@@ -45,6 +45,20 @@ const paymentMethodsByCurrency = {
   CRYPTO: ["Connect Wallet", "Pay with Crypto"],
 };
 
+const defaultCampaignDetails = {
+  title: "Campaign unavailable",
+  description: "",
+  category: "General",
+  founder: "Creator",
+  raised: 0,
+  target: 1,
+  daysRemaining: 0,
+  rewardTiers: [],
+  story: { problem: "", solution: "", market: "", roadmap: "", useOfFunds: "", team: "" },
+  activity: [],
+  metrics: { backers: 0, fundsDeployed: 0, projectsFunded: 0, countries: 0 },
+};
+
 function Counter({ value }) {
   const [count, setCount] = useState(0);
 
@@ -68,22 +82,23 @@ function Counter({ value }) {
 function SupportCampaignPage({ onBack, campaignId }) {
   const { apiBaseUrl, token } = useAuth();
   const wallet = useWeb3Wallet();
-  const { byId, contributeFlow, txState } = useCrowdfunding({ apiBaseUrl, token, wallet });
+  const { byId, contributeFlow, txState, commentsFlow, createCommentFlow } = useCrowdfunding({ apiBaseUrl, token, wallet });
   const campaign = useMemo(() => {
     const fallback = campaignData.find((item) => item.id === campaignId) || campaignData[0];
     const live = byId[campaignId];
 
-    if (!live) return fallback;
+    if (!live) return fallback || defaultCampaignDetails;
 
     return {
-      ...fallback,
+      ...defaultCampaignDetails,
+      ...(fallback || {}),
       ...live,
-      raised: Number(live.raised_amount ?? fallback.raised),
-      target: Number(live.goal_amount ?? fallback.target),
-      rewardTiers: fallback.rewardTiers,
-      story: fallback.story,
-      activity: fallback.activity,
-      metrics: fallback.metrics,
+      raised: Number(live.raised_amount ?? fallback?.raised ?? 0),
+      target: Number(live.goal_amount ?? fallback?.target ?? 1),
+      rewardTiers: fallback?.rewardTiers || [],
+      story: fallback?.story || defaultCampaignDetails.story,
+      activity: Array.isArray(live.logs) && live.logs.length ? live.logs.map((item) => item.data || item.title || item.body).filter(Boolean) : fallback?.activity || [],
+      metrics: fallback?.metrics || defaultCampaignDetails.metrics,
     };
   }, [byId, campaignId]);
 
@@ -98,10 +113,8 @@ function SupportCampaignPage({ onBack, campaignId }) {
   const [cvv, setCvv] = useState("");
   const [network, setNetwork] = useState("ERC-20");
   const [comment, setComment] = useState("");
-  const [comments, setComments] = useState([
-    "Great initiative, this solves a real market gap.",
-    "Will there be monthly progress updates?",
-  ]);
+  const [comments, setComments] = useState([]);
+  const [commentsError, setCommentsError] = useState("");
 
   useEffect(() => {
     setSelectedTierId(campaign.rewardTiers[0]?.id);
@@ -133,11 +146,31 @@ function SupportCampaignPage({ onBack, campaignId }) {
     cvv.trim().length === 3 &&
     accountName.trim().length > 1;
 
-  const submitComment = () => {
+  useEffect(() => {
+    let active = true;
+    commentsFlow(campaign.id)
+      .then((payload) => {
+        if (!active) return;
+        const rows = Array.isArray(payload?.data?.data) ? payload.data.data : Array.isArray(payload?.data) ? payload.data : [];
+        setComments(rows);
+      })
+      .catch((error) => active && setCommentsError(error?.message || "Couldn't load comments."));
+    return () => {
+      active = false;
+    };
+  }, [campaign.id, commentsFlow]);
+
+  const submitComment = async () => {
     const trimmed = comment.trim();
     if (!trimmed) return;
-    setComments((current) => [trimmed, ...current]);
-    setComment("");
+    try {
+      const response = await createCommentFlow({ campaignId: campaign.id, body: trimmed, type: trimmed.endsWith("?") ? "QUESTION" : "COMMENT" });
+      setComments((current) => [response?.data || response, ...current]);
+      setComment("");
+      setCommentsError("");
+    } catch (error) {
+      setCommentsError(error?.message || "Comment could not be posted.");
+    }
   };
 
   const submitContribution = async () => {
@@ -470,8 +503,10 @@ function SupportCampaignPage({ onBack, campaignId }) {
                 </div>
                 <div className="mt-3 space-y-2">
                   {comments.map((item, idx) => (
-                    <p key={`${item}-${idx}`} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs text-[var(--exa-text-secondary)]">{item}</p>
+                    <p key={item.id || `${item.body}-${idx}`} className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs text-[var(--exa-text-secondary)]">{item.body || item}</p>
                   ))}
+                  {!comments.length ? <p className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs text-[var(--exa-text-muted)]">No comments yet.</p> : null}
+                  {commentsError ? <p className="text-xs text-rose-300">{commentsError}</p> : null}
                 </div>
                 <div className="mt-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-gold-surface)] p-3">
                   <p className="text-xs font-semibold text-[var(--exa-gold)]">Backer Activity Feed</p>

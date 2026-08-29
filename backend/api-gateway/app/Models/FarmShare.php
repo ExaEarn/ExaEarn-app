@@ -14,6 +14,8 @@ class FarmShare extends Model
         'total_shares',
         'price_per_share',
         'shares_available',
+        'shares_reserved',
+        'shares_allocated',
         'ownership_model',
         'token_contract_address',
         'token_symbol',

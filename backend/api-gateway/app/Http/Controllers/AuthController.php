@@ -13,6 +13,7 @@ use App\Services\FraudDetectionService;
 use App\Services\RateLimiterService;
 use App\Services\ReferralService;
 use App\Services\ProfileIdentityService;
+use App\Services\ExperienceRecommendationService;
 use App\Services\UserInitializationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ class AuthController extends Controller
         private readonly FraudDetectionService $fraudDetectionService,
         private readonly AuditLogService $auditLogService,
         private readonly ProfileIdentityService $profileIdentityService,
+        private readonly ExperienceRecommendationService $experienceRecommendationService,
     ) {
     }
 
@@ -58,8 +60,15 @@ class AuthController extends Controller
             'dashboard_preferences' => ['nullable', 'array'],
             'dashboard_preferences.mode' => ['required_with:dashboard_preferences', 'in:all,personalized'],
             'dashboard_preferences.primary_interest' => ['nullable', 'in:' . implode(',', DashboardExperienceRegistry::KEYS)],
-            'dashboard_preferences.selected_interests' => ['array', 'max:3'],
+            'dashboard_preferences.selected_interests' => ['array', 'max:6'],
             'dashboard_preferences.selected_interests.*' => ['distinct', 'in:' . implode(',', DashboardExperienceRegistry::KEYS)],
+            'dashboard_preferences.experience_level' => ['nullable', 'in:' . implode(',', ExperienceRecommendationService::EXPERIENCES)],
+            'dashboard_preferences.primary_goal' => ['nullable', 'in:' . implode(',', ExperienceRecommendationService::GOALS)],
+            'dashboard_preferences.interests' => ['nullable', 'array', 'max:3'],
+            'dashboard_preferences.interests.*' => ['distinct', 'in:' . implode(',', ExperienceRecommendationService::INTERESTS)],
+            'dashboard_preferences.selected_mode' => ['nullable', 'in:' . implode(',', ExperienceRecommendationService::MODES)],
+            'dashboard_preferences.onboarding_version' => ['nullable', 'integer', 'min:4'],
+            'dashboard_preferences.onboarding_completed' => ['nullable', 'boolean'],
         ]);
 
         $email = strtolower(trim((string) $validated['email']));
@@ -73,13 +82,14 @@ class AuthController extends Controller
         }
 
         try {
-            $user = DB::transaction(function () use ($validated, $email, $request): User {
+            $dashboardPreferences = $this->normalizeOnboardingPreferences((array) ($validated['dashboard_preferences'] ?? []));
+            $user = DB::transaction(function () use ($validated, $email, $request, $dashboardPreferences): User {
                 $user = User::create([
                     'name' => trim((string) $validated['name']),
                     'email' => $email,
                     'password' => Hash::make($validated['password']),
                     'unique_user_id' => $this->generateUniqueUserId(),
-                    'preferences' => !empty($validated['dashboard_preferences']) ? ['dashboard' => $validated['dashboard_preferences']] : null,
+                    'preferences' => $dashboardPreferences !== [] ? ['dashboard' => $dashboardPreferences] : null,
                 ]);
 
                 $this->referralService->ensureReferralCode($user);
@@ -120,6 +130,21 @@ class AuthController extends Controller
             'token' => $token,
             'user' => $this->userPayload($user->fresh()),
         ], 201);
+    }
+
+    private function normalizeOnboardingPreferences(array $preferences): array
+    {
+        if (! isset($preferences['experience_level'], $preferences['primary_goal'])) return $preferences;
+        $interests = array_values($preferences['interests'] ?? $this->experienceRecommendationService->inferInterests((string) $preferences['primary_goal']));
+        $recommendation = $this->experienceRecommendationService->recommend((string) $preferences['experience_level'], (string) $preferences['primary_goal'], $interests);
+        $legacy = $this->experienceRecommendationService->legacyIntent((string) $preferences['primary_goal']);
+        return array_merge($preferences, [
+            'mode' => 'personalized', 'primary_interest' => $legacy, 'selected_interests' => [$legacy],
+            'interests' => $interests, 'recommended_mode' => $recommendation['recommended_mode'],
+            'selected_mode' => $preferences['selected_mode'] ?? $recommendation['recommended_mode'],
+            'recommendation_reason_codes' => $recommendation['reason_codes'], 'onboarding_version' => 4,
+            'onboarding_completed' => true, 'completed_at' => now()->toISOString(),
+        ]);
     }
 
     public function checkAccount(Request $request)

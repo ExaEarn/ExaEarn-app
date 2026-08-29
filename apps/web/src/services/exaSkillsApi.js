@@ -24,6 +24,14 @@ async function request({ apiBaseUrl, token, path, method = "GET", body, headers 
 export const getExaSkillsHome = ({ apiBaseUrl, token }) => request({ apiBaseUrl, token, path: "/api/exaskills/home" });
 export const getExaSkillsCourses = ({ apiBaseUrl, token, query = "" }) => request({ apiBaseUrl, token, path: `/api/exaskills/courses${query}` });
 export const getExaSkillsCourse = ({ apiBaseUrl, token, course }) => request({ apiBaseUrl, token, path: `/api/exaskills/courses/${course}` });
+export const createExaSkillsCourse = ({ apiBaseUrl, token, body }) =>
+  request({ apiBaseUrl, token, path: "/api/exaskills/courses", method: "POST", body });
+export const addExaSkillsLesson = ({ apiBaseUrl, token, course, body }) =>
+  request({ apiBaseUrl, token, path: `/api/exaskills/courses/${course}/lessons`, method: "POST", body });
+export const submitExaSkillsCourseReview = ({ apiBaseUrl, token, course }) =>
+  request({ apiBaseUrl, token, path: `/api/exaskills/courses/${course}/submit-review`, method: "POST" });
+export const publishExaSkillsCourse = ({ apiBaseUrl, token, course }) =>
+  request({ apiBaseUrl, token, path: `/api/exaskills/courses/${course}/publish`, method: "POST" });
 export const enrollExaSkillsCourse = ({ apiBaseUrl, token, course, idempotencyKey }) =>
   request({
     apiBaseUrl,
@@ -40,6 +48,17 @@ export const purchaseExaSkillsCourse = ({ apiBaseUrl, token, course, idempotency
     method: "POST",
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
   });
+export const completeExaSkillsLesson = ({ apiBaseUrl, token, course, lesson, body }) =>
+  request({ apiBaseUrl, token, path: `/api/exaskills/courses/${course}/lessons/${lesson}/complete`, method: "POST", body });
+export const submitExaSkillsAssessment = ({ apiBaseUrl, token, course, answers, idempotencyKey }) =>
+  request({
+    apiBaseUrl,
+    token,
+    path: `/api/exaskills/courses/${course}/assessment/attempts`,
+    method: "POST",
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+    body: { answers },
+  });
 export const fundExaSkillsChallenge = ({ apiBaseUrl, token, challenge, idempotencyKey }) =>
   request({
     apiBaseUrl,
@@ -50,6 +69,15 @@ export const fundExaSkillsChallenge = ({ apiBaseUrl, token, challenge, idempoten
   });export const getExaSkillsDashboard = ({ apiBaseUrl, token }) => request({ apiBaseUrl, token, path: "/api/exaskills/dashboard" });
 export const submitInstructorApplication = ({ apiBaseUrl, token, body }) =>
   request({ apiBaseUrl, token, path: "/api/exaskills/instructors/apply", method: "POST", body });
+export const requestExaSkillsInstructorPayout = ({ apiBaseUrl, token, body, idempotencyKey }) =>
+  request({
+    apiBaseUrl,
+    token,
+    path: "/api/exaskills/instructors/payouts",
+    method: "POST",
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+    body,
+  });
 export const submitExaSkillsChallenge = ({ apiBaseUrl, token, challenge, body }) =>
   request({ apiBaseUrl, token, path: `/api/exaskills/challenges/${challenge}/submissions`, method: "POST", body });
 export const applyExaSkillsOpportunity = ({ apiBaseUrl, token, opportunity, body }) =>

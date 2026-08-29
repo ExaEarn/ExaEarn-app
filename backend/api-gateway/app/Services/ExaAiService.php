@@ -197,13 +197,18 @@ class ExaAiService
                 ]);
             }
 
-            $this->notifications->create(
+            $this->notifications->emit(
                 $user,
-                'exaai_subscription',
-                'ExaAI plan activated',
-                sprintf('%s plan is active until %s.', $plan->name, $endsAt->toDateString()),
-                channels: ['in_app'],
-                data: ['page' => 'exaai']
+                'exaai.subscription.activated',
+                [
+                    'title' => 'ExaAI plan activated',
+                    'message' => sprintf('%s plan is active until %s.', $plan->name, $endsAt->toDateString()),
+                    'plan' => $plan->name,
+                    'ends_at' => $endsAt->toDateString(),
+                    'deep_link' => '/exaai',
+                ],
+                (string) $subscription->id,
+                ['in_app'],
             );
 
             $this->audit($user->id, null, 'subscription.activated', 'ExaAI subscription activated.', [
@@ -406,13 +411,17 @@ class ExaAiService
             ],
         ]);
 
-        $this->notifications->create(
+        $this->notifications->emit(
             $user,
-            'exaai_status',
-            'ExaAI activated',
-            sprintf('%s strategy is now active.', $strategy->name),
-            channels: ['in_app'],
-            data: ['page' => 'exaai']
+            'exaai.session.started',
+            [
+                'title' => 'ExaAI activated',
+                'message' => sprintf('%s strategy is now active.', $strategy->name),
+                'strategy' => $strategy->name,
+                'deep_link' => '/exaai',
+            ],
+            (string) $session->id,
+            ['in_app'],
         );
 
         $this->audit($user->id, $session->id, 'session.started', 'ExaAI session activated.', [

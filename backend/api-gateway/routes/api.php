@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Admin\AdminSettingController;
 use App\Http\Controllers\Admin\P2POperationsController;
 use App\Http\Controllers\AgriController;
+use App\Http\Controllers\AffiliateController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ExaPointController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\SwapController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserPreferenceController;
+use App\Http\Controllers\PersonalizedContentController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\CustodyController;
 use App\Http\Controllers\WebhookController;
@@ -38,7 +40,12 @@ use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MarginController;
 use App\Http\Controllers\FiatWithdrawalController;
 use App\Http\Controllers\FiatController;
+use App\Http\Controllers\ExaPayMerchantController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SupportController;
+use App\Http\Controllers\SupportLiveChatController;
+use App\Http\Controllers\CrowdfundingController;
+use App\Http\Controllers\UnifiedActivityCenterController;
 use App\Http\Controllers\ProfileIdentityController;
 use App\Http\Controllers\PricingController;
 use App\Http\Controllers\KycController;
@@ -61,9 +68,15 @@ use App\Http\Controllers\Admin\TradingOperationsController;
 use App\Http\Controllers\Admin\LiquidityOperationsController;
 use App\Http\Controllers\Admin\CustodyOperationsController;
 use App\Http\Controllers\Admin\FiatOperationsController;
+use App\Http\Controllers\Admin\ExaPayOperationsController;
 use App\Http\Controllers\Admin\ListingCenterController;
 use App\Http\Controllers\Admin\InstitutionalOperationsController;
 use App\Http\Controllers\Admin\CopyTradingOperationsController;
+use App\Http\Controllers\Admin\NotificationOperationsController;
+use App\Http\Controllers\Admin\NftOperationsController;
+use App\Http\Controllers\Admin\SupportOperationsController;
+use App\Http\Controllers\Admin\SupportLiveChatOperationsController;
+use App\Http\Controllers\Admin\CrowdfundingOperationsController;
 use App\Http\Controllers\Admin\MarketMakerOperationsController;
 use App\Http\Controllers\Admin\MarketMakerBotOperationsController;
 use App\Http\Controllers\Admin\OtcOperationsController;
@@ -74,6 +87,10 @@ use App\Http\Controllers\Admin\SecurityOperationsController;
 use App\Http\Controllers\Admin\ReliabilityOperationsController;
 use App\Http\Controllers\Admin\PricingRewardsController;
 use App\Http\Controllers\Admin\ExaCardOperationsController;
+use App\Http\Controllers\Admin\AgriTechOperationsController;
+use App\Http\Controllers\Admin\AffiliateOperationsController;
+use App\Http\Controllers\Admin\FlightGameAdminController;
+use App\Http\Controllers\Admin\PersonalizedContentAdminController;
 use App\Http\Controllers\API\AITradingAssistantController;
 use App\Http\Controllers\API\ExaAiController;
 use App\Http\Controllers\API\ExaSkillsController;
@@ -179,6 +196,21 @@ Route::prefix('developer/v1')->middleware(['developer.context', 'throttle:240,1'
         Route::post('convert/quote', [SwapController::class, 'quote']);
         Route::post('convert/execute', [SwapController::class, 'execute'])->middleware('rate.limit');
     });
+    Route::middleware('developer.api:exapay.read')->group(function (): void {
+        Route::get('exapay/merchants', [ExaPayMerchantController::class, 'merchants']);
+        Route::get('exapay/merchants/{merchantId}/overview', [ExaPayMerchantController::class, 'overview']);
+        Route::get('exapay/merchants/{merchantId}/payments', [ExaPayMerchantController::class, 'payments']);
+        Route::get('exapay/merchants/{merchantId}/payment-links', [ExaPayMerchantController::class, 'links']);
+        Route::get('exapay/merchants/{merchantId}/reconciliation', [ExaPayMerchantController::class, 'reconciliation']);
+    });
+    Route::middleware('developer.api:exapay.write')->group(function (): void {
+        Route::post('exapay/merchants/{merchantId}/payment-intents', [ExaPayMerchantController::class, 'createIntent'])->middleware('rate.limit');
+        Route::post('exapay/payment-intents/{payIntent}/capture', [ExaPayMerchantController::class, 'capture'])->middleware('rate.limit');
+        Route::post('exapay/merchants/{merchantId}/payment-links', [ExaPayMerchantController::class, 'createLink'])->middleware('rate.limit');
+    });
+    Route::middleware('developer.api:exapay.refunds')->group(function (): void {
+        Route::post('exapay/merchants/{merchantId}/refunds', [ExaPayMerchantController::class, 'refund'])->middleware('rate.limit');
+    });
     Route::middleware('developer.api:staking.read')->group(function (): void {
         Route::get('staking/assets', [StakingController::class, 'assets']);
         Route::get('staking/products', [StakingController::class, 'products']);
@@ -255,6 +287,26 @@ Route::prefix('developer')->middleware(['auth:sanctum', 'rate.limit'])->group(fu
     Route::get('projects/{projectId}/webhook-deliveries', [DeveloperPortalController::class, 'deliveries']);
     Route::post('webhooks/{endpointId}/rotate-secret', [DeveloperPortalController::class, 'rotateWebhookSecret']);
     Route::post('webhook-deliveries/{deliveryId}/replay', [DeveloperPortalController::class, 'replayDelivery']);
+});
+
+Route::get('exapay/checkout/{token}', [ExaPayMerchantController::class, 'checkout'])->middleware('throttle:120,1');
+Route::post('exapay/payment-links/{linkId}/pay', [ExaPayMerchantController::class, 'payLink'])->middleware('throttle:60,1');
+
+Route::prefix('exapay')->middleware(['auth:sanctum', 'throttle:120,1'])->group(function (): void {
+    Route::get('merchants', [ExaPayMerchantController::class, 'merchants']);
+    Route::post('merchants', [ExaPayMerchantController::class, 'apply'])->middleware('rate.limit');
+    Route::get('merchants/{merchantId}/overview', [ExaPayMerchantController::class, 'overview']);
+    Route::get('merchants/{merchantId}/payments', [ExaPayMerchantController::class, 'payments']);
+    Route::post('merchants/{merchantId}/payment-intents', [ExaPayMerchantController::class, 'createIntent'])->middleware('rate.limit');
+    Route::post('payment-intents/{payIntent}/capture', [ExaPayMerchantController::class, 'capture'])->middleware('rate.limit');
+    Route::get('merchants/{merchantId}/payment-links', [ExaPayMerchantController::class, 'links']);
+    Route::post('merchants/{merchantId}/payment-links', [ExaPayMerchantController::class, 'createLink'])->middleware('rate.limit');
+    Route::post('merchants/{merchantId}/api-keys', [ExaPayMerchantController::class, 'createApiKey'])->middleware('rate.limit');
+    Route::post('merchants/{merchantId}/api-keys/{keyId}/revoke', [ExaPayMerchantController::class, 'revokeApiKey'])->middleware('rate.limit');
+    Route::post('merchants/{merchantId}/refunds', [ExaPayMerchantController::class, 'refund'])->middleware('rate.limit');
+    Route::post('merchants/{merchantId}/disputes', [ExaPayMerchantController::class, 'dispute'])->middleware('rate.limit');
+    Route::post('merchants/{merchantId}/settlements', [ExaPayMerchantController::class, 'settlement'])->middleware('rate.limit');
+    Route::get('merchants/{merchantId}/reconciliation', [ExaPayMerchantController::class, 'reconciliation']);
 });
 
 Route::prefix('v1/staking')->middleware('throttle:120,1')->group(function (): void {
@@ -433,6 +485,16 @@ Route::prefix('admin/v1/operations')->middleware(['auth:sanctum', 'admin.securit
     Route::get('incidents', [TradingOperationsController::class, 'incidents']);
 });
 
+Route::prefix('admin/v1/affiliate')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('overview', [AffiliateOperationsController::class, 'overview'])->middleware('check.permission:finance.view');
+    Route::get('commissions', [AffiliateOperationsController::class, 'commissions'])->middleware('check.permission:finance.view');
+    Route::get('payouts', [AffiliateOperationsController::class, 'payouts'])->middleware('check.permission:finance.view');
+    Route::get('clawbacks', [AffiliateOperationsController::class, 'clawbacks'])->middleware('check.permission:finance.view');
+    Route::match(['get', 'post'], 'tiers', [AffiliateOperationsController::class, 'tiers'])->middleware(['check.permission:finance.adjust.request', 'rate.limit']);
+    Route::post('reconciliation', [AffiliateOperationsController::class, 'reconcile'])->middleware(['check.permission:finance.reconcile', 'rate.limit']);
+    Route::get('incidents', [AffiliateOperationsController::class, 'incidents'])->middleware('check.permission:finance.reconcile');
+});
+
 Route::prefix('admin/v1/liquidity')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
     Route::get('overview', [LiquidityOperationsController::class, 'overview']);
     Route::get('readiness', [LiquidityOperationsController::class, 'readiness']);
@@ -596,6 +658,14 @@ Route::prefix('admin/v1/reliability')->middleware(['auth:sanctum', 'admin.securi
     Route::get('config-validation', [ReliabilityOperationsController::class, 'configValidation']);
 });
 
+Route::prefix('admin/v1/games/flight')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
+    Route::get('summary', [FlightGameAdminController::class, 'summary']);
+    Route::put('settings', [FlightGameAdminController::class, 'updateSettings']);
+    Route::post('tick', [FlightGameAdminController::class, 'tick']);
+    Route::post('control', [FlightGameAdminController::class, 'control']);
+    Route::get('reconciliation', [FlightGameAdminController::class, 'reconciliation']);
+});
+
 Route::prefix('admin/v1/fiat')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
     Route::get('overview', [FiatOperationsController::class, 'overview']);
     Route::get('provider-health', [FiatOperationsController::class, 'providerHealth']);
@@ -691,6 +761,9 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
     Route::put('preferences/dashboard', [UserPreferenceController::class, 'updateDashboard'])->middleware('throttle:20,1');
     Route::delete('preferences/dashboard', [UserPreferenceController::class, 'resetDashboard'])->middleware('throttle:20,1');
     Route::get('dashboard', [DashboardController::class, 'show']);
+    Route::get('personalized-content/dashboard', [PersonalizedContentController::class, 'dashboard']);
+    Route::get('personalized-content/feed', [PersonalizedContentController::class, 'feed']);
+    Route::post('personalized-content/{content}/{interaction}', [PersonalizedContentController::class, 'interact'])->middleware('throttle:120,1');
 });
 
 Route::get('exaskills/verify/{credential}', [ExaSkillsController::class, 'verifyCredential']);
@@ -727,6 +800,14 @@ Route::prefix('admin')->group(function (): void {
         Route::post('logout', [AdminAuthController::class, 'logout']);
         Route::get('me', [AdminAuthController::class, 'me']);
         Route::get('dashboard-personalization/insights', [DashboardController::class, 'insights']);
+        Route::prefix('personalized-content')->middleware('check.permission:campaign.manage')->group(function (): void {
+            Route::get('/', [PersonalizedContentAdminController::class, 'index']);
+            Route::post('/', [PersonalizedContentAdminController::class, 'store'])->middleware('rate.limit');
+            Route::patch('{content}', [PersonalizedContentAdminController::class, 'update'])->middleware('rate.limit');
+            Route::post('{content}/{action}', [PersonalizedContentAdminController::class, 'transition'])->whereIn('action', ['publish', 'pause', 'unpublish', 'archive', 'expire'])->middleware('rate.limit');
+            Route::post('{content}/duplicate', [PersonalizedContentAdminController::class, 'duplicate'])->middleware('rate.limit');
+            Route::post('events/ingest', [PersonalizedContentAdminController::class, 'ingestEvent'])->middleware('rate.limit');
+        });
 
         // User Management
         Route::get('users', [AdminPlatformController::class, 'users']);
@@ -797,8 +878,33 @@ Route::prefix('admin')->group(function (): void {
         Route::get('sports', fn () => response()->json(['data' => [], 'message' => 'Sports module data']));
         Route::get('edtech', fn () => response()->json(['data' => [], 'message' => 'EdTech module data']));
         Route::get('exaskills', [ExaSkillsAdminController::class, 'overview']);
+        Route::post('exaskills/courses/{course}/review', [ExaSkillsAdminController::class, 'reviewCourse'])->middleware('rate.limit');
+        Route::get('exaskills/media/{asset}', [ExaSkillsAdminController::class, 'media']);
+        Route::post('exaskills/instructor-payouts/{payout}/approve', [ExaSkillsAdminController::class, 'approvePayout'])->middleware('rate.limit');
+        Route::post('exaskills/tax-policies', [ExaSkillsAdminController::class, 'createTaxPolicy'])->middleware('rate.limit');
+        Route::post('exaskills/opportunities/{opportunity}/moderate', [ExaSkillsAdminController::class, 'moderateOpportunity'])->middleware('rate.limit');
+        Route::post('exaskills/credentials/{credential}/revoke', [ExaSkillsAdminController::class, 'revokeCredential'])->middleware('rate.limit');
+        Route::get('exaskills/reconciliation', [ExaSkillsAdminController::class, 'reconciliation']);
         Route::post('exaskills/challenges/{challenge}/payout-winner', [ExaSkillsAdminController::class, 'payoutChallengeWinner'])->middleware('rate.limit');
-        Route::get('crowdfunding', fn () => response()->json(['data' => [], 'message' => 'Crowdfunding module data']));
+        Route::get('crowdfunding', [CrowdfundingOperationsController::class, 'overview'])->middleware('check.permission:crowdfunding.view');
+        Route::prefix('crowdfunding')->middleware('check.permission:crowdfunding.view')->group(function (): void {
+            Route::get('overview', [CrowdfundingOperationsController::class, 'overview']);
+            Route::get('campaigns', [CrowdfundingOperationsController::class, 'campaigns']);
+            Route::get('creators', [CrowdfundingOperationsController::class, 'creators']);
+            Route::get('records', [CrowdfundingOperationsController::class, 'records']);
+            Route::get('operations', [CrowdfundingOperationsController::class, 'operations']);
+            Route::put('operations', [CrowdfundingOperationsController::class, 'updateOperations'])->middleware(['check.permission:crowdfunding.manage', 'rate.limit']);
+            Route::get('reconciliation', [CrowdfundingOperationsController::class, 'reconciliation'])->middleware('check.permission:crowdfunding.reconcile');
+            Route::get('documents/{document}', [CrowdfundingOperationsController::class, 'document'])->middleware('check.permission:crowdfunding.review');
+            Route::post('documents/{document}/review', [CrowdfundingOperationsController::class, 'reviewDocument'])->middleware(['check.permission:crowdfunding.review', 'rate.limit']);
+            Route::post('comments/{comment}/moderate', [CrowdfundingOperationsController::class, 'moderateComment'])->middleware(['check.permission:crowdfunding.manage', 'rate.limit']);
+            Route::post('assignments', [CrowdfundingOperationsController::class, 'assignReview'])->middleware(['check.permission:crowdfunding.review', 'rate.limit']);
+            Route::post('campaigns/{campaign}/review', [CrowdfundingOperationsController::class, 'review'])->middleware(['check.permission:crowdfunding.review', 'rate.limit']);
+            Route::post('campaigns/{campaign}/milestones', [CrowdfundingOperationsController::class, 'milestone'])->middleware(['check.permission:crowdfunding.milestones', 'rate.limit']);
+            Route::post('milestones/{milestone}/review', [CrowdfundingOperationsController::class, 'reviewMilestone'])->middleware(['check.permission:crowdfunding.milestones', 'rate.limit']);
+            Route::post('milestones/{milestone}/release', [CrowdfundingOperationsController::class, 'releaseMilestone'])->middleware(['check.permission:crowdfunding.release', 'rate.limit']);
+            Route::post('campaigns/{campaign}/refund', [CrowdfundingOperationsController::class, 'refund'])->middleware(['check.permission:crowdfunding.refund', 'rate.limit']);
+        });
         Route::get('lottery', fn () => response()->json(['data' => [], 'message' => 'Lottery module data']));
         Route::get('giftcard', fn () => response()->json(['data' => [], 'message' => 'GiftCard module data']));
         Route::get('campaigns', fn () => response()->json(['data' => [], 'message' => 'Campaigns module data']));
@@ -826,16 +932,75 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('home', [ExaSkillsController::class, 'home']);
         Route::get('categories', [ExaSkillsController::class, 'categories']);
         Route::get('courses', [ExaSkillsController::class, 'courses']);
+        Route::post('courses', [ExaSkillsController::class, 'createCourse'])->middleware('rate.limit');
         Route::get('courses/{course}', [ExaSkillsController::class, 'course']);
+        Route::post('courses/{course}/lessons', [ExaSkillsController::class, 'addLesson'])->middleware('rate.limit');
+        Route::post('courses/{course}/media', [ExaSkillsController::class, 'uploadMedia'])->middleware('rate.limit');
+        Route::get('media/{asset}', [ExaSkillsController::class, 'media']);
+        Route::post('courses/{course}/submit-review', [ExaSkillsController::class, 'submitCourse'])->middleware('rate.limit');
+        Route::post('courses/{course}/publish', [ExaSkillsController::class, 'publishCourse'])->middleware('rate.limit');
         Route::post('courses/{course}/enroll', [ExaSkillsController::class, 'enroll'])->middleware('rate.limit');
         Route::post('courses/{course}/purchase', [ExaSkillsController::class, 'purchaseCourse'])->middleware('rate.limit');
+        Route::post('courses/{course}/lessons/{lesson}/complete', [ExaSkillsController::class, 'completeLesson'])->middleware('rate.limit');
+        Route::post('courses/{course}/assessment/attempts', [ExaSkillsController::class, 'submitAssessment'])->middleware('rate.limit');
         Route::get('dashboard', [ExaSkillsController::class, 'dashboard']);
+        Route::get('subscriptions/plans', [ExaSkillsController::class, 'subscriptionPlans']);
+        Route::get('subscriptions/current', [ExaSkillsController::class, 'currentSubscription']);
+        Route::post('subscriptions', [ExaSkillsController::class, 'activateSubscription'])->middleware('rate.limit');
+        Route::post('subscriptions/{subscription}/renew', [ExaSkillsController::class, 'renewSubscription'])->middleware('rate.limit');
+        Route::post('subscriptions/{subscription}/cancel', [ExaSkillsController::class, 'cancelSubscription'])->middleware('rate.limit');
         Route::post('instructors/apply', [ExaSkillsController::class, 'instructorApply'])->middleware('rate.limit');
+        Route::post('instructors/tax-profile', [ExaSkillsController::class, 'taxProfile'])->middleware('rate.limit');
+        Route::post('instructors/payouts', [ExaSkillsController::class, 'requestPayout'])->middleware('rate.limit');
+        Route::get('instructors/payouts/{payout}', [ExaSkillsController::class, 'payoutStatus']);
         Route::get('challenges', [ExaSkillsController::class, 'challenges']);
         Route::post('challenges/{challenge}/submissions', [ExaSkillsController::class, 'submitChallenge'])->middleware('rate.limit');
         Route::post('challenges/{challenge}/fund', [ExaSkillsController::class, 'fundChallenge'])->middleware('rate.limit');
         Route::get('opportunities', [ExaSkillsController::class, 'opportunities']);
         Route::post('opportunities/{opportunity}/applications', [ExaSkillsController::class, 'applyOpportunity'])->middleware('rate.limit');
+        Route::post('business/organizations', [ExaSkillsController::class, 'createOrganization'])->middleware('rate.limit');
+        Route::get('business/organizations/{organization}', [ExaSkillsController::class, 'businessDashboard']);
+        Route::post('business/organizations/{organization}/members', [ExaSkillsController::class, 'inviteBusinessMember'])->middleware('rate.limit');
+        Route::post('business/organizations/{organization}/seats', [ExaSkillsController::class, 'createBusinessSeats'])->middleware('rate.limit');
+        Route::post('business/organizations/{organization}/programs', [ExaSkillsController::class, 'createTrainingProgram'])->middleware('rate.limit');
+        Route::post('business/organizations/{organization}/opportunities', [ExaSkillsController::class, 'createEmployerOpportunity'])->middleware('rate.limit');
+    });
+    Route::prefix('crowdfunding')->group(function (): void {
+        Route::get('campaigns', [CrowdfundingController::class, 'index']);
+        Route::get('creator/dashboard', [CrowdfundingController::class, 'creatorDashboard']);
+        Route::get('backer/dashboard', [CrowdfundingController::class, 'backerDashboard']);
+        Route::post('campaigns', [CrowdfundingController::class, 'store'])->middleware('rate.limit');
+        Route::get('campaigns/{campaign}', [CrowdfundingController::class, 'show']);
+        Route::get('campaigns/{campaign}/logs', [CrowdfundingController::class, 'logs']);
+        Route::get('campaigns/{campaign}/comments', [CrowdfundingController::class, 'comments']);
+        Route::post('campaigns/{campaign}/comments', [CrowdfundingController::class, 'comment'])->middleware('rate.limit');
+        Route::post('comments/{comment}/report', [CrowdfundingController::class, 'reportComment'])->middleware('rate.limit');
+        Route::post('campaigns/{campaign}/documents', [CrowdfundingController::class, 'uploadDocument'])->middleware('rate.limit');
+        Route::get('documents/{document}', [CrowdfundingController::class, 'document']);
+        Route::post('campaigns/{campaign}/submit', [CrowdfundingController::class, 'submit'])->middleware('rate.limit');
+        Route::post('campaigns/{campaign}/contributions', [CrowdfundingController::class, 'pledge'])->middleware('rate.limit');
+        Route::post('campaigns/{campaign}/pledges', [CrowdfundingController::class, 'pledge'])->middleware('rate.limit');
+        Route::post('campaigns/{campaign}/updates', [CrowdfundingController::class, 'update'])->middleware('rate.limit');
+        Route::post('milestones/{milestone}/submit', [CrowdfundingController::class, 'milestoneSubmit'])->middleware('rate.limit');
+        Route::get('pledges', [CrowdfundingController::class, 'history']);
+    });
+    Route::prefix('v1/crowdfunding')->group(function (): void {
+        Route::get('campaigns', [CrowdfundingController::class, 'index']);
+        Route::get('creator/dashboard', [CrowdfundingController::class, 'creatorDashboard']);
+        Route::get('backer/dashboard', [CrowdfundingController::class, 'backerDashboard']);
+        Route::post('campaigns', [CrowdfundingController::class, 'store'])->middleware('rate.limit');
+        Route::get('campaigns/{campaign}', [CrowdfundingController::class, 'show']);
+        Route::get('campaigns/{campaign}/logs', [CrowdfundingController::class, 'logs']);
+        Route::get('campaigns/{campaign}/comments', [CrowdfundingController::class, 'comments']);
+        Route::post('campaigns/{campaign}/comments', [CrowdfundingController::class, 'comment'])->middleware('rate.limit');
+        Route::post('comments/{comment}/report', [CrowdfundingController::class, 'reportComment'])->middleware('rate.limit');
+        Route::post('campaigns/{campaign}/documents', [CrowdfundingController::class, 'uploadDocument'])->middleware('rate.limit');
+        Route::get('documents/{document}', [CrowdfundingController::class, 'document']);
+        Route::post('campaigns/{campaign}/submit', [CrowdfundingController::class, 'submit'])->middleware('rate.limit');
+        Route::post('campaigns/{campaign}/pledges', [CrowdfundingController::class, 'pledge'])->middleware('rate.limit');
+        Route::post('campaigns/{campaign}/updates', [CrowdfundingController::class, 'update'])->middleware('rate.limit');
+        Route::post('milestones/{milestone}/submit', [CrowdfundingController::class, 'milestoneSubmit'])->middleware('rate.limit');
+        Route::get('pledges', [CrowdfundingController::class, 'history']);
     });
     Route::prefix('wallet')->group(function (): void {
         Route::get('balances', [WalletController::class, 'balances']);
@@ -1055,6 +1220,14 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('leaderboard', [ReferralController::class, 'leaderboard']);
     });
 
+    Route::prefix('affiliate')->middleware('throttle:120,1')->group(function (): void {
+        Route::get('overview', [AffiliateController::class, 'overview']);
+        Route::get('referrals', [AffiliateController::class, 'referrals']);
+        Route::get('earnings', [AffiliateController::class, 'earnings']);
+        Route::get('tools', [AffiliateController::class, 'tools']);
+        Route::match(['get', 'post'], 'payouts', [AffiliateController::class, 'payouts'])->middleware('rate.limit');
+    });
+
     Route::prefix('sports')->group(function (): void {
         Route::get('athletes', [SportsController::class, 'athletes']);
         Route::get('athletes/{athleteId}', [SportsController::class, 'athlete']);
@@ -1084,6 +1257,7 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::post('projects/{projectId}/leases', [AgriController::class, 'createLease']);
         Route::post('projects/{projectId}/produce-updates', [AgriController::class, 'addProduceUpdate']);
         Route::get('projects/{projectId}/produce-feed', [AgriController::class, 'produceFeed']);
+        Route::post('projects/{projectId}/evidence', [AgriController::class, 'submitEvidence'])->middleware('throttle:20,1');
         Route::post('projects/{projectId}/settlement', [AgriController::class, 'queueSettlement']);
         Route::post('projects/{projectId}/settlements', [AgriController::class, 'queueSettlement']);
     });
@@ -1176,6 +1350,7 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('my-bets', [FlightGameController::class, 'myBets']);
         Route::post('bets', [FlightGameController::class, 'placeBet'])->middleware('rate.limit');
         Route::post('bets/{betUuid}/cashout', [FlightGameController::class, 'cashOut'])->middleware('rate.limit');
+        Route::post('responsible-gaming/self-exclusion', [FlightGameController::class, 'selfExclude'])->middleware('rate.limit');
     });
     Route::prefix('gamefi')->group(function (): void {
         Route::get('lotteries', [GameFiController::class, 'lotteryGames']);
@@ -1195,10 +1370,14 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('marketplace', [NftController::class, 'marketplace']);
         Route::get('my-assets', [NftController::class, 'myNfts']);
         Route::post('collections', [NftController::class, 'createCollection']);
+        Route::post('media', [NftController::class, 'uploadMedia'])->middleware('rate.limit');
+        Route::get('media/{mediaAsset}/private-url', [NftController::class, 'privateMedia'])->middleware('rate.limit');
         Route::post('mint', [NftController::class, 'mint']);
         Route::post('assets/{nftId}/upgrade', [NftController::class, 'upgrade']);
         Route::post('assets/{nftId}/subscriptions', [NftController::class, 'subscribe']);
         Route::post('assets/{nftId}/listings', [NftController::class, 'createListing']);
+        Route::post('assets/{nftId}/reports', [NftController::class, 'report'])->middleware('rate.limit');
+        Route::post('reports/{report}/evidence', [NftController::class, 'uploadReportEvidence'])->middleware('rate.limit');
         Route::post('listings/{listingId}/buy', [NftController::class, 'buyListing']);
         Route::post('assets/{nftId}/auctions', [NftController::class, 'createAuction']);
         Route::post('auctions/{auctionId}/bids', [NftController::class, 'bid']);
@@ -1209,6 +1388,7 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('/', [NotificationController::class, 'index']);
         Route::get('unread', [NotificationController::class, 'unread']);
         Route::get('stats', [NotificationController::class, 'stats']);
+        Route::match(['get', 'put'], 'preferences', [NotificationController::class, 'preferences']);
         Route::get('{notification}', [NotificationController::class, 'show']);
         Route::put('{notification}/read', [NotificationController::class, 'markAsRead']);
         Route::post('mark-all-read', [NotificationController::class, 'markAllAsRead']);
@@ -1220,6 +1400,29 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('device-tokens', [NotificationController::class, 'getDeviceTokens']);
         Route::delete('device-tokens/{deviceToken}', [NotificationController::class, 'deactivateDeviceToken']);
         Route::post('device-tokens/deactivate-all', [NotificationController::class, 'deactivateAllDeviceTokens']);
+    });
+
+    Route::prefix('activity-center')->group(function (): void {
+        Route::get('/', [UnifiedActivityCenterController::class, 'index']);
+        Route::get('notifications', [UnifiedActivityCenterController::class, 'notifications']);
+        Route::get('activity', [UnifiedActivityCenterController::class, 'activity']);
+    });
+
+    Route::prefix('v1/support')->middleware('throttle:30,1')->group(function (): void {
+        Route::get('meta', [SupportController::class, 'meta']);
+        Route::get('knowledge-base', [SupportController::class, 'kb']);
+        Route::get('chat/availability', [SupportLiveChatController::class, 'availability']);
+        Route::post('chat/conversations', [SupportLiveChatController::class, 'start'])->middleware('rate.limit');
+        Route::post('chat/conversations/{conversation}/messages', [SupportLiveChatController::class, 'messages'])->middleware('rate.limit');
+        Route::get('chat/conversations/{conversation}/replay', [SupportLiveChatController::class, 'replay']);
+        Route::post('chat/conversations/{conversation}/end', [SupportLiveChatController::class, 'end'])->middleware('rate.limit');
+        Route::get('tickets', [SupportController::class, 'index']);
+        Route::post('tickets', [SupportController::class, 'store'])->middleware('rate.limit');
+        Route::get('tickets/{ticket}', [SupportController::class, 'show']);
+        Route::post('tickets/{ticket}/messages', [SupportController::class, 'message'])->middleware('rate.limit');
+        Route::post('tickets/{ticket}/attachments', [SupportController::class, 'attach'])->middleware('rate.limit');
+        Route::post('tickets/{ticket}/close', [SupportController::class, 'close'])->middleware('rate.limit');
+        Route::post('tickets/{ticket}/reopen', [SupportController::class, 'reopen'])->middleware('rate.limit');
     });
 
     Route::prefix('kyc')->middleware('throttle:30,1')->group(function (): void {
@@ -1387,6 +1590,15 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('stats', [GiftCardAdminController::class, 'stats']);
     });
 
+    Route::prefix('admin/exapay')->middleware(['admin.security', 'admin.audit'])->group(function (): void {
+        Route::get('overview', [ExaPayOperationsController::class, 'overview']);
+        Route::get('merchants', [ExaPayOperationsController::class, 'merchants']);
+        Route::post('merchants/{merchantId}/approve', [ExaPayOperationsController::class, 'approve'])->middleware('rate.limit');
+        Route::post('merchants/{merchantId}/restrict', [ExaPayOperationsController::class, 'restrict'])->middleware('rate.limit');
+        Route::get('reconciliation', [ExaPayOperationsController::class, 'reconciliation']);
+        Route::get('reports', [ExaPayOperationsController::class, 'reports']);
+    });
+
     Route::prefix('admin/security')->middleware(['admin.security', 'admin.audit'])->group(function (): void {
         Route::get('dashboard', [SecurityController::class, 'getDashboard']);
         Route::get('events', [SecurityController::class, 'getEvents']);
@@ -1468,6 +1680,38 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::prefix('notifications')->group(function (): void {
             Route::post('send', [AdminPlatformController::class, 'sendNotification'])->middleware('check.permission:notifications.send');
             Route::get('/', [AdminPlatformController::class, 'notifications'])->middleware('check.permission:notifications.send');
+            Route::get('operations/overview', [NotificationOperationsController::class, 'overview'])->middleware('check.permission:notifications.view');
+            Route::get('operations/events', [NotificationOperationsController::class, 'events'])->middleware('check.permission:notifications.templates');
+            Route::get('operations/deliveries', [NotificationOperationsController::class, 'deliveries'])->middleware('check.permission:notifications.view');
+            Route::get('operations/dlq', [NotificationOperationsController::class, 'dlq'])->middleware('check.permission:notifications.dlq');
+            Route::post('operations/deliveries/{delivery}/retry', [NotificationOperationsController::class, 'retry'])->middleware('check.permission:notifications.dlq');
+            Route::get('operations/providers', [NotificationOperationsController::class, 'providers'])->middleware('check.permission:notifications.providers');
+            Route::get('operations/templates', [NotificationOperationsController::class, 'templates'])->middleware('check.permission:notifications.templates');
+            Route::post('operations/templates/preview', [NotificationOperationsController::class, 'preview'])->middleware('check.permission:notifications.templates');
+        });
+
+        Route::prefix('support')->group(function (): void {
+            Route::get('overview', [SupportOperationsController::class, 'overview'])->middleware('check.permission:support.view');
+            Route::get('tickets', [SupportOperationsController::class, 'tickets'])->middleware('check.permission:support.view');
+            Route::get('tickets/{ticket}', [SupportOperationsController::class, 'show'])->middleware('check.permission:support.view');
+            Route::post('tickets/{ticket}/reply', [SupportOperationsController::class, 'reply'])->middleware(['check.permission:support.reply', 'rate.limit']);
+            Route::post('tickets/{ticket}/assign', [SupportOperationsController::class, 'assign'])->middleware('check.permission:support.assign');
+            Route::post('tickets/{ticket}/transition', [SupportOperationsController::class, 'transition'])->middleware('check.permission:support.resolve');
+            Route::post('tickets/{ticket}/escalate', [SupportOperationsController::class, 'escalate'])->middleware('check.permission:support.escalate');
+            Route::get('disputes', [SupportOperationsController::class, 'disputes'])->middleware('check.permission:support.view');
+            Route::match(['get', 'post'], 'knowledge-base', [SupportOperationsController::class, 'knowledgeBase'])->middleware('check.permission:support.manage_kb');
+            Route::match(['get', 'put'], 'live-chat/settings', [SupportLiveChatOperationsController::class, 'settings'])->middleware('check.permission:support.live_chat.manage');
+            Route::match(['get', 'post'], 'live-chat/agents', [SupportLiveChatOperationsController::class, 'agents'])->middleware('check.permission:support.live_chat.manage');
+            Route::post('live-chat/heartbeat', [SupportLiveChatOperationsController::class, 'heartbeat'])->middleware('check.permission:support.live_chat.agent');
+            Route::get('live-chat/conversations', [SupportLiveChatOperationsController::class, 'conversations'])->middleware('check.permission:support.live_chat.view');
+            Route::get('live-chat/conversations/{conversation}/replay', [SupportLiveChatOperationsController::class, 'replay'])->middleware('check.permission:support.live_chat.view');
+            Route::post('live-chat/conversations/{conversation}/messages', [SupportLiveChatOperationsController::class, 'message'])->middleware(['check.permission:support.live_chat.agent', 'rate.limit']);
+            Route::post('live-chat/conversations/{conversation}/assign', [SupportLiveChatOperationsController::class, 'assign'])->middleware('check.permission:support.live_chat.manage');
+            Route::post('live-chat/conversations/{conversation}/transfer', [SupportLiveChatOperationsController::class, 'transfer'])->middleware('check.permission:support.live_chat.manage');
+            Route::post('live-chat/conversations/{conversation}/end', [SupportLiveChatOperationsController::class, 'end'])->middleware('check.permission:support.live_chat.agent');
+            Route::post('live-chat/conversations/{conversation}/convert-to-ticket', [SupportLiveChatOperationsController::class, 'convert'])->middleware('check.permission:support.live_chat.agent');
+            Route::match(['get', 'post'], 'live-chat/canned-responses', [SupportLiveChatOperationsController::class, 'canned'])->middleware('check.permission:support.live_chat.manage');
+            Route::get('live-chat/health', [SupportLiveChatOperationsController::class, 'health'])->middleware('check.permission:support.live_chat.view');
         });
 
         Route::prefix('settings')->group(function (): void {
@@ -1485,6 +1729,14 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
             Route::post('approve', [AdminPlatformController::class, 'modelStore'])->defaults('resource', 'nft')->middleware(['check.permission:nft.manage', 'rate.limit']);
             Route::post('remove', [AdminPlatformController::class, 'modelDisable'])->defaults('resource', 'nft')->middleware(['check.permission:nft.manage', 'rate.limit']);
             Route::get('sales', [AdminPlatformController::class, 'modelIndex'])->defaults('resource', 'nft-sales')->middleware('check.permission:nft.manage');
+            Route::get('operations/overview', [NftOperationsController::class, 'overview'])->middleware('check.permission:nft.manage');
+            Route::get('operations/media', [NftOperationsController::class, 'media'])->middleware('check.permission:nft.manage');
+            Route::post('operations/media/{mediaAsset}/review', [NftOperationsController::class, 'reviewMedia'])->middleware(['check.permission:nft.manage', 'rate.limit']);
+            Route::get('operations/media/reconciliation', [NftOperationsController::class, 'mediaReconciliation'])->middleware('check.permission:nft.manage');
+            Route::get('operations/storage-health', [NftOperationsController::class, 'storageHealth'])->middleware('check.permission:nft.manage');
+            Route::get('operations/reports', [NftOperationsController::class, 'reports'])->middleware('check.permission:nft.manage');
+            Route::post('operations/reports/{report}/review', [NftOperationsController::class, 'reviewReport'])->middleware(['check.permission:nft.manage', 'rate.limit']);
+            Route::get('operations/reconciliation', [NftOperationsController::class, 'reconciliation'])->middleware('check.permission:nft.manage');
         });
 
         Route::prefix('agri/projects')->group(function (): void {
@@ -1492,6 +1744,20 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
             Route::post('/', [AdminPlatformController::class, 'modelStore'])->defaults('resource', 'agri-projects')->middleware(['check.permission:agri.manage', 'rate.limit']);
             Route::put('/', [AdminPlatformController::class, 'modelUpdate'])->defaults('resource', 'agri-projects')->middleware(['check.permission:agri.manage', 'rate.limit']);
             Route::post('close', [AdminPlatformController::class, 'modelDisable'])->defaults('resource', 'agri-projects')->middleware(['check.permission:agri.manage', 'rate.limit']);
+        });
+
+        Route::prefix('agri/operations')->middleware('check.permission:agri.manage')->group(function (): void {
+            Route::get('summary', [AgriTechOperationsController::class, 'summary']);
+            Route::get('evidence', [AgriTechOperationsController::class, 'evidence']);
+            Route::post('evidence/{evidenceId}/review', [AgriTechOperationsController::class, 'reviewEvidence'])->middleware('rate.limit');
+            Route::post('milestones', [AgriTechOperationsController::class, 'createMilestone'])->middleware('rate.limit');
+            Route::post('projects/{projectId}/transition', [AgriTechOperationsController::class, 'transitionProject'])->middleware('rate.limit');
+            Route::post('milestones/{milestoneId}/approve', [AgriTechOperationsController::class, 'approveMilestone'])->middleware('rate.limit');
+            Route::post('disbursements', [AgriTechOperationsController::class, 'requestDisbursement'])->middleware('rate.limit');
+            Route::post('disbursements/{id}/approve', [AgriTechOperationsController::class, 'approveDisbursement'])->middleware('rate.limit');
+            Route::post('disbursements/{id}/settle', [AgriTechOperationsController::class, 'settleDisbursement'])->middleware('rate.limit');
+            Route::get('reconciliation', [AgriTechOperationsController::class, 'reconciliation']);
+            Route::post('investments/{investmentId}/refund', [AgriTechOperationsController::class, 'refund'])->middleware('rate.limit');
         });
 
         Route::prefix('sports')->group(function (): void {

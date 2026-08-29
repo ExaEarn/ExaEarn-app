@@ -1,75 +1,131 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Notification Configuration
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * Default notification channels
-     */
-    'default_channels' => ['in_app', 'email', 'push'],
-
-    /**
-     * Notification retention (days)
-     */
-    'retention_days' => 90,
-
-    /**
-     * Max retry attempts for failed notifications
-     */
-    'max_retries' => 3,
-
-    /**
-     * Email configuration
-     */
-    'email' => [
-        'enabled' => env('MAIL_FROM_ADDRESS') !== null,
-        'from' => env('MAIL_FROM_ADDRESS', 'noreply@exaearn.com'),
-        'from_name' => env('MAIL_FROM_NAME', 'ExaEarn'),
+    'default_locale' => env('NOTIFICATION_DEFAULT_LOCALE', 'en'),
+    'events' => [
+        'deposit.completed' => ['product' => 'WALLET', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email', 'push'], 'mandatory' => true, 'activity' => true],
+        'withdrawal.failed' => ['product' => 'WALLET', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'email', 'push'], 'mandatory' => true, 'activity' => true],
+        'transfer.completed' => ['product' => 'WALLET', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'convert.completed' => ['product' => 'CONVERT', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'spot.order.filled' => ['product' => 'SPOT', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'futures.margin.warning' => ['product' => 'FUTURES', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'email', 'push'], 'mandatory' => true, 'activity' => true],
+        'p2p.action.required' => ['product' => 'P2P', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'staking.reward.claimable' => ['product' => 'STAKING', 'category' => 'REWARD', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => false, 'activity' => true],
+        'exaai.subscription.activated' => ['product' => 'EXAAI', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'exaai.session.started' => ['product' => 'EXAAI', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'copy.risk.alert' => ['product' => 'COPY', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'email', 'push'], 'mandatory' => true, 'activity' => true],
+        'giftcard.order.completed' => ['product' => 'GIFTCARD', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'giftcard.delivery.ready' => ['product' => 'GIFTCARD', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'exapay.payment.captured' => ['product' => 'EXAPAY', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.transaction.declined' => ['product' => 'EXACARD', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.card.created' => ['product' => 'EXACARD', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.funding.completed' => ['product' => 'EXACARD', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.funding.failed' => ['product' => 'EXACARD', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.funding.provider_unknown' => ['product' => 'EXACARD', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app'], 'mandatory' => true, 'activity' => true],
+        'exacard.purchase.approved' => ['product' => 'EXACARD', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.purchase.declined' => ['product' => 'EXACARD', 'category' => 'TRANSACTIONAL', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.refund.completed' => ['product' => 'EXACARD', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.card.status.active' => ['product' => 'EXACARD', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.card.status.frozen' => ['product' => 'EXACARD', 'category' => 'SECURITY', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.card.status.blocked' => ['product' => 'EXACARD', 'category' => 'SECURITY', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.card.status.terminated' => ['product' => 'EXACARD', 'category' => 'SECURITY', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'exacard.dispute.updated' => ['product' => 'EXACARD', 'category' => 'SUPPORT', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'exaskills.credential.issued' => ['product' => 'EXASKILLS', 'category' => 'PRODUCT', 'priority' => 'LOW', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'agritech.harvest.verified' => ['product' => 'AGRITECH', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'crowdfunding.campaign.status_changed' => ['product' => 'CROWDFUNDING', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => true, 'activity' => true],
+        'crowdfunding.pledge.completed' => ['product' => 'CROWDFUNDING', 'category' => 'TRANSACTIONAL', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'crowdfunding.comment.created' => ['product' => 'CROWDFUNDING', 'category' => 'PRODUCT', 'priority' => 'LOW', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'crowdfunding.question.received' => ['product' => 'CROWDFUNDING', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'crowdfunding.creator.replied' => ['product' => 'CROWDFUNDING', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'crowdfunding.comment.moderated' => ['product' => 'CROWDFUNDING', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => true, 'activity' => true],
+        'crowdfunding.document.reviewed' => ['product' => 'CROWDFUNDING', 'category' => 'COMPLIANCE', 'priority' => 'HIGH', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => true, 'activity' => true],
+        'crowdfunding.campaign.update_published' => ['product' => 'CROWDFUNDING', 'category' => 'PRODUCT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'affiliate.commission.available' => ['product' => 'AFFILIATE', 'category' => 'REWARD', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => false, 'activity' => true],
+        'security.new_device' => ['product' => 'SECURITY', 'category' => 'SECURITY', 'priority' => 'CRITICAL', 'severity' => 'CRITICAL', 'channels' => ['in_app', 'email', 'push'], 'mandatory' => true, 'activity' => true],
+        'compliance.kyc.action_required' => ['product' => 'COMPLIANCE', 'category' => 'COMPLIANCE', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'support.ticket.created' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'support.ticket.assigned' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'support.ticket.agent_replied' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'HIGH', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email', 'push'], 'mandatory' => true, 'activity' => true],
+        'support.ticket.user_action_required' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'email', 'push'], 'mandatory' => true, 'activity' => true],
+        'support.ticket.escalated' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'HIGH', 'severity' => 'HIGH', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'support.ticket.resolved' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'support.ticket.closed' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'LOW', 'severity' => 'LOW', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => true],
+        'support.ticket.reopened' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'support.chat.assigned' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'support.chat.agent_replied' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'HIGH', 'severity' => 'NORMAL', 'channels' => ['in_app', 'push'], 'mandatory' => true, 'activity' => true],
+        'support.chat.missed' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'support.chat.converted_to_ticket' => ['product' => 'SUPPORT', 'category' => 'SUPPORT', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'system.maintenance' => ['product' => 'SYSTEM', 'category' => 'SYSTEM', 'priority' => 'NORMAL', 'severity' => 'NORMAL', 'channels' => ['in_app', 'email'], 'mandatory' => true, 'activity' => true],
+        'marketing.product_update' => ['product' => 'SYSTEM', 'category' => 'MARKETING', 'priority' => 'LOW', 'severity' => 'LOW', 'channels' => ['in_app'], 'mandatory' => false, 'activity' => false],
     ],
-
-    /**
-     * Push notification (Firebase) configuration
-     */
-    'push' => [
-        'enabled' => env('FIREBASE_API_KEY') !== null,
-        'provider' => 'firebase', // or 'onesignal'
+    'templates' => [
+        'deposit.completed' => ['en' => ['in_app' => ['title' => 'Deposit completed', 'body' => 'Your {{asset}} deposit is now available.', 'variables' => ['asset', 'amount?']]]],
+        'withdrawal.failed' => ['en' => ['in_app' => ['title' => 'Withdrawal failed', 'body' => 'Your {{asset}} withdrawal could not be completed. Review the withdrawal details before trying again.', 'variables' => ['asset?', 'amount?']]]],
+        'transfer.completed' => ['en' => ['in_app' => ['title' => 'Transfer completed', 'body' => 'Your {{asset}} transfer was completed.', 'variables' => ['asset?', 'amount?']]]],
+        'convert.completed' => ['en' => ['in_app' => ['title' => 'Convert completed', 'body' => 'Your conversion from {{from_asset}} to {{to_asset}} was completed.', 'variables' => ['from_asset?', 'to_asset?', 'amount?']]]],
+        'spot.order.filled' => ['en' => ['in_app' => ['title' => 'Spot order filled', 'body' => 'Your {{symbol}} order was filled.', 'variables' => ['symbol?', 'side?', 'quantity?', 'price?']]]],
+        'futures.margin.warning' => ['en' => ['in_app' => ['title' => 'Margin warning', 'body' => 'Your {{symbol}} futures margin needs attention.', 'variables' => ['symbol?', 'margin_ratio?']]]],
+        'p2p.action.required' => ['en' => ['in_app' => ['title' => 'P2P action required', 'body' => 'A P2P order needs your attention.', 'variables' => ['order_id?', 'action?']]]],
+        'staking.reward.claimable' => ['en' => ['in_app' => ['title' => 'Staking reward available', 'body' => 'Your {{asset}} staking reward is available to claim.', 'variables' => ['asset?', 'amount?']]]],
+        'exaai.subscription.activated' => ['en' => ['in_app' => ['title' => 'ExaAI plan activated', 'body' => 'Your {{plan}} plan is active until {{ends_at}}.', 'variables' => ['plan?', 'ends_at?']]]],
+        'exaai.session.started' => ['en' => ['in_app' => ['title' => 'ExaAI activated', 'body' => '{{strategy}} strategy is now active.', 'variables' => ['strategy?']]]],
+        'copy.risk.alert' => ['en' => ['in_app' => ['title' => 'Copy trading risk alert', 'body' => 'A copied strategy needs your attention.', 'variables' => ['strategy?', 'reason?']]]],
+        'giftcard.order.completed' => ['en' => ['in_app' => ['title' => 'Gift card delivered', 'body' => 'Your gift card order is ready for secure reveal.', 'variables' => ['order_id?', 'card_count?']]]],
+        'giftcard.delivery.ready' => ['en' => ['in_app' => ['title' => 'Gift card delivered', 'body' => 'Your gift card purchase has been delivered. Open ExaEarn to securely reveal the card details.', 'variables' => ['order_id?', 'card_count?', 'delivery_channel?']]]],
+        'exapay.payment.captured' => ['en' => ['in_app' => ['title' => 'Payment captured', 'body' => 'An ExaPay payment was captured successfully.', 'variables' => ['payment_id?', 'amount?', 'currency?']]]],
+        'exacard.transaction.declined' => ['en' => ['in_app' => ['title' => 'Purchase declined', 'body' => 'Your ExaCard payment was declined.', 'variables' => ['reference?', 'merchant?', 'amount?', 'currency?', 'status?']]]],
+        'exacard.card.created' => ['en' => ['in_app' => ['title' => 'Your ExaCard is ready', 'body' => 'Your ExaCard is ready to manage in ExaEarn.', 'variables' => ['card_uuid?']]]],
+        'exacard.funding.completed' => ['en' => ['in_app' => ['title' => 'ExaCard funding completed', 'body' => 'Your ExaCard funding of {{currency}} {{amount}} was completed.', 'variables' => ['funding_uuid?', 'amount', 'currency']]]],
+        'exacard.funding.failed' => ['en' => ['in_app' => ['title' => 'ExaCard funding failed', 'body' => 'We could not complete your ExaCard funding. Reserved funds were released where safe.', 'variables' => ['funding_uuid?']]]],
+        'exacard.funding.provider_unknown' => ['en' => ['in_app' => ['title' => 'ExaCard funding under review', 'body' => 'Your card funding is being verified. Your reserved funds remain protected.', 'variables' => ['funding_uuid?']]]],
+        'exacard.purchase.approved' => ['en' => ['in_app' => ['title' => 'Purchase approved', 'body' => 'Your ExaCard payment of {{currency}} {{amount}} was approved.', 'variables' => ['reference?', 'merchant?', 'amount', 'currency', 'status?']]]],
+        'exacard.purchase.declined' => ['en' => ['in_app' => ['title' => 'Purchase declined', 'body' => 'Your ExaCard payment was declined.', 'variables' => ['reference?', 'merchant?', 'amount?', 'currency?', 'status?']]]],
+        'exacard.refund.completed' => ['en' => ['in_app' => ['title' => 'ExaCard refund received', 'body' => 'A {{currency}} {{amount}} refund has been received on your ExaCard.', 'variables' => ['reference?', 'amount', 'currency']]]],
+        'exacard.card.status.active' => ['en' => ['in_app' => ['title' => 'ExaCard active', 'body' => 'Your ExaCard is active again.', 'variables' => ['card_uuid?', 'status?']]]],
+        'exacard.card.status.frozen' => ['en' => ['in_app' => ['title' => 'ExaCard frozen', 'body' => 'Your ExaCard has been frozen.', 'variables' => ['card_uuid?', 'status?']]]],
+        'exacard.card.status.blocked' => ['en' => ['in_app' => ['title' => 'ExaCard blocked', 'body' => 'Your ExaCard has been blocked.', 'variables' => ['card_uuid?', 'status?']]]],
+        'exacard.card.status.terminated' => ['en' => ['in_app' => ['title' => 'ExaCard terminated', 'body' => 'Your ExaCard has been terminated.', 'variables' => ['card_uuid?', 'status?']]]],
+        'exacard.dispute.updated' => ['en' => ['in_app' => ['title' => 'Card dispute updated', 'body' => 'There is an update on your ExaCard dispute.', 'variables' => ['dispute_uuid?']]]],
+        'exaskills.credential.issued' => ['en' => ['in_app' => ['title' => 'Credential issued', 'body' => 'Your ExaSkills credential is available.', 'variables' => ['credential_id?']]]],
+        'agritech.harvest.verified' => ['en' => ['in_app' => ['title' => 'Harvest verified', 'body' => 'An AgriTech harvest update has been verified.', 'variables' => ['project_id?', 'harvest_id?']]]],
+        'crowdfunding.campaign.status_changed' => ['en' => ['in_app' => ['title' => 'Campaign status updated', 'body' => '{{campaign}} is now {{status}}.', 'variables' => ['campaign', 'status']]]],
+        'crowdfunding.pledge.completed' => ['en' => ['in_app' => ['title' => 'Pledge confirmed', 'body' => 'Your {{asset}} {{amount}} pledge to {{campaign}} is held in escrow.', 'variables' => ['campaign', 'amount', 'asset']]]],
+        'crowdfunding.comment.created' => ['en' => ['in_app' => ['title' => 'New campaign comment', 'body' => 'A new comment was posted on {{campaign}}.', 'variables' => ['campaign']]]],
+        'crowdfunding.question.received' => ['en' => ['in_app' => ['title' => 'New campaign question', 'body' => 'A backer asked a question on {{campaign}}.', 'variables' => ['campaign']]]],
+        'crowdfunding.creator.replied' => ['en' => ['in_app' => ['title' => 'Creator replied', 'body' => 'The campaign creator replied on {{campaign}}.', 'variables' => ['campaign']]]],
+        'crowdfunding.comment.moderated' => ['en' => ['in_app' => ['title' => 'Campaign comment moderated', 'body' => 'Your campaign comment status changed to {{status}}.', 'variables' => ['campaign', 'status']]]],
+        'crowdfunding.document.reviewed' => ['en' => ['in_app' => ['title' => 'Campaign document reviewed', 'body' => 'A document for {{campaign}} was marked {{status}}.', 'variables' => ['campaign', 'status']]]],
+        'crowdfunding.campaign.update_published' => ['en' => ['in_app' => ['title' => 'Campaign update', 'body' => '{{campaign}} published a new update.', 'variables' => ['campaign']]]],
+        'affiliate.commission.available' => ['en' => ['in_app' => ['title' => 'Commission available', 'body' => 'Your affiliate commission is available.', 'variables' => ['amount?', 'asset?']]]],
+        'security.new_device' => ['en' => ['in_app' => ['title' => 'New device sign-in', 'body' => 'A new device signed in to your ExaEarn account.', 'variables' => []]]],
+        'compliance.kyc.action_required' => ['en' => ['in_app' => ['title' => 'Verification action required', 'body' => 'Your identity verification needs attention.', 'variables' => ['status?', 'reason?', 'kyc_id?', 'level?']]]],
+        'support.ticket.created' => ['en' => ['in_app' => ['title' => 'Support request received', 'body' => 'Ticket {{ticket_number}} has been created for {{subject}}.', 'variables' => ['ticket_number', 'subject', 'status?']]]],
+        'support.ticket.assigned' => ['en' => ['in_app' => ['title' => 'Support ticket assigned', 'body' => 'Ticket {{ticket_number}} has been assigned to the right support queue.', 'variables' => ['ticket_number', 'subject?', 'status?']]]],
+        'support.ticket.agent_replied' => ['en' => ['in_app' => ['title' => 'Support replied', 'body' => 'There is a new reply on ticket {{ticket_number}}.', 'variables' => ['ticket_number', 'subject?', 'status?']]]],
+        'support.ticket.user_action_required' => ['en' => ['in_app' => ['title' => 'Support needs your response', 'body' => 'Ticket {{ticket_number}} needs your attention.', 'variables' => ['ticket_number', 'subject?', 'status?']]]],
+        'support.ticket.escalated' => ['en' => ['in_app' => ['title' => 'Support ticket escalated', 'body' => 'Ticket {{ticket_number}} has been escalated for specialist review.', 'variables' => ['ticket_number', 'subject?', 'status?']]]],
+        'support.ticket.resolved' => ['en' => ['in_app' => ['title' => 'Support ticket resolved', 'body' => 'Ticket {{ticket_number}} has been marked resolved.', 'variables' => ['ticket_number', 'subject?', 'status?']]]],
+        'support.ticket.closed' => ['en' => ['in_app' => ['title' => 'Support ticket closed', 'body' => 'Ticket {{ticket_number}} has been closed.', 'variables' => ['ticket_number', 'subject?', 'status?']]]],
+        'support.ticket.reopened' => ['en' => ['in_app' => ['title' => 'Support ticket reopened', 'body' => 'Ticket {{ticket_number}} has been reopened.', 'variables' => ['ticket_number', 'subject?', 'status?']]]],
+        'support.chat.assigned' => ['en' => ['in_app' => ['title' => 'Live chat assigned', 'body' => 'Your support chat {{conversation_number}} has been assigned.', 'variables' => ['conversation_number']]]],
+        'support.chat.agent_replied' => ['en' => ['in_app' => ['title' => 'Support replied in chat', 'body' => 'There is a new reply in support chat {{conversation_number}}.', 'variables' => ['conversation_number']]]],
+        'support.chat.missed' => ['en' => ['in_app' => ['title' => 'Live chat missed', 'body' => 'Live support could not connect. Please create a support ticket.', 'variables' => ['conversation_number?']]]],
+        'support.chat.converted_to_ticket' => ['en' => ['in_app' => ['title' => 'Chat converted to ticket', 'body' => 'Your support chat was converted to ticket {{ticket_number}}.', 'variables' => ['conversation_number?', 'ticket_number']]]],
+        'system.maintenance' => ['en' => ['in_app' => ['title' => 'System maintenance', 'body' => 'Scheduled ExaEarn maintenance may affect some services.', 'variables' => ['window?']]]],
+        'marketing.product_update' => ['en' => ['in_app' => ['title' => 'Product update', 'body' => 'A new ExaEarn product update is available.', 'variables' => []]]],
     ],
-
-    /**
-     * Notification types and their default channels
-     */
-    'types' => [
-        'withdrawal_success' => ['in_app', 'email', 'push'],
-        'withdrawal_failed' => ['in_app', 'email'],
-        'deposit_confirmed' => ['in_app', 'email', 'push'],
-        'deposit_pending' => ['in_app'],
-        'system_alert' => ['in_app', 'email'],
-        'trading_alert' => ['in_app', 'push'],
-        'reward_earned' => ['in_app', 'push'],
-        'kyc_required' => ['in_app', 'email'],
-        'account_security' => ['in_app', 'email'],
-        'maintenance_alert' => ['in_app', 'email'],
-    ],
-
-    /**
-     * Notification queue configuration
-     */
-    'queue' => [
-        'connection' => env('QUEUE_CONNECTION', 'database'),
-        'name' => 'notifications',
-        'timeout' => 60,
-    ],
-
-    /**
-     * Cleanup configuration
-     */
-    'cleanup' => [
-        'enabled' => true,
-        'retention_days' => 90,
-        'schedule' => '0 2 * * *', // 2 AM daily
+    'activity_categories' => [
+        'auth' => 'security',
+        'security' => 'security',
+        'wallet' => 'money',
+        'transaction' => 'money',
+        'trade' => 'trading',
+        'staking' => 'earn',
+        'reward' => 'earn',
+        'nft' => 'ecosystem',
+        'admin' => 'system',
+        'system' => 'system',
+        'support' => 'support',
+        'crowdfunding' => 'ecosystem',
     ],
 ];

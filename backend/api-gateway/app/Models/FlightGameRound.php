@@ -16,6 +16,7 @@ class FlightGameRound extends Model
         'round_uuid',
         'round_number',
         'status',
+        'round_state',
         'mode',
         'asset',
         'fairness_version',
@@ -27,9 +28,12 @@ class FlightGameRound extends Model
         'growth_rate',
         'betting_opens_at',
         'betting_closes_at',
+        'locked_at',
         'starts_at',
         'crashes_at',
+        'ended_at',
         'settled_at',
+        'manual_review_at',
         'metadata',
     ];
 
@@ -38,9 +42,12 @@ class FlightGameRound extends Model
         'growth_rate' => 'decimal:8',
         'betting_opens_at' => 'datetime',
         'betting_closes_at' => 'datetime',
+        'locked_at' => 'datetime',
         'starts_at' => 'datetime',
         'crashes_at' => 'datetime',
+        'ended_at' => 'datetime',
         'settled_at' => 'datetime',
+        'manual_review_at' => 'datetime',
         'metadata' => 'array',
     ];
 

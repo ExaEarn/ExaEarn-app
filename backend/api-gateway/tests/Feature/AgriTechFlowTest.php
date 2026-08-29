@@ -12,8 +12,13 @@ use App\Models\FarmInvestment;
 use App\Models\FarmShare;
 use App\Models\FarmingProject;
 use App\Models\User;
+use App\Models\ComplianceJurisdiction;
+use App\Models\CompliancePolicyRule;
+use App\Models\LedgerTransaction;
+use App\Services\LedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AgriTechFlowTest extends TestCase
@@ -51,10 +56,17 @@ class AgriTechFlowTest extends TestCase
         ]);
     }
 
-    public function test_investor_can_purchase_project_shares(): void
+    public function test_investor_purchase_uses_canonical_escrow_and_is_idempotent(): void
     {
+        config()->set('agriculture.public_investment_enabled', true);
         $admin = User::factory()->create(['role' => 'admin', 'email_verified_at' => now()]);
-        $investor = User::factory()->create(['role' => 'investor', 'email_verified_at' => now()]);
+        $investor = User::factory()->create(['role' => 'investor', 'email_verified_at' => now(), 'kyc_verified_at' => now(), 'kyc_level' => 2, 'verified_country' => 'NG']);
+        ComplianceJurisdiction::query()->create(['country_code' => 'NG', 'country_name' => 'Nigeria', 'status' => 'SUPPORTED', 'risk_level' => 'STANDARD', 'policy_version' => 'test']);
+        CompliancePolicyRule::query()->create([
+            'rule_uuid' => (string) Str::uuid(), 'jurisdiction' => 'NG', 'product_code' => 'AGRITECH_INVESTMENT',
+            'decision' => 'ALLOW', 'reason_code' => 'TEST_APPROVED', 'status' => 'ACTIVE', 'precedence' => 1000,
+            'policy_version' => 'test', 'effective_at' => now()->subMinute(),
+        ]);
 
         $project = FarmingProject::query()->create([
             'created_by' => $admin->id,
@@ -66,6 +78,11 @@ class AgriTechFlowTest extends TestCase
             'duration' => 6,
             'expected_yield' => 180,
             'status' => 'open',
+            'economic_type' => 'INVESTMENT',
+            'legal_status' => 'APPROVED',
+            'verification_status' => 'VERIFIED',
+            'public_funding_enabled' => true,
+            'currency' => 'USDT',
         ]);
 
         FarmShare::query()->create([
@@ -75,7 +92,8 @@ class AgriTechFlowTest extends TestCase
             'shares_available' => 900,
         ]);
 
-        $response = $this->actingAs($investor)->postJson("/api/agriculture/projects/{$project->id}/invest", [
+        app(LedgerService::class)->credit($investor->id, '1000', 'USDT', 'test:agri:funding');
+        $response = $this->actingAs($investor)->withHeader('Idempotency-Key', 'agri-test-purchase-1')->postJson("/api/agriculture/projects/{$project->id}/invest", [
             'shares_owned' => 10,
         ]);
 
@@ -85,16 +103,17 @@ class AgriTechFlowTest extends TestCase
             'project_id' => $project->id,
             'shares_owned' => 10,
             'status' => 'locked',
+            'financial_status' => 'SETTLED_IN_ESCROW',
         ]);
         $this->assertDatabaseHas('farm_shares', [
             'project_id' => $project->id,
             'shares_available' => 890,
+            'shares_allocated' => 10,
         ]);
-        $this->assertDatabaseHas('agri_rewards', [
-            'user_id' => $investor->id,
-            'project_id' => $project->id,
-            'activity_type' => 'investment_funding',
-        ]);
+        $this->assertDatabaseMissing('agri_rewards', ['user_id' => $investor->id, 'project_id' => $project->id, 'activity_type' => 'investment_funding']);
+        $this->assertSame(1, LedgerTransaction::query()->where('reference', 'agri:investment:agri-test-purchase-1')->count());
+        $this->actingAs($investor)->withHeader('Idempotency-Key', 'agri-test-purchase-1')->postJson("/api/agriculture/projects/{$project->id}/invest", ['shares_owned' => 10])->assertCreated();
+        $this->assertSame(1, FarmInvestment::query()->where('idempotency_key', 'agri-test-purchase-1')->count());
     }
 
     public function test_farmer_can_apply_and_admin_can_approve(): void
@@ -110,19 +129,21 @@ class AgriTechFlowTest extends TestCase
 
         $response->assertCreated();
         $farmerId = Farmer::query()->where('user_id', $farmerUser->id)->value('id');
+        Farmer::query()->whereKey($farmerId)->update(['identity_status' => 'VERIFIED', 'land_verification_status' => 'VERIFIED']);
 
         $reviewResponse = $this->actingAs($admin)->patchJson("/api/agriculture/farmers/{$farmerId}/review", [
-            'verification_status' => 'approved',
+            'verification_status' => 'APPROVED',
         ]);
 
         $reviewResponse->assertOk();
         $this->assertDatabaseHas('farmers', [
             'id' => $farmerId,
             'verification_status' => 'approved',
+            'state' => 'APPROVED',
         ]);
     }
 
-    public function test_farmer_progress_update_and_harvest_settlement_are_queued(): void
+    public function test_farmer_progress_is_queued_but_unverified_harvest_cannot_settle(): void
     {
         Queue::fake();
 
@@ -140,6 +161,7 @@ class AgriTechFlowTest extends TestCase
             'duration' => 6,
             'expected_yield' => 120,
             'status' => 'active',
+            'verification_status' => 'VERIFIED',
         ]);
 
         FarmShare::query()->create([
@@ -163,6 +185,9 @@ class AgriTechFlowTest extends TestCase
             'location' => 'Kaduna, Nigeria',
             'experience_years' => 10,
             'verification_status' => 'approved',
+            'state' => 'APPROVED',
+            'identity_status' => 'VERIFIED',
+            'land_verification_status' => 'VERIFIED',
         ]);
 
         $this->actingAs($admin)->postJson("/api/agriculture/projects/{$project->id}/leases", [
@@ -181,12 +206,16 @@ class AgriTechFlowTest extends TestCase
 
         Queue::assertPushed(VerifyFarmReportsJob::class);
 
-        $this->actingAs($admin)->postJson("/api/agriculture/projects/{$project->id}/settlements", [
+        $this->actingAs($admin)->withHeader('Idempotency-Key', 'unverified-harvest')->postJson("/api/agriculture/projects/{$project->id}/settlements", [
             'gross_revenue' => 5000,
-            'costs' => 750,
-        ])->assertAccepted();
+            'verified_costs' => 750,
+            'period_key' => '2026-H1',
+            'revenue_source_type' => 'PRODUCE_BUYER',
+            'revenue_reference' => 'buyer-payment-1',
+            'evidence_id' => 999999,
+        ])->assertUnprocessable();
 
-        Queue::assertPushed(CalculateHarvestReturnsJob::class);
-        Queue::assertPushed(DistributeInvestorRewardsJob::class);
+        Queue::assertNotPushed(CalculateHarvestReturnsJob::class);
+        Queue::assertNotPushed(DistributeInvestorRewardsJob::class);
     }
 }

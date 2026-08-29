@@ -2,10 +2,31 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://exaearn-website.vercel.app/</loc></url>
   <url><loc>https://exaearn-website.vercel.app/markets</loc></url>
-  <url><loc>https://exaearn-website.vercel.app/fees</loc></url>
-  <url><loc>https://exaearn-website.vercel.app/status</loc></url>
-  <url><loc>https://exaearn-website.vercel.app/security</loc></url>
-  <url><loc>https://exaearn-website.vercel.app/legal</loc></url>
-  <url><loc>https://exaearn-website.vercel.app/risk</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/buy-crypto</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/spot</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/futures</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/convert</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/p2p</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/exaai</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/earn</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/staking</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/wallet</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/exapay</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/exacard</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/exatoken</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/products</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/exaskills</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/nft</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/agriculture</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/crowdfunding</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/gift-cards</loc></url>
   <url><loc>https://exaearn-website.vercel.app/institutional</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/developers</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/security</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/status</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/fees</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/risk</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/legal</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/roadmap</loc></url>
+  <url><loc>https://exaearn-website.vercel.app/support</loc></url>
 </urlset>

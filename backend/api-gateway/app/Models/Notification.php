@@ -14,12 +14,24 @@ class Notification extends Model
     protected $fillable = [
         'user_id',
         'type',
+        'event_key',
+        'event_id',
+        'product',
+        'category',
+        'priority',
+        'severity',
+        'mandatory',
+        'template_key',
+        'template_version',
+        'deep_link',
         'title',
         'message',
         'data',
         'channel',
         'status',
         'read_at',
+        'archived_at',
+        'expires_at',
         'sent_at',
         'failed_at',
         'error_message',
@@ -28,7 +40,10 @@ class Notification extends Model
 
     protected $casts = [
         'data' => 'array',
+        'mandatory' => 'boolean',
         'read_at' => 'datetime',
+        'archived_at' => 'datetime',
+        'expires_at' => 'datetime',
         'sent_at' => 'datetime',
         'failed_at' => 'datetime',
         'retry_count' => 'integer',
@@ -58,6 +73,14 @@ class Notification extends Model
         $this->update([
             'status' => 'read',
             'read_at' => now(),
+        ]);
+    }
+
+    public function archive(): void
+    {
+        $this->update([
+            'status' => 'archived',
+            'archived_at' => now(),
         ]);
     }
 

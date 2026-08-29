@@ -20,6 +20,7 @@ use App\Models\Market;
 use App\Models\Nft;
 use App\Models\NftSale;
 use App\Models\Notification;
+use App\Models\NotificationEventDefinition;
 use App\Models\Order;
 use App\Models\Permission;
 use App\Models\RewardActivity;
@@ -414,7 +415,26 @@ class AdminPlatformController extends Controller
     public function sendNotification(Request $request): JsonResponse
     {
         $payload = $request->validate(['user_id' => ['required', 'integer', 'exists:users,id'], 'type' => ['required', 'string'], 'title' => ['required', 'string'], 'message' => ['required', 'string'], 'channels' => ['nullable', 'array'], 'data' => ['nullable', 'array']]);
-        $notification = $this->notifications->create((int) $payload['user_id'], $payload['type'], $payload['title'], $payload['message'], $payload['channels'] ?? ['in_app'], $payload['data'] ?? null);
+        $event = NotificationEventDefinition::query()->where('event_key', $payload['type'])->first();
+        $data = array_merge($payload['data'] ?? [], [
+            'title' => $payload['title'],
+            'message' => $payload['message'],
+            'deep_link' => $payload['data']['deep_link'] ?? '/notifications',
+        ]);
+
+        if ($event) {
+            $notification = $this->notifications->emit(
+                (int) $payload['user_id'],
+                $event->event_key,
+                $data,
+                'admin-notification-'.sha1(json_encode([$payload['user_id'], $payload['type'], $payload['title'], $payload['message'], $payload['data'] ?? []])),
+                $payload['channels'] ?? null
+            );
+        } elseif (str_starts_with($payload['type'], 'admin.broadcast.')) {
+            $notification = $this->notifications->create((int) $payload['user_id'], $payload['type'], $payload['title'], $payload['message'], $payload['channels'] ?? ['in_app'], $data);
+        } else {
+            return response()->json(['message' => 'Unregistered notification types must use the admin.broadcast.* namespace.'], 422);
+        }
         $this->log($request, 'admin.notification.send', $payload);
 
         return response()->json(['data' => $notification], 201);

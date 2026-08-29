@@ -12,15 +12,31 @@ class NotificationLog extends Model
 
     protected $fillable = [
         'notification_id',
+        'event_id',
         'event',
         'channel',
         'provider',
+        'recipient',
+        'attempt_number',
+        'status',
+        'provider_message_id',
+        'queued_at',
+        'sent_at',
+        'delivered_at',
+        'failed_at',
+        'error_code',
+        'safe_error',
+        'template_version',
         'details',
         'error',
     ];
 
     protected $casts = [
         'details' => 'array',
+        'queued_at' => 'datetime',
+        'sent_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'failed_at' => 'datetime',
     ];
 
     /**

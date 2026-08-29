@@ -19,12 +19,24 @@ class FarmInvestment extends Model
         'ownership_reference',
         'locked_until',
         'metadata',
+        'idempotency_key',
+        'reservation_id',
+        'ledger_transaction_id',
+        'pricing_decision_id',
+        'asset',
+        'financial_status',
+        'compliance_snapshot',
+        'settled_at',
+        'cancelled_at',
     ];
 
     protected $casts = [
         'investment_amount' => 'decimal:8',
         'locked_until' => 'datetime',
         'metadata' => 'array',
+        'compliance_snapshot' => 'array',
+        'settled_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

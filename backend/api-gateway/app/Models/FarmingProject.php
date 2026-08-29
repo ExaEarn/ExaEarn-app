@@ -28,6 +28,15 @@ class FarmingProject extends Model
         'blockchain_reference',
         'verification_documents',
         'metadata',
+        'product_type',
+        'economic_type',
+        'currency',
+        'legal_status',
+        'verification_status',
+        'public_funding_enabled',
+        'funding_deadline',
+        'risk_disclosures',
+        'settlement_policy',
     ];
 
     protected $casts = [
@@ -37,6 +46,10 @@ class FarmingProject extends Model
         'expected_harvest_date' => 'date',
         'verification_documents' => 'array',
         'metadata' => 'array',
+        'public_funding_enabled' => 'boolean',
+        'funding_deadline' => 'datetime',
+        'risk_disclosures' => 'array',
+        'settlement_policy' => 'array',
     ];
 
     public function creator(): BelongsTo

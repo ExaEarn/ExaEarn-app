@@ -9,6 +9,7 @@ import {
   Clock3,
   Eye,
   EyeOff,
+  Flame,
   Info,
   RefreshCw,
   Search,
@@ -25,6 +26,12 @@ import { useStakingData } from "./useStakingData";
 
 type StakingDashboardProps = {
   onBack?: () => void;
+  dailyRewardProgress?: { available_points?: number; current_streak?: number } | null;
+  dailyRewardHistory?: { checkins?: Array<{ checkin_date?: string; created_at?: string }> } | null;
+  dailyRewardLoading?: boolean;
+  dailyRewardBusy?: boolean;
+  onClaimDailyReward?: () => void;
+  onOpenDailyRewards?: () => void;
 };
 
 type WalletBalance = {
@@ -84,7 +91,7 @@ function pathToView(): ViewState {
   return { name: "dashboard" };
 }
 
-function StakingDashboard({ onBack }: StakingDashboardProps) {
+function StakingDashboard({ onBack, dailyRewardProgress, dailyRewardHistory, dailyRewardLoading = false, dailyRewardBusy = false, onClaimDailyReward, onOpenDailyRewards }: StakingDashboardProps) {
   const auth = useAuth() as { request: <T = unknown>(path: string, options?: RequestInit) => Promise<T>; user?: { email?: string; unique_user_id?: string } | null };
   const data = useStakingData(auth.request);
   const [view, setView] = useState<ViewState>(() => pathToView());
@@ -132,7 +139,6 @@ function StakingDashboard({ onBack }: StakingDashboardProps) {
     }
     return map;
   }, [walletBalances]);
-  const healthProblem = data.networkStatuses.find((status) => !["online", "operational", "healthy"].includes(String(status.status).toLowerCase()));
   const openStakeModal = useCallback((product: StakingProduct, amount = "") => {
     setStakeSeedAmount(amount);
     setSelectedProduct(product);
@@ -166,18 +172,68 @@ function StakingDashboard({ onBack }: StakingDashboardProps) {
 
   return (
     <StakingShell onBack={onBack} backLabel="Home" notice={notice}>
-      <StakingHero portfolio={data.portfolio} positions={data.positions} apyHistory={data.apyHistory} onExplore={() => document.getElementById("staking-products")?.scrollIntoView({ behavior: "smooth" })} onPositions={() => openView({ name: "positions" })} onLearn={() => document.getElementById("staking-learn")?.scrollIntoView({ behavior: "smooth" })} networkStatus={healthProblem?.status ?? "Operational"} />
+      <EarnOverview portfolio={data.portfolio} positions={data.positions} apyHistory={data.apyHistory} loading={data.loading} />
       {data.error ? <ErrorState message={data.error} onRetry={data.refresh} /> : null}
       <NetworkBanner statuses={data.networkStatuses} />
-      <StakingQuickNav onEarn={() => document.getElementById("staking-products")?.scrollIntoView({ behavior: "smooth" })} onPositions={() => document.getElementById("my-positions")?.scrollIntoView({ behavior: "smooth" })} onRewards={() => document.getElementById("staking-rewards")?.scrollIntoView({ behavior: "smooth" })} onCampaigns={() => document.getElementById("staking-campaigns")?.scrollIntoView({ behavior: "smooth" })} />
-      <AvailableStakingAssets loading={data.loading} error={data.error} products={data.products} assets={assetById} balances={balanceBySymbol} positions={data.positions} onInspect={(slug) => openView({ name: "products", slug })} onStake={openStakeModal} />
+      <EarnProductIntro products={data.products} loading={data.loading} onExplore={() => document.getElementById("staking-products")?.scrollIntoView({ behavior: "smooth" })} />
+      <DailyRewards progress={dailyRewardProgress} history={dailyRewardHistory} loading={dailyRewardLoading} busy={dailyRewardBusy} onClaim={onClaimDailyReward} onOpen={onOpenDailyRewards} />
       <PositionPreview positions={data.positions} onOpen={() => openView({ name: "positions" })} onUnstake={setSelectedUnstake} />
+      <AvailableStakingAssets loading={data.loading} error={data.error} products={data.products} assets={assetById} balances={balanceBySymbol} positions={data.positions} onInspect={(slug) => openView({ name: "products", slug })} onStake={openStakeModal} />
       <RewardHistory rewards={data.rewards} />
       <ExaTokenBonusSection campaigns={data.campaigns} />
       <RiskAndFaq terms={data.terms} />
       {selectedProduct ? <StakeModal product={selectedProduct} productOptions={data.products.filter((item) => item.symbol === selectedProduct.symbol)} asset={assetById.get(selectedProduct.staking_asset_id)} availableBalance={balanceBySymbol.get(selectedProduct.symbol) ?? "0"} initialAmount={stakeSeedAmount} request={auth.request} onClose={() => { setSelectedProduct(null); setStakeSeedAmount(""); }} onDone={async (message) => { setNotice(message); setSelectedProduct(null); setStakeSeedAmount(""); await data.refresh(); }} /> : null}
       {selectedUnstake ? <UnstakeModal position={selectedUnstake} request={auth.request} onClose={() => setSelectedUnstake(null)} onDone={async (message) => { setNotice(message); setSelectedUnstake(null); await data.refresh(); }} /> : null}
     </StakingShell>
+  );
+}
+
+function EarnOverview({ portfolio, positions, apyHistory, loading }: { portfolio: PortfolioRow[]; positions: StakingPosition[]; apyHistory: StakingApyHistory[]; loading: boolean }) {
+  const totals = portfolioTotals(portfolio, positions);
+  const estimatedApy = apyHistory[0]?.amount ?? null;
+  return (
+    <section className="rounded-[20px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 sm:p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--exa-gold-light)]">Earn</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
+        <div><p className="text-xs text-[var(--exa-text-muted)]">Total Earn Balance</p>{loading ? <div className="mt-2 h-8 w-36 animate-pulse rounded bg-white/5" /> : <p className="mt-1 text-2xl font-semibold text-white sm:text-3xl">{formatFiat(totals.activePrincipal)}</p>}</div>
+        <MiniMetric label="Total Rewards" value={loading ? "Loading..." : formatAssetAmount(totals.nativeRewards)} />
+        <MiniMetric label="Estimated APY" value={loading ? "Loading..." : estimatedApy ? formatPercent(estimatedApy) : "—"} />
+      </div>
+    </section>
+  );
+}
+
+function EarnProductIntro({ products, loading, onExplore }: { products: StakingProduct[]; loading: boolean; onExplore: () => void }) {
+  const symbols = Array.from(new Set(products.map((product) => product.symbol))).slice(0, 5);
+  return (
+    <section className="mt-4">
+      <h2 className="font-['Sora'] text-lg font-semibold text-white">Earn Products</h2>
+      <button type="button" onClick={onExplore} className="mt-2 flex min-h-[78px] w-full items-center justify-between gap-4 rounded-[16px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4 text-left transition hover:border-[var(--exa-border-active)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]">
+        <span><strong className="block text-sm font-semibold text-white">Staking & Earn</strong><small className="mt-1 block text-xs text-[var(--exa-text-muted)]">Earn rewards on eligible assets</small><em className="mt-2 block text-[10px] not-italic text-[var(--exa-text-secondary)]">{loading ? "Loading supported assets..." : symbols.length ? symbols.join(" · ") : "No products currently available"}</em></span>
+        <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-[var(--exa-gold-light)]">Explore Earn <ChevronRight className="h-4 w-4" /></span>
+      </button>
+    </section>
+  );
+}
+
+function DailyRewards({ progress, history, loading, busy, onClaim, onOpen }: { progress?: StakingDashboardProps["dailyRewardProgress"]; history?: StakingDashboardProps["dailyRewardHistory"]; loading: boolean; busy: boolean; onClaim?: () => void; onOpen?: () => void }) {
+  const streak = Number(progress?.current_streak || 0);
+  const points = Number(progress?.available_points || 0);
+  const claimedToday = Boolean(history?.checkins?.some((item) => {
+    const value = item.checkin_date || item.created_at;
+    return value && new Date(value).toDateString() === new Date().toDateString();
+  }));
+  return (
+    <section className="mt-4" id="daily-rewards">
+      <h2 className="font-['Sora'] text-lg font-semibold text-white">Rewards</h2>
+      <div className="mt-2 flex min-h-[76px] items-center gap-3 rounded-[16px] border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
+        <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]" aria-label="Open Daily Rewards details">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange-400/10 text-orange-200"><Flame className="h-4 w-4" /></span>
+          <span className="min-w-0"><strong className="block text-sm text-white">Daily Rewards</strong><small className="block text-[11px] text-[var(--exa-text-muted)]">{loading ? "Syncing rewards..." : `${streak}-day streak · ${points.toLocaleString()} points`}</small><span className="mt-2 flex gap-1" aria-label={`${Math.min(streak, 7)} of 7 streak days`}>{Array.from({ length: 7 }).map((_, index) => <i key={index} className={`h-2 w-2 rounded-full ${index < Math.min(streak, 7) ? "bg-emerald-400" : "border border-white/20 bg-white/5"}`} />)}</span></span>
+        </button>
+        <button type="button" onClick={onClaim} disabled={busy || loading || claimedToday || !onClaim} className="min-h-9 shrink-0 rounded-lg bg-[var(--exa-gold)] px-3 text-xs font-semibold text-[var(--exa-gold-contrast)] disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-[var(--exa-text-muted)]">{busy ? "Claiming..." : claimedToday ? "Claimed" : "Claim"}</button>
+      </div>
+    </section>
   );
 }
 

@@ -150,4 +150,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ExaAiOrder::class);
     }
+
+    public function crowdfundingPledges(): HasMany
+    {
+        return $this->hasMany(CrowdfundingPledge::class, 'backer_id');
+    }
 }

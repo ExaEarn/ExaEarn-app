@@ -110,18 +110,19 @@ class GiftCardDeliveryService
     public function sendEmailDelivery(User $user, GiftcardOrder $order, array $deliverableCards): bool
     {
         try {
-            $this->notifications->create(
+            $this->notifications->emit(
                 $user,
                 'giftcard.delivery.ready',
-                'Your gift card is ready',
-                'Your gift card purchase has been delivered. Open ExaEarn to securely reveal the card details.',
-                ['in_app', 'email'],
                 [
-                    'product' => 'giftcards',
+                    'title' => 'Your gift card is ready',
+                    'message' => 'Your gift card purchase has been delivered. Open ExaEarn to securely reveal the card details.',
                     'order_id' => $order->id,
                     'card_count' => count($deliverableCards),
                     'delivery_channel' => 'secure_reveal',
+                    'deep_link' => '/giftcard',
                 ],
+                (string) $order->id,
+                ['in_app', 'email'],
             );
 
             Log::info('Gift card delivery notification queued', [

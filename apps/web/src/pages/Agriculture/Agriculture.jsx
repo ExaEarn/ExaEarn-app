@@ -1,26 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, LandPlot } from "lucide-react";
+import { ArrowLeft, BadgeCheck, FileSearch, LandPlot, ShieldCheck } from "lucide-react";
 import LandCard from "./components/LandCard";
 import LeasePanel from "./components/LeasePanel";
 import logo from "../../assets/images/exaearn-logo.png";
 import { useAuth } from "../../context/AuthContext";
 import { fetchAgriProjects } from "../../services/agriApi";
 
-const feeCards = [
+const safeguards = [
   {
-    label: "Tokenization Fee",
-    value: "2%",
-    detail: "NFT minting, compliance checks, and registry onboarding.",
+    icon: FileSearch,
+    label: "Evidence review",
+    detail: "Identity, land and project evidence require an explicit review decision.",
   },
   {
-    label: "Transfer Fee",
-    value: "1.5%",
-    detail: "Secondary trades routed to the protocol treasury.",
+    icon: ShieldCheck,
+    label: "Protected funding",
+    detail: "Eligible participation uses ExaEarn reservations and canonical ledger settlement.",
   },
   {
-    label: "Leasing Subscription",
-    value: "Monthly Plan",
-    detail: "Subscription access for farmer leasing and support.",
+    icon: BadgeCheck,
+    label: "Verified settlement",
+    detail: "Harvest distributions require approved revenue evidence and reconciliation.",
   },
 ];
 
@@ -80,6 +80,9 @@ function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
         size: `${project.farm_size} ${project.farm_size_unit || "acres"}`,
         location: project.location,
         availability: Math.max(0, Math.min(100, 100 - fundedPercent)),
+        canParticipate: Boolean(project.public_funding_enabled)
+          && project.verification_status === "VERIFIED"
+          && project.legal_status === "APPROVED",
         theme: themes[index % themes.length],
       };
     });
@@ -115,21 +118,21 @@ function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
                 </div>
                 <div>
                   <h1 className="font-['Sora'] text-3xl font-semibold text-[var(--exa-text-primary)] sm:text-4xl">
-                    NFT & Tokenized
-                    <span className="text-[var(--exa-gold)]"> Land Ownership</span>
+                    Verified farm projects,
+                    <span className="text-[var(--exa-gold)]"> controlled funding</span>
                   </h1>
                   <p className="mt-3 text-sm leading-relaxed text-[var(--exa-text-secondary)] sm:text-base">
-                    Secure blockchain land registry and subscription investment for agriculture.
+                    Review farm opportunities with clear evidence, eligibility controls and traceable settlement.
                   </p>
                   <p className="mt-2 text-xs text-[var(--exa-text-secondary)]">
-                    {loading ? "Loading live projects..." : `${projects.length} live projects available for funding.`}
+                    {loading ? "Loading the project registry..." : `${projects.length} projects currently listed.`}
                   </p>
                   <button
                     type="button"
                     onClick={onOpenSubscribe}
                     className="mt-4 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] via-[var(--exa-gold)] to-[var(--exa-gold-light)] px-4 py-2 text-xs font-semibold text-[var(--exa-gold-contrast)] transition-all duration-300 hover:scale-[1.01] hover:shadow-[var(--exa-shadow-gold)]"
                   >
-                    Subscribe Now
+                    Apply as a farmer
                   </button>
                 </div>
               </div>
@@ -138,20 +141,20 @@ function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
 
           <section className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--exa-text-primary)]">Land Disputes Solved</p>
+              <p className="text-sm font-semibold text-[var(--exa-text-primary)]">Evidence before access</p>
               <p className="mt-2 text-xs text-[var(--exa-text-muted)]">
-                Blockchain-based land titles to prevent conflicts.
+                Uploaded records remain pending until an authorized review is completed.
               </p>
             </div>
             <div className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--exa-text-primary)]">Invest in Farmland</p>
-              <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Own fractional shares & lease to farmers.</p>
+              <p className="text-sm font-semibold text-[var(--exa-text-primary)]">Controlled participation</p>
+              <p className="mt-2 text-xs text-[var(--exa-text-muted)]">Availability depends on verification, legal approval and jurisdiction.</p>
             </div>
           </section>
 
           <section className="mt-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-['Sora'] text-lg font-semibold text-[var(--exa-text-primary)]">Available Land Parcels</h2>
+              <h2 className="font-['Sora'] text-lg font-semibold text-[var(--exa-text-primary)]">Project registry</h2>
               <div className="flex items-center gap-1 text-[var(--exa-gold)]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--exa-gold)]" />
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--exa-gold-surface)]" />
@@ -162,7 +165,7 @@ function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
                 <LandCard key={parcel.id} parcel={parcel} onAcquireShare={onOpenAcquireShare} />
               ))}
             </div>
-            {loading ? <p className="mt-3 text-xs text-[var(--exa-text-secondary)]">Fetching tokenized farm inventory...</p> : null}
+            {loading ? <p className="mt-3 text-xs text-[var(--exa-text-secondary)]">Loading verified project records...</p> : null}
             {!loading && error ? <p className="mt-3 text-xs text-rose-300">{error}</p> : null}
             {!loading && !error && parcelData.length === 0 ? (
               <p className="mt-3 text-xs text-[var(--exa-text-secondary)]">No farm projects have been published yet.</p>
@@ -175,11 +178,10 @@ function Agriculture({ onBack, onOpenSubscribe, onOpenAcquireShare }) {
 
           <section className="mt-6">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface)] px-4 py-3 text-xs text-[var(--exa-text-muted)]">
-              {feeCards.map((fee, index) => (
-                <div key={fee.label} className="flex items-center gap-2">
-                  <span className="font-semibold text-[var(--exa-text-primary)]">{fee.label}</span>
-                  <span className="text-[var(--exa-gold)]">{fee.value}</span>
-                  {index < feeCards.length - 1 ? <span className="text-[var(--exa-text-secondary)]">|</span> : null}
+              {safeguards.map(({ icon: Icon, label, detail }) => (
+                <div key={label} className="flex min-w-0 items-start gap-2 sm:max-w-[31%]">
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--exa-gold)]" aria-hidden="true" />
+                  <span><strong className="block text-[var(--exa-text-primary)]">{label}</strong>{detail}</span>
                 </div>
               ))}
             </div>

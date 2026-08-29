@@ -2,7 +2,28 @@
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
+    screens: {
+      "xs": "320px",
+      "sm": "480px",
+      "md": "768px",
+      "lg": "1024px",
+      "xl": "1280px",
+      "2xl": "1536px",
+      "3xl": "1920px",
+    },
     extend: {
+      maxWidth: {
+        "content": "1440px",
+        "content-compact": "1280px",
+        "trading": "1600px",
+        "form": "640px",
+      },
+      spacing: {
+        "safe-top": "env(safe-area-inset-top)",
+        "safe-bottom": "env(safe-area-inset-bottom)",
+        "safe-left": "env(safe-area-inset-left)",
+        "safe-right": "env(safe-area-inset-right)",
+      },
       colors: {
         exa: {
           bg: "#0b0f18",

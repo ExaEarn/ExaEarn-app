@@ -8,6 +8,7 @@ use App\Models\FlightGameAuditLog;
 use App\Models\FlightGameBet;
 use App\Models\FlightGameRound;
 use App\Models\FlightGameSetting;
+use App\Models\Reservation;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,11 @@ class FlightGameService
         private readonly FlightFairnessService $fairness,
         private readonly LedgerService $ledger,
         private readonly RealtimeStreamService $stream,
+        private readonly FlightGamePolicyService $policy,
+        private readonly GameTreasuryRiskService $treasuryRisk,
+        private readonly FinanceAccountingService $finance,
+        private readonly ReservationService $reservations,
+        private readonly FlightGameRoundStateMachine $states,
     ) {
     }
 
@@ -57,11 +63,18 @@ class FlightGameService
     public function adminSummary(): array
     {
         $settings = $this->settings();
-        $activeRound = FlightGameRound::query()->whereIn('status', ['betting', 'running'])->latest('round_number')->first();
+        $activeRound = FlightGameRound::query()->whereIn('round_state', [
+            FlightGameRoundStateMachine::OPEN,
+            FlightGameRoundStateMachine::LOCKED,
+            FlightGameRoundStateMachine::RUNNING,
+            FlightGameRoundStateMachine::ENDED,
+            FlightGameRoundStateMachine::SETTLING,
+        ])->latest('round_number')->first();
 
         return [
             'settings' => $settings,
             'active_round' => $activeRound ? $this->transformRound($activeRound) : null,
+            'product_control' => $this->policy->publicStatus(),
             'totals' => [
                 'rounds_played' => FlightGameRound::query()->count(),
                 'total_wagered' => $this->fmt((string) FlightGameBet::query()->sum('stake')),
@@ -72,6 +85,10 @@ class FlightGameService
                 ),
                 'unique_players' => FlightGameBet::query()->distinct('user_id')->count('user_id'),
                 'active_players' => FlightGameBet::query()->whereHas('round', fn ($query) => $query->whereIn('status', ['betting', 'running']))->distinct('user_id')->count('user_id'),
+                'entries_today' => FlightGameBet::query()->where('created_at', '>=', now()->startOfDay())->count(),
+                'demo_entries_today' => FlightGameBet::query()->where('mode', 'demo')->where('created_at', '>=', now()->startOfDay())->count(),
+                'real_entries_today' => FlightGameBet::query()->where('mode', 'real')->where('created_at', '>=', now()->startOfDay())->count(),
+                'pending_settlements' => FlightGameBet::query()->whereIn('status', ['placed', 'cashed_out'])->whereNull('settled_at')->count(),
             ],
             'exposure_by_asset' => FlightGameBet::query()
                 ->selectRaw('asset, COALESCE(SUM(payout),0) as payouts, COALESCE(SUM(stake),0) as stakes')
@@ -89,7 +106,33 @@ class FlightGameService
 
     public function updateSettings(array $settings, ?int $updatedBy = null): array
     {
-        $allowed = ['enabled_assets', 'default_asset', 'min_stake', 'max_stake', 'max_multiplier', 'betting_window_seconds', 'growth_rate', 'public_seed'];
+        $allowed = [
+            'enabled_assets',
+            'default_asset',
+            'min_stake',
+            'max_stake',
+            'max_multiplier',
+            'betting_window_seconds',
+            'growth_rate',
+            'public_seed',
+            'product_classification',
+            'game_mode',
+            'public_real_money_enabled',
+            'legal_real_money_approved',
+            'minimum_kyc_level',
+            'jurisdiction_required',
+            'minimum_age_by_country',
+            'daily_participation_limit',
+            'weekly_participation_limit',
+            'monthly_participation_limit',
+            'daily_loss_limit',
+            'weekly_loss_limit',
+            'monthly_loss_limit',
+            'session_participation_limit',
+            'treasury_required_reserve',
+            'max_round_liability',
+            'max_platform_exposure',
+        ];
 
         DB::transaction(function () use ($allowed, $settings, $updatedBy): void {
             foreach ($settings as $key => $value) {
@@ -162,11 +205,12 @@ class FlightGameService
         $asset = strtoupper((string) ($payload['asset'] ?? 'USDT'));
         $stake = $this->fmt((string) ($payload['stake'] ?? '0'));
         $slot = max(1, min(2, (int) ($payload['panel_slot'] ?? 1)));
+        $mode = strtolower((string) ($payload['mode'] ?? $settings['game_mode'] ?? 'sandbox')) === 'real' ? 'real' : 'demo';
         $autoCashout = isset($payload['auto_cashout']) && $payload['auto_cashout'] !== null && $payload['auto_cashout'] !== ''
             ? $this->fmt((string) $payload['auto_cashout'])
             : null;
 
-        if ($round->status !== 'betting' || now()->gte($round->betting_closes_at)) {
+        if ($this->states->normalize($round->round_state, $round->status) !== FlightGameRoundStateMachine::OPEN || now()->gte($round->betting_closes_at)) {
             throw new RuntimeException('This round is no longer accepting entries.');
         }
 
@@ -182,7 +226,12 @@ class FlightGameService
             throw new RuntimeException(sprintf('Maximum entry is %s %s.', $settings['max_stake'], $asset));
         }
 
-        if (!$this->ledger->hasBalance($user->id, $stake, $asset, 'funding')) {
+        $policyDecision = $this->policy->assertCanParticipate($user, $mode, $asset, $stake, [
+            'round_uuid' => $round->round_uuid,
+            'panel_slot' => $slot,
+        ]);
+
+        if ($mode === 'real' && !$this->ledger->hasBalance($user->id, $stake, $asset, 'funding')) {
             throw new RuntimeException('Insufficient available balance for this entry.');
         }
 
@@ -191,10 +240,30 @@ class FlightGameService
             return $this->transformBet($existing->fresh('round'), true);
         }
 
-        $bet = DB::transaction(function () use ($asset, $autoCashout, $idempotencyKey, $round, $slot, $stake, $user): FlightGameBet {
+        if ($mode === 'real') {
+            $this->treasuryRisk->evaluateEntry($asset, $stake, (string) $settings['max_multiplier'], $round->id, $user->id);
+        }
+
+        $bet = DB::transaction(function () use ($asset, $autoCashout, $idempotencyKey, $mode, $policyDecision, $round, $slot, $stake, $user): FlightGameBet {
             $lockedRound = FlightGameRound::query()->whereKey($round->id)->lockForUpdate()->firstOrFail();
-            if ($lockedRound->status !== 'betting' || now()->gte($lockedRound->betting_closes_at)) {
+            $this->states->assertCanEnter($lockedRound);
+            if (now()->gte($lockedRound->betting_closes_at)) {
                 throw new RuntimeException('This round is no longer accepting entries.');
+            }
+
+            $reservation = null;
+            if ($mode === 'real') {
+                $reservation = $this->reservations->reserveUserAccount(
+                    $user->id,
+                    'funding',
+                    $asset,
+                    $stake,
+                    'flight_game_entry',
+                    FlightGameBet::class,
+                    $idempotencyKey,
+                    'flight:entry:reserve:'.$idempotencyKey,
+                    ['round_uuid' => $lockedRound->round_uuid, 'panel_slot' => $slot],
+                );
             }
 
             $bet = FlightGameBet::query()->create([
@@ -202,32 +271,45 @@ class FlightGameService
                 'user_id' => $user->id,
                 'round_id' => $lockedRound->id,
                 'panel_slot' => $slot,
-                'mode' => 'real',
+                'mode' => $mode,
                 'asset' => $asset,
                 'stake' => $stake,
                 'auto_cashout' => $autoCashout,
                 'status' => 'placed',
                 'idempotency_key' => $idempotencyKey,
+                'reservation_id' => $reservation?->reservation_id,
                 'placed_at' => now(),
                 'metadata' => [
                     'display_name' => $user->name,
+                    'product_classification' => $policyDecision['classification'] ?? null,
+                    'sandbox_no_withdrawal_value' => $mode === 'demo',
                 ],
             ]);
 
-            $reference = 'flight_bet:'.$bet->bet_uuid;
-            $userFunding = $this->ledger->getOrCreateAccount($user->id, 'funding', $asset);
-            $gameLocked = $this->ledger->getOrCreateAccount($user->id, 'game_locked', $asset);
-            $this->ledger->postDoubleEntry($reference, 'EXA Flight bet lock', [
-                ['account_id' => $userFunding->id, 'amount' => $this->neg($stake), 'asset' => $asset, 'user_id' => $user->id],
-                ['account_id' => $gameLocked->id, 'amount' => $stake, 'asset' => $asset, 'user_id' => $user->id],
-            ], 'game_bet', ['bet_uuid' => $bet->bet_uuid, 'round_uuid' => $lockedRound->round_uuid]);
+            if ($mode === 'real') {
+                $reference = 'flight_bet:'.$bet->bet_uuid;
+                $userFunding = $this->ledger->getOrCreateAccount($user->id, 'funding', $asset);
+                $gameLocked = $this->ledger->getOrCreateAccount($user->id, 'game_locked', $asset);
+                $tx = $this->ledger->postDoubleEntry($reference, 'EXA Flight bet lock', [
+                    ['account_id' => $userFunding->id, 'amount' => $this->neg($stake), 'asset' => $asset, 'user_id' => $user->id],
+                    ['account_id' => $gameLocked->id, 'amount' => $stake, 'asset' => $asset, 'user_id' => $user->id],
+                ], 'game_bet', ['bet_uuid' => $bet->bet_uuid, 'round_uuid' => $lockedRound->round_uuid, 'source_service' => 'exa_flight']);
 
-            $bet->ledger_reference = $reference;
-            $bet->save();
+                $this->finance->recordLedgerEvent($tx, 'GAME_ENTRY_LOCKED', ['asset' => $asset, 'amount' => $stake, 'source_service' => 'exa_flight']);
+                $this->reservations->consume((string) $reservation->reservation_id, $stake, [
+                    'ledger_reference' => $reference,
+                    'bet_uuid' => $bet->bet_uuid,
+                    'round_uuid' => $lockedRound->round_uuid,
+                ]);
+
+                $bet->ledger_reference = $reference;
+                $bet->save();
+            }
 
             $this->audit($user->id, 'flight.bet_placed', $lockedRound->id, $bet->id, [
                 'asset' => $asset,
                 'stake' => $stake,
+                'mode' => $mode,
                 'auto_cashout' => $autoCashout,
             ]);
 
@@ -254,7 +336,9 @@ class FlightGameService
 
             $round = FlightGameRound::query()->whereKey($bet->round_id)->lockForUpdate()->firstOrFail();
             $this->advanceRound($round);
-            if ($round->status !== 'running' || now()->gte($round->crashes_at)) {
+            $round->refresh();
+            $this->states->assertCanCashout($round);
+            if (now()->gte($round->crashes_at)) {
                 throw new RuntimeException('This round ended before the collect request reached the server.');
             }
 
@@ -265,12 +349,34 @@ class FlightGameService
         });
     }
 
+    public function cancelRound(string $roundUuid, ?int $actorUserId = null, string $reason = 'operator_cancelled'): array
+    {
+        return DB::transaction(function () use ($actorUserId, $reason, $roundUuid): array {
+            $round = FlightGameRound::query()->where('round_uuid', $roundUuid)->lockForUpdate()->firstOrFail();
+            $state = $this->states->normalize($round->round_state, $round->status);
+            if (! in_array($state, [FlightGameRoundStateMachine::OPEN, FlightGameRoundStateMachine::LOCKED], true)) {
+                throw new RuntimeException('Only pre-running EXA Flight rounds can be cancelled automatically.');
+            }
+
+            $round = $this->states->transition($round, FlightGameRoundStateMachine::CANCELLED, ['cancel_reason' => $reason]);
+            $bets = FlightGameBet::query()->where('round_id', $round->id)->lockForUpdate()->get();
+            foreach ($bets as $bet) {
+                $this->cancelBet($bet, $round, $reason);
+            }
+
+            $this->audit($actorUserId, 'flight.round_cancelled', $round->id, null, ['reason' => $reason]);
+            $this->publish('game.round.cancelled', ['round' => $this->transformRound($round, false, true)]);
+
+            return $this->transformRound($round->fresh(), false, true);
+        });
+    }
+
     private function ensureCurrentRound(): FlightGameRound
     {
         $this->reconcileRounds();
 
         $current = FlightGameRound::query()
-            ->whereIn('status', ['betting', 'running'])
+            ->whereIn('round_state', [FlightGameRoundStateMachine::OPEN, FlightGameRoundStateMachine::LOCKED, FlightGameRoundStateMachine::RUNNING, FlightGameRoundStateMachine::ENDED, FlightGameRoundStateMachine::SETTLING])
             ->orderByDesc('round_number')
             ->first();
 
@@ -284,7 +390,7 @@ class FlightGameService
             }
 
             $latest = FlightGameRound::query()->orderByDesc('round_number')->lockForUpdate()->first();
-            if ($latest && in_array($latest->status, ['betting', 'running'], true)) {
+            if ($latest && in_array($this->states->normalize($latest->round_state, $latest->status), [FlightGameRoundStateMachine::OPEN, FlightGameRoundStateMachine::LOCKED, FlightGameRoundStateMachine::RUNNING, FlightGameRoundStateMachine::ENDED, FlightGameRoundStateMachine::SETTLING], true)) {
                 return $latest;
             }
 
@@ -295,7 +401,7 @@ class FlightGameService
     private function reconcileRounds(): void
     {
         $rounds = FlightGameRound::query()
-            ->whereIn('status', ['betting', 'running'])
+            ->whereIn('round_state', [FlightGameRoundStateMachine::OPEN, FlightGameRoundStateMachine::LOCKED, FlightGameRoundStateMachine::RUNNING, FlightGameRoundStateMachine::ENDED, FlightGameRoundStateMachine::SETTLING])
             ->orderBy('round_number')
             ->get();
 
@@ -308,24 +414,33 @@ class FlightGameService
     {
         $now = CarbonImmutable::now();
 
-        if ($round->status === 'betting' && $now->gte($round->starts_at)) {
-            $round->status = 'running';
-            $round->save();
-            $this->publish('game.round.started', ['round' => $this->transformRound($round)]);
+        $state = $this->states->normalize($round->round_state, $round->status);
+
+        if ($state === FlightGameRoundStateMachine::OPEN && $now->gte($round->betting_closes_at)) {
+            $round = $this->states->transition($round, FlightGameRoundStateMachine::LOCKED);
+            $this->publish('game.round.locked', ['round' => $this->transformRound($round)]);
+            $state = FlightGameRoundStateMachine::LOCKED;
         }
 
-        if ($round->status === 'running') {
+        if ($state === FlightGameRoundStateMachine::LOCKED && $now->gte($round->starts_at)) {
+            $round = $this->states->transition($round, FlightGameRoundStateMachine::RUNNING);
+            $this->publish('game.round.started', ['round' => $this->transformRound($round)]);
+            $state = FlightGameRoundStateMachine::RUNNING;
+        }
+
+        if ($state === FlightGameRoundStateMachine::RUNNING) {
             $this->processAutoCashouts($round, $now);
         }
 
-        if (in_array($round->status, ['betting', 'running'], true) && $now->gte($round->crashes_at)) {
+        if ($state === FlightGameRoundStateMachine::RUNNING && $now->gte($round->crashes_at)) {
+            $round = $this->states->transition($round, FlightGameRoundStateMachine::ENDED);
             $this->finalizeRound($round);
         }
     }
 
     private function processAutoCashouts(FlightGameRound $round, CarbonImmutable $now): void
     {
-        if ($round->status !== 'running' || $now->gte($round->crashes_at)) {
+        if ($this->states->normalize($round->round_state, $round->status) !== FlightGameRoundStateMachine::RUNNING || $now->gte($round->crashes_at)) {
             return;
         }
 
@@ -348,8 +463,12 @@ class FlightGameService
     {
         DB::transaction(function () use ($round): void {
             $lockedRound = FlightGameRound::query()->whereKey($round->id)->lockForUpdate()->firstOrFail();
-            if ($lockedRound->status === 'completed') {
+            if ($this->states->normalize($lockedRound->round_state, $lockedRound->status) === FlightGameRoundStateMachine::SETTLED) {
                 return;
+            }
+            $this->states->assertCanSettle($lockedRound);
+            if ($this->states->normalize($lockedRound->round_state, $lockedRound->status) === FlightGameRoundStateMachine::ENDED) {
+                $lockedRound = $this->states->transition($lockedRound, FlightGameRoundStateMachine::SETTLING);
             }
 
             $this->processAutoCashouts($lockedRound, CarbonImmutable::now()->subMillisecond());
@@ -364,13 +483,12 @@ class FlightGameService
                 $this->settleLoss($bet, $lockedRound);
             }
 
-            $lockedRound->status = 'completed';
             $lockedRound->server_seed = (string) (($lockedRound->metadata['server_seed_plain'] ?? null) ?: $lockedRound->server_seed);
-            $lockedRound->settled_at = now();
             $metadata = $lockedRound->metadata ?? [];
             unset($metadata['server_seed_plain']);
             $lockedRound->metadata = $metadata;
             $lockedRound->save();
+            $lockedRound = $this->states->transition($lockedRound, FlightGameRoundStateMachine::SETTLED);
 
             $this->audit(null, 'flight.round_completed', $lockedRound->id, null, [
                 'crash_multiplier' => (string) $lockedRound->crash_multiplier,
@@ -393,6 +511,17 @@ class FlightGameService
         $payout = $this->mul($stake, $cashout);
         $profit = $this->sub($payout, $stake);
         $asset = strtoupper((string) $bet->asset);
+        if ($bet->mode === 'demo') {
+            $bet->status = 'cashed_out';
+            $bet->cashout_multiplier = $cashout;
+            $bet->payout = $payout;
+            $bet->profit = $profit;
+            $bet->cashed_out_at = now();
+            $bet->settled_at = now();
+            $bet->metadata = array_merge($bet->metadata ?? [], ['settlement_reason' => $reason, 'sandbox_no_withdrawal_value' => true]);
+            $bet->save();
+            return;
+        }
 
         $userFunding = $this->ledger->getOrCreateAccount($bet->user_id, 'funding', $asset);
         $gameLocked = $this->ledger->getOrCreateAccount($bet->user_id, 'game_locked', $asset);
@@ -408,11 +537,13 @@ class FlightGameService
             $entries[] = ['account_id' => $treasury->id, 'amount' => $this->neg($profit), 'asset' => $asset];
         }
 
-        $this->ledger->postDoubleEntry($reference, 'EXA Flight cashout', $entries, 'game_reward', [
+        $tx = $this->ledger->postDoubleEntry($reference, 'EXA Flight cashout', $entries, 'game_reward', [
             'bet_uuid' => $bet->bet_uuid,
             'round_uuid' => $round->round_uuid,
             'cashout_multiplier' => $cashout,
+            'source_service' => 'exa_flight',
         ]);
+        $this->finance->recordLedgerEvent($tx, 'GAME_CASHOUT_SETTLED', ['asset' => $asset, 'amount' => $payout, 'source_service' => 'exa_flight']);
 
         $bet->status = 'cashed_out';
         $bet->cashout_multiplier = $cashout;
@@ -437,18 +568,63 @@ class FlightGameService
 
         $stake = $this->fmt((string) $bet->stake);
         $asset = strtoupper((string) $bet->asset);
+        if ($bet->mode === 'demo') {
+            $bet->status = 'lost';
+            $bet->payout = '0';
+            $bet->profit = $this->neg($stake);
+            $bet->settled_at = now();
+            $bet->metadata = array_merge($bet->metadata ?? [], ['sandbox_no_withdrawal_value' => true]);
+            $bet->save();
+            return;
+        }
         $gameLocked = $this->ledger->getOrCreateAccount($bet->user_id, 'game_locked', $asset);
         $treasury = $this->ledger->getOrCreateAccount(null, 'game_treasury', $asset);
 
-        $this->ledger->postDoubleEntry('flight_loss:'.$bet->bet_uuid, 'EXA Flight loss settlement', [
+        $tx = $this->ledger->postDoubleEntry('flight_loss:'.$bet->bet_uuid, 'EXA Flight loss settlement', [
             ['account_id' => $gameLocked->id, 'amount' => $this->neg($stake), 'asset' => $asset, 'user_id' => $bet->user_id],
             ['account_id' => $treasury->id, 'amount' => $stake, 'asset' => $asset],
-        ], 'game_bet', ['bet_uuid' => $bet->bet_uuid, 'round_uuid' => $round->round_uuid]);
+        ], 'game_bet', ['bet_uuid' => $bet->bet_uuid, 'round_uuid' => $round->round_uuid, 'source_service' => 'exa_flight']);
+        $this->finance->recordLedgerEvent($tx, 'GAME_LOSS_SETTLED', ['asset' => $asset, 'amount' => $stake, 'source_service' => 'exa_flight']);
 
         $bet->status = 'lost';
         $bet->payout = '0';
         $bet->profit = $this->neg($stake);
         $bet->settled_at = now();
+        $bet->save();
+    }
+
+    private function cancelBet(FlightGameBet $bet, FlightGameRound $round, string $reason): void
+    {
+        if (! in_array((string) $bet->status, ['placed'], true)) {
+            return;
+        }
+
+        $stake = $this->fmt((string) $bet->stake);
+        $asset = strtoupper((string) $bet->asset);
+
+        if ($bet->reservation_id) {
+            $reservation = Reservation::query()->where('reservation_id', $bet->reservation_id)->lockForUpdate()->first();
+            if ($reservation && in_array($reservation->status, [Reservation::STATUS_ACTIVE, Reservation::STATUS_PARTIALLY_CONSUMED], true)) {
+                $this->reservations->release((string) $reservation->reservation_id, null, ['cancel_reason' => $reason, 'bet_uuid' => $bet->bet_uuid]);
+            }
+        }
+
+        if ($bet->mode === 'real' && $bet->ledger_reference) {
+            $gameLocked = $this->ledger->getOrCreateAccount($bet->user_id, 'game_locked', $asset);
+            $userFunding = $this->ledger->getOrCreateAccount($bet->user_id, 'funding', $asset);
+            $reference = 'flight_cancel_refund:'.$bet->bet_uuid;
+            $tx = $this->ledger->postDoubleEntry($reference, 'EXA Flight cancelled round refund', [
+                ['account_id' => $gameLocked->id, 'amount' => $this->neg($stake), 'asset' => $asset, 'user_id' => $bet->user_id],
+                ['account_id' => $userFunding->id, 'amount' => $stake, 'asset' => $asset, 'user_id' => $bet->user_id],
+            ], 'game_refund', ['bet_uuid' => $bet->bet_uuid, 'round_uuid' => $round->round_uuid, 'source_service' => 'exa_flight']);
+            $this->finance->recordLedgerEvent($tx, 'GAME_CANCELLED_REFUND', ['asset' => $asset, 'amount' => $stake, 'source_service' => 'exa_flight']);
+        }
+
+        $bet->status = 'cancelled';
+        $bet->payout = $stake;
+        $bet->profit = '0';
+        $bet->settled_at = now();
+        $bet->metadata = array_merge($bet->metadata ?? [], ['cancel_reason' => $reason]);
         $bet->save();
     }
 
@@ -467,7 +643,8 @@ class FlightGameService
             'round_uuid' => (string) Str::uuid(),
             'round_number' => $roundNumber,
             'status' => 'betting',
-            'mode' => 'real',
+            'round_state' => FlightGameRoundStateMachine::OPEN,
+            'mode' => (string) $settings['game_mode'] === 'real' ? 'real' : 'demo',
             'asset' => $settings['default_asset'],
             'fairness_version' => self::FAIRNESS_VERSION,
             'server_seed_hash' => $this->fairness->hashServerSeed($serverSeed),
@@ -494,8 +671,9 @@ class FlightGameService
     {
         $now = CarbonImmutable::now();
         $phase = $round->status;
-        $currentMultiplier = $phase === 'running' ? $this->currentMultiplier($round, $now) : '1.00000000';
-        if ($phase === 'completed') {
+        $state = $this->states->normalize($round->round_state, $round->status);
+        $currentMultiplier = $state === FlightGameRoundStateMachine::RUNNING ? $this->currentMultiplier($round, $now) : '1.00000000';
+        if ($state === FlightGameRoundStateMachine::SETTLED) {
             $currentMultiplier = $this->fmt((string) $round->crash_multiplier);
         }
 
@@ -508,6 +686,7 @@ class FlightGameService
             'round_uuid' => $round->round_uuid,
             'round_number' => $round->round_number,
             'status' => $phase,
+            'round_state' => $state,
             'asset' => $round->asset,
             'fairness_version' => $round->fairness_version,
             'server_seed_hash' => $round->server_seed_hash,
@@ -519,8 +698,10 @@ class FlightGameService
             'growth_rate' => $this->fmt((string) $round->growth_rate),
             'betting_opens_at' => optional($round->betting_opens_at)->toIso8601String(),
             'betting_closes_at' => optional($round->betting_closes_at)->toIso8601String(),
+            'locked_at' => optional($round->locked_at)->toIso8601String(),
             'starts_at' => optional($round->starts_at)->toIso8601String(),
             'crashes_at' => optional($round->crashes_at)->toIso8601String(),
+            'ended_at' => optional($round->ended_at)->toIso8601String(),
             'settled_at' => optional($round->settled_at)->toIso8601String(),
             'players' => $bets,
             'total_stake' => $totalStake,
@@ -545,6 +726,7 @@ class FlightGameService
             'profit' => $this->fmt((string) $bet->profit),
             'placed_at' => optional($bet->placed_at)->toIso8601String(),
             'settled_at' => optional($bet->settled_at)->toIso8601String(),
+            'reservation_id' => $includePrivate ? $bet->reservation_id : null,
             'player' => $includePrivate ? $display : $this->maskName($display),
             'is_mine' => $includePrivate,
         ];
@@ -573,6 +755,15 @@ class FlightGameService
             'max_stake' => $settings['max_stake'],
             'max_multiplier' => $settings['max_multiplier'],
             'betting_window_seconds' => $settings['betting_window_seconds'],
+            'product_control' => $this->policy->publicStatus(),
+            'responsible_gaming' => [
+                'daily_participation_limit' => $settings['daily_participation_limit'],
+                'weekly_participation_limit' => $settings['weekly_participation_limit'],
+                'monthly_participation_limit' => $settings['monthly_participation_limit'],
+                'daily_loss_limit' => $settings['daily_loss_limit'],
+                'weekly_loss_limit' => $settings['weekly_loss_limit'],
+                'monthly_loss_limit' => $settings['monthly_loss_limit'],
+            ],
         ];
     }
 
@@ -587,6 +778,23 @@ class FlightGameService
             'betting_window_seconds' => 8,
             'growth_rate' => '0.16',
             'public_seed' => 'EXA-FLIGHT',
+            'product_classification' => 'REGULATED_GAMBLING',
+            'game_mode' => 'sandbox',
+            'public_real_money_enabled' => false,
+            'legal_real_money_approved' => false,
+            'minimum_kyc_level' => 1,
+            'jurisdiction_required' => true,
+            'minimum_age_by_country' => ['DEFAULT' => 18],
+            'daily_participation_limit' => '100.00000000',
+            'weekly_participation_limit' => '500.00000000',
+            'monthly_participation_limit' => '1000.00000000',
+            'daily_loss_limit' => '50.00000000',
+            'weekly_loss_limit' => '250.00000000',
+            'monthly_loss_limit' => '500.00000000',
+            'session_participation_limit' => '50.00000000',
+            'treasury_required_reserve' => '0.00000000',
+            'max_round_liability' => '10000.00000000',
+            'max_platform_exposure' => '25000.00000000',
         ];
 
         $stored = FlightGameSetting::query()->get()->mapWithKeys(function (FlightGameSetting $setting): array {

@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Sprout,
   UsersRound,
-  Wallet,
 } from "lucide-react";
 import Image from "../../assets/Image";
 import { useAuth } from "../../context/AuthContext";
@@ -20,27 +19,27 @@ import "./AcquireShare.css";
 const transparencyItems = [
   {
     icon: Blocks,
-    title: "Blockchain-backed records",
-    description: "Every share issuance and distribution is immutably logged on-chain for public auditability.",
+    title: "Canonical financial records",
+    description: "Eligible funding and payouts use ExaEarn's auditable ledger and reconciliation controls.",
   },
   {
     icon: BadgeCheck,
-    title: "Verified farm partners",
-    description: "Projects are screened with due diligence, land documentation, and periodic operational reports.",
+    title: "Evidence-based review",
+    description: "Verification badges appear only after identity, land, project, and evidence review is complete.",
   },
   {
     icon: ShieldCheck,
-    title: "Smart contract payouts",
-    description: "Returns are distributed through automated settlement logic to minimize processing risk.",
+    title: "Verified-revenue payouts",
+    description: "Projected harvests never become claimable returns until real revenue is verified and settled.",
   },
   {
     icon: Link2,
     title: "Community impact tracking",
-    description: "Impact metrics are tied to each project so investors can track outcomes beyond ROI.",
+    description: "Project milestones and agricultural updates remain separate from financial settlement status.",
   },
 ];
 
-const steps = ["Create Account", "Verify Identity", "Select Farm Project", "Acquire Shares", "Track & Earn"];
+const steps = ["Create Account", "Verify Identity", "Review Disclosures", "Choose Eligible Project", "Track Verified Outcomes"];
 
 function addMonths(date, months) {
   const copy = new Date(date);
@@ -67,8 +66,6 @@ function mapProject(project) {
     id: String(projectNode.id),
     name: projectNode.project_name,
     crop: projectNode.crop_type,
-    roiMin: 12,
-    roiMax: 22,
     durationMonths: Number(projectNode.duration || 0),
     sharePriceNgn: Number(projectNode?.share?.price_per_share || 0),
     sharePriceUsd: Number(projectNode?.share?.price_per_share || 0),
@@ -79,6 +76,12 @@ function mapProject(project) {
     totalShares,
     sharesAvailable,
     progress: Array.isArray(project?.progress) ? project.progress : [],
+    currency: projectNode.currency || "USDT",
+    economicType: projectNode.economic_type || "NON_INVESTMENT_SUPPORT",
+    legalStatus: projectNode.legal_status || "PENDING_REVIEW",
+    verificationStatus: projectNode.verification_status || "UNVERIFIED",
+    publicFundingEnabled: Boolean(projectNode.public_funding_enabled),
+    riskDisclosures: Array.isArray(projectNode.risk_disclosures) ? projectNode.risk_disclosures : [],
   };
 }
 
@@ -92,11 +95,10 @@ function ImpactCounter({ value, suffix }) {
 }
 
 function AcquireShare({ onBack, initialProjectId = null }) {
-  const { apiBaseUrl, token, user } = useAuth();
+  const { apiBaseUrl, token } = useAuth();
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId ? String(initialProjectId) : "");
   const [shareCount, setShareCount] = useState(5);
-  const [walletConnected, setWalletConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -190,16 +192,11 @@ function AcquireShare({ onBack, initialProjectId = null }) {
     if (!selectedProject) {
       return {
         investmentNgn: 0,
-        grossReturn: 0,
-        profit: 0,
         maturityDate: "N/A",
       };
     }
 
     const investmentNgn = selectedProject.sharePriceNgn * shareCount;
-    const roiMid = (selectedProject.roiMin + selectedProject.roiMax) / 2;
-    const grossReturn = investmentNgn * (1 + roiMid / 100);
-    const profit = grossReturn - investmentNgn;
     const maturityDate = selectedProject.expectedHarvestDate
       ? new Date(selectedProject.expectedHarvestDate).toLocaleDateString("en-NG", {
           year: "numeric",
@@ -214,8 +211,6 @@ function AcquireShare({ onBack, initialProjectId = null }) {
 
     return {
       investmentNgn,
-      grossReturn,
-      profit,
       maturityDate,
     };
   }, [selectedProject, shareCount]);
@@ -232,12 +227,18 @@ function AcquireShare({ onBack, initialProjectId = null }) {
     return [
       { label: "Live Farm Projects", value: projectCount, suffix: "" },
       { label: "Active Funding Pools", value: activeProjects, suffix: "" },
-      { label: "Tokenized Shares", value: totalShares, suffix: "" },
-      { label: "Sold Shares", value: soldShares, suffix: "" },
+      { label: "Approved Capacity", value: totalShares, suffix: "" },
+      { label: "Allocated Units", value: soldShares, suffix: "" },
     ];
   }, [projects]);
 
   const latestProgress = selectedProject?.progress?.slice(0, 3) || [];
+  const canAcquire = Boolean(
+    selectedProject?.publicFundingEnabled
+      && selectedProject?.verificationStatus === "VERIFIED"
+      && selectedProject?.legalStatus === "APPROVED"
+      && selectedProject?.sharesAvailable > 0,
+  );
 
   const scrollToProjects = () => {
     const element = document.getElementById("active-farms");
@@ -268,14 +269,10 @@ function AcquireShare({ onBack, initialProjectId = null }) {
         token,
         projectId: selectedProject.id,
         sharesOwned: shareCount,
-        metadata: {
-          source: "acquire-share-page",
-          wallet_connected: walletConnected,
-          investor_email: user?.email || null,
-        },
+        idempotencyKey: globalThis.crypto?.randomUUID?.() || `agri-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       });
 
-      setStatusMessage(`Purchased ${shareCount} shares in ${selectedProject.name}.`);
+      setStatusMessage(`Your allocation of ${shareCount} units in ${selectedProject.name} is confirmed.`);
 
       const payload = await fetchAgriProject({
         apiBaseUrl,
@@ -326,14 +323,14 @@ function AcquireShare({ onBack, initialProjectId = null }) {
               <div className="absolute inset-0 p-5 sm:p-7">
                 <div className="hero-chip">
                   <Landmark className="h-4 w-4" aria-hidden="true" />
-                  Real Asset Fractional Ownership
+                  Controlled Agricultural Projects
                 </div>
                 <h1 className="mt-4 max-w-3xl font-['Sora'] text-3xl font-semibold leading-tight text-[var(--exa-text-primary)] sm:text-5xl">
-                  <span className="text-[var(--exa-gold)]">Invest in Agriculture.</span> Own Real Assets. Earn Real Returns.
+                  <span className="text-[var(--exa-gold)]">Support verified agriculture.</span> Follow real projects and settled outcomes.
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--exa-text-secondary)] sm:text-base">
-                  Acquire fractional shares in verified agricultural projects across Africa. Track growth. Monitor
-                  harvest cycles. Earn transparently.
+                  Explore eligible agricultural projects, review their risks and evidence, and follow verified milestones,
+                  harvests, revenue and payouts. Returns are never guaranteed.
                 </p>
                 <p className="mt-3 text-xs text-[var(--exa-text-secondary)]">
                   {loading ? "Loading live project catalog..." : `${projects.length} projects synced from the Agri API.`}
@@ -344,7 +341,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                     onClick={scrollToProjects}
                     className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-5 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition-all hover:-translate-y-0.5"
                   >
-                    Acquire Shares Now
+                    Explore Eligible Projects
                   </button>
                   <button
                     type="button"
@@ -362,7 +359,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Available Farm Projects</h2>
               <div className="rounded-full border border-[var(--exa-border-active)] px-3 py-1 text-xs text-[var(--exa-gold)]">
-                Verified Opportunities
+                Verification shown per project
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -379,19 +376,17 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                      <p className="text-[var(--exa-text-secondary)]">Expected ROI</p>
-                      <p className="mt-1 font-semibold text-[var(--exa-gold)]">
-                        {project.roiMin}% - {project.roiMax}%
-                      </p>
+                      <p className="text-[var(--exa-text-secondary)]">Product status</p>
+                      <p className="mt-1 font-semibold text-[var(--exa-gold)]">{project.economicType.replaceAll("_", " ")}</p>
                     </div>
                     <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
                       <p className="text-[var(--exa-text-secondary)]">Duration</p>
                       <p className="mt-1 font-semibold text-[var(--exa-text-primary)]">{project.durationMonths} months</p>
                     </div>
                     <div className="col-span-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                      <p className="text-[var(--exa-text-secondary)]">Minimum Share Price</p>
+                      <p className="text-[var(--exa-text-secondary)]">Unit price</p>
                       <p className="mt-1 font-semibold text-[var(--exa-text-primary)]">
-                        {formatCurrency(project.sharePriceNgn)} or ${project.sharePriceUsd}
+                        {formatCurrency(project.sharePriceNgn, project.currency)}
                       </p>
                     </div>
                     <div className="col-span-2 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
@@ -421,14 +416,14 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                     }}
                     className="mt-5 w-full rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] transition-all group-hover:shadow-[var(--exa-shadow-gold)]"
                   >
-                    Acquire Share
+                    {project.publicFundingEnabled && project.legalStatus === "APPROVED" ? "Review participation" : "View project"}
                   </button>
                 </article>
               ))}
             </div>
             {loading ? <p className="mt-4 text-sm text-[var(--exa-text-secondary)]">Loading active farm projects...</p> : null}
             {!loading && !projects.length ? (
-              <p className="mt-4 text-sm text-[var(--exa-text-secondary)]">No tokenized farm projects are available yet.</p>
+              <p className="mt-4 text-sm text-[var(--exa-text-secondary)]">No approved agricultural projects are available yet.</p>
             ) : null}
           </section>
 
@@ -438,7 +433,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
           >
             <div className="flex items-center gap-2 text-[var(--exa-gold)]">
               <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />
-              <h2 className="font-['Sora'] text-xl font-semibold">Investment Calculator</h2>
+              <h2 className="font-['Sora'] text-xl font-semibold">Participation review</h2>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="space-y-4 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
@@ -457,7 +452,7 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                   </select>
                 </label>
                 <label className="block text-sm text-[var(--exa-text-secondary)]">
-                  Number of Shares
+                  Number of units
                   <input
                     type="number"
                     min={1}
@@ -468,22 +463,22 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                   />
                 </label>
                 <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3 text-xs text-[var(--exa-text-secondary)]">
-                  Shares available: {Number(selectedProject?.sharesAvailable || 0).toLocaleString()} /{" "}
+                  Units available: {Number(selectedProject?.sharesAvailable || 0).toLocaleString()} /{" "}
                   {Number(selectedProject?.totalShares || 0).toLocaleString()}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface)] p-4">
                 <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                  <p className="text-xs text-[var(--exa-text-secondary)]">Projected Return</p>
-                  <p className="mt-2 text-base font-semibold text-[var(--exa-gold)]">{formatCurrency(projection.grossReturn)}</p>
+                  <p className="text-xs text-[var(--exa-text-secondary)]">Verification</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--exa-gold)]">{selectedProject?.verificationStatus?.replaceAll("_", " ") || "UNVERIFIED"}</p>
                 </div>
                 <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                  <p className="text-xs text-[var(--exa-text-secondary)]">Estimated Profit</p>
-                  <p className="mt-2 text-base font-semibold text-[var(--exa-gold)]">{formatCurrency(projection.profit)}</p>
+                  <p className="text-xs text-[var(--exa-text-secondary)]">Legal availability</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--exa-gold)]">{selectedProject?.legalStatus?.replaceAll("_", " ") || "PENDING REVIEW"}</p>
                 </div>
                 <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
-                  <p className="text-xs text-[var(--exa-text-secondary)]">Capital Invested</p>
-                  <p className="mt-2 text-base font-semibold text-[var(--exa-text-primary)]">{formatCurrency(projection.investmentNgn)}</p>
+                  <p className="text-xs text-[var(--exa-text-secondary)]">Principal amount</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--exa-text-primary)]">{formatCurrency(projection.investmentNgn, selectedProject?.currency)}</p>
                 </div>
                 <div className="rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-3">
                   <p className="text-xs text-[var(--exa-text-secondary)]">Maturity Date</p>
@@ -498,10 +493,10 @@ function AcquireShare({ onBack, initialProjectId = null }) {
               <button
                 type="button"
                 onClick={handleAcquireShares}
-                disabled={isSubmitting || loading || !selectedProject?.id}
+                disabled={isSubmitting || loading || !selectedProject?.id || !canAcquire}
                 className="rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? "Processing..." : "Confirm Share Purchase"}
+                {isSubmitting ? "Processing..." : canAcquire ? "Confirm eligible participation" : "Public participation unavailable"}
               </button>
               {statusMessage ? <p className="text-sm text-emerald-300">{statusMessage}</p> : null}
               {errorMessage ? <p className="text-sm text-rose-300">{errorMessage}</p> : null}
@@ -569,39 +564,11 @@ function AcquireShare({ onBack, initialProjectId = null }) {
             </div>
           </section>
 
-          <section className="mb-8 overflow-hidden rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
-            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Web3 Integration</h2>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
-                <p className="text-sm text-[var(--exa-text-secondary)]">Connect your wallet and fund with crypto or local payment rails.</p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setWalletConnected((current) => !current)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]"
-                  >
-                    <Wallet className="h-4 w-4" aria-hidden="true" />
-                    {walletConnected ? "Wallet Connected" : "Connect Wallet"}
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] px-4 py-2 text-sm font-semibold text-[var(--exa-text-primary)] transition-all hover:border-[var(--exa-border-active)] hover:text-[var(--exa-gold)]"
-                  >
-                    Fund via Crypto or Local Payment
-                  </button>
-                </div>
-              </div>
-              <div className="network-canvas rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
-                <div className="network-node node-a" />
-                <div className="network-node node-b" />
-                <div className="network-node node-c" />
-                <div className="network-node node-d" />
-                <div className="network-link link-ab" />
-                <div className="network-link link-bc" />
-                <div className="network-link link-cd" />
-                <div className="network-link link-da" />
-              </div>
-            </div>
+          <section className="mb-8 rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-5">
+            <h2 className="font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)]">Financial safeguards</h2>
+            <p className="mt-3 text-sm leading-6 text-[var(--exa-text-secondary)]">
+              Eligible funding is reserved from your ExaEarn balance and settled into controlled project escrow. Projected yield is not a balance, verified revenue is required before allocation, and agricultural loss remains possible.
+            </p>
           </section>
 
           <section className="rounded-2xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-surface)] via-[var(--exa-surface-elevated)] to-transparent p-6 text-center">
@@ -611,14 +578,14 @@ function AcquireShare({ onBack, initialProjectId = null }) {
                 Build Prosperity
               </div>
               <h2 className="mt-4 font-['Sora'] text-3xl font-semibold text-[var(--exa-text-primary)] sm:text-4xl">
-                Grow Your Wealth While Growing Communities.
+                Follow real agriculture with clear evidence and financial controls.
               </h2>
               <button
                 type="button"
                 onClick={scrollToProjects}
                 className="mt-5 rounded-xl border border-[var(--exa-border-active)] bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold-light)] px-6 py-3 text-sm font-semibold text-[var(--exa-gold-contrast)] shadow-[var(--exa-shadow-gold)] transition-all hover:-translate-y-0.5"
               >
-                Start Acquiring Shares Today
+                Review available projects
               </button>
             </div>
           </section>

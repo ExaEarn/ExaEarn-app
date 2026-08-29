@@ -55,6 +55,11 @@ class Course extends Model
         return $this->hasMany(Lesson::class)->orderBy('order_index');
     }
 
+    public function mediaAssets(): HasMany
+    {
+        return $this->hasMany(SkillsMediaAsset::class);
+    }
+
     public function quiz(): HasOne
     {
         return $this->hasOne(Quiz::class);

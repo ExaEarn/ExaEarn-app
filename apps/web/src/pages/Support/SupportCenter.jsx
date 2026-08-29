@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -12,7 +12,6 @@ import {
   Search,
   Shield,
   Sparkles,
-  Ticket,
   UserCheck,
   Users,
   Wallet,
@@ -57,36 +56,87 @@ const faqItems = [
   },
 ];
 
-function SupportCenter({ onBack, onOpenLiveChat }) {
+function SupportCenter({ request, onBack, onOpenLiveChat }) {
   const [search, setSearch] = useState("");
+  const [meta, setMeta] = useState(null);
+  const [kb, setKb] = useState([]);
+  const [loadingKb, setLoadingKb] = useState(false);
   const [ticketForm, setTicketForm] = useState({
-    fullName: "",
-    email: "",
-    userId: "",
     category: "Account & Verification",
+    product: "",
     subject: "",
     description: "",
-    screenshotName: "",
+    attachment: null,
   });
   const [openFaqId, setOpenFaqId] = useState(faqItems[0].id);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdTicket, setCreatedTicket] = useState(null);
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const categories = useMemo(() => meta?.categories?.length ? meta.categories : supportCategories.map((item) => item.label), [meta]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadSupport = async () => {
+      setLoadingKb(true);
+      try {
+        const [metaResponse, kbResponse] = await Promise.all([
+          request("/api/v1/support/meta"),
+          request(`/api/v1/support/knowledge-base?q=${encodeURIComponent(search)}`),
+        ]);
+        if (!mounted) return;
+        setMeta(metaResponse?.data ?? metaResponse);
+        const payload = kbResponse?.data?.data ?? kbResponse?.data ?? [];
+        setKb(Array.isArray(payload) ? payload : []);
+      } catch {
+        if (mounted) setKb([]);
+      } finally {
+        if (mounted) setLoadingKb(false);
+      }
+    };
+    if (request) void loadSupport();
+    return () => {
+      mounted = false;
+    };
+  }, [request, search]);
 
   const handleInputChange = (field, value) => {
     setTicketForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmitTicket = (event) => {
+  const handleSubmitTicket = async (event) => {
     event.preventDefault();
-    setShowSuccessModal(true);
-    setTicketForm({
-      fullName: "",
-      email: "",
-      userId: "",
-      category: "Account & Verification",
-      subject: "",
-      description: "",
-      screenshotName: "",
-    });
+    setSubmitting(true);
+    setSubmitError("");
+    setCreatedTicket(null);
+    try {
+      const response = await request("/api/v1/support/tickets", {
+        method: "POST",
+        headers: { "Idempotency-Key": `support-${Date.now()}-${Math.random().toString(16).slice(2)}` },
+        body: JSON.stringify({
+          category: ticketForm.category,
+          product: ticketForm.product || undefined,
+          subject: ticketForm.subject,
+          description: ticketForm.description,
+          source: "WEB",
+        }),
+      });
+      const ticket = response?.data ?? response;
+      if (ticketForm.attachment && ticket?.id) {
+        const form = new FormData();
+        form.append("file", ticketForm.attachment);
+        await request(`/api/v1/support/tickets/${ticket.id}/attachments`, {
+          method: "POST",
+          body: form,
+        });
+      }
+      setCreatedTicket(ticket);
+      setTicketForm({ category: categories[0] || "Other", product: "", subject: "", description: "", attachment: null });
+    } catch (error) {
+      setSubmitError(error?.message || "We could not submit your ticket. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -96,7 +146,7 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold text-[#F8F1DE] sm:text-3xl">ExaEarn Support Center</h1>
-              <p className="mt-1 text-sm text-[#D9DEE8]">We&apos;re here to help you 24/7</p>
+              <p className="mt-1 text-sm text-[#D9DEE8]">Create a secure support ticket and track it from your account.</p>
             </div>
             <button
               type="button"
@@ -147,12 +197,12 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-[#F8F1DE]">Live Support</h3>
-              <p className="mt-1 text-sm text-[#B8C0CF]">Average response time: under 3 minutes</p>
+              <p className="mt-1 text-sm text-[#B8C0CF]">{meta?.live_chat?.message || "Live chat availability is shown from support operations."}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full border border-[#22C55E]/30 bg-[#22C55E]/12 px-3 py-1 text-xs font-semibold text-[#9CF4BD]">
                 <BadgeCheck className="h-3.5 w-3.5" />
-                24/7
+                {meta?.live_chat?.status || "OFFLINE"}
               </span>
               <button
                 type="button"
@@ -168,43 +218,38 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
 
         <section className="mt-5 rounded-2xl border border-white/10 bg-[#101827]/85 p-5">
           <h3 className="mb-4 text-lg font-semibold text-[#F8F1DE]">Submit Ticket</h3>
+          {createdTicket ? (
+            <div className="mb-4 rounded-xl border border-[#22C55E]/25 bg-[#22C55E]/10 p-4">
+              <p className="text-sm font-semibold text-[#BBF7D0]">Support request received</p>
+              <p className="mt-1 text-sm text-[#D9DEE8]">Ticket {createdTicket.ticket_number} is now saved to your account.</p>
+            </div>
+          ) : null}
+          {submitError ? (
+            <div className="mb-4 rounded-xl border border-[#EF4444]/25 bg-[#EF4444]/10 p-4 text-sm text-[#FECACA]">{submitError}</div>
+          ) : null}
           <form onSubmit={handleSubmitTicket} className="grid gap-3 sm:grid-cols-2">
-            <Field label="Full Name">
-              <input
-                type="text"
-                value={ticketForm.fullName}
-                onChange={(event) => handleInputChange("fullName", event.target.value)}
-                required
-                className={inputClassName}
-              />
-            </Field>
-            <Field label="Email">
-              <input
-                type="email"
-                value={ticketForm.email}
-                onChange={(event) => handleInputChange("email", event.target.value)}
-                required
-                className={inputClassName}
-              />
-            </Field>
-            <Field label="User ID">
-              <input
-                type="text"
-                value={ticketForm.userId}
-                onChange={(event) => handleInputChange("userId", event.target.value)}
-                className={inputClassName}
-              />
-            </Field>
             <Field label="Category">
               <select
                 value={ticketForm.category}
                 onChange={(event) => handleInputChange("category", event.target.value)}
                 className={inputClassName}
               >
-                {supportCategories.map((item) => (
-                  <option key={item.id} value={item.label} className="bg-[#0B1220]">
-                    {item.label}
+                {categories.map((item) => (
+                  <option key={item} value={item} className="bg-[#0B1220]">
+                    {item}
                   </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Product">
+              <select
+                value={ticketForm.product}
+                onChange={(event) => handleInputChange("product", event.target.value)}
+                className={inputClassName}
+              >
+                <option value="" className="bg-[#0B1220]">General</option>
+                {["Wallet", "Spot", "Futures", "P2P", "Staking", "Gift Cards", "ExaCard", "ExaPay", "ExaAI"].map((item) => (
+                  <option key={item} value={item.toUpperCase().replaceAll(" ", "_")} className="bg-[#0B1220]">{item}</option>
                 ))}
               </select>
             </Field>
@@ -228,15 +273,14 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
             </Field>
             <Field label="Upload screenshot" full>
               <label className="flex cursor-pointer items-center justify-between rounded-xl border border-dashed border-white/20 bg-[#0C1424] px-3 py-3 text-sm text-[#C5CCDA] hover:border-[#D4AF37]/50">
-                <span>{ticketForm.screenshotName || "Click to upload screenshot"}</span>
+                <span>{ticketForm.attachment?.name || "Click to upload evidence"}</span>
                 <span className="rounded-lg border border-white/15 bg-[#111827] px-2 py-1 text-xs">Upload</span>
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
                   onChange={(event) => {
-                    const fileName = event.target.files?.[0]?.name || "";
-                    handleInputChange("screenshotName", fileName);
+                    handleInputChange("attachment", event.target.files?.[0] || null);
                   }}
                 />
               </label>
@@ -244,9 +288,10 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
             <div className="sm:col-span-2">
               <button
                 type="submit"
-                className="w-full rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] px-4 py-3 text-sm font-semibold text-[#111827] shadow-[0_10px_24px_rgba(212,175,55,0.3)] transition hover:brightness-105"
+                disabled={submitting}
+                className="w-full rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] px-4 py-3 text-sm font-semibold text-[#111827] shadow-[0_10px_24px_rgba(212,175,55,0.3)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Submit Ticket
+                {submitting ? "Submitting..." : "Submit Ticket"}
               </button>
             </div>
           </form>
@@ -255,7 +300,7 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
         <section className="mt-5 rounded-2xl border border-white/10 bg-[#101827]/85 p-5">
           <h3 className="mb-3 text-lg font-semibold text-[#F8F1DE]">Frequently Asked Questions</h3>
           <div className="space-y-2">
-            {faqItems.map((item) => {
+            {(kb.length ? kb.map((article) => ({ id: article.id, question: article.title, answer: article.summary || "Open this article in the Help Center for details." })) : faqItems).map((item) => {
               const isOpen = openFaqId === item.id;
               return (
                 <article
@@ -290,6 +335,8 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
           </p>
         </section>
 
+        {loadingKb ? <p className="mt-3 text-xs text-[#9CA3AF]">Loading help articles...</p> : null}
+
         <footer className="mt-6 rounded-2xl border border-white/10 bg-[#0E1524]/90 p-4">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#B8C0CF]">
             <a href="#" className="hover:text-[#D4AF37]">Terms of Service</a>
@@ -305,22 +352,6 @@ function SupportCenter({ onBack, onOpenLiveChat }) {
         </footer>
       </div>
 
-      {showSuccessModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-[#D4AF37]/35 bg-[#0F172A] p-5 text-center">
-            <Ticket className="mx-auto h-8 w-8 text-[#D4AF37]" />
-            <h4 className="mt-2 text-lg font-semibold text-[#F8F1DE]">Ticket Submitted</h4>
-            <p className="mt-1 text-sm text-[#B8C0CF]">Our support team will contact you shortly.</p>
-            <button
-              type="button"
-              onClick={() => setShowSuccessModal(false)}
-              className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] py-2 text-sm font-semibold text-[#111827]"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }

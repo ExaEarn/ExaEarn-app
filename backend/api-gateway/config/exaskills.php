@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'default_commission_rate' => env('EXASKILLS_DEFAULT_COMMISSION_RATE', '0.150000'),
+    'media' => [
+        'provider' => env('EXASKILLS_MEDIA_PROVIDER', 'local'),
+        'disk' => env('EXASKILLS_MEDIA_DISK', 'local'),
+        'max_size_bytes' => (int) env('EXASKILLS_MEDIA_MAX_BYTES', 20971520),
+        'allowed_extensions' => ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4', 'mov', 'txt', 'md'],
+        'allowed_mimes' => ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'video/quicktime', 'text/plain', 'text/markdown'],
+    ],
+    'course_review_required' => true,
+    'payouts' => [
+        'minimum_amount' => env('EXASKILLS_MIN_PAYOUT', '1'),
+        'maker_checker_threshold' => env('EXASKILLS_PAYOUT_MAKER_CHECKER_THRESHOLD', '500'),
+    ],
+    'learn_to_earn_enabled' => env('EXASKILLS_LEARN_TO_EARN_ENABLED', false),
+    'business_portal_enabled' => env('EXASKILLS_BUSINESS_PORTAL_ENABLED', true),
+    'employer_platform_enabled' => env('EXASKILLS_EMPLOYER_PLATFORM_ENABLED', true),
+    'subscriptions' => [
+        'enabled' => env('EXASKILLS_SUBSCRIPTIONS_ENABLED', true),
+        'grace_days' => (int) env('EXASKILLS_SUBSCRIPTION_GRACE_DAYS', 7),
+        'plans' => [
+            'FREE' => [
+                'id' => 'FREE',
+                'name' => 'Free',
+                'billing_period' => 'none',
+                'price' => '0.00000000',
+                'prices' => ['monthly' => '0.00000000', 'yearly' => '0.00000000'],
+                'asset' => 'USDT',
+                'status' => 'ACTIVE',
+                'course_access_policy' => 'free_catalog',
+                'seat_policy' => null,
+                'pricing_policy_version' => 'exaskills-subscription-2026-10',
+                'features' => ['course_catalog', 'free_courses', 'credentials'],
+            ],
+            'INDIVIDUAL' => [
+                'id' => 'INDIVIDUAL',
+                'name' => 'Individual',
+                'billing_period' => 'monthly_or_yearly',
+                'price' => env('EXASKILLS_INDIVIDUAL_MONTHLY_PRICE', '9.00000000'),
+                'prices' => ['monthly' => env('EXASKILLS_INDIVIDUAL_MONTHLY_PRICE', '9.00000000'), 'yearly' => env('EXASKILLS_INDIVIDUAL_YEARLY_PRICE', '90.00000000')],
+                'asset' => env('EXASKILLS_SUBSCRIPTION_ASSET', 'USDT'),
+                'status' => 'ACTIVE',
+                'course_access_policy' => 'eligible_catalog',
+                'seat_policy' => null,
+                'pricing_policy_version' => 'exaskills-subscription-2026-10',
+                'features' => ['eligible_courses', 'assessments', 'credentials'],
+            ],
+            'PREMIUM' => [
+                'id' => 'PREMIUM',
+                'name' => 'Premium',
+                'billing_period' => 'monthly_or_yearly',
+                'price' => env('EXASKILLS_PREMIUM_MONTHLY_PRICE', '19.00000000'),
+                'prices' => ['monthly' => env('EXASKILLS_PREMIUM_MONTHLY_PRICE', '19.00000000'), 'yearly' => env('EXASKILLS_PREMIUM_YEARLY_PRICE', '190.00000000')],
+                'asset' => env('EXASKILLS_SUBSCRIPTION_ASSET', 'USDT'),
+                'status' => 'ACTIVE',
+                'course_access_policy' => 'eligible_catalog',
+                'seat_policy' => null,
+                'pricing_policy_version' => 'exaskills-subscription-2026-10',
+                'features' => ['eligible_courses', 'assessments', 'credentials', 'challenge_priority'],
+            ],
+            'BUSINESS' => [
+                'id' => 'BUSINESS',
+                'name' => 'Business',
+                'billing_period' => 'monthly_or_yearly',
+                'price' => env('EXASKILLS_BUSINESS_MONTHLY_PRICE', '49.00000000'),
+                'prices' => ['monthly' => env('EXASKILLS_BUSINESS_MONTHLY_PRICE', '49.00000000'), 'yearly' => env('EXASKILLS_BUSINESS_YEARLY_PRICE', '490.00000000')],
+                'asset' => env('EXASKILLS_SUBSCRIPTION_ASSET', 'USDT'),
+                'status' => 'ACTIVE',
+                'course_access_policy' => 'business_catalog',
+                'seat_policy' => ['default_seats' => 5],
+                'pricing_policy_version' => 'exaskills-business-2026-10',
+                'features' => ['business_dashboard', 'training_programs', 'seat_assignments', 'reports'],
+            ],
+        ],
+    ],
+    'business' => [
+        'max_seat_batch' => (int) env('EXASKILLS_MAX_SEAT_BATCH', 250),
+    ],
+    'tax' => [
+        'software_ready' => true,
+        'external_review_required' => true,
+        'default_outcome_without_policy' => 'MANUAL_REVIEW',
+    ],
+];

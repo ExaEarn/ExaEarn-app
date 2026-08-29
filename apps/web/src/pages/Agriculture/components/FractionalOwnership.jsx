@@ -5,13 +5,12 @@ function FractionalOwnership({ highlights, benefits }) {
     <section className="campaign-card">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-[var(--exa-gold)]">Fractional Ownership</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-[var(--exa-gold)]">Project allocation</p>
           <h2 className="mt-2 font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)] sm:text-3xl">
-            Tokenized Parcels for Shared Ownership
+            Traceable participation in eligible projects
           </h2>
           <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">
-            Each land parcel is split into compliant tokens, enabling transparent ownership, yield sharing, and liquid
-            exits.
+            Allocations are accounting records tied to settled participation. They do not represent land title or promise liquidity or returns.
           </p>
         </div>
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold)] shadow-[var(--exa-shadow-gold)]">

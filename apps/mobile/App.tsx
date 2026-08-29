@@ -29,14 +29,19 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { LanguageProvider, useLanguage } from "./src/context/LanguageContext";
 import DashboardScreen from "./src/screens/DashboardScreen";
+import CrowdfundingScreen from "./src/screens/CrowdfundingScreen";
 import ExaCardScreen from "./src/screens/ExaCardScreen";
+import ExaSkillsScreen from "./src/screens/ExaSkillsScreen";
 import GiftcardScreen from "./src/screens/GiftcardScreen";
 import MarketScreen from "./src/screens/MarketScreen";
+import NotificationActivityScreen from "./src/screens/NotificationActivityScreen";
+import NftMarketplaceScreen from "./src/screens/NftMarketplaceScreen";
 import StakingScreen from "./src/screens/StakingScreen";
+import SupportScreen from "./src/screens/SupportScreen";
 import TradeScreen from "./src/screens/TradeScreen";
 import { colors, fonts } from "./src/theme/colors";
 
-type RouteName = "dashboard" | "staking" | "giftcard" | "exacard" | "market" | "trade";
+type RouteName = "dashboard" | "staking" | "giftcard" | "exacard" | "exaskills" | "market" | "trade" | "activity" | "support" | "crowdfunding" | "nft";
 
 export default function App() {
   const [fontsReady] = useFonts({
@@ -80,6 +85,10 @@ function RootShell({ fontsReady }: { fontsReady: boolean }) {
     return <ExaCardScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
   }
 
+  if (route === "exaskills") {
+    return <ExaSkillsScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+  }
+
   if (route === "market") {
     return <MarketScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} onOpenTrade={() => setRoute("trade")} />;
   }
@@ -88,14 +97,35 @@ function RootShell({ fontsReady }: { fontsReady: boolean }) {
     return <TradeScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
   }
 
+  if (route === "activity") {
+    return <NotificationActivityScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+  }
+
+  if (route === "support") {
+    return <SupportScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+  }
+
+  if (route === "crowdfunding") {
+    return <CrowdfundingScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} onOpenSupport={() => setRoute("support")} />;
+  }
+
+  if (route === "nft") {
+    return <NftMarketplaceScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+  }
+
   return (
     <DashboardScreen
       fontsReady={fontsReady}
       onOpenExaCard={() => setRoute("exacard")}
       onOpenGiftcard={() => setRoute("giftcard")}
       onOpenMarket={() => setRoute("market")}
+      onOpenNotifications={() => setRoute("activity")}
       onOpenStaking={() => setRoute("staking")}
+      onOpenSupport={() => setRoute("support")}
       onOpenTrade={() => setRoute("trade")}
+      onOpenCrowdfunding={() => setRoute("crowdfunding")}
+      onOpenExaSkills={() => setRoute("exaskills")}
+      onOpenNft={() => setRoute("nft")}
     />
   );
 }

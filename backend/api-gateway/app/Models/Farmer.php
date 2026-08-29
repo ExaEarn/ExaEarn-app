@@ -20,12 +20,19 @@ class Farmer extends Model
         'equipment_details',
         'geo_metadata',
         'bio',
+        'state',
+        'identity_status',
+        'land_verification_status',
+        'reviewed_by',
+        'reviewed_at',
+        'review_reason',
     ];
 
     protected $casts = [
         'identity_documents' => 'array',
         'equipment_details' => 'array',
         'geo_metadata' => 'array',
+        'reviewed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

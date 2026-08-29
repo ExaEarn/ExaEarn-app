@@ -19,11 +19,12 @@ import {
   Smartphone,
   Trash2,
   UserCog,
+  SlidersHorizontal,
   Wallet,
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 
-function SettingsPage({ onBack, onOpenInstitutional, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods, onOpenActivityLogs }) {
+function SettingsPage({ onBack, onOpenInstitutional, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods, onOpenActivityLogs, onOpenPersonalization }) {
   const { theme, setTheme } = useTheme();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -103,12 +104,13 @@ function SettingsPage({ onBack, onOpenInstitutional, onOpenLanguageRegion, onOpe
 
   const prefItems = useMemo(
     () => [
+      { icon: SlidersHorizontal, title: "Experience & Personalization", description: "Choose Lite or Pro and what ExaEarn prioritizes", action: onOpenPersonalization },
       { icon: Languages, title: "Language & Region", description: languageRegionSummary, action: onOpenLanguageRegion },
       { icon: Coins, title: "Currency Preference", description: currencySummary, action: onOpenCurrencyPreference },
       { icon: Clock3, title: "Change (%) & Chart Timezone", description: "UTC+01:00", action: onOpenMarketAnalytics },
       { icon: BellRing, title: "Notification Preferences", description: "Push, Email", action: onOpenNotificationPreferences },
     ],
-    [currencySummary, languageRegionSummary, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences]
+    [currencySummary, languageRegionSummary, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPersonalization]
   );
 
   const paymentWalletItems = [

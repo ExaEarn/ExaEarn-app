@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, Search, Sparkles, Wallet, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Search, Sparkles, Wallet, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useWeb3Wallet } from "../../hooks/useWeb3Wallet";
 import { useCrowdfunding } from "../../hooks/useCrowdfunding";
@@ -27,9 +27,27 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
   const [query, setQuery] = useState("");
   const { apiBaseUrl, token } = useAuth();
   const wallet = useWeb3Wallet();
-  const { campaigns, loading, error, refresh, txState, dataSource } = useCrowdfunding({ apiBaseUrl, token, wallet });
+  const { campaigns, loading, error, refresh, txState, dataSource, creatorDashboardFlow, backerDashboardFlow } = useCrowdfunding({ apiBaseUrl, token, wallet });
+  const [dashboards, setDashboards] = useState({ creator: null, backer: null, error: "" });
 
   const featuredCampaign = campaigns[0] || null;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!apiBaseUrl || !token) return undefined;
+
+    Promise.all([creatorDashboardFlow(), backerDashboardFlow()])
+      .then(([creator, backer]) => {
+        if (!cancelled) setDashboards({ creator: creator?.data || creator, backer: backer?.data || backer, error: "" });
+      })
+      .catch((err) => {
+        if (!cancelled) setDashboards((current) => ({ ...current, error: err?.message || "Your crowdfunding activity could not load." }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, backerDashboardFlow, creatorDashboardFlow, token]);
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((campaign) => {
@@ -159,6 +177,32 @@ function Crowdfunding({ onBack, onCreateCampaign, onSupportCampaign, onViewCampa
               />
             </div>
           </div>
+          </section>
+        ) : null}
+
+        {token ? (
+          <section className="mt-5 grid gap-3 lg:grid-cols-3">
+            <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+              <div className="flex items-center gap-2 text-[var(--exa-gold-light)]">
+                <ShieldCheck className="h-4 w-4" />
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]">Creator</p>
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-[var(--exa-text-primary)]">{dashboards.creator?.summary?.campaigns ?? 0}</p>
+              <p className="text-xs text-[var(--exa-text-muted)]">Campaigns · {dashboards.creator?.summary?.under_review ?? 0} under review</p>
+            </article>
+            <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+              <div className="flex items-center gap-2 text-[var(--exa-gold-light)]">
+                <Wallet className="h-4 w-4" />
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]">Backer</p>
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-[var(--exa-text-primary)]">{dashboards.backer?.summary?.total_pledges ?? 0}</p>
+              <p className="text-xs text-[var(--exa-text-muted)]">Contributions · {dashboards.backer?.summary?.held ?? 0} held in escrow</p>
+            </article>
+            <article className="rounded-2xl border border-[var(--exa-border)] bg-[var(--exa-surface-elevated)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--exa-gold-light)]">Support</p>
+              <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">Questions, campaign updates and pledge activity are tied to your ExaEarn account.</p>
+              {dashboards.error ? <p className="mt-2 text-xs text-[var(--exa-gold-light)]">{dashboards.error}</p> : null}
+            </article>
           </section>
         ) : null}
 

@@ -10,10 +10,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\PersonalizedContent\ProductEventContentService;
 
 class StakingAdminController extends Controller
 {
-    public function __construct(private readonly StakingProviderRegistry $providers) {}
+    public function __construct(private readonly StakingProviderRegistry $providers, private readonly ProductEventContentService $contentEvents) {}
 
     public function assets(Request $request): JsonResponse
     {
@@ -123,6 +124,7 @@ class StakingAdminController extends Controller
         }
 
         $id = $payload['id'] ?? null;
+        $previousStatus = $id ? DB::table('staking_products')->where('id', $id)->value('status') : null;
         if ($id) {
             DB::table('staking_products')->where('id', $id)->update($data);
         } else {
@@ -131,6 +133,19 @@ class StakingAdminController extends Controller
         }
 
         $this->audit('admin.staking.product.upsert', $request, (int) $id, $payload);
+
+        if ($payload['status'] === 'active' && $previousStatus !== 'active') {
+            $this->contentEvents->ingest('earn.product.activated', "staking-product:{$id}:active", [
+                'title' => "New {$asset->symbol} Earn opportunity",
+                'body' => "Explore the active {$payload['name']} product and review its verified terms.",
+                'asset' => (string) $asset->symbol,
+                'entity_type' => 'staking_product',
+                'entity_id' => (string) $id,
+                'target_interests' => ['earn_grow', 'earn'],
+                'expires_at' => $payload['ends_at'] ?? null,
+                'priority' => 65,
+            ]);
+        }
 
         return response()->json(['data' => DB::table('staking_products')->where('id', $id)->first()], $payload['id'] ?? false ? 200 : 201);
     }

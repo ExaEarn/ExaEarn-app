@@ -492,6 +492,10 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.experience-mode-control { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+.experience-mode-control button { min-height: 40px; border: 1px solid var(--exa-border); border-radius: 8px; background: var(--exa-surface-hover); color: var(--exa-text-secondary); text-transform: uppercase; }
+.experience-mode-control button.active { border-color: var(--exa-gold); color: var(--exa-gold-light); }
+.dashboard-customizer-label { display: flex; justify-content: space-between; margin: 0 0 8px; color: var(--exa-text-secondary); font-size: 12px; }
 
 .dashboard-choice-summary strong {
   min-width: 0;

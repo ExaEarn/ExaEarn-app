@@ -11,13 +11,14 @@ class NftListing extends Model
 {
     protected $fillable = [
         'listing_uuid', 'nft_id', 'seller_user_id', 'seller_wallet', 'price_exa', 'listing_type',
-        'status', 'listing_tx_hash', 'expires_at', 'metadata',
+        'status', 'listing_tx_hash', 'expires_at', 'metadata', 'settlement_asset', 'pricing_snapshot', 'idempotency_key',
     ];
 
     protected $casts = [
         'price_exa' => 'decimal:8',
         'expires_at' => 'datetime',
         'metadata' => 'array',
+        'pricing_snapshot' => 'array',
     ];
 
     public function nft(): BelongsTo

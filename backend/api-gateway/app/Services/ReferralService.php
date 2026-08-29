@@ -23,6 +23,7 @@ class ReferralService
     public function __construct(
         private readonly TransactionService $transactions,
         private readonly ReferralAbuseService $abuseService,
+        private readonly AffiliateCommissionService $affiliateCommissions,
     ) {
     }
 
@@ -94,6 +95,10 @@ class ReferralService
 
     public function processQualifiedActivity(int $referredUserId, string $activityType, array $metadata = []): void
     {
+        if ($this->processAffiliateCommissionActivity($referredUserId, $activityType, $metadata)) {
+            return;
+        }
+
         $activityConfig = config("referral.activities.{$activityType}");
         if (!$activityConfig) {
             return;
@@ -289,6 +294,26 @@ class ReferralService
         });
     }
 
+    private function processAffiliateCommissionActivity(int $referredUserId, string $activityType, array $metadata): bool
+    {
+        $map = [
+            'subscription_purchase' => ['EXAAI', 'SUBSCRIPTION_PURCHASE'],
+        ];
+
+        if (!isset($map[$activityType])) {
+            return false;
+        }
+
+        [$product, $eventType] = $map[$activityType];
+        $reference = (string) ($metadata['event_key'] ?? $metadata['subscription_id'] ?? $metadata['transaction_reference'] ?? $activityType);
+        $grossRevenue = (string) ($metadata['commissionable_base'] ?? $metadata['amount'] ?? '0');
+        $commission = $this->affiliateCommissions->recordSettledEvent($referredUserId, $product, $eventType, $reference, $grossRevenue, array_merge($metadata, [
+            'settlement_status' => $metadata['settlement_status'] ?? 'SETTLED',
+        ]));
+
+        return $commission !== null;
+    }
+
     private function createSuspendedRewards(Referral $rootReferral, string $activityType, string $eventKey, array $metadata, array $flags): void
     {
         $ancestorReferral = $rootReferral;
@@ -354,10 +379,6 @@ class ReferralService
 
     private function mul(string $left, string $right): string
     {
-        if (function_exists('bcmul')) {
-            return bcmul($left, $right, 8);
-        }
-
-        return number_format((float) $left * (float) $right, 8, '.', '');
+        return FinancialDecimal::mul($left, $right, 8);
     }
 }

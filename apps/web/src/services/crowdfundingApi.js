@@ -6,7 +6,7 @@ function normalizeBaseUrl(apiBaseUrl) {
   return apiBaseUrl.endsWith("/") ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
 }
 
-async function request({ apiBaseUrl, token, path, method = "GET", body }) {
+async function request({ apiBaseUrl, token, path, method = "GET", body, headers = {} }) {
   const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}${path}`, {
     method,
     credentials: "include",
@@ -14,6 +14,7 @@ async function request({ apiBaseUrl, token, path, method = "GET", body }) {
       Accept: "application/json",
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -53,7 +54,8 @@ export function createCampaign({ apiBaseUrl, token, payload }) {
 }
 
 export function contributeToCampaign({ apiBaseUrl, token, campaignId, payload }) {
-  return request({ apiBaseUrl, token, path: `/api/crowdfunding/campaigns/${campaignId}/contributions`, method: "POST", body: payload });
+  const idempotencyKey = payload?.idempotency_key || `crowdfunding-pledge-${campaignId}-${Date.now()}`;
+  return request({ apiBaseUrl, token, path: `/api/crowdfunding/campaigns/${campaignId}/contributions`, method: "POST", body: payload, headers: { "Idempotency-Key": idempotencyKey } });
 }
 
 export function createSpendingRequest({ apiBaseUrl, token, campaignId, payload }) {
@@ -74,5 +76,25 @@ export function refundCampaignContribution({ apiBaseUrl, token, campaignId, payl
 
 export function fetchCampaignLogs({ apiBaseUrl, token, campaignId }) {
   return request({ apiBaseUrl, token, path: `/api/crowdfunding/campaigns/${campaignId}/logs` });
+}
+
+export function fetchCampaignComments({ apiBaseUrl, token, campaignId }) {
+  return request({ apiBaseUrl, token, path: `/api/crowdfunding/campaigns/${campaignId}/comments` });
+}
+
+export function createCampaignComment({ apiBaseUrl, token, campaignId, payload }) {
+  return request({ apiBaseUrl, token, path: `/api/crowdfunding/campaigns/${campaignId}/comments`, method: "POST", body: payload });
+}
+
+export function reportCampaignComment({ apiBaseUrl, token, commentId, reason }) {
+  return request({ apiBaseUrl, token, path: `/api/crowdfunding/comments/${commentId}/report`, method: "POST", body: { reason } });
+}
+
+export function fetchCreatorCrowdfundingDashboard({ apiBaseUrl, token }) {
+  return request({ apiBaseUrl, token, path: "/api/crowdfunding/creator/dashboard" });
+}
+
+export function fetchBackerCrowdfundingDashboard({ apiBaseUrl, token }) {
+  return request({ apiBaseUrl, token, path: "/api/crowdfunding/backer/dashboard" });
 }
 

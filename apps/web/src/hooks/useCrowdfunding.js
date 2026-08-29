@@ -4,15 +4,21 @@ import {
   createCampaign,
   createSpendingRequest,
   fetchCampaignDetails,
+  fetchCampaignComments,
   fetchCampaignLogs,
   fetchCampaigns,
+  createCampaignComment,
   finalizeSpendingRequest,
   refundCampaignContribution,
+  reportCampaignComment,
+  fetchBackerCrowdfundingDashboard,
+  fetchCreatorCrowdfundingDashboard,
   voteSpendingRequest,
 } from "../services/crowdfundingApi";
 import { campaignData as mockCampaigns } from "../pages/Crowdfunding/campaignData";
 
 const STATUS_MAP = ["active", "funded", "failed", "completed", "frozen"];
+const canUseMockCampaigns = import.meta.env.DEV || import.meta.env.VITE_ENABLE_CROWDFUNDING_MOCKS === "true";
 
 function mapMockCampaign(campaign) {
   const progress = Math.min((campaign.raised / Math.max(campaign.target, 1)) * 100, 100);
@@ -53,7 +59,9 @@ function normalizeCampaign(input) {
     title: input.title || "Untitled campaign",
     description: input.description || "",
     category: input.category || "General",
-    goal_amount: Number(input.goal_amount ?? input.target ?? 0),
+    asset: input.asset || input.currency || "USDT",
+    classification: input.classification || "PROJECT_SUPPORT",
+    goal_amount: Number(input.goal_amount ?? input.funding_goal ?? input.target ?? 0),
     raised_amount: Number(input.raised_amount ?? input.raised ?? 0),
     deadline: input.deadline || input.ends_at || new Date().toISOString(),
     status: STATUS_MAP.includes(String(input.status || "").toLowerCase())
@@ -77,9 +85,9 @@ export function useCrowdfunding({ apiBaseUrl, token, wallet, poll = true }) {
 
   const loadCampaigns = useCallback(async () => {
     if (!apiBaseUrl) {
-      setCampaigns(mockCampaigns.map(mapMockCampaign));
-      setDataSource("mock");
-      setError("Missing API base URL, using local campaign dataset.");
+      setCampaigns(canUseMockCampaigns ? mockCampaigns.map(mapMockCampaign) : []);
+      setDataSource(canUseMockCampaigns ? "mock" : "api");
+      setError(canUseMockCampaigns ? "Missing API base URL, using local campaign dataset." : "Crowdfunding API is not configured.");
       setLoading(false);
       return;
     }
@@ -89,16 +97,11 @@ export function useCrowdfunding({ apiBaseUrl, token, wallet, poll = true }) {
     try {
       const payload = await fetchCampaigns({ apiBaseUrl, token, params: { per_page: 40 } });
       const rows = toArrayPayload(payload).map(normalizeCampaign);
-      if (!rows.length) {
-        setCampaigns(mockCampaigns.map(mapMockCampaign));
-        setDataSource("mock");
-      } else {
-        setCampaigns(rows);
-        setDataSource("api");
-      }
+      setCampaigns(rows);
+      setDataSource("api");
     } catch (err) {
-      setCampaigns(mockCampaigns.map(mapMockCampaign));
-      setDataSource("mock");
+      setCampaigns(canUseMockCampaigns ? mockCampaigns.map(mapMockCampaign) : []);
+      setDataSource(canUseMockCampaigns ? "mock" : "api");
       setError(err?.message || "Unable to load campaigns from backend.");
     } finally {
       setLoading(false);
@@ -290,6 +293,53 @@ export function useCrowdfunding({ apiBaseUrl, token, wallet, poll = true }) {
     [apiBaseUrl, loadCampaigns, token, wallet, withTx]
   );
 
+  const commentsFlow = useCallback(
+    async (campaignId) => {
+      if (!apiBaseUrl) return { data: [] };
+      return fetchCampaignComments({ apiBaseUrl, token, campaignId });
+    },
+    [apiBaseUrl, token]
+  );
+
+  const createCommentFlow = useCallback(
+    async ({ campaignId, body, type = "COMMENT", parentId = null }) => {
+      if (!apiBaseUrl) throw new Error("Set VITE_API_URL before posting comments.");
+      const response = await createCampaignComment({
+        apiBaseUrl,
+        token,
+        campaignId,
+        payload: { body, type, parent_id: parentId },
+      });
+      await loadCampaigns();
+      return response;
+    },
+    [apiBaseUrl, loadCampaigns, token]
+  );
+
+  const reportCommentFlow = useCallback(
+    async ({ commentId, reason = "other" }) => {
+      if (!apiBaseUrl) throw new Error("Set VITE_API_URL before reporting comments.");
+      return reportCampaignComment({ apiBaseUrl, token, commentId, reason });
+    },
+    [apiBaseUrl, token]
+  );
+
+  const creatorDashboardFlow = useCallback(
+    async () => {
+      if (!apiBaseUrl) throw new Error("Set VITE_API_URL before loading creator dashboard.");
+      return fetchCreatorCrowdfundingDashboard({ apiBaseUrl, token });
+    },
+    [apiBaseUrl, token]
+  );
+
+  const backerDashboardFlow = useCallback(
+    async () => {
+      if (!apiBaseUrl) throw new Error("Set VITE_API_URL before loading pledge history.");
+      return fetchBackerCrowdfundingDashboard({ apiBaseUrl, token });
+    },
+    [apiBaseUrl, token]
+  );
+
   const campaignContext = useCallback(
     async (campaignId) => {
       if (!apiBaseUrl || dataSource === "mock") {
@@ -319,10 +369,15 @@ export function useCrowdfunding({ apiBaseUrl, token, wallet, poll = true }) {
     campaignContext,
     createCampaignFlow,
     contributeFlow,
+    commentsFlow,
+    createCommentFlow,
     createRequestFlow,
     voteRequestFlow,
     finalizeRequestFlow,
     refundFlow,
+    reportCommentFlow,
+    creatorDashboardFlow,
+    backerDashboardFlow,
   };
 }
 

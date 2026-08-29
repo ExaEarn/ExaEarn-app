@@ -615,4 +615,113 @@ class SettlementService
             ['account_id' => $to->id, 'amount' => $amount, 'asset' => $asset, 'user_id' => $userId, 'metadata' => $metadata],
         ], 'margin_transfer', array_merge($metadata, ['source_service' => 'settlement']));
     }
+
+    public function agriInvestmentEscrow(
+        string $reservationId,
+        string $principal,
+        string $fee,
+        string $reference,
+        array $metadata = [],
+    ): LedgerTransaction {
+        return DB::transaction(function () use ($fee, $metadata, $principal, $reference, $reservationId): LedgerTransaction {
+            $existing = LedgerTransaction::query()->where('reference', $reference)->lockForUpdate()->first();
+            if ($existing?->status === 'completed') {
+                return $existing;
+            }
+
+            $reservation = Reservation::query()->where('reservation_id', $reservationId)->lockForUpdate()->firstOrFail();
+            $principal = FinancialDecimal::normalize($principal);
+            $fee = FinancialDecimal::normalize($fee);
+            $total = FinancialDecimal::add($principal, $fee);
+            if (FinancialDecimal::compare($total, (string) $reservation->remaining_amount) !== 0) {
+                throw new RuntimeException('AgriTech settlement must exactly match its active reservation.');
+            }
+
+            $source = $reservation->account;
+            $asset = strtoupper((string) $reservation->asset);
+            $escrow = $this->ledger->getOrCreateAccount(null, 'agritech_investor_escrow', $asset);
+            $entries = [
+                ['account_id' => $source->id, 'amount' => FinancialDecimal::sub('0', $total), 'asset' => $asset, 'user_id' => $source->user_id],
+                ['account_id' => $escrow->id, 'amount' => $principal, 'asset' => $asset],
+            ];
+            if (FinancialDecimal::compare($fee, '0') > 0) {
+                $revenue = $this->ledger->getOrCreateAccount(null, 'agritech_fee_revenue', $asset);
+                $entries[] = ['account_id' => $revenue->id, 'amount' => $fee, 'asset' => $asset];
+            }
+
+            $transaction = $this->ledger->postDoubleEntry($reference, 'AgriTech investment escrow settlement', $entries, 'agritech_investment', array_merge($metadata, [
+                'reservation_id' => $reservationId,
+                'source_service' => 'settlement',
+            ]));
+            $this->reservations->consume($reservationId, $total, ['ledger_reference' => $reference]);
+
+            return $transaction;
+        });
+    }
+
+    public function agriEscrowDisbursement(int $farmerUserId, string $asset, string $amount, string $reference, array $metadata = []): LedgerTransaction
+    {
+        $escrow = $this->ledger->getOrCreateAccount(null, 'agritech_investor_escrow', $asset);
+        $payable = $this->ledger->getOrCreateAccount($farmerUserId, 'funding', $asset);
+
+        return $this->ledger->postDoubleEntry($reference, 'Approved AgriTech project disbursement', [
+            ['account_id' => $escrow->id, 'amount' => FinancialDecimal::sub('0', $amount), 'asset' => $asset],
+            ['account_id' => $payable->id, 'amount' => $amount, 'asset' => $asset, 'user_id' => $farmerUserId],
+        ], 'agritech_disbursement', array_merge($metadata, ['source_service' => 'settlement']));
+    }
+
+    public function agriVerifiedRevenue(string $asset, string $amount, string $reference, array $metadata = []): LedgerTransaction
+    {
+        $external = $this->ledger->getOrCreateAccount(null, 'agritech_external_revenue_source', $asset);
+        $clearing = $this->ledger->getOrCreateAccount(null, 'agritech_harvest_clearing', $asset);
+
+        return $this->ledger->postDoubleEntry($reference, 'Verified AgriTech harvest revenue', [
+            ['account_id' => $external->id, 'amount' => FinancialDecimal::sub('0', $amount), 'asset' => $asset],
+            ['account_id' => $clearing->id, 'amount' => $amount, 'asset' => $asset],
+        ], 'agritech_harvest_revenue', array_merge($metadata, ['source_service' => 'settlement']));
+    }
+
+    public function agriInvestorPayout(int $userId, string $asset, string $amount, string $reference, array $metadata = []): LedgerTransaction
+    {
+        $clearing = $this->ledger->getOrCreateAccount(null, 'agritech_harvest_clearing', $asset);
+        $funding = $this->ledger->getOrCreateAccount($userId, 'funding', $asset);
+
+        return $this->ledger->postDoubleEntry($reference, 'Verified AgriTech investor payout', [
+            ['account_id' => $clearing->id, 'amount' => FinancialDecimal::sub('0', $amount), 'asset' => $asset],
+            ['account_id' => $funding->id, 'amount' => $amount, 'asset' => $asset, 'user_id' => $userId],
+        ], 'agritech_investor_payout', array_merge($metadata, ['source_service' => 'settlement']));
+    }
+
+    public function agriHarvestDeductions(string $asset, string $costs, string $fee, string $reference, array $metadata = []): ?LedgerTransaction
+    {
+        $costs = FinancialDecimal::normalize($costs);
+        $fee = FinancialDecimal::normalize($fee);
+        $total = FinancialDecimal::add($costs, $fee);
+        if (FinancialDecimal::compare($total, '0') === 0) {
+            return null;
+        }
+        $clearing = $this->ledger->getOrCreateAccount(null, 'agritech_harvest_clearing', $asset);
+        $entries = [['account_id' => $clearing->id, 'amount' => FinancialDecimal::sub('0', $total), 'asset' => $asset]];
+        if (FinancialDecimal::compare($costs, '0') > 0) {
+            $costPayable = $this->ledger->getOrCreateAccount(null, 'agritech_verified_cost_payable', $asset);
+            $entries[] = ['account_id' => $costPayable->id, 'amount' => $costs, 'asset' => $asset];
+        }
+        if (FinancialDecimal::compare($fee, '0') > 0) {
+            $revenue = $this->ledger->getOrCreateAccount(null, 'agritech_fee_revenue', $asset);
+            $entries[] = ['account_id' => $revenue->id, 'amount' => $fee, 'asset' => $asset];
+        }
+
+        return $this->ledger->postDoubleEntry($reference, 'Verified AgriTech harvest deductions', $entries, 'agritech_harvest_deductions', array_merge($metadata, ['source_service' => 'settlement']));
+    }
+
+    public function agriInvestmentRefund(int $userId, string $asset, string $amount, string $reference, array $metadata = []): LedgerTransaction
+    {
+        $escrow = $this->ledger->getOrCreateAccount(null, 'agritech_investor_escrow', $asset);
+        $funding = $this->ledger->getOrCreateAccount($userId, 'funding', $asset);
+
+        return $this->ledger->postDoubleEntry($reference, 'AgriTech investment refund', [
+            ['account_id' => $escrow->id, 'amount' => FinancialDecimal::sub('0', $amount), 'asset' => $asset],
+            ['account_id' => $funding->id, 'amount' => $amount, 'asset' => $asset, 'user_id' => $userId],
+        ], 'agritech_refund', array_merge($metadata, ['source_service' => 'settlement']));
+    }
 }

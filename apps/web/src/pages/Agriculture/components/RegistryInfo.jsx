@@ -5,12 +5,12 @@ function RegistryInfo({ items }) {
     <section className="campaign-card">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-[var(--exa-gold)]">NFT Land Registry</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-[var(--exa-gold)]">Project evidence</p>
           <h2 className="mt-2 font-['Sora'] text-2xl font-semibold text-[var(--exa-text-primary)] sm:text-3xl">
-            Verified Land Titles on the Blockchain
+            Reviewed records with a visible audit trail
           </h2>
           <p className="mt-2 text-sm text-[var(--exa-text-secondary)]">
-            Every land title becomes a secure, tradable NFT with dispute-proof provenance and compliance metadata.
+            Submitted evidence remains unverified until an authorized reviewer records a decision. Digital records do not replace legal title review.
           </p>
         </div>
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] text-[var(--exa-gold)] shadow-[var(--exa-shadow-gold)]">

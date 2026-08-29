@@ -26,6 +26,7 @@ class FlightGameBet extends Model
         'payout',
         'profit',
         'idempotency_key',
+        'reservation_id',
         'ledger_reference',
         'placed_at',
         'cashed_out_at',

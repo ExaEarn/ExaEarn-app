@@ -34,6 +34,11 @@ class NotifyJob implements ShouldQueue
             return;
         }
 
-        $notifications->create($user, $this->type, $this->title, $this->message, ['in_app', 'email', 'push'], $this->data);
+        $notifications->emit($user, 'compliance.kyc.action_required', array_merge($this->data, [
+            'title' => $this->title,
+            'message' => $this->message,
+            'status' => $this->type,
+            'deep_link' => '/kyc',
+        ]), (string) ($this->data['reference'] ?? $this->type.'-'.$this->userId), ['in_app', 'email', 'push']);
     }
 }
