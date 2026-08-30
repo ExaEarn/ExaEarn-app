@@ -49,7 +49,7 @@ class GiftCardPurchaseService
             $cardValue = FinancialDecimal::normalize((string) $cardValue, self::SCALE);
             $asset = strtoupper($currency);
             // 1. Calculate all fees
-            $feeBreakdown = $this->feeCalculator->calculateFees($brand, (float) $cardValue, $currency);
+            $feeBreakdown = $this->feeCalculator->calculateFees($brand, $cardValue, $currency);
             $totalCost = FinancialDecimal::normalize((string) $feeBreakdown['total_cost_to_user'], self::SCALE);
             $userCharge = FinancialDecimal::normalize((string) $feeBreakdown['user_charge'], self::SCALE);
 

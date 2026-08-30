@@ -7,6 +7,7 @@ return [
         'max_login_attempts' => (int) env('SECURITY_MAX_LOGIN_ATTEMPTS', 5),
         'login_decay_seconds' => (int) env('SECURITY_LOGIN_DECAY_SECONDS', 60),
         'strong_password_regex' => (string) env('SECURITY_STRONG_PASSWORD_REGEX', '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{10,}$/'),
+        'recent_auth_seconds' => (int) env('SECURITY_RECENT_AUTH_SECONDS', 900),
     ],
 
     'api' => [
@@ -36,4 +37,3 @@ return [
         'large_withdrawal_threshold' => (string) env('SECURITY_LARGE_WITHDRAWAL_THRESHOLD', '2000'),
     ],
 ];
-

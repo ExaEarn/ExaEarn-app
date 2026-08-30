@@ -13,6 +13,7 @@ export type ExaEarnApiError = {
   code: string;
   message: string;
   request_id?: string;
+  details?: Record<string, unknown>;
 };
 
 export type ExaEarnApiResponse<T> = {
@@ -165,6 +166,15 @@ export class ExaEarnClient {
 
   exchangeInfo() {
     return this.request("GET", "/api/developer/v1/exchange-info");
+  }
+
+  getServerTime() {
+    return this.request<{
+      unix_seconds: number;
+      unix_milliseconds: number;
+      iso_8601: string;
+      timezone: "UTC";
+    }>("GET", "/api/developer/v1/time");
   }
 
   markets() {
@@ -368,8 +378,7 @@ export class ExaEarnClient {
 
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const nonce = randomNonce();
-    const bodyHash = await sha256Hex(body);
-    const canonical = `${method.toUpperCase()}\n${path}\n${query}\n${timestamp}\n${nonce}\n${bodyHash}`;
+    const canonical = await buildCanonicalRequest(method, path, query, timestamp, nonce, body);
     const signature = await hmacSha256Hex(this.apiSecret, canonical);
 
     return {
@@ -384,6 +393,21 @@ export class ExaEarnClient {
 
 export function createExaEarnClient(options: ExaEarnClientOptions): ExaEarnClient {
   return new ExaEarnClient(options);
+}
+
+export function canonicalizeQuery(query: string): string {
+  if (!query) return "";
+  const entries = [...new URLSearchParams(query).entries()].sort(([leftKey,leftValue],[rightKey,rightValue]) => leftKey.localeCompare(rightKey) || leftValue.localeCompare(rightValue));
+  return entries.map(([key,value])=>`${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join("&");
+}
+
+export async function buildCanonicalRequest(method:string,path:string,query:string,timestamp:string,nonce:string,body:string): Promise<string> {
+  const bodyHash = await sha256Hex(body);
+  return `${method.toUpperCase()}\n/${path.replace(/^\/+/, "")}\n${canonicalizeQuery(query)}\n${timestamp}\n${nonce}\n${bodyHash}`;
+}
+
+export async function signCanonicalRequest(secret:string,method:string,path:string,query:string,timestamp:string,nonce:string,body:string): Promise<string> {
+  return hmacSha256Hex(secret,await buildCanonicalRequest(method,path,query,timestamp,nonce,body));
 }
 
 async function sha256Hex(value: string): Promise<string> {

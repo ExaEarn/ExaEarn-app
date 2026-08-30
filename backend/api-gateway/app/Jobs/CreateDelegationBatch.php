@@ -12,6 +12,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\FinancialDecimal;
 use RuntimeException;
 use Throwable;
 
@@ -296,20 +297,16 @@ class CreateDelegationBatch implements ShouldBeUnique, ShouldQueue
 
     private function add(string $a, string $b): string
     {
-        return function_exists('bcadd') ? bcadd($a, $b, 18) : number_format((float) $a + (float) $b, 18, '.', '');
+        return FinancialDecimal::add($a, $b);
     }
 
     private function sub(string $a, string $b): string
     {
-        return function_exists('bcsub') ? bcsub($a, $b, 18) : number_format((float) $a - (float) $b, 18, '.', '');
+        return FinancialDecimal::sub($a, $b);
     }
 
     private function compare(string $a, string $b): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($a, $b, 18);
-        }
-
-        return (float) $a <=> (float) $b;
+        return FinancialDecimal::compare($a, $b);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class LedgerTransaction extends Model
 {
@@ -28,5 +29,10 @@ class LedgerTransaction extends Model
     public function entries(): HasMany
     {
         return $this->hasMany(LedgerEntry::class, 'reference', 'reference');
+    }
+
+    public function financeEvent(): HasOne
+    {
+        return $this->hasOne(FinanceFinancialEvent::class, 'ledger_transaction_id');
     }
 }

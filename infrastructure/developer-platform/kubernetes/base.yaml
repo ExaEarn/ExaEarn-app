@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Namespace
+metadata: { name: exaearn-production }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: developer-platform-config, namespace: exaearn-production }
+data:
+  APP_ENV: production
+  APP_DEBUG: "false"
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: warning
+  QUEUE_CONNECTION: redis
+  CACHE_STORE: redis
+  DEVELOPER_API_RUNTIME_ENVIRONMENT: production
+  SECURITY_API_SIGNATURE_REQUIRED: "true"
+  DEVELOPER_PRODUCTION_WEBHOOK_DELIVERY_ENABLED: "false"
+  DEVELOPER_PRODUCTION_WEBHOOK_EGRESS_VERIFIED: "false"
+  WEBHOOK_EGRESS_PROXY: http://webhook-egress-proxy:3128
+  TRUSTED_PROXIES: REQUIRED_AT_DEPLOYMENT
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: api-gateway, namespace: exaearn-production }
+spec:
+  replicas: 3
+  strategy: { type: RollingUpdate, rollingUpdate: { maxUnavailable: 0, maxSurge: 1 } }
+  selector: { matchLabels: { app: api-gateway } }
+  template:
+    metadata: { labels: { app: api-gateway } }
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: api
+          image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
+          command: ["php","artisan","serve","--host=0.0.0.0","--port=8080"]
+          ports: [{ name: http, containerPort: 8080 }]
+          envFrom: [{ configMapRef: { name: developer-platform-config } }, { secretRef: { name: developer-platform-secrets } }]
+          readinessProbe: { httpGet: { path: /up, port: http }, initialDelaySeconds: 10, periodSeconds: 5, failureThreshold: 3 }
+          livenessProbe: { httpGet: { path: /up, port: http }, initialDelaySeconds: 20, periodSeconds: 10, failureThreshold: 3 }
+          lifecycle: { preStop: { exec: { command: ["/bin/sh","-c","sleep 10"] } } }
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: false, runAsNonRoot: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: api-gateway, namespace: exaearn-production }
+spec: { selector: { app: api-gateway }, ports: [{ name: http, port: 80, targetPort: http }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: queue-worker, namespace: exaearn-production }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: queue-worker } }
+  template:
+    metadata: { labels: { app: queue-worker } }
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: worker
+          image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
+          command: ["php","artisan","queue:work","redis","--sleep=1","--tries=3","--timeout=90","--max-time=3600"]
+          envFrom: [{ configMapRef: { name: developer-platform-config } }, { secretRef: { name: developer-platform-secrets } }]
+          lifecycle: { preStop: { exec: { command: ["php","artisan","queue:restart"] } } }
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: webhook-worker, namespace: exaearn-production }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: webhook-worker } }
+  template:
+    metadata: { labels: { app: webhook-worker } }
+    spec:
+      containers:
+        - name: worker
+          image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
+          command: ["php","artisan","developer:webhooks:dispatch","--loop","--limit=100","--sleep=2"]
+          envFrom: [{ configMapRef: { name: developer-platform-config } }, { secretRef: { name: developer-platform-secrets } }]
+          lifecycle: { preStop: { exec: { command: ["/bin/sh","-c","sleep 5"] } } }
+          resources: { requests: { cpu: 150m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: scheduler, namespace: exaearn-production }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: scheduler } }
+  template:
+    metadata: { labels: { app: scheduler } }
+    spec:
+      containers:
+        - name: scheduler
+          image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
+          command: ["php","artisan","schedule:work"]
+          envFrom: [{ configMapRef: { name: developer-platform-config } }, { secretRef: { name: developer-platform-secrets } }]
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 768Mi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: realtime-gateway, namespace: exaearn-production }
+spec:
+  replicas: 3
+  strategy: { type: RollingUpdate, rollingUpdate: { maxUnavailable: 0, maxSurge: 1 } }
+  selector: { matchLabels: { app: realtime-gateway } }
+  template:
+    metadata: { labels: { app: realtime-gateway } }
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: realtime
+          image: registry.example.invalid/exaearn/realtime:RELEASE_SHA
+          ports: [{ name: http, containerPort: 4000 }]
+          envFrom: [{ secretRef: { name: developer-platform-secrets } }]
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PORT, value: "4000" }
+            - { name: DEVELOPER_REALTIME_AUTHORITY_URL, value: "http://api-gateway/api/internal/developer/realtime" }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 10 }
+          resources: { requests: { cpu: 500m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: realtime-gateway, namespace: exaearn-production }
+spec: { selector: { app: realtime-gateway }, ports: [{ name: http, port: 80, targetPort: http }] }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: api-gateway, namespace: exaearn-production }
+spec: { minAvailable: 2, selector: { matchLabels: { app: api-gateway } } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: realtime-gateway, namespace: exaearn-production }
+spec: { minAvailable: 2, selector: { matchLabels: { app: realtime-gateway } } }

@@ -69,7 +69,7 @@ class FinanceAccountingService
             ], [
                 'event_uuid' => (string) Str::uuid(),
                 'event_type' => strtoupper($eventType),
-                'source_service' => (string) ($transaction->source_service ?? $metadata['source_service'] ?? 'ledger'),
+                'source_service' => (string) ($metadata['source_service'] ?? $transaction->source_service ?? 'ledger'),
                 'source_reference' => (string) $transaction->reference,
                 'ledger_transaction_id' => $transaction->id,
                 'asset' => $metadata['asset'] ?? null,

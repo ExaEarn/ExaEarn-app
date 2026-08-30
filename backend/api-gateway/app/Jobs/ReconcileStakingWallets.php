@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\FinancialDecimal;
 
 class ReconcileStakingWallets implements ShouldBeUnique, ShouldQueue
 {
@@ -63,15 +64,11 @@ class ReconcileStakingWallets implements ShouldBeUnique, ShouldQueue
 
     private function sub(string $a, string $b): string
     {
-        return function_exists('bcsub') ? bcsub($a, $b, 18) : number_format((float) $a - (float) $b, 18, '.', '');
+        return FinancialDecimal::sub($a, $b);
     }
 
     private function compare(string $a, string $b): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($a, $b, 18);
-        }
-
-        return (float) $a <=> (float) $b;
+        return FinancialDecimal::compare($a, $b);
     }
 }

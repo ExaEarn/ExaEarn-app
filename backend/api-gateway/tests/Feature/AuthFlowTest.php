@@ -94,8 +94,9 @@ class AuthFlowTest extends TestCase
             'email' => 'missing@exaearn.io',
             'password' => 'StrongPass1!',
         ])
-            ->assertStatus(404)
-            ->assertJsonPath('code', 'ACCOUNT_NOT_FOUND');
+            ->assertUnauthorized()
+            ->assertJsonPath('code', 'INVALID_CREDENTIALS')
+            ->assertJsonPath('message', 'Incorrect email or password.');
 
         $user = User::factory()->create([
             'email' => 'trader@exaearn.io',
@@ -118,5 +119,26 @@ class AuthFlowTest extends TestCase
             ->assertJsonStructure(['token', 'user']);
 
         $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_login_requires_valid_totp_before_creating_a_session(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'secure@exaearn.io',
+            'password' => Hash::make('StrongPass1!'),
+            'two_factor_enabled' => true,
+            'two_factor_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+
+        $credentials = ['email' => $user->email, 'password' => 'StrongPass1!'];
+        $this->postJson('/api/login', $credentials)
+            ->assertStatus(428)
+            ->assertJsonPath('code', '2FA_REQUIRED');
+        $this->assertGuest();
+
+        $this->postJson('/api/login', $credentials + ['two_factor_code' => '000000'])
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'INVALID_2FA_CODE');
+        $this->assertGuest();
     }
 }

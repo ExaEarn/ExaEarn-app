@@ -25,13 +25,13 @@ class GiftCardFeeCalculator
      * @param int|float|string $cardValue Face value of the card
      * @param string $currency Target currency (e.g., USD, USDT)
      * @return array {
-     *     'card_value': float,
-     *     'api_fee': float,
-     *     'delivery_fee': float,
-     *     'platform_fee': float,
-     *     'user_charge': float,
-     *     'total_cost': float,
-     *     'platform_profit': float,
+     *     'card_value': string,
+     *     'api_fee': string,
+     *     'delivery_fee': string,
+     *     'platform_fee': string,
+     *     'user_charge': string,
+     *     'total_cost': string,
+     *     'platform_profit': string,
      *     'fee_breakdown': array
      * }
      */
@@ -71,20 +71,20 @@ class GiftCardFeeCalculator
         $totalCost = bcadd($cardValue, $userCharge, self::SCALE);
 
         return [
-            'card_value' => (float) $cardValue,
-            'api_fee' => (float) $apiCost,
-            'delivery_fee' => (float) $deliveryFeeFixed,
-            'user_charge' => (float) $userCharge,  // What user pays (fees only)
-            'platform_fee' => (float) $platformProfit,
-            'total_cost_to_user' => (float) $totalCost,  // card_value + user_charge
-            'platform_profit' => (float) $platformProfit,
-            'total_api_cost' => (float) $totalApiCost,
+            'card_value' => $cardValue,
+            'api_fee' => $apiCost,
+            'delivery_fee' => $deliveryFeeFixed,
+            'user_charge' => $userCharge,
+            'platform_fee' => $platformProfit,
+            'total_cost_to_user' => $totalCost,
+            'platform_profit' => $platformProfit,
+            'total_api_cost' => $totalApiCost,
             'currency' => strtoupper($currency),
             'fee_breakdown' => [
                 'strategy' => $feeStrategy,
-                'api_fee_percent' => (float) bcmul($apiFeePct, '100', self::SCALE),
-                'delivery_fee_fixed' => (float) $deliveryFeeFixed,
-                'platform_margin_percent' => config('giftcards.fee_management.platform_margin_percent', 0.01) * 100,
+                'api_fee_percent' => bcmul($apiFeePct, '100', self::SCALE),
+                'delivery_fee_fixed' => $deliveryFeeFixed,
+                'platform_margin_percent' => bcmul((string) config('giftcards.fee_management.platform_margin_percent', '0.01'), '100', self::SCALE),
                 'note' => $this->describeStrategy($feeStrategy, $providerConfig),
                 'central_pricing' => [
                     'pricing_rule_id' => $pricingDecision['pricing_rule_id'] ?? null,

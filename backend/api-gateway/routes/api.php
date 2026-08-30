@@ -96,6 +96,9 @@ use App\Http\Controllers\API\ExaAiController;
 use App\Http\Controllers\API\ExaSkillsController;
 use App\Http\Controllers\Developer\DeveloperApiController;
 use App\Http\Controllers\Developer\DeveloperPortalController;
+use App\Http\Controllers\Developer\DeveloperWorkspaceController;
+use App\Http\Controllers\Developer\DeveloperProductionAccessController;
+use App\Http\Controllers\Admin\DeveloperProductionAccessController as AdminDeveloperProductionAccessController;
 use App\Http\Controllers\InstitutionalController;
 use App\Http\Controllers\ListingPortalController;
 use App\Http\Controllers\MarketMakerController;
@@ -109,6 +112,7 @@ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Internal\DeveloperRealtimeAuthorityController;
 
 Route::prefix('v1/market')->middleware('throttle:120,1')->group(function (): void {
     Route::get('symbols', [TradeController::class, 'symbols']);
@@ -138,7 +142,9 @@ Route::prefix('v1')->middleware('throttle:120,1')->group(function (): void {
 
 Route::prefix('developer/v1')->middleware(['developer.context', 'throttle:240,1'])->group(function (): void {
     Route::get('exchange-info', [DeveloperApiController::class, 'exchangeInfo']);
+    Route::get('time', [DeveloperApiController::class, 'serverTime']);
     Route::get('status', [DeveloperApiController::class, 'apiStatus']);
+    Route::get('operational-status', [DeveloperApiController::class, 'operationalStatus']);
     Route::get('markets', [DeveloperApiController::class, 'markets']);
     Route::get('tickers', [DeveloperApiController::class, 'tickers']);
     Route::get('ticker/{symbol}', [DeveloperApiController::class, 'ticker']);
@@ -275,18 +281,52 @@ Route::prefix('developer/v1')->middleware(['developer.context', 'throttle:240,1'
     });
 });
 
-Route::prefix('developer')->middleware(['auth:sanctum', 'rate.limit'])->group(function (): void {
+Route::prefix('developer')->middleware([
+    EncryptCookies::class,
+    AddQueuedCookiesToResponse::class,
+    StartSession::class,
+    'auth:sanctum',
+    'rate.limit',
+])->group(function (): void {
+    Route::get('workspace/overview', [DeveloperWorkspaceController::class, 'overview']);
+    Route::post('organizations', [DeveloperWorkspaceController::class, 'createOrganization']);
+    Route::get('organizations/{organizationId}/team', [DeveloperWorkspaceController::class, 'team']);
+    Route::post('organizations/{organizationId}/invitations', [DeveloperWorkspaceController::class, 'invite']);
+    Route::delete('organizations/{organizationId}/invitations/{invitationId}', [DeveloperWorkspaceController::class, 'revokeInvitation']);
+    Route::post('invitations/accept', [DeveloperWorkspaceController::class, 'acceptInvitation']);
+    Route::patch('organizations/{organizationId}/members/{memberId}/role', [DeveloperWorkspaceController::class, 'changeRole']);
+    Route::delete('organizations/{organizationId}/members/{memberId}', [DeveloperWorkspaceController::class, 'removeMember']);
+    Route::post('organizations/{organizationId}/ownership-transfer', [DeveloperWorkspaceController::class, 'transferOwnership'])->middleware('recent.auth');
+    Route::post('workspace-projects', [DeveloperWorkspaceController::class, 'createProject']);
+    Route::post('projects/{projectId}/archive', [DeveloperWorkspaceController::class, 'archiveProject']);
+    Route::post('session', [DeveloperPortalController::class, 'session']);
+    Route::post('onboarding', [DeveloperPortalController::class, 'onboard']);
     Route::get('projects', [DeveloperPortalController::class, 'projects']);
     Route::post('projects', [DeveloperPortalController::class, 'createProject']);
-    Route::post('projects/{projectId}/keys', [DeveloperPortalController::class, 'createKey']);
-    Route::post('keys/{keyId}/rotate', [DeveloperPortalController::class, 'rotateKey']);
-    Route::post('keys/{keyId}/disable', [DeveloperPortalController::class, 'disableKey']);
+    Route::post('projects/{projectId}/keys', [DeveloperPortalController::class, 'createKey'])->middleware('recent.auth');
+    Route::get('projects/{projectId}/keys', [DeveloperPortalController::class, 'keys']);
+    Route::get('api-key-scopes', [DeveloperPortalController::class, 'scopes']);
+    Route::post('keys/{keyId}/rotate', [DeveloperPortalController::class, 'rotateKey'])->middleware('recent.auth');
+    Route::post('keys/{keyId}/disable', [DeveloperPortalController::class, 'disableKey'])->middleware('recent.auth');
+    Route::post('credentials/{keyUuid}/enable', [DeveloperPortalController::class, 'enableKey'])->middleware('recent.auth');
+    Route::post('credentials/{keyUuid}/rotate', [DeveloperPortalController::class, 'rotateCredential'])->middleware('recent.auth');
+    Route::post('credentials/{keyUuid}/revoke', [DeveloperPortalController::class, 'revokeKey'])->middleware('recent.auth');
+    Route::put('credentials/{keyUuid}/policy', [DeveloperPortalController::class, 'updateKeyPolicy'])->middleware('recent.auth');
     Route::post('projects/{projectId}/sandbox/faucet', [DeveloperPortalController::class, 'faucet']);
+    Route::post('projects/{projectId}/sandbox/explorer', [DeveloperPortalController::class, 'executeSandboxRequest']);
+    Route::get('projects/{projectId}/production-access', [DeveloperProductionAccessController::class, 'show']);
+    Route::post('projects/{projectId}/production-access', [DeveloperProductionAccessController::class, 'submit'])->middleware('recent.auth');
     Route::get('projects/{projectId}/webhooks', [DeveloperPortalController::class, 'webhooks']);
-    Route::post('projects/{projectId}/webhooks', [DeveloperPortalController::class, 'createWebhook']);
+    Route::post('projects/{projectId}/webhooks', [DeveloperPortalController::class, 'createWebhook'])->middleware('recent.auth');
     Route::get('projects/{projectId}/webhook-deliveries', [DeveloperPortalController::class, 'deliveries']);
-    Route::post('webhooks/{endpointId}/rotate-secret', [DeveloperPortalController::class, 'rotateWebhookSecret']);
+    Route::post('webhooks/{endpointId}/rotate-secret', [DeveloperPortalController::class, 'rotateWebhookSecret'])->middleware('recent.auth');
     Route::post('webhook-deliveries/{deliveryId}/replay', [DeveloperPortalController::class, 'replayDelivery']);
+});
+
+Route::prefix('admin/v1/developer-production')->middleware(['auth:sanctum','admin.security','admin.audit','throttle:120,1'])->group(function(): void {
+    Route::get('requests',[AdminDeveloperProductionAccessController::class,'index']);
+    Route::get('requests/{uuid}',[AdminDeveloperProductionAccessController::class,'show']);
+    Route::post('requests/{uuid}/decision',[AdminDeveloperProductionAccessController::class,'decide'])->middleware('rate.limit');
 });
 
 Route::get('exapay/checkout/{token}', [ExaPayMerchantController::class, 'checkout'])->middleware('throttle:120,1');
@@ -716,14 +756,23 @@ Route::middleware([
     Route::post('register', [AuthController::class, 'register']);
     Route::post('account/check', [AuthController::class, 'checkAccount']);
     Route::post('login', [AuthController::class, 'login']);
-    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+    Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('user', [AuthController::class, 'me']);
         Route::get('me/eligibility', [EligibilityController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
+        Route::post('auth/reauthenticate', [AuthController::class, 'reauthenticate'])->middleware('throttle:5,1');
+        Route::get('auth/sessions', [AuthController::class, 'sessions']);
+        Route::delete('auth/sessions/{tokenId}', [AuthController::class, 'revokeSession'])->middleware('recent.auth');
+        Route::post('auth/logout-all', [AuthController::class, 'logoutAll'])->middleware('recent.auth');
         Route::post('2fa/verify', [AuthController::class, 'verifyTwoFactor']);
+        Route::get('email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+            ->middleware(['signed', 'throttle:6,1'])
+            ->name('verification.verify');
+        Route::post('email/verification-notification', [AuthController::class, 'resendEmailVerification'])
+            ->middleware('throttle:3,1');
 
         // Activity logs - user endpoints
         Route::get('logs/my-activity', [ActivityLogController::class, 'myLogs']);
@@ -869,14 +918,14 @@ Route::prefix('admin')->group(function (): void {
         // Generic module endpoints - will serve module data based on the module key
         Route::get('module/{module}', [AdminPlatformController::class, 'getModuleData']);
         
-        // Placeholder endpoints for modules not yet fully implemented
-        Route::get('p2p', fn () => response()->json(['data' => [], 'message' => 'P2P module data']));
-        Route::get('staking', fn () => response()->json(['data' => [], 'message' => 'Staking module data']));
-        Route::get('rewards', fn () => response()->json(['data' => [], 'message' => 'Rewards module data']));
-        Route::get('nft', fn () => response()->json(['data' => [], 'message' => 'NFT module data']));
-        Route::get('agritech', fn () => response()->json(['data' => [], 'message' => 'AgriTech module data']));
-        Route::get('sports', fn () => response()->json(['data' => [], 'message' => 'Sports module data']));
-        Route::get('edtech', fn () => response()->json(['data' => [], 'message' => 'EdTech module data']));
+        // Legacy module compatibility routes must return real data or an explicit not-ready status.
+        Route::get('p2p', [P2POperationsController::class, 'overview'])->middleware('check.permission:p2p.view');
+        Route::get('staking', [StakingAdminController::class, 'assets'])->middleware('check.permission:staking.manage');
+        Route::get('rewards', [PricingRewardsController::class, 'overview'])->middleware('check.permission:reward.manage');
+        Route::get('nft', [NftOperationsController::class, 'overview'])->middleware('check.permission:nft.manage');
+        Route::get('agritech', [AgriTechOperationsController::class, 'summary'])->middleware('check.permission:agri.manage');
+        Route::get('sports', fn () => response()->json(['status' => 'NOT_READY', 'module' => 'sports', 'message' => 'Sports admin operations are not production-enabled in the non-trading admin standard.'], 503));
+        Route::get('edtech', [ExaSkillsAdminController::class, 'overview'])->middleware('check.permission:edtech.manage');
         Route::get('exaskills', [ExaSkillsAdminController::class, 'overview']);
         Route::post('exaskills/courses/{course}/review', [ExaSkillsAdminController::class, 'reviewCourse'])->middleware('rate.limit');
         Route::get('exaskills/media/{asset}', [ExaSkillsAdminController::class, 'media']);
@@ -905,16 +954,16 @@ Route::prefix('admin')->group(function (): void {
             Route::post('milestones/{milestone}/release', [CrowdfundingOperationsController::class, 'releaseMilestone'])->middleware(['check.permission:crowdfunding.release', 'rate.limit']);
             Route::post('campaigns/{campaign}/refund', [CrowdfundingOperationsController::class, 'refund'])->middleware(['check.permission:crowdfunding.refund', 'rate.limit']);
         });
-        Route::get('lottery', fn () => response()->json(['data' => [], 'message' => 'Lottery module data']));
-        Route::get('giftcard', fn () => response()->json(['data' => [], 'message' => 'GiftCard module data']));
-        Route::get('campaigns', fn () => response()->json(['data' => [], 'message' => 'Campaigns module data']));
-        Route::get('notifications', fn () => response()->json(['data' => [], 'message' => 'Notifications module data']));
-        Route::get('logs', fn () => response()->json(['data' => [], 'message' => 'Audit logs module data']));
-        Route::get('security', fn () => response()->json(['data' => [], 'message' => 'Security module data']));
-        Route::get('admins', fn () => response()->json(['data' => [], 'message' => 'Admins module data']));
-        Route::get('roles', fn () => response()->json(['data' => [], 'message' => 'Roles module data']));
-        Route::get('permissions', fn () => response()->json(['data' => [], 'message' => 'Permissions module data']));
-        Route::get('system', fn () => response()->json(['data' => [], 'message' => 'System monitor module data']));
+        Route::get('lottery', fn () => response()->json(['status' => 'NOT_READY', 'module' => 'lottery', 'message' => 'Lottery admin operations are not production-enabled.'], 503));
+        Route::get('giftcard', [GiftCardAdminController::class, 'center'])->middleware('check.permission:giftcard.manage');
+        Route::get('campaigns', [AdminPlatformController::class, 'modelIndex'])->defaults('resource', 'campaigns')->middleware('check.permission:campaign.manage');
+        Route::get('notifications', [NotificationOperationsController::class, 'overview'])->middleware('check.permission:notifications.view');
+        Route::get('logs', [ActivityLogController::class, 'allLogs'])->middleware('check.permission:logs.view');
+        Route::get('security', [SecurityOperationsController::class, 'overview'])->middleware('check.permission:security.operations');
+        Route::get('admins', [AdminPlatformController::class, 'admins'])->middleware('check.permission:admins.manage');
+        Route::get('roles', [AdminPlatformController::class, 'roles'])->middleware('check.permission:roles.manage');
+        Route::get('permissions', [AdminPlatformController::class, 'roles'])->middleware('check.permission:roles.manage');
+        Route::get('system', [ReliabilityOperationsController::class, 'overview'])->middleware('check.permission:operations.view');
     });
 });
 
@@ -1796,4 +1845,8 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
             Route::post('disable', [AdminPlatformController::class, 'modelDisable'])->defaults('resource', 'giftcards')->middleware(['check.permission:giftcard.manage', 'rate.limit']);
         });
     });
+});
+Route::prefix('internal/developer/realtime')->middleware('node.webhook')->group(function (): void {
+    Route::post('authorize',[DeveloperRealtimeAuthorityController::class,'authorize']);
+    Route::post('replay',[DeveloperRealtimeAuthorityController::class,'replay']);
 });

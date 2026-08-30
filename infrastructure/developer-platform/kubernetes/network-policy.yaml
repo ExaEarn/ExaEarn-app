@@ -1,0 +1,66 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: default-deny, namespace: exaearn-production }
+spec: { podSelector: {}, policyTypes: [Ingress, Egress] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: api-ingress, namespace: exaearn-production }
+spec:
+  podSelector: { matchLabels: { app: api-gateway } }
+  policyTypes: [Ingress]
+  ingress: [{ from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-system } } }], ports: [{ protocol: TCP, port: 8080 }] }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: realtime-ingress, namespace: exaearn-production }
+spec:
+  podSelector: { matchLabels: { app: realtime-gateway } }
+  policyTypes: [Ingress]
+  ingress: [{ from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-system } } }], ports: [{ protocol: TCP, port: 4000 }] }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: developer-authority-ingress, namespace: exaearn-production }
+spec:
+  podSelector: { matchLabels: { app: api-gateway } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app: realtime-gateway } } }]
+      ports: [{ protocol: TCP, port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: realtime-authority-egress, namespace: exaearn-production }
+spec:
+  podSelector: { matchLabels: { app: realtime-gateway } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: api-gateway } } }]
+      ports: [{ protocol: TCP, port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: application-egress, namespace: exaearn-production }
+spec:
+  podSelector: { matchExpressions: [{ key: app, operator: In, values: [api-gateway, queue-worker, scheduler, realtime-gateway] }] }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data-services } } }]
+      ports: [{ protocol: TCP, port: 5432 }, { protocol: TCP, port: 6379 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: webhook-worker-egress, namespace: exaearn-production }
+spec:
+  podSelector: { matchLabels: { app: webhook-worker } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: webhook-egress-proxy } } }]
+      ports: [{ protocol: TCP, port: 3128 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data-services } } }]
+      ports: [{ protocol: TCP, port: 5432 }, { protocol: TCP, port: 6379 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]

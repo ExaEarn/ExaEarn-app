@@ -221,3 +221,6 @@ apps/mobile/serve-dist-web.cjs
 .vercel
 
 .tools/
+.codex/
+__pycache__/
+*.py[cod]

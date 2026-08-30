@@ -465,44 +465,27 @@ export async function fetchAdminBootstrap() {
 
   return {
     admin: {
-      name: "Sarah Osakwe",
-      email: "sarah@exaearn.com",
-      role: "super_admin",
+      name: "Admin",
+      email: "unavailable",
+      role: "unavailable",
     },
     stats: [
-      { label: "Users Count", value: "128,440", change: "+8.2%" },
-      { label: "Active Users", value: "64,181", change: "+4.7%" },
-      { label: "Total Deposits", value: "$24.8M", change: "+11.4%" },
-      { label: "Total Withdrawals", value: "$9.2M", change: "+2.1%" },
-      { label: "Total Trades", value: "$71.6M", change: "+13.9%" },
-      { label: "Total Rewards", value: "$2.4M", change: "+6.3%" },
-      { label: "Total Staking", value: "$18.1M", change: "+9.5%" },
-      { label: "Total NFT Sales", value: "$1.3M", change: "+4.0%" },
-      { label: "Total Agri Investment", value: "$7.9M", change: "+3.4%" },
-      { label: "Total Lottery Volume", value: "$940k", change: "+7.1%" },
-      { label: "Total Giftcard Volume", value: "$1.7M", change: "+5.9%" },
+      { label: "Admin API", value: "Unavailable", change: "check backend" },
+      { label: "Operational Data", value: "Not loaded", change: "no mock data" },
     ],
     charts: {
-      userGrowth: [
-        { name: "Mon", value: 18 }, { name: "Tue", value: 24 }, { name: "Wed", value: 29 }, { name: "Thu", value: 34 }, { name: "Fri", value: 44 }, { name: "Sat", value: 53 }, { name: "Sun", value: 61 },
-      ],
-      tradingVolume: [
-        { name: "Mon", value: 12 }, { name: "Tue", value: 20 }, { name: "Wed", value: 18 }, { name: "Thu", value: 27 }, { name: "Fri", value: 32 }, { name: "Sat", value: 29 }, { name: "Sun", value: 37 },
-      ],
-      rewards: [
-        { name: "Mon", value: 8 }, { name: "Tue", value: 13 }, { name: "Wed", value: 11 }, { name: "Thu", value: 15 }, { name: "Fri", value: 18 }, { name: "Sat", value: 22 }, { name: "Sun", value: 21 },
-      ],
-      revenue: [
-        { name: "Mon", value: 14 }, { name: "Tue", value: 18 }, { name: "Wed", value: 16 }, { name: "Thu", value: 20 }, { name: "Fri", value: 27 }, { name: "Sat", value: 31 }, { name: "Sun", value: 35 },
-      ],
+      userGrowth: [],
+      tradingVolume: [],
+      rewards: [],
+      revenue: [],
     },
     serverStatus: [
-      { service: "Laravel API", status: "online" },
-      { service: "Queue Workers", status: "online" },
-      { service: "Redis", status: "online" },
-      { service: "Database", status: "online" },
-      { service: "WebSocket", status: "warning" },
-      { service: "Blockchain Service", status: "online" },
+      { service: "Laravel API", status: "unavailable" },
+      { service: "Queue Workers", status: "unknown" },
+      { service: "Redis", status: "unknown" },
+      { service: "Database", status: "unknown" },
+      { service: "WebSocket", status: "unknown" },
+      { service: "Blockchain Service", status: "unknown" },
     ],
     permissionsByRole: {
       super_admin: ["*"],
@@ -781,18 +764,20 @@ export async function fetchModuleData(path) {
     return {
       headline: modulePayloads[path]?.headline ?? "Module view",
       rows,
-      actions: modulePayloads[path]?.actions ?? defaultModuleActions[moduleKey] ?? [],
-      stats: response.data?.stats ?? modulePayloads[path]?.stats,
+      actions: response.data?.actions ?? [],
+      stats: response.data?.stats,
       source: "api",
     };
   } catch {
     await wait(160);
-    const fallback = modulePayloads[path] ?? {
-      headline: "Module view",
+    return {
+      headline: "Operational API unavailable",
       rows: [],
-      actions: defaultModuleActions[moduleKey] ?? ["view", "mark reviewed"],
+      actions: [],
+      stats: [{ label: "Status", value: "Unavailable" }],
+      error: "This admin module did not load real backend data. No placeholder records are displayed.",
+      source: "unavailable",
     };
-    return { ...fallback, source: "mock" };
   }
 }
 
@@ -827,9 +812,8 @@ export async function runModuleAction(path, action, row, note = "") {
   } catch {
     await wait(280);
     return {
-      status: "simulated",
-      message: `${action} is ready for API wiring. Frontend confirmation flow completed.`,
-      audit_id: `SIM-${Date.now()}`,
+      status: "failed",
+      message: `${action} was not performed because no authoritative admin API accepted the request.`,
     };
   }
 }

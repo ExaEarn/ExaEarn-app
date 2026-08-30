@@ -5,6 +5,7 @@ import { FlightGameOperationsPage } from "../pages/FlightGameOperationsPage";
 import { NotificationOperationsPage } from "../pages/NotificationOperationsPage";
 import { SupportOperationsPage } from "../pages/SupportOperationsPage";
 import { CrowdfundingOperationsPage } from "../pages/CrowdfundingOperationsPage";
+import { DeveloperProductionAccessPage } from "../pages/DeveloperProductionAccessPage";
 
 export const routeRegistry = {
   "/admin": { key: "dashboard", element: DashboardPage },
@@ -16,6 +17,7 @@ export const routeRegistry = {
   "/admin/exaai": { key: "exaai", element: ModulePage },
   "/admin/listing-center": { key: "listing-center", element: ModulePage },
   "/admin/institutional": { key: "institutional", element: ModulePage },
+  "/admin/developer-production": { key: "developer-production", element: DeveloperProductionAccessPage },
   "/admin/otc": { key: "otc", element: ModulePage },
   "/admin/market-makers": { key: "market-makers", element: ModulePage },
   "/admin/margin": { key: "margin", element: ModulePage },
@@ -24,10 +26,8 @@ export const routeRegistry = {
   "/admin/rewards": { key: "rewards", element: ModulePage },
   "/admin/nft": { key: "nft", element: ModulePage },
   "/admin/agritech": { key: "agritech", element: ModulePage },
-  "/admin/sports": { key: "sports", element: ModulePage },
   "/admin/edtech": { key: "edtech", element: ModulePage },
   "/admin/crowdfunding": { key: "crowdfunding", element: CrowdfundingOperationsPage },
-  "/admin/lottery": { key: "lottery", element: ModulePage },
   "/admin/games-flight": { key: "games-flight", element: FlightGameOperationsPage },
   "/admin/giftcard": { key: "giftcard", element: ModulePage },
   "/admin/exacard": { key: "exacard", element: ModulePage },

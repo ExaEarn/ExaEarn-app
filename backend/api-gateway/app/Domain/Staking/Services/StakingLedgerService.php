@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Staking\Services;
 
 use App\Services\LedgerService;
+use App\Services\FinanceAccountingService;
+use App\Services\FinancialDecimal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -94,6 +96,13 @@ class StakingLedgerService
                 ['account_id' => $from->id, 'amount' => $this->sub('0', $amount), 'asset' => (string) $request->symbol, 'user_id' => (int) $request->user_id],
                 ['account_id' => $to->id, 'amount' => $amount, 'asset' => (string) $request->symbol, 'user_id' => (int) $request->user_id],
             ], 'staking_principal_release');
+            app(FinanceAccountingService::class)->recordLedgerEvent($ledgerTx, 'STAKING_UNSTAKED', [
+                'source_service' => 'staking',
+                'asset' => (string) $request->symbol,
+                'amount' => $amount,
+                'staking_unstake_request_id' => (int) $request->id,
+                'staking_position_id' => (int) $request->position_id,
+            ]);
 
             DB::table('staking_unstake_requests')->where('id', $request->id)->update([
                 'status' => 'released',
@@ -167,6 +176,15 @@ class StakingLedgerService
 
             $reference = "staking:native-reward-distribution:{$allocation->id}";
             $ledgerTx = $this->ledger->postDoubleEntry($reference, 'Distribute approved native staking reward', $entries, 'staking_reward_distribution');
+            app(FinanceAccountingService::class)->recordLedgerEvent($ledgerTx, 'STAKING_REWARD_RECOGNIZED', [
+                'source_service' => 'staking',
+                'asset' => $symbol,
+                'amount' => $netReward,
+                'gross_native_reward' => (string) $allocation->gross_native_reward,
+                'platform_fee' => $platformFee,
+                'staking_reward_allocation_id' => (int) $allocation->id,
+                'staking_position_id' => (int) $allocation->staking_position_id,
+            ]);
 
             DB::table('staking_reward_allocations')->where('id', $allocation->id)->update([
                 'status' => 'distributed',
@@ -223,26 +241,34 @@ class StakingLedgerService
             $to = $this->ledger->getOrCreateAccount((int) $position->user_id, $toType, (string) $position->symbol);
             $reference = "{$referencePrefix}:{$position->id}:{$referenceSuffix}";
 
-            $this->ledger->postDoubleEntry($reference, $description, [
+            $ledgerTx = $this->ledger->postDoubleEntry($reference, $description, [
                 ['account_id' => $from->id, 'amount' => $this->sub('0', $normalized), 'asset' => (string) $position->symbol, 'user_id' => (int) $position->user_id],
                 ['account_id' => $to->id, 'amount' => $normalized, 'asset' => (string) $position->symbol, 'user_id' => (int) $position->user_id],
             ], 'staking_principal_transfer');
+            app(FinanceAccountingService::class)->recordLedgerEvent($ledgerTx, $toType === 'staking_active' ? 'STAKING_ACTIVATED' : 'STAKING_PRINCIPAL_RESERVED', [
+                'source_service' => 'staking',
+                'asset' => (string) $position->symbol,
+                'amount' => $normalized,
+                'staking_position_id' => (int) $position->id,
+                'from_account_type' => $fromType,
+                'to_account_type' => $toType,
+            ]);
         });
     }
 
     private function normalize(string $amount): string
     {
-        return function_exists('bcadd') ? bcadd($amount, '0', self::SCALE) : number_format((float) $amount, self::SCALE, '.', '');
+        return FinancialDecimal::normalize($amount, self::SCALE);
     }
 
     private function add(string $a, string $b): string
     {
-        return function_exists('bcadd') ? bcadd($a, $b, self::SCALE) : number_format((float) $a + (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::add($a, $b, self::SCALE);
     }
 
     private function sub(string $a, string $b): string
     {
-        return function_exists('bcsub') ? bcsub($a, $b, self::SCALE) : number_format((float) $a - (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::sub($a, $b, self::SCALE);
     }
 
     private function maxZero(string $amount): string
@@ -252,10 +278,6 @@ class StakingLedgerService
 
     private function compare(string $a, string $b): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($a, $b, self::SCALE);
-        }
-
-        return (float) $a <=> (float) $b;
+        return FinancialDecimal::compare($a, $b, self::SCALE);
     }
 }

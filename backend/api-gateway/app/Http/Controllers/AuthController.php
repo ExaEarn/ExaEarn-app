@@ -23,6 +23,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use RuntimeException;
+use App\Http\Middleware\Verify2FA;
+use App\Notifications\DeveloperPasswordResetNotification;
+use App\Services\SessionSecurityService;
+use Illuminate\Support\Facades\Schema;
 
 class AuthController extends Controller
 {
@@ -34,6 +38,7 @@ class AuthController extends Controller
         private readonly AuditLogService $auditLogService,
         private readonly ProfileIdentityService $profileIdentityService,
         private readonly ExperienceRecommendationService $experienceRecommendationService,
+        private readonly SessionSecurityService $sessionSecurityService,
     ) {
     }
 
@@ -69,6 +74,7 @@ class AuthController extends Controller
             'dashboard_preferences.selected_mode' => ['nullable', 'in:' . implode(',', ExperienceRecommendationService::MODES)],
             'dashboard_preferences.onboarding_version' => ['nullable', 'integer', 'min:4'],
             'dashboard_preferences.onboarding_completed' => ['nullable', 'boolean'],
+            'registration_context' => ['nullable', 'string', 'in:exchange,developers'],
         ]);
 
         $email = strtolower(trim((string) $validated['email']));
@@ -122,14 +128,53 @@ class AuthController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('auth_recent_at', time());
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        if (!$user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+            $this->auditLogService->log($user->id, 'auth_email_verification_sent', $request, [
+                'registration_context' => $validated['registration_context'] ?? 'exchange',
+            ]);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Account created successfully.',
             'token' => $token,
             'user' => $this->userPayload($user->fresh()),
+            'next' => ($validated['registration_context'] ?? null) === 'developers'
+                ? 'developer_email_verification'
+                : 'account_onboarding',
         ], 201);
+    }
+
+    public function verifyEmail(Request $request, int $id, string $hash)
+    {
+        $user = $request->user();
+        abort_unless($user && (int) $user->id === $id, 403);
+        abort_unless(hash_equals(sha1($user->getEmailForVerification()), $hash), 403);
+
+        if (!$user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+            $this->auditLogService->log($user->id, 'auth_email_verified', $request, ['source' => 'developers']);
+        }
+
+        return redirect(rtrim((string) config('app.developer_portal_url'), '/') . '/developers/onboarding?verified=1');
+    }
+
+    public function resendEmailVerification(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+            $this->auditLogService->log($user->id, 'auth_email_verification_resent', $request);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'If verification is pending, a new email has been sent.',
+        ]);
     }
 
     private function normalizeOnboardingPreferences(array $preferences): array
@@ -201,6 +246,7 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
             'device_name' => ['nullable', 'string', 'max:255'],
             'device_fingerprint' => ['nullable', 'string', 'max:2048'],
+            'two_factor_code' => ['nullable', 'string', 'size:6'],
         ]);
 
         $identifier = strtolower(trim((string) $validated['email']));
@@ -226,9 +272,9 @@ class AuthController extends Controller
             $this->rateLimiter->hit($keyByUser, $decaySeconds);
             return response()->json([
                 'success' => false,
-                'message' => 'Account does not exist. Please create an account.',
-                'code' => 'ACCOUNT_NOT_FOUND',
-            ], 404);
+                'message' => 'Incorrect email or password.',
+                'code' => 'INVALID_CREDENTIALS',
+            ], 401);
         }
 
         if (!Hash::check($validated['password'], $user->password)) {
@@ -253,6 +299,37 @@ class AuthController extends Controller
                 'message' => 'Invalid credentials.',
                 'code' => 'INVALID_CREDENTIALS',
             ], 401);
+        }
+
+        $accountStatus = strtoupper((string) ($user->account_status ?: 'FULLY_ACTIVE'));
+        if (!in_array($accountStatus, ['ACTIVE', 'FULLY_ACTIVE'], true)) {
+            $this->auditLogService->log($user->id, 'auth_login_blocked_account_status', $request, ['status' => $accountStatus]);
+            return response()->json([
+                'success' => false,
+                'message' => 'This account cannot sign in. Please use account recovery or contact support.',
+                'code' => in_array($accountStatus, ['LOCKED', 'SECURITY_LOCKED'], true) ? 'ACCOUNT_LOCKED' : 'ACCOUNT_DISABLED',
+            ], 403);
+        }
+
+        if ($user->two_factor_enabled) {
+            $code = (string) ($validated['two_factor_code'] ?? '');
+            if ($code === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enter the code from your authenticator app.',
+                    'code' => '2FA_REQUIRED',
+                ], 428);
+            }
+            if (!$user->two_factor_secret || !Verify2FA::verifyCode((string) $user->two_factor_secret, $code)) {
+                $this->rateLimiter->hit($keyByUser, $decaySeconds);
+                $this->auditLogService->log($user->id, 'auth_2fa_failed', $request);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The authentication code is invalid or expired.',
+                    'code' => 'INVALID_2FA_CODE',
+                ], 422);
+            }
+            $this->auditLogService->log($user->id, 'auth_2fa_success', $request);
         }
 
         if (!Auth::attempt(['email' => $identifier, 'password' => $validated['password']])) {
@@ -565,49 +642,56 @@ class AuthController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
+        $email = strtolower(trim((string) $validated['email']));
+        $user = User::where('email', $email)->first();
 
         // Log password reset request (whether user exists or not, for security)
         $this->logAudit($user?->id, 'security_password_reset_requested', $request, [
-            'email' => $validated['email'],
+            'email_hash' => hash('sha256', $email),
         ]);
 
         \App\Services\AuditService::log($user?->id, 'security', 'password_reset_requested', [
-            'email' => $validated['email'],
+            'email_hash' => hash('sha256', $email),
         ]);
 
-        $status = Password::sendResetLink($validated);
-
-        if ($status !== Password::RESET_LINK_SENT) {
-            return response()->json(['message' => __($status)], 422);
+        if ($user) {
+            $token = Password::broker()->createToken($user);
+            $user->notify(new DeveloperPasswordResetNotification($token));
         }
 
-        return response()->json(['status' => 'ok']);
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'If an account exists for that email, reset instructions have been sent.',
+        ]);
     }
 
     public function resetPassword(Request $request)
     {
+        $passwordRegex = (string) config('security.auth.strong_password_regex');
         $validated = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:10', 'regex:'.$passwordRegex, 'confirmed'],
         ]);
 
         $status = Password::reset(
             $validated,
             function (User $user, string $password) use ($request) {
-                $oldPassword = $user->password;
                 $user->password = $password;
                 $user->setRememberToken(Str::random(60));
                 $user->save();
+                $user->tokens()->delete();
+                if (Schema::hasTable('sessions')) {
+                    DB::table('sessions')->where('user_id', $user->id)->delete();
+                }
 
                 // Log successful password change
                 $this->logAudit($user->id, 'security_password_changed', $request, [
-                    'email' => $user->email,
+                    'email_hash' => hash('sha256', strtolower((string) $user->email)),
                 ]);
 
                 \App\Services\AuditService::log($user->id, 'security', 'password_changed', [
-                    'email' => $user->email,
+                    'email_hash' => hash('sha256', strtolower((string) $user->email)),
                 ]);
             }
         );
@@ -615,15 +699,74 @@ class AuthController extends Controller
         if ($status !== Password::PASSWORD_RESET) {
             // Log failed password reset
             $user = User::where('email', $validated['email'])->first();
-            $this->logAudit($user?->id, 'security_password_reset_failed', $request, [
-                'email' => $validated['email'],
-                'reason' => $status,
-            ]);
-
-            return response()->json(['message' => __($status)], 422);
+            $this->logAudit($user?->id, 'security_password_reset_failed', $request, ['reason' => 'invalid_or_expired_token']);
+            return response()->json(['message' => 'This reset link is invalid or has expired.', 'code' => 'INVALID_RESET_TOKEN'], 422);
         }
 
         return response()->json(['status' => 'ok']);
+    }
+
+    public function reauthenticate(Request $request)
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $validated = $request->validate([
+            'password' => ['required', 'string'],
+            'two_factor_code' => ['nullable', 'string', 'size:6'],
+        ]);
+
+        $valid = Hash::check((string) $validated['password'], (string) $user->password);
+        if ($valid && $user->two_factor_enabled) {
+            $valid = $user->two_factor_secret
+                && Verify2FA::verifyCode((string) $user->two_factor_secret, (string) ($validated['two_factor_code'] ?? ''));
+        }
+        if (!$valid) {
+            $this->rateLimiter->hit('security:reauth:user:'.$user->id, 60);
+            $this->auditLogService->log($user->id, 'developer.auth.reauthentication.failed', $request);
+            return response()->json(['success' => false, 'message' => 'Security confirmation failed.', 'code' => 'REAUTHENTICATION_FAILED'], 422);
+        }
+
+        $request->session()->put('auth_recent_at', time());
+        $this->auditLogService->log($user->id, 'developer.auth.reauthentication.success', $request);
+        return response()->json(['success' => true, 'recent_auth_expires_in' => (int) config('security.auth.recent_auth_seconds')]);
+    }
+
+    public function sessions(Request $request)
+    {
+        /** @var User $user */
+        $user = $request->user();
+        return response()->json(['success' => true, 'data' => [
+            'sessions' => $this->sessionSecurityService->activeSessions($user),
+            'devices' => $user->loginDevices()->latest('last_login_at')->limit(20)->get()->map(fn (LoginDevice $device) => [
+                'id' => $device->id,
+                'device_name' => $device->device_name,
+                'browser' => $device->user_agent,
+                'approximate_region' => null,
+                'last_active' => $device->last_login_at?->toIso8601String(),
+            ]),
+        ]]);
+    }
+
+    public function revokeSession(Request $request, int $tokenId)
+    {
+        abort_unless($this->sessionSecurityService->revokeSession($request->user(), $tokenId), 404);
+        $this->auditLogService->log($request->user()->id, 'developer.auth.session_revoked', $request, ['token_id' => $tokenId]);
+        return response()->json(['success' => true]);
+    }
+
+    public function logoutAll(Request $request)
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $user->tokens()->delete();
+        if (Schema::hasTable('sessions')) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
+        $this->auditLogService->log($user->id, 'developer.auth.logout_all', $request);
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return response()->json(['success' => true]);
     }
 
     public function verifyTwoFactor()

@@ -12,6 +12,7 @@ class DeveloperWebhookEndpoint extends Model
         'endpoint_uuid',
         'user_id',
         'project_id',
+        'environment',
         'url',
         'status',
         'events',

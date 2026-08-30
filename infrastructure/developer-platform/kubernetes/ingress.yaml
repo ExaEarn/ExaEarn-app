@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: developer-platform
+  namespace: exaearn-production
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "65"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+spec:
+  ingressClassName: nginx
+  tls: [{ hosts: [api.exaearn.example, ws.exaearn.example], secretName: exaearn-edge-tls }]
+  rules:
+    - host: api.exaearn.example
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: api-gateway, port: { name: http } } } }] }
+    - host: ws.exaearn.example
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: realtime-gateway, port: { name: http } } } }] }
+

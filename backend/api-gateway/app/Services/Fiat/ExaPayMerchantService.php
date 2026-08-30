@@ -397,7 +397,7 @@ class ExaPayMerchantService
             ->where('environment', strtolower((string) $merchant->environment))
             ->first();
         if ($project) {
-            $this->webhooks->enqueue($project, $eventType, $payload, (string) $event->event_id);
+            $this->webhooks->enqueue($project, $eventType, $payload, (string) $event->event_id, strtolower((string)$merchant->environment));
             $event->update(['status' => 'ENQUEUED']);
         }
     }

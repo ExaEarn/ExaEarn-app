@@ -14,6 +14,7 @@ class DeveloperApiKey extends Model
         'key_uuid',
         'user_id',
         'project_id',
+        'created_by',
         'institution_id',
         'subaccount_id',
         'name',
@@ -21,19 +22,33 @@ class DeveloperApiKey extends Model
         'rate_profile',
         'key_prefix',
         'key_hash',
+        'encrypted_api_key',
         'encrypted_secret',
         'secret_hash',
         'passphrase_hash',
         'status',
         'last_used_at',
         'expires_at',
+        'disabled_at',
+        'revoked_at',
+        'revoked_by',
         'metadata',
     ];
 
     protected $casts = [
         'last_used_at' => 'datetime',
         'expires_at' => 'datetime',
+        'disabled_at' => 'datetime',
+        'revoked_at' => 'datetime',
         'metadata' => 'array',
+    ];
+
+    protected $hidden = [
+        'key_hash',
+        'encrypted_api_key',
+        'encrypted_secret',
+        'secret_hash',
+        'passphrase_hash',
     ];
 
     public function project(): BelongsTo

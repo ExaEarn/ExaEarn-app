@@ -10,6 +10,7 @@ use App\Http\Middleware\DeveloperApiRequestContext;
 use App\Http\Middleware\EnsureUserRole;
 use App\Http\Middleware\LogUserActivity;
 use App\Http\Middleware\RateLimitMiddleware;
+use App\Http\Middleware\RequireRecentAuthentication;
 use App\Http\Middleware\SecurityMiddleware;
 use App\Http\Middleware\Verify2FA;
 use App\Http\Middleware\VerifyNodeWebhook;
@@ -31,6 +32,7 @@ use App\Jobs\ReconcileStakingWallets;
 use App\Jobs\RefreshPortfolioOracle;
 use App\Jobs\ReleaseUnstakedPrincipal;
 use App\Console\Commands\TickFlightGameRounds;
+use App\Console\Commands\DispatchDeveloperWebhooks;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -47,6 +49,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $trustedProxies = array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', '')))));
+        if ($trustedProxies !== []) {
+            $middleware->trustProxies(
+                at: $trustedProxies,
+                headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PORT | Request::HEADER_X_FORWARDED_PROTO
+            );
+        }
         $middleware->prepend(AllowPrivateNetworkCors::class);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -69,11 +78,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.permission' => CheckPermission::class,
             '2fa' => Verify2FA::class,
             'rate.limit' => RateLimitMiddleware::class,
+            'recent.auth' => RequireRecentAuthentication::class,
             'log.activity' => LogUserActivity::class,
             'node.webhook' => VerifyNodeWebhook::class,
         ]);
     })
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command(DispatchDeveloperWebhooks::class, ['--limit' => 100])
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // Solvency checks every minute
         $schedule->command('solvency:check')
             ->everyMinute()

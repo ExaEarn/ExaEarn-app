@@ -151,6 +151,13 @@ class StakingService
                 'staking_reservation',
                 ['staking_product_id' => $product->id]
             );
+            app(FinanceAccountingService::class)->recordLedgerEvent($ledgerTx, 'STAKING_PRINCIPAL_RESERVED', [
+                'source_service' => 'staking',
+                'asset' => $symbol,
+                'amount' => $amount,
+                'staking_product_id' => (int) $product->id,
+                'idempotency_key' => $idempotencyKey,
+            ]);
 
             $publicId = (string) Str::uuid();
             $positionId = DB::table('staking_positions')->insertGetId([
@@ -347,21 +354,71 @@ class StakingService
 
     public function claimNativeRewards(int $userId, string $publicId): array
     {
-        $position = DB::table('staking_positions')
-            ->where('user_id', $userId)
-            ->where('public_id', $publicId)
-            ->first();
+        return DB::transaction(function () use ($userId, $publicId): array {
+            $position = DB::table('staking_positions')
+                ->join('staking_assets', 'staking_assets.id', '=', 'staking_positions.staking_asset_id')
+                ->where('staking_positions.user_id', $userId)
+                ->where('staking_positions.public_id', $publicId)
+                ->select('staking_positions.*', 'staking_assets.symbol')
+                ->lockForUpdate()
+                ->first();
 
-        if (! $position) {
-            throw new RuntimeException('Staking position not found.');
-        }
+            if (! $position) {
+                throw new RuntimeException('Staking position not found.');
+            }
 
-        $claimable = $this->sub((string) $position->total_native_net_rewards, (string) $position->claimed_native_rewards);
-        if ($this->compare($claimable, '0') <= 0) {
-            throw new RuntimeException('No verified native staking rewards are currently claimable.');
-        }
+            $claimable = $this->sub((string) $position->total_native_net_rewards, (string) $position->claimed_native_rewards);
+            if ($this->compare($claimable, '0') <= 0) {
+                throw new RuntimeException('No verified native staking rewards are currently claimable.');
+            }
 
-        throw new RuntimeException('Native reward claiming requires a reconciled reward allocation and ledger distribution job.');
+            $reference = "staking:native-reward-claim:{$position->id}:{$position->claimed_native_rewards}:{$claimable}";
+            $payable = $this->ledger->getOrCreateAccount($userId, 'staking_reward_payable', (string) $position->symbol);
+            $funding = $this->ledger->getOrCreateAccount($userId, 'funding', (string) $position->symbol);
+            if ($this->compare((string) $payable->balance, $claimable) < 0) {
+                throw new RuntimeException('Verified staking reward payable balance is insufficient for claim.');
+            }
+
+            $ledgerTx = $this->ledger->postDoubleEntry($reference, 'Claim verified native staking reward', [
+                ['account_id' => $payable->id, 'amount' => $this->sub('0', $claimable), 'asset' => (string) $position->symbol, 'user_id' => $userId],
+                ['account_id' => $funding->id, 'amount' => $claimable, 'asset' => (string) $position->symbol, 'user_id' => $userId],
+            ], 'staking_reward_claim', ['source_service' => 'staking', 'staking_position_id' => (int) $position->id]);
+            app(FinanceAccountingService::class)->recordLedgerEvent($ledgerTx, 'STAKING_REWARD_CLAIMED', [
+                'source_service' => 'staking',
+                'asset' => (string) $position->symbol,
+                'amount' => $claimable,
+                'staking_position_id' => (int) $position->id,
+            ]);
+
+            DB::table('staking_positions')->where('id', $position->id)->update([
+                'claimed_native_rewards' => $this->add((string) $position->claimed_native_rewards, $claimable),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('staking_transactions')->insertOrIgnore([
+                'public_id' => (string) Str::uuid(),
+                'user_id' => $userId,
+                'staking_position_id' => (int) $position->id,
+                'staking_asset_id' => (int) $position->staking_asset_id,
+                'transaction_type' => 'native_reward_claim',
+                'amount' => $claimable,
+                'fee_amount' => '0',
+                'net_amount' => $claimable,
+                'ledger_transaction_id' => $ledgerTx->id,
+                'status' => 'completed',
+                'idempotency_key' => $reference,
+                'processed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return [
+                'status' => 'completed',
+                'amount' => $claimable,
+                'asset' => (string) $position->symbol,
+                'ledger_transaction_id' => $ledgerTx->id,
+            ];
+        });
     }
 
     public function claimExaTokenRewards(int $userId, string $publicId): array
@@ -437,26 +494,22 @@ class StakingService
             throw new RuntimeException('Invalid amount.');
         }
 
-        return function_exists('bcadd') ? bcadd($amount, '0', self::SCALE) : number_format((float) $amount, self::SCALE, '.', '');
+        return FinancialDecimal::normalize($amount, self::SCALE);
     }
 
     private function sub(string $a, string $b): string
     {
-        return function_exists('bcsub') ? bcsub($a, $b, self::SCALE) : number_format((float) $a - (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::sub($a, $b, self::SCALE);
     }
 
     private function add(string $a, string $b): string
     {
-        return function_exists('bcadd') ? bcadd($a, $b, self::SCALE) : number_format((float) $a + (float) $b, self::SCALE, '.', '');
+        return FinancialDecimal::add($a, $b, self::SCALE);
     }
 
     private function compare(string $a, string $b): int
     {
-        if (function_exists('bccomp')) {
-            return bccomp($a, $b, self::SCALE);
-        }
-
-        return (float) $a <=> (float) $b;
+        return FinancialDecimal::compare($a, $b, self::SCALE);
     }
 }
 

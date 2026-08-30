@@ -1,0 +1,15 @@
+{
+  "version": "exaearn-hmac-v1",
+  "api_key": "exa_test_fixture_only",
+  "api_secret": "exa_sec_fixture_only",
+  "timestamp": "1788000000",
+  "nonce": "exa_nonce_fixture_001",
+  "method": "POST",
+  "path": "/api/developer/v1/spot/orders",
+  "query_input": "symbol=BTC%2FUSDT&limit=10",
+  "canonical_query": "limit=10&symbol=BTC%2FUSDT",
+  "body": "{\"symbol\":\"BTC/USDT\",\"side\":\"BUY\"}",
+  "body_sha256": "0e7c9ac8a5cba4725aa04f8a41ab3378c844def3c642d74d76a5ea87e87a6d01",
+  "canonical": "POST\n/api/developer/v1/spot/orders\nlimit=10&symbol=BTC%2FUSDT\n1788000000\nexa_nonce_fixture_001\n0e7c9ac8a5cba4725aa04f8a41ab3378c844def3c642d74d76a5ea87e87a6d01",
+  "signature": "070d1c007ff63265134227b9a30fe585d7b553b853f4b638d4c18f8ccd1d7804"
+}

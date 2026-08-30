@@ -16,8 +16,14 @@ use App\Jobs\MonitorStakeActivation;
 use App\Jobs\ReleaseUnstakedPrincipal;
 use App\Models\Account;
 use App\Models\Admin;
+use App\Models\FinanceFinancialEvent;
+use App\Models\FinanceJournal;
+use App\Models\LedgerTransaction;
 use App\Models\User;
 use App\Services\LedgerService;
+use App\Services\FinanceProductReconciliationService;
+use App\Services\StakingReconciliationService;
+use App\Services\StakingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -419,6 +425,71 @@ class ExaEarnStakingRemovalTest extends TestCase
 
         $this->assertSame('0.800000000000000000', (string) Account::query()->where('user_id', $user->id)->where('account_type', 'staking_reward_payable')->where('asset', 'NEAR')->value('balance'));
         $this->assertDatabaseHas('staking_reward_allocations', ['id' => $allocationId, 'status' => 'distributed']);
+        $this->assertDatabaseHas('finance_financial_events', [
+            'event_type' => 'STAKING_REWARD_RECOGNIZED',
+            'source_service' => 'staking',
+        ]);
+        $this->assertSame(1, FinanceJournal::query()->whereHas('event', fn ($query) => $query->where('event_type', 'STAKING_REWARD_RECOGNIZED'))->count());
+    }
+
+    public function test_verified_native_reward_claim_moves_payable_to_funding_once_and_posts_accounting(): void
+    {
+        $user = User::factory()->create();
+        $assetId = \DB::table('staking_assets')->where('symbol', 'NEAR')->value('id');
+        $productId = $this->createNativeProduct($assetId, 'near-claim-product');
+        $publicId = (string) Str::uuid();
+        $positionId = $this->createActivePosition($user->id, $assetId, $productId, $publicId, '100');
+
+        \DB::table('staking_positions')->where('id', $positionId)->update([
+            'total_native_net_rewards' => '0.800000000000000000',
+            'claimed_native_rewards' => '0.000000000000000000',
+        ]);
+
+        $ledger = app(LedgerService::class);
+        $clearing = $ledger->getOrCreateAccount(null, 'native_staking_rewards_clearing', 'NEAR');
+        $payable = $ledger->getOrCreateAccount($user->id, 'staking_reward_payable', 'NEAR');
+        $ledger->postDoubleEntry('test:verified-near-payable', 'Seed verified native staking payable', [
+            ['account_id' => $clearing->id, 'amount' => '-0.800000000000000000', 'asset' => 'NEAR'],
+            ['account_id' => $payable->id, 'amount' => '0.800000000000000000', 'asset' => 'NEAR', 'user_id' => $user->id],
+        ], 'test');
+
+        $claim = app(StakingService::class)->claimNativeRewards($user->id, $publicId);
+
+        $this->assertSame('completed', $claim['status']);
+        $this->assertSame('0.800000000000000000', (string) Account::query()->where('user_id', $user->id)->where('account_type', 'funding')->where('asset', 'NEAR')->value('balance'));
+        $this->assertSame('0.000000000000000000', (string) Account::query()->where('user_id', $user->id)->where('account_type', 'staking_reward_payable')->where('asset', 'NEAR')->value('balance'));
+        $this->assertSame(1, LedgerTransaction::query()->where('transaction_type', 'staking_reward_claim')->count());
+        $this->assertSame(1, FinanceFinancialEvent::query()->where('event_type', 'STAKING_REWARD_CLAIMED')->count());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('No verified native staking rewards are currently claimable.');
+        app(StakingService::class)->claimNativeRewards($user->id, $publicId);
+    }
+
+    public function test_staking_reconciliation_and_phase17_product_reconciliation_cover_staking_events(): void
+    {
+        $user = User::factory()->create();
+        $assetId = \DB::table('staking_assets')->where('symbol', 'DOT')->value('id');
+        $productId = $this->createNativeProduct($assetId, 'dot-accounting-product');
+        $positionId = $this->createActivePosition($user->id, $assetId, $productId, (string) Str::uuid(), '10');
+
+        $ledger = app(LedgerService::class);
+        $active = $ledger->getOrCreateAccount($user->id, 'staking_active', 'DOT');
+        $active->forceFill(['balance' => '10.000000000000000000'])->save();
+
+        $this->assertSame('PASS', app(StakingReconciliationService::class)->run()['status']);
+        $this->assertSame('PASS', app(FinanceProductReconciliationService::class)->run()['staking']['status']);
+
+        LedgerTransaction::query()->create([
+            'reference' => 'staking:test:missing-accounting',
+            'description' => 'Missing accounting probe',
+            'transaction_type' => 'staking_reward_claim',
+            'source_service' => 'staking',
+            'status' => 'completed',
+        ]);
+
+        $this->assertSame('FAIL', app(StakingReconciliationService::class)->run()['status']);
+        $this->assertSame('FAIL', app(FinanceProductReconciliationService::class)->run()['staking']['status']);
     }
 
     public function test_secure_signer_fails_closed_without_configuration(): void

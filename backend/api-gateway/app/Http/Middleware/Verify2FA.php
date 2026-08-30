@@ -31,7 +31,7 @@ class Verify2FA
             ], 403);
         }
 
-        if (!$this->verifyTotp((string) $user->two_factor_secret, $code)) {
+        if (!self::verifyCode((string) $user->two_factor_secret, $code)) {
             return response()->json([
                 'message' => 'Invalid 2FA code.',
                 '2fa_required' => true,
@@ -41,13 +41,13 @@ class Verify2FA
         return $next($request);
     }
 
-    private function verifyTotp(string $secret, string $code, int $window = 1, int $digits = 6, int $period = 30): bool
+    public static function verifyCode(string $secret, string $code, int $window = 1, int $digits = 6, int $period = 30): bool
     {
         if ($secret === '' || !preg_match('/^\d{6}$/', $code)) {
             return false;
         }
 
-        $binarySecret = $this->base32Decode($secret);
+        $binarySecret = self::base32Decode($secret);
         if ($binarySecret === '') {
             return false;
         }
@@ -55,7 +55,7 @@ class Verify2FA
         $counter = (int) floor(time() / $period);
 
         for ($offset = -$window; $offset <= $window; $offset++) {
-            $expected = $this->generateHotp($binarySecret, $counter + $offset, $digits);
+            $expected = self::generateHotp($binarySecret, $counter + $offset, $digits);
 
             if (hash_equals($expected, $code)) {
                 return true;
@@ -65,7 +65,7 @@ class Verify2FA
         return false;
     }
 
-    private function generateHotp(string $secret, int $counter, int $digits): string
+    private static function generateHotp(string $secret, int $counter, int $digits): string
     {
         $counterBytes = pack('N*', 0) . pack('N*', $counter);
         $hash = hash_hmac('sha1', $counterBytes, $secret, true);
@@ -77,7 +77,7 @@ class Verify2FA
         return str_pad((string) ($value % $mod), $digits, '0', STR_PAD_LEFT);
     }
 
-    private function base32Decode(string $secret): string
+    private static function base32Decode(string $secret): string
     {
         $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
         $clean = strtoupper(preg_replace('/[^A-Z2-7]/', '', $secret) ?? '');

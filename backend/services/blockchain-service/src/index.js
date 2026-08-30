@@ -10,6 +10,8 @@ const futuresUpdateSubscriber = require('./services/futuresUpdateSubscriber');
 const ledgerUpdateSubscriber = require('./services/ledgerUpdateSubscriber');
 const blockchainService = require('./services/blockchainService');
 const blockchainEventListener = require('./services/blockchainEventListener');
+const DeveloperRealtimeHub = require('./services/developerRealtimeHub');
+const DeveloperRealtimeSubscriber = require('./services/developerRealtimeSubscriber');
 
 const app = express();
 app.use(express.json());
@@ -115,6 +117,9 @@ const server = http.createServer(app);
 realtimeHub.attach(server);
 walletUpdateHub.attach(server);
 ledgerUpdateHub.attach(server);
+const developerRealtimeHub = new DeveloperRealtimeHub();
+developerRealtimeHub.attach(server);
+const developerRealtimeSubscriber = new DeveloperRealtimeSubscriber(developerRealtimeHub);
 
 server.listen(config.port, async () => {
   logger.info('Realtime node server started', { port: config.port });
@@ -123,6 +128,7 @@ server.listen(config.port, async () => {
     await realtimeSubscriber.start();
     await futuresUpdateSubscriber.start();
     await ledgerUpdateSubscriber.start();
+    await developerRealtimeSubscriber.start();
     blockchainEventListener.start();
   } catch (error) {
     logger.error('Failed to start background services', { error: error.message });

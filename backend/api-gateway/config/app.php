@@ -53,6 +53,7 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
+    'developer_portal_url' => env('DEVELOPER_PORTAL_URL', env('FRONTEND_URL', 'http://localhost:5176')),
 
     /*
     |--------------------------------------------------------------------------

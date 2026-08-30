@@ -1,0 +1,20 @@
+title = "ExaEarn repository secret policy"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "exaearn-live-api-key"
+description = "ExaEarn live developer credential"
+regex = '''exa_live_[A-Za-z0-9_-]{16,}'''
+keywords = ["exa_live_"]
+
+[[rules]]
+id = "exaearn-private-key-material"
+description = "Private key assignment"
+regex = '''(?i)(wallet_private_key|withdrawal_signing_key|jwt_secret)\s*[=:]\s*['\"]?[A-Za-z0-9+/=_-]{20,}'''
+
+[allowlist]
+description = "Clearly fake test fixtures"
+paths = ['''contracts/developer-signing-v1.json''', '''.*\.example$''']
+

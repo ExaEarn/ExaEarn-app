@@ -100,8 +100,7 @@ function downloadCsv(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
-function buildColumns(rows, moduleKey, { onView, onAction }) {
-  const actionName = primaryActions[moduleKey] ?? "mark reviewed";
+function buildColumns(rows, moduleKey, { onView, onAction, actionName }) {
   const actionColumn = {
     id: "operator_actions",
     header: "Actions",
@@ -118,10 +117,11 @@ function buildColumns(rows, moduleKey, { onView, onAction }) {
         <button
           type="button"
           onClick={() => onAction(actionName, row.original)}
+          disabled={!actionName}
           className="inline-flex items-center gap-1 rounded-xl border border-auric-300/35 bg-auric-300/10 px-3 py-2 text-xs font-semibold text-auric-100 hover:bg-auric-300/15"
         >
           <ShieldAlert className="h-3.5 w-3.5" />
-          {actionName}
+          {actionName ?? "No action"}
         </button>
       </div>
     ),
@@ -345,12 +345,13 @@ export function ModulePage({ moduleKey, pathKey }) {
     setActionResult(null);
   };
 
-  const columns = useMemo(
-    () => buildColumns(filteredRows, moduleKey, { onView: setSelectedRow, onAction: openAction }),
-    [filteredRows, moduleKey],
-  );
+  const moduleActions = data.actions?.length ? data.actions : [];
+  const primaryAction = moduleActions[0] ?? primaryActions[moduleKey] ?? null;
 
-  const moduleActions = data.actions?.length ? data.actions : ["view", "mark reviewed"];
+  const columns = useMemo(
+    () => buildColumns(filteredRows, moduleKey, { onView: setSelectedRow, onAction: openAction, actionName: primaryAction }),
+    [filteredRows, moduleKey, primaryAction],
+  );
 
   return (
     <PageShell
@@ -363,7 +364,7 @@ export function ModulePage({ moduleKey, pathKey }) {
             <Download className="mr-2 inline h-4 w-4" />
             Export
           </OutlineButton>
-          <GradientButton onClick={() => openAction(primaryActions[moduleKey] ?? moduleActions[0], filteredRows[0] ?? {})}>
+          <GradientButton onClick={() => primaryAction && openAction(primaryAction, filteredRows[0] ?? {})} disabled={!primaryAction}>
             {moduleKey === "users" ? "Create action" : "Open controls"}
           </GradientButton>
         </>
@@ -371,7 +372,7 @@ export function ModulePage({ moduleKey, pathKey }) {
     >
       <div className="flex flex-wrap gap-3">
         <Pill tone={data.source === "api" ? "success" : "warning"}>
-          {data.source === "api" ? "Live API data" : "Mock fallback data"}
+          {data.source === "api" ? "Live API data" : "No placeholder data"}
         </Pill>
         <Pill>{permission.role} role</Pill>
         <Pill>{filteredRows.length} visible records</Pill>
@@ -379,6 +380,15 @@ export function ModulePage({ moduleKey, pathKey }) {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <GlassPanel>
+          {data.error ? (
+            <div className="mb-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">
+              <div className="flex items-center gap-2 font-semibold">
+                <AlertTriangle className="h-4 w-4" />
+                Real admin data unavailable
+              </div>
+              <p className="mt-2 text-amber-100/75">{data.error}</p>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="relative w-full max-w-md">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-100/35" />
@@ -426,11 +436,13 @@ export function ModulePage({ moduleKey, pathKey }) {
           <GlassPanel>
             <h3 className="font-['Sora'] text-lg font-semibold text-white">Module actions</h3>
             <div className="mt-4 flex flex-wrap gap-2">
-              {moduleActions.map((action) => (
+              {moduleActions.length ? moduleActions.map((action) => (
                 <OutlineButton key={action} className="capitalize" onClick={() => openAction(action, filteredRows[0] ?? {})}>
                   {action}
                 </OutlineButton>
-              ))}
+              )) : (
+                <p className="text-sm text-violet-100/55">No authoritative actions are available for this module.</p>
+              )}
             </div>
           </GlassPanel>
 

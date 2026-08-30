@@ -1,0 +1,42 @@
+.api-key-page .auth-error { margin-top: 18px; }
+.credential-empty { display:grid; place-items:center; margin-top:24px; padding:58px 20px; border:1px dashed var(--border); border-radius:6px; text-align:center; }
+.credential-empty svg { color:var(--gold-bright); }
+.credential-empty h2 { margin:12px 0 5px; font-size:17px; }
+.credential-empty p { margin:0 0 14px; color:var(--muted); font-size:11px; }
+.credential-empty a { color:var(--gold-bright); font-size:10px; }
+.credential-empty button { min-height:38px; padding:0 13px; border:0; border-radius:5px; color:#111; background:var(--gold-bright); font-weight:800; }
+.credential-list { display:grid; gap:9px; margin-top:24px; }
+.credential-list article { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; padding:17px; border:1px solid var(--border); border-radius:6px; background:var(--surface); }
+.credential-list h2 { margin:5px 0; font-size:14px; }
+.credential-list p { margin:0; color:var(--muted); font-size:9px; overflow-wrap:anywhere; }
+.credential-prefix { color:var(--gold-bright); font-family:monospace; font-size:9px; }
+.credential-status { align-self:start; padding:4px 7px; border:1px solid var(--border); border-radius:4px; color:var(--muted); font-size:8px; font-weight:900; }
+.credential-status.active { color:var(--green); border-color:rgba(62,196,155,.3); }
+.credential-status.revoked { color:var(--red); border-color:rgba(255,102,117,.3); }
+.credential-list dl { grid-column:1/-1; display:flex; gap:28px; margin:0; }
+.credential-list dl div { display:grid; gap:3px; }
+.credential-list dt { color:var(--soft); font-size:8px; }
+.credential-list dd { margin:0; color:var(--text); font-size:9px; }
+.credential-actions { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:7px; padding-top:10px; border-top:1px solid var(--border); }
+.credential-actions button { min-height:32px; padding:0 10px; border:1px solid var(--border); border-radius:4px; color:var(--muted); background:transparent; font-size:9px; cursor:pointer; }
+.credential-actions .danger { color:var(--red); border-color:rgba(255,102,117,.28); }
+.credential-modal form { max-height:90vh; overflow:auto; }
+.credential-modal fieldset { display:grid; gap:12px; margin:0; padding:0; border:0; }
+.credential-modal legend { margin-bottom:8px; color:var(--text); font-size:10px; font-weight:800; }
+.credential-modal fieldset section { display:grid; gap:6px; }
+.credential-modal fieldset section > strong { color:var(--soft); font-size:8px; letter-spacing:.08em; }
+.credential-modal fieldset section label { grid-template-columns:18px minmax(0,1fr); align-items:start; padding:8px; border:1px solid var(--border); border-radius:5px; background:#0b0f13; }
+.credential-modal fieldset input { width:16px; height:16px; accent-color:var(--gold); }
+.credential-modal fieldset b,.credential-modal fieldset small { display:block; }
+.credential-modal fieldset b { font-size:10px; }
+.credential-modal fieldset small { margin-top:2px; color:var(--soft); font-size:8px; font-weight:500; }
+.secret-modal > section { position:relative; width:min(540px,100%); padding:25px; border:1px solid var(--border); border-radius:7px; background:#11171d; box-shadow:0 25px 80px rgba(0,0,0,.5); }
+.secret-modal h2 { margin:5px 0 7px; }
+.secret-modal section > p:not(.eyebrow) { color:var(--muted); font-size:11px; }
+.secret-modal label { display:grid; gap:6px; margin-top:15px; color:var(--text); font-size:10px; font-weight:800; }
+.secret-modal label span { display:grid; grid-template-columns:minmax(0,1fr) 38px; align-items:stretch; border:1px solid var(--border); border-radius:5px; overflow:hidden; }
+.secret-modal code { min-width:0; padding:11px; overflow:auto; color:var(--gold-bright); background:#090d11; white-space:nowrap; }
+.secret-modal label button { display:grid; place-items:center; border:0; border-left:1px solid var(--border); color:var(--text); background:#171d23; cursor:pointer; }
+.secret-modal label svg { width:15px; }
+.acknowledge-secret { width:100%; min-height:40px; margin-top:20px; border:0; border-radius:5px; color:#111; background:var(--gold-bright); font-weight:850; cursor:pointer; }
+@media(max-width:640px){.credential-list article{grid-template-columns:minmax(0,1fr) auto}.credential-list dl{display:grid;grid-template-columns:1fr 1fr;gap:10px}.secret-modal{align-items:end}.secret-modal>section{border-radius:7px 7px 0 0}.credential-modal fieldset section label{grid-template-columns:18px minmax(0,1fr)}}

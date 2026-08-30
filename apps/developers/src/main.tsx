@@ -1,298 +1,126 @@
-import { StrictMode } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  Activity,
-  ArrowRight,
-  BookOpen,
-  CheckCircle2,
-  Code2,
-  DatabaseZap,
-  FileJson,
-  Gauge,
-  KeyRound,
-  LockKeyhole,
-  Network,
-  Radio,
-  RefreshCcw,
-  ShieldCheck,
-  TerminalSquare,
-  Webhook,
-  type LucideIcon,
-} from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, CircleAlert, Copy, Menu, Search, ShieldCheck, Terminal, X } from "lucide-react";
+import { endpoints, errors, navigation, scopes, type Endpoint } from "./docsCatalog";
+import { requestContracts } from "./openapiRequestSchemas.generated";
+import { DeveloperAuthProvider, DeveloperForgotPassword, DeveloperLogin, DeveloperResetPassword, DeveloperSignup, DeveloperVerifyEmail, ProtectedDeveloperPage, useDeveloperAuth } from "./developerAuth";
 import "./styles.css";
-
-const endpoints = [
-  ["GET", "/api/developer/v1/exchange-info", "Public market metadata", "Available"],
-  ["GET", "/api/developer/v1/tickers", "Authoritative and reference ticker contract", "Available"],
-  ["GET", "/api/developer/v1/orderbook/{symbol}", "Sequenced order book snapshot", "Available"],
-  ["GET", "/api/developer/v1/trades/{symbol}", "Recent public trade stream window", "Available"],
-  ["GET", "/api/developer/v1/klines/{symbol}", "Candles built from market data service", "Available"],
-  ["GET", "/api/developer/v1/wallet/balances", "Signed wallet or sandbox balance read", "Available"],
-  ["POST", "/api/developer/v1/spot/orders", "Signed Spot order submission through ExaEarn OMS", "Available"],
-  ["GET", "/api/developer/v1/spot/orders/{orderId}", "Signed Spot order lookup", "Available"],
-  ["POST", "/api/developer/v1/futures/orders", "Futures order routed through ExaEarn Futures OMS and risk", "Private beta"],
-  ["GET", "/api/developer/v1/futures/positions", "Signed Futures position view", "Private beta"],
-  ["POST", "/api/developer/v1/margin/borrow", "Margin borrow through lending-pool controls", "Private beta"],
-  ["POST", "/api/developer/v1/staking/positions", "Native staking position creation", "Available"],
-  ["POST", "/api/developer/v1/copy/follow", "Copy Trading relationship creation with eligibility checks", "Private beta"],
-  ["POST", "/api/developer/v1/exaai/sessions", "ExaAI session lifecycle through governance controls", "Private beta"],
-  ["POST", "/api/developer/projects/{id}/sandbox/faucet", "Authenticated developer sandbox faucet", "Available"],
-  ["POST", "/api/developer/webhooks", "Webhook endpoint registration and signed delivery", "Available"],
-];
-
-const permissions = [
-  ["market.read", "Read market symbols, tickers, books, trades, and candles."],
-  ["account.read", "Read balances for the key environment."],
-  ["spot.read", "Read Spot orders created by the authenticated account."],
-  ["spot.trade", "Submit Spot orders through the production OMS controls."],
-  ["futures.read / futures.trade", "Read and submit Futures orders without bypassing Futures risk."],
-  ["margin.read / margin.manage", "Read margin state and manage borrow, repay, transfer, and margin orders."],
-  ["staking.read / staking.manage", "Read staking products and manage user staking positions."],
-  ["copy.read / copy.manage", "Read leaders and manage copy relationships under public-mode controls."],
-  ["exaai.read / exaai.manage", "Read and manage ExaAI sessions without bypassing strategy governance."],
-  ["wallet.withdraw", "High-risk permission. Requires IP whitelist and additional operational approval."],
-];
-
-const readinessCards: Array<[string, string, LucideIcon]> = [
-  ["Public market data", "Available", Radio],
-  ["Signed private REST", "Available", LockKeyhole],
-  ["Sandbox faucet", "Isolated", DatabaseZap],
-  ["SDK", "Available", Code2],
-];
-
-const sdkExample = `import { createExaEarnClient } from "@exaearn/sdk";
-
-const exaearn = createExaEarnClient({
-  baseUrl: "https://api.exaearn.com",
-  apiKey: process.env.EXAEARN_API_KEY,
-  apiSecret: process.env.EXAEARN_API_SECRET,
-});
-
-const balances = await exaearn.balances();
-const order = await exaearn.createSpotOrder({
-  symbol: "BTC-USDT",
-  side: "buy",
-  type: "limit",
-  quantity: "0.001",
-  price: "65000",
-});`;
-
-const canonicalExample = `METHOD
-/api/developer/v1/wallet/balances
-query=string
-EXA-API-TIMESTAMP
-sha256(request_body)`;
 
 const apiBaseUrl = (import.meta.env.VITE_API_URL || "https://api.exaearn.com").replace(/\/$/, "");
 
+function usePath() {
+  const currentPath = () => { const value = window.location.pathname.replace(/\/+$/, "") || "/"; return value === "/" ? "/developers" : value; };
+  const [path, setPath] = useState(currentPath);
+  useEffect(() => { const update = () => setPath(currentPath()); window.addEventListener("popstate", update); return () => window.removeEventListener("popstate", update); }, []);
+  return path;
+}
+function go(path: string) { window.history.pushState({}, "", path); window.dispatchEvent(new PopStateEvent("popstate")); window.scrollTo({ top: 0, behavior: "instant" }); }
+function Link({ to, children, className = "", onClick }: { to: string; children: ReactNode; className?: string; onClick?: () => void }) { return <a href={to} className={className} onClick={(event) => { event.preventDefault(); go(to); onClick?.(); }}>{children}</a>; }
+
 function App() {
-  return (
-    <main className="developer-shell">
-      <nav className="topbar" aria-label="Developer portal navigation">
-        <a className="brand" href="#top" aria-label="ExaEarn Developers">
-          <span className="brand-mark">EX</span>
-          <span>
-            <strong>ExaEarn</strong>
-            <small>Developers</small>
-          </span>
-        </a>
-        <div className="topbar-links">
-          <a href="#apis">APIs</a>
-          <a href="#auth">Authentication</a>
-          <a href="#sandbox">Sandbox</a>
-          <a href="#sdk">SDK</a>
-        </div>
-        <a className="launch-link" href={`${apiBaseUrl}/api/developer/v1/exchange-info`}>
-          Test API <ArrowRight size={16} />
-        </a>
-      </nav>
-
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <p className="eyebrow">Phase 14 Developer Platform</p>
-          <h1>Build on ExaEarn without bypassing ExaEarn.</h1>
-          <p>
-            Secure REST APIs, signed private endpoints, isolated sandbox balances,
-            request logging, and SDK infrastructure around the existing Spot,
-            Futures, Margin, Staking, Copy Trading, ExaAI, wallet, ledger,
-            market data, and realtime systems.
-          </p>
-          <div className="hero-actions">
-            <a className="primary-action" href="#apis">Explore APIs <ArrowRight size={17} /></a>
-            <a className="secondary-action" href="#auth">View signing rules</a>
-          </div>
-        </div>
-        <div className="hero-panel" aria-label="Developer platform readiness">
-          {readinessCards.map(([label, status, Icon]) => (
-            <article key={label}>
-              <Icon size={22} />
-              <span>{label}</span>
-              <strong>{status}</strong>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section-grid">
-        <FeatureCard icon={ShieldCheck} title="Canonical Infrastructure">
-          Phase 14 submits signed Spot orders into the existing OMS and execution
-          controls. It does not create a second exchange, wallet, or ledger path.
-        </FeatureCard>
-        <FeatureCard icon={Gauge} title="Rate Limited by Design">
-          Developer request logs carry request IDs, latency, status, API key,
-          project, environment, and error metadata for support and abuse review.
-        </FeatureCard>
-        <FeatureCard icon={RefreshCcw} title="Sandbox First">
-          Sandbox faucet funds are stored separately from real wallet balances,
-          so test clients cannot accidentally mix simulated and real funds.
-        </FeatureCard>
-      </section>
-
-      <section className="api-section" id="apis">
-        <div className="section-heading">
-          <p className="eyebrow">REST API</p>
-          <h2>Stable external contracts around internal ExaEarn systems.</h2>
-        </div>
-        <div className="endpoint-table" role="table" aria-label="Developer REST API endpoints">
-          {endpoints.map(([method, path, description, status]) => (
-            <div className="endpoint-row" role="row" key={`${method}-${path}`}>
-              <span className={`method ${method.toLowerCase()}`}>{method}</span>
-              <code>{path}</code>
-              <span>{description}</span>
-              <strong>{status}</strong>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="two-column" id="auth">
-        <div>
-          <p className="eyebrow">HMAC Authentication</p>
-          <h2>Private APIs require signed requests.</h2>
-          <p>
-            Developers sign the exact method, path, query string, timestamp, and
-            SHA-256 body hash. Server-side permissions decide what each API key
-            can access.
-          </p>
-          <ul className="check-list">
-            {[
-              "API secrets are shown once at creation or rotation.",
-              "Withdrawal-capable keys require IP whitelist controls.",
-              "Expired timestamps, invalid signatures, inactive keys, and missing permissions fail closed.",
-              "Every developer API response includes an ExaEarn request ID.",
-            ].map((item) => <li key={item}><CheckCircle2 size={16} /> {item}</li>)}
-          </ul>
-        </div>
-        <CodeBlock title="Canonical payload" code={canonicalExample} />
-      </section>
-
-      <section className="permissions-section">
-        <div className="section-heading compact">
-          <p className="eyebrow">Permissions</p>
-          <h2>Granular scopes for safer automation.</h2>
-        </div>
-        <div className="permission-grid">
-          {permissions.map(([scope, description]) => (
-            <article key={scope}>
-              <KeyRound size={19} />
-              <code>{scope}</code>
-              <p>{description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="two-column" id="sandbox">
-        <div>
-          <p className="eyebrow">Sandbox</p>
-          <h2>Test trading flows without touching production funds.</h2>
-          <p>
-            Sandbox projects use `exa_test_` keys and isolated sandbox balances.
-            The faucet is rate limited per asset and project. Production keys use
-            `exa_live_` and real ExaEarn wallet/OMS controls.
-          </p>
-        </div>
-        <div className="status-stack">
-          <StatusLine icon={DatabaseZap} label="Balance source" value="developer_sandbox_balances" />
-          <StatusLine icon={Activity} label="Faucet limit" value="Configured server-side" />
-          <StatusLine icon={Network} label="Isolation" value="No real wallet credit" />
-        </div>
-      </section>
-
-      <section className="two-column" id="sdk">
-        <div>
-          <p className="eyebrow">SDK</p>
-          <h2>Typed JavaScript/TypeScript client.</h2>
-          <p>
-            The workspace package `@exaearn/sdk` implements public REST helpers,
-            private HMAC signing, Spot/Futures/Margin/Staking/Copy/ExaAI helpers,
-            balance reads, and typed API errors.
-          </p>
-          <div className="doc-links">
-            <a href="https://github.com/ExaEarn/ExaEarn-app/blob/main/openapi/exaearn-developer-v1.yaml"><FileJson size={16} /> OpenAPI</a>
-            <a href="#apis"><BookOpen size={16} /> API catalog</a>
-            <a href="#webhooks"><Webhook size={16} /> Webhooks</a>
-          </div>
-        </div>
-        <CodeBlock title="SDK example" code={sdkExample} />
-      </section>
-
-      <section className="roadmap" id="webhooks">
-        <div className="section-heading compact">
-          <p className="eyebrow">Controlled rollout</p>
-          <h2>Interfaces intentionally gated until operational readiness is complete.</h2>
-        </div>
-        <div className="roadmap-grid">
-          {[
-            ["Webhook delivery jobs", "Signed delivery, retry, dead letter, and replay are implemented for developer events."],
-            ["Futures and margin APIs", "Signed API routes now reuse the existing product controllers and risk services."],
-            ["Custody withdrawals", "Withdrawals require stronger operational controls before public developer access."],
-            ["Public websocket gateway", "Session, sequencing, replay, and backpressure policy are exposed through the developer realtime contract."],
-          ].map(([title, detail]) => (
-            <article key={title}>
-              <TerminalSquare size={20} />
-              <h3>{title}</h3>
-              <p>{detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-    </main>
-  );
+  return <DeveloperAuthProvider><Portal /></DeveloperAuthProvider>;
 }
 
-function FeatureCard({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
-  return (
-    <article className="feature-card">
-      <Icon size={22} />
-      <h2>{title}</h2>
-      <p>{children}</p>
-    </article>
-  );
+function Portal() {
+  const path = usePath(); const docsMode = path.startsWith("/docs") || path.startsWith("/reference");
+  const authMode = path === "/developers/login"; const signupMode = path === "/developers/signup"; const verifyMode = path === "/developers/verify-email"; const forgotMode = path === "/developers/forgot-password"; const resetMode = path === "/developers/reset-password"; const invitationMode = path === "/developers/invitations/accept"; const consoleMode = path.startsWith("/developers/console") || path === "/developers/onboarding" || invitationMode;
+  const [menuOpen, setMenuOpen] = useState(false); const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => { const shortcut = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); } }; window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut); }, []);
+  if (authMode) return <DeveloperLogin />;
+  if (signupMode) return <DeveloperSignup />;
+  if (verifyMode) return <DeveloperVerifyEmail />;
+  if (forgotMode) return <DeveloperForgotPassword />;
+  if (resetMode) return <DeveloperResetPassword />;
+  if (consoleMode) return <ProtectedDeveloperPage onboarding={path === "/developers/onboarding"} security={path === "/developers/console/settings/security"} team={path === "/developers/console/team"} apiKeys={path === "/developers/console/api-keys"} productionAccess={path === "/developers/console/production-access"} invitation={invitationMode} />;
+  return <div className={docsMode ? "app docs-mode" : "app"}>
+    <Header docsMode={docsMode} onMenu={() => setMenuOpen(true)} onSearch={() => setSearchOpen(true)} />
+    {docsMode ? <div className="docs-grid"><Sidebar path={path} open={menuOpen} close={() => setMenuOpen(false)} /><main className="doc-content"><RouteContent path={path} /></main><OnPageToc path={path} /></div> : <Landing />}
+    {searchOpen && <SearchDialog close={() => setSearchOpen(false)} />}
+  </div>;
 }
 
-function CodeBlock({ title, code }: { title: string; code: string }) {
-  return (
-    <figure className="code-block">
-      <figcaption>{title}</figcaption>
-      <pre><code>{code}</code></pre>
-    </figure>
-  );
+function Header({ docsMode, onMenu, onSearch }: { docsMode: boolean; onMenu: () => void; onSearch: () => void }) {
+  const { session, loading, signOut } = useDeveloperAuth();
+  return <header className="site-header"><button className="icon-button menu-button" onClick={onMenu} aria-label="Open documentation navigation"><Menu size={19} /></button><Link to="/developers" className="brand"><span className="brand-mark">EX</span><span><strong>ExaEarn</strong><small>Developers</small></span></Link><nav className="top-nav" aria-label="Developer portal"><Link to="/docs" className={docsMode ? "active" : ""}>Docs</Link><Link to="/reference/exchange-info">API Reference</Link><Link to="/docs/sdks">SDKs</Link><Link to="/docs/sandbox">Sandbox</Link><Link to="/docs/changelog">Changelog</Link><Link to="/docs/status">Status</Link></nav><button className="search-trigger" onClick={onSearch}><Search size={16} /><span>Search docs</span><kbd>Ctrl K</kbd></button>{!loading && (session ? <details className="user-menu"><summary><span>{session.user.name.slice(0, 1).toUpperCase()}</span> Console <ChevronDown size={14} /></summary><div><Link to="/developers/console">Developer Console</Link><a href="https://app.exaearn.com/settings/security">Account security</a><a href="https://app.exaearn.com">Go to ExaEarn</a><button onClick={() => void signOut()}>Sign out</button></div></details> : <div className="header-auth"><Link to="/developers/login">Sign in</Link><Link to="/developers/signup" className="console-link">Start building</Link></div>)}</header>;
 }
 
-function StatusLine({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
-  return (
-    <div className="status-line">
-      <Icon size={18} />
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
+function Landing() {
+  return <main className="landing"><section className="landing-hero"><div><p className="eyebrow">ExaEarn Developer Platform</p><h1>Build directly on ExaEarn.</h1><p className="lead">Production contracts for market data, trading, accounts, realtime events, and webhooks, backed by the same canonical systems used by ExaEarn.</p><div className="actions"><Link to="/docs/quickstart" className="primary">Start building <ArrowRight size={17} /></Link><Link to="/reference/exchange-info" className="secondary">API reference</Link></div></div><CodeSample title="Query server time" code={`curl ${apiBaseUrl}/api/developer/v1/time`} /></section><section className="foundation-grid"><Feature icon={<BookOpen />} title="Complete contracts">Authentication, parameters, responses, errors, limits, lifecycle, and recovery.</Feature><Feature icon={<ShieldCheck />} title="Canonical execution">Developer orders use existing OMS, risk, reservations, settlement, and ledger paths.</Feature><Feature icon={<Terminal />} title="Sandbox first">`exa_test_` credentials and isolated balances protect production financial state.</Feature></section><section className="landing-section"><p className="eyebrow">Core APIs</p><h2>From first request to production integration.</h2><div className="product-grid">{[["Market data", "Public tickers, books, trades, and execution-built candles.", "/reference/tickers"], ["Spot", "Submit and inspect orders through ExaEarn Spot OMS.", "/reference/spot-create-order"], ["Futures", "Controlled access to positions and risk-checked execution.", "/reference/futures-create-order"], ["Realtime", "Sequenced streams, replay, and documented resynchronization.", "/reference/realtime-session"]].map(([title, detail, to]) => <Link key={title} to={to} className="product-card"><h3>{title}</h3><p>{detail}</p><span>Read documentation <ChevronRight size={15} /></span></Link>)}</div></section><section className="cta-strip"><div><h2>Make your first request in under five minutes.</h2><p>Start with public market data, then create an isolated sandbox project.</p></div><Link to="/docs/quickstart" className="primary">Open quickstart <ArrowRight size={17} /></Link></section></main>;
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+function Sidebar({ path, open, close }: { path: string; open: boolean; close: () => void }) { const closeButton = useRef<HTMLButtonElement>(null); useEffect(() => { if (!open) return; const previousOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; closeButton.current?.focus(); const escape = (event: KeyboardEvent) => { if (event.key === "Escape") close(); }; window.addEventListener("keydown", escape); return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", escape); document.querySelector<HTMLButtonElement>(".menu-button")?.focus(); }; }, [open, close]); return <><button className={`drawer-backdrop ${open ? "show" : ""}`} onClick={close} aria-label="Close navigation" /><aside className={`sidebar ${open ? "open" : ""}`} aria-label="Documentation navigation" aria-modal={open || undefined} role={open ? "dialog" : undefined}><div className="sidebar-mobile-title"><strong>Documentation</strong><button ref={closeButton} className="icon-button" onClick={close} aria-label="Close documentation navigation"><X size={18} /></button></div>{navigation.map(([group, links]) => <section key={group}><h2>{group}</h2>{links.map(([label, to]) => <Link key={to} to={to} onClick={close} className={path === to ? "active" : ""}>{label}</Link>)}</section>)}</aside></>; }
+
+function RouteContent({ path }: { path: string }) {
+  if (path.startsWith("/reference/")) { const endpoint = endpoints.find((item) => item.id === path.split("/").pop()); return endpoint ? <EndpointPage endpoint={endpoint} /> : <NotFound />; }
+  const routes: Record<string, ReactNode> = { "/docs/quickstart": <Quickstart />, "/docs/environments": <Environments />, "/docs/authentication": <Authentication />, "/docs/scopes": <Scopes />, "/docs/rate-limits": <RateLimits />, "/docs/errors": <Errors />, "/docs/precision": <Precision />, "/docs/orderbook-recovery": <OrderBookRecovery />, "/docs/webhooks": <Webhooks />, "/docs/sdks": <Sdks />, "/docs/sandbox": <Sandbox />, "/docs/changelog": <Changelog />, "/docs/status": <Status /> };
+  return routes[path] || <Overview />;
+}
+function DocHead({ eyebrow, title, children }: { eyebrow: string; title: string; children: ReactNode }) { return <header className="doc-head"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{children}</p></header>; }
+
+function Overview() { return <><DocHead eyebrow="Getting started" title="ExaEarn API documentation">Integrate public market data, signed account APIs, controlled trading products, durable realtime streams, and signed webhooks.</DocHead><Callout>Public documentation and market data do not require KYC. Production private APIs require an approved account, appropriate verification, and explicitly scoped production credentials.</Callout><h2 id="architecture">One financial authority</h2><p>Developer requests enter the same controllers and canonical services used by ExaEarn applications. The API does not maintain a separate ledger, matching engine, risk system, or wallet.</p><Flow items={["Developer request", "Authentication + scope", "Validation + risk", "Canonical product service", "Ledger / OMS authority", "REST + realtime result"]} /><h2 id="next">Choose a starting point</h2><div className="link-list"><Link to="/docs/quickstart">5-minute sandbox quickstart <ArrowRight size={15} /></Link><Link to="/docs/authentication">Implement HMAC signing <ArrowRight size={15} /></Link><Link to="/reference/spot-create-order">Create a Spot order <ArrowRight size={15} /></Link></div></>; }
+function Quickstart() { return <><DocHead eyebrow="Getting started" title="5-minute quickstart">Prove connectivity, synchronize time, create a sandbox project and submit your first isolated Spot order.</DocHead><Steps items={["Sign in and create a Developer project.", "Select Sandbox. New developers should start here.", "Generate an `exa_test_` key with market, account, Spot read, and Spot trade scopes.", "Store the secret once in a server-side environment variable.", "Query server time and correct local clock drift.", "Fund isolated test balances using the project faucet.", "Submit a sandbox Spot order with a unique client_order_id.", "Create a realtime session for order, trade, and account.balance."]} /><CodeTabs samples={{ cURL: `curl ${apiBaseUrl}/api/developer/v1/time`, TypeScript: `import { createExaEarnClient } from "@exaearn/sdk";\n\nconst client = createExaEarnClient({ baseUrl: "${apiBaseUrl}" });\nconst time = await client.getServerTime();`, Python: `import requests\n\ntime = requests.get("${apiBaseUrl}/api/developer/v1/time").json()` }} /><Callout tone="warning">Never place an API secret in browser or mobile application code. Signed private requests belong on your trusted server.</Callout></>; }
+function Environments() { return <><DocHead eyebrow="Getting started" title="Environments">Sandbox and production are isolated at the project, credential, balance, and event level.</DocHead><table><thead><tr><th>Environment</th><th>Key prefix</th><th>Financial state</th><th>Access</th></tr></thead><tbody><tr><td>Sandbox</td><td><code>exa_test_</code></td><td>Isolated test balances</td><td>Default</td></tr><tr><td>Production</td><td><code>exa_live_</code></td><td>Canonical ExaEarn accounts</td><td>Verification and approval</td></tr></tbody></table><h2 id="urls">Base URLs</h2><CodeSample title="REST" code={`${apiBaseUrl}/api/developer/v1`} /><p>Realtime connection URLs are returned by the environment-aware session flow. Sandbox credentials cannot authenticate production projects.</p></>; }
+function Authentication() { const canonical = `METHOD.toUpperCase() + "\\n" +\nPATH + "\\n" +\nRAW_QUERY_STRING + "\\n" +\nUNIX_TIMESTAMP_SECONDS + "\\n" +\nUNIQUE_NONCE + "\\n" +\nSHA256_HEX(RAW_BODY)`; return <><DocHead eyebrow="Security" title="HMAC request authentication">Every private request proves possession of an active project key without sending its secret.</DocHead><h2 id="headers">Required headers</h2><table><thead><tr><th>Header</th><th>Value</th></tr></thead><tbody>{[["EXA-API-KEY", "Environment API key"], ["EXA-API-TIMESTAMP", "Unix seconds; ±300 seconds"], ["EXA-API-NONCE", "Unique per key"], ["EXA-API-SIGNATURE", "Lowercase hex HMAC-SHA256"], ["EXA-API-PASSPHRASE", "Only when configured"]].map(([a,b]) => <tr key={a}><td><code>{a}</code></td><td>{b}</td></tr>)}</tbody></table><h2 id="canonical">Canonical payload</h2><CodeSample title="Signing input" code={canonical} /><CodeTabs samples={{ TypeScript: `const bodyHash = await sha256Hex(rawBody);\nconst canonical = [method.toUpperCase(), path, rawQuery, timestamp, nonce, bodyHash].join("\\n");\nconst signature = await hmacSha256Hex(secret, canonical);`, Python: `body_hash = hashlib.sha256(raw_body.encode()).hexdigest()\ncanonical = "\\n".join([method.upper(), path, raw_query, timestamp, nonce, body_hash])\nsignature = hmac.new(secret.encode(), canonical.encode(), hashlib.sha256).hexdigest()`, PHP: `$bodyHash = hash('sha256', $rawBody);\n$canonical = implode("\\n", [strtoupper($method), $path, $query, $timestamp, $nonce, $bodyHash]);\n$signature = hash_hmac('sha256', $canonical, $secret);` }} /><Callout tone="warning">Sign the raw query string and exact serialized body sent over the wire. Reserializing after signing causes <code>INVALID_SIGNATURE</code>.</Callout></>; }
+function Scopes() { return <><DocHead eyebrow="Security" title="Permissions and scopes">Grant each key only the minimum capabilities its integration needs.</DocHead><table><thead><tr><th>Scope</th><th>Risk</th><th>Capability</th></tr></thead><tbody>{scopes.map(([scope,risk,detail]) => <tr key={scope}><td><code>{scope}</code></td><td><StatusBadge value={risk === "RESTRICTED" ? "RESTRICTED" : risk === "HIGH" ? "BETA" : "STABLE"} label={risk} /></td><td>{detail}</td></tr>)}</tbody></table><Callout tone="warning"><code>wallet.withdraw</code> remains restricted, requires an IP allowlist, and is not general public access.</Callout></>; }
+function RateLimits() { return <><DocHead eyebrow="API behavior" title="Rate limits">Budgets protect the exchange and are evaluated by route group and credential context.</DocHead><table><thead><tr><th>Class</th><th>Budget</th></tr></thead><tbody><tr><td>Public REST</td><td>240/minute</td></tr><tr><td>Private REST</td><td>120/minute</td></tr><tr><td>Trading writes</td><td>60/minute</td></tr><tr><td>Withdrawal</td><td>10/minute</td></tr></tbody></table><p>Honor <code>Retry-After</code>, use jittered backoff, and never retry a financial write without its idempotency identity.</p></>; }
+function Errors() { return <><DocHead eyebrow="API behavior" title="Error code reference">Machine-readable failures include the request ID needed for support correlation.</DocHead><CodeSample title="Error envelope" code={`{\n  "success": false,\n  "error": {\n    "code": "INVALID_SIGNATURE",\n    "message": "API request signature is invalid.",\n    "request_id": "exa_req_...",\n    "details": {}\n  },\n  "timestamp": 1787990400000\n}`} /><table><thead><tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>Retry</th></tr></thead><tbody>{errors.map(([code,status,meaning,retry]) => <tr key={code}><td><code>{code}</code></td><td>{status}</td><td>{meaning}</td><td>{retry}</td></tr>)}</tbody></table></>; }
+function Precision() { return <><DocHead eyebrow="API behavior" title="Decimal and precision rules">Treat all financial decimal fields as strings from input through reconciliation.</DocHead><ul><li>Never calculate price, quantity, fee, volume, collateral, or PnL with binary floating point.</li><li>Read tick size, step size, minimum quantity, and minimum notional from exchange metadata.</li><li>Reject locally invalid input before submission, while treating server validation as authoritative.</li></ul></>; }
+
+function EndpointPage({ endpoint }: { endpoint: Endpoint }) { const curl = `${endpoint.method === "GET" ? "curl" : "curl -X " + endpoint.method} '${apiBaseUrl}${endpoint.path}'${endpoint.auth === "Signed" ? " \\\n  -H 'EXA-API-KEY: exa_test_...' \\\n  -H 'EXA-API-TIMESTAMP: ...' \\\n  -H 'EXA-API-NONCE: ...' \\\n  -H 'EXA-API-SIGNATURE: ...'" : ""}${endpoint.body ? ` \\\n  -H 'Content-Type: application/json' \\\n  --data '${endpoint.body.replace(/\n/g, "")}'` : ""}`; return <><DocHead eyebrow={endpoint.group} title={endpoint.title}>{endpoint.description}</DocHead><div className="endpoint-title"><span className={`method ${endpoint.method.toLowerCase()}`}>{endpoint.method}</span><code>{endpoint.path}</code><StatusBadge value={endpoint.status} /></div><dl className="contract-grid"><Meta label="Environment" value="Sandbox / Production" /><Meta label="Authentication" value={endpoint.auth} /><Meta label="Required scope" value={endpoint.scope || "None"} /><Meta label="Rate limit" value={endpoint.rate} /><Meta label="Idempotency" value={endpoint.idempotency} /><Meta label="Content type" value={endpoint.body ? "application/json" : "Not applicable"} /></dl>{endpoint.parameters && <><h2 id="parameters">Parameters</h2><table><thead><tr><th>Name</th><th>Type</th><th>Requirement</th><th>Description</th></tr></thead><tbody>{endpoint.parameters.map(([name,type,required,detail]) => <tr key={name}><td><code>{name}</code></td><td>{type}</td><td>{required}</td><td>{detail}</td></tr>)}</tbody></table></>}{endpoint.body && <><h2 id="request">Request body</h2><CodeSample title="application/json" code={endpoint.body} /></>}<h2 id="example">Example request</h2><CodeTabs samples={{ cURL: curl, TypeScript: `// Use the matching typed @exaearn/sdk product method.\nconst result = await client.${endpoint.id.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())}();`, Python: `response = requests.${endpoint.method.toLowerCase()}("${apiBaseUrl}${endpoint.path}")` }} /><h2 id="response">Successful response</h2><CodeSample title="application/json" code={endpoint.response} />{endpoint.events && <><h2 id="events">Associated realtime streams</h2><div className="chip-row">{endpoint.events.map((event) => <code key={event}>{event}</code>)}</div></>}<TrySandbox endpoint={endpoint} /></>; }
+function OrderBookRecovery() { return <><DocHead eyebrow="WebSocket" title="Order book snapshot and delta recovery">Maintain a local book only when every sequence after the authoritative snapshot is contiguous.</DocHead><Flow items={["Buffer incoming deltas", "Fetch REST snapshot at N", "Discard deltas ≤ N", "Apply N+1 onward", "On gap: invalidate and resync"]} /><CodeSample title="Gap-safe pseudocode" code={`buffer(delta)\nsnapshot = GET /orderbook/BTC-USDT\nbook.replace(snapshot)\nfor delta in buffered.where(sequence > snapshot.sequence):\n  if delta.sequence !== book.sequence + 1:\n    book.invalidate()\n    return resync()\n  book.apply(delta)`} /><Callout tone="warning">Do not invent missing levels or apply a delta across a sequence gap. Quantity zero removes a price level.</Callout></>; }
+function Webhooks() { return <><DocHead eyebrow="Webhooks" title="Signed event delivery">Receive financial lifecycle events with stable event IDs, retries, dead-letter handling, and replay.</DocHead><CodeSample title="Envelope" code={`{\n  "event_id": "evt_...",\n  "event_type": "order.filled",\n  "created_at": "2026-08-29T00:00:00Z",\n  "data": {}\n}`} /><h2 id="verify">Verify signatures</h2><p>Compute lowercase HMAC-SHA256 over <code>timestamp + "." + rawBody</code> using the separate <code>whsec_</code> secret. Compare in constant time.</p><h2 id="delivery">Delivery lifecycle</h2><Flow items={["PENDING", "DELIVERING", "DELIVERED / RETRYING", "8 attempts", "DEAD_LETTERED", "Replay"]} /><p>Replay keeps the stable event ID so consumers deduplicate without recreating an ExaEarn financial event.</p></>; }
+function Sdks() { return <><DocHead eyebrow="SDKs" title="TypeScript SDK">Typed public requests, private signing, nonce generation, product helpers, and normalized errors.</DocHead><CodeSample title="Install" code="pnpm add @exaearn/sdk" /><CodeTabs samples={{ TypeScript: `import { createExaEarnClient } from "@exaearn/sdk";\nconst client = createExaEarnClient({ baseUrl: process.env.EXAEARN_API_URL! });\nconst time = await client.getServerTime();`, cURL: `curl ${apiBaseUrl}/api/developer/v1/tickers`, Python: `# Python SDK is not published yet. Use the documented REST contract.\nimport requests` }} /><Callout>Python SDK remains unpublished. The portal does not claim a package until its release and contract tests exist.</Callout></>; }
+function Sandbox() { return <><DocHead eyebrow="Sandbox" title="Isolated integration testing">Sandbox projects use separate credentials, balances, events, and faucet limits.</DocHead><p>The project faucet writes only to <code>developer_sandbox_balances</code>. Sandbox cannot mutate production wallets, orders, positions, treasury, or custody.</p><Callout tone="warning">Sandbox behavior is not evidence of production liquidity, provider availability, chain settlement, or fills.</Callout></>; }
+function Changelog() { return <><DocHead eyebrow="Operations" title="API changelog">Compatibility notices for the versioned Developer API.</DocHead><article className="change"><time>2026-08-29</time><StatusBadge value="STABLE" label="Added" /><h2>Server time and documentation architecture</h2><p>Added server time, canonical error timestamps, searchable reference pages, and recovery contracts. Non-breaking.</p></article></>; }
+function Status() { const rows = [["Public market REST", "STABLE", "Authoritative internal and labeled reference sources"], ["Spot private REST", "STABLE", "Canonical OMS and settlement"], ["Futures", "RESTRICTED", "Controlled rollout"], ["Margin", "RESTRICTED", "Controlled rollout"], ["Staking", "STABLE", "Software ready; mainnet provider setup remains external"], ["Copy Trading", "RESTRICTED", "Eligibility and risk controls apply"], ["ExaAI", "RESTRICTED", "Governance and kill switches apply"], ["Webhooks", "STABLE", "Signed retry, DLQ, replay"], ["Live uptime telemetry", "BETA", "Not yet published"]] as const; return <><DocHead eyebrow="Operations" title="API capability status">Product classification without fabricated uptime statistics.</DocHead><table><thead><tr><th>Capability</th><th>Status</th><th>Notes</th></tr></thead><tbody>{rows.map(([name,status,note]) => <tr key={name}><td>{name}</td><td><StatusBadge value={status} /></td><td>{note}</td></tr>)}</tbody></table></>; }
+
+function SearchDialog({ close }: { close: () => void }) { const [query, setQuery] = useState(""); const results = useMemo(() => { const term = query.trim().toLowerCase(); if (!term) return endpoints.slice(0, 8); return endpoints.filter((item) => `${item.title} ${item.path} ${item.scope} ${item.description} ${item.events?.join(" ")}`.toLowerCase().includes(term)).slice(0, 12); }, [query]); useEffect(() => { const onKey = (event: KeyboardEvent) => event.key === "Escape" && close(); window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [close]); return <div className="search-overlay" role="dialog" aria-modal="true"><button className="search-backdrop" onClick={close} aria-label="Close search" /><div className="search-dialog"><label><Search size={19} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search endpoints, scopes, streams..." /><kbd>Esc</kbd></label><div className="search-results">{results.map((item) => <Link key={item.id} to={`/reference/${item.id}`} onClick={close}><span className={`method ${item.method.toLowerCase()}`}>{item.method}</span><span><strong>{item.title}</strong><small>{item.path}</small></span><ChevronRight size={16} /></Link>)}{query && results.length === 0 && <p>No matching documentation found.</p>}</div></div></div>; }
+function OnPageToc({ path }: { path: string }) { const items = path.startsWith("/reference/") ? [["Parameters", "parameters"], ["Request", "request"], ["Example", "example"], ["Response", "response"], ["Events", "events"]] : [["Details", "architecture"], ["Next steps", "next"]]; return <aside className="toc"><strong>On this page</strong>{items.map(([label,id]) => <a key={id} href={`#${id}`}>{label}</a>)}</aside>; }
+function CodeSample({ title, code }: { title: string; code: string }) { const [copied, setCopied] = useState(false); return <figure className="code-sample"><figcaption><span>{title}</span><button onClick={() => { void navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? "Copied" : "Copy"}</button></figcaption><pre><code>{code}</code></pre></figure>; }
+function CodeTabs({ samples }: { samples: Record<string, string> }) { const keys = Object.keys(samples); const [active, setActive] = useState(keys[0]); return <div className="code-tabs"><div role="tablist">{keys.map((key) => <button role="tab" aria-selected={key === active} onClick={() => setActive(key)} key={key}>{key}</button>)}</div><CodeSample title={active} code={samples[active]} /></div>; }
+function StatusBadge({ value, label }: { value: "STABLE" | "BETA" | "RESTRICTED" | "DEPRECATED"; label?: string }) { return <span className={`status ${value.toLowerCase()}`}>{label || value}</span>; }
+function Meta({ label, value }: { label: string; value: string }) { return <div><dt>{label}</dt><dd>{value}</dd></div>; }
+function Callout({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "warning" }) { return <aside className={`callout ${tone}`}><CircleAlert size={18} /><div>{children}</div></aside>; }
+function Flow({ items }: { items: string[] }) { return <div className="flow">{items.map((item, index) => <div key={item}><span>{index + 1}</span><strong>{item}</strong>{index < items.length - 1 && <ChevronRight size={16} />}</div>)}</div>; }
+function Steps({ items }: { items: string[] }) { return <ol className="steps">{items.map((item) => <li key={item}>{item}</li>)}</ol>; }
+function Feature({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) { return <article className="feature">{icon}<h2>{title}</h2><p>{children}</p></article>; }
+function TrySandbox({ endpoint }: { endpoint: Endpoint }) {
+  type Property = { type?: string; enum?: readonly string[]; format?: string; minimum?: number; maximum?: number; minLength?: number; maxLength?: number; description?: string };
+  type Contract = { schema: string; required?: readonly string[]; properties?: Record<string, Property>; example?: Record<string, unknown>; additionalProperties?: boolean };
+  const contract = (requestContracts as unknown as Record<string, Contract>)[`${endpoint.method} ${endpoint.path}`];
+  const [projectId, setProjectId] = useState(""); const [keyId, setKeyId] = useState("");
+  const [body, setBody] = useState(endpoint.body || (contract?.example ? JSON.stringify(contract.example, null, 2) : "{}")); const [result, setResult] = useState<unknown>();
+  const [pathValues, setPathValues] = useState<Record<string, string>>({});
+  const [running, setRunning] = useState(false); const [failure, setFailure] = useState("");
+  useEffect(() => { setBody(endpoint.body || (contract?.example ? JSON.stringify(contract.example, null, 2) : "{}")); setPathValues({}); }, [endpoint.id]);
+  const parsedBody = () => JSON.parse(body) as Record<string, unknown>;
+  const updateField = (name: string, value: unknown) => { const next = parsedBody(); if (value === "") delete next[name]; else next[name] = value; setBody(JSON.stringify(next, null, 2)); };
+  const validateBody = (value: Record<string, unknown>) => {
+    if (!contract) return;
+    for (const name of contract.required || []) if (value[name] === undefined || value[name] === "") throw new Error(`${name} is required by ${contract.schema}.`);
+    if (contract.additionalProperties === false) for (const name of Object.keys(value)) if (!contract.properties?.[name]) throw new Error(`${name} is not accepted by ${contract.schema}.`);
+    for (const [name, property] of Object.entries(contract.properties || {})) { const field = value[name]; if (field === undefined) continue; if (property.enum && !property.enum.includes(String(field))) throw new Error(`${name} must be one of: ${property.enum.join(", ")}.`); if (property.type === "integer" && !Number.isInteger(field)) throw new Error(`${name} must be an integer.`); if (property.type === "boolean" && typeof field !== "boolean") throw new Error(`${name} must be true or false.`); if (property.type === "array" && !Array.isArray(field)) throw new Error(`${name} must be a JSON array.`); if (property.type === "object" && (typeof field !== "object" || field === null || Array.isArray(field))) throw new Error(`${name} must be a JSON object.`); if (property.type === "string" && typeof field !== "string") throw new Error(`${name} must be a string.`); }
+  };
+  const execute = async () => {
+    setRunning(true); setFailure(""); setResult(undefined);
+    try {
+      const path = endpoint.path.replace(/\{([^}]+)\}/g, (_, name: string) => { const value = pathValues[name]; if (!value) throw new Error(`${name} is required.`); return encodeURIComponent(value); });
+      const requestBody = contract ? parsedBody() : undefined; if (requestBody) validateBody(requestBody);
+      const response = endpoint.auth === "Public"
+        ? await fetch(`${apiBaseUrl}${path}`, { headers: { Accept: "application/json" } })
+        : await fetch(`${apiBaseUrl}/api/developer/projects/${encodeURIComponent(projectId)}/sandbox/explorer`, {
+            method: "POST", credentials: "include", headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({ api_key_id: Number(keyId), method: endpoint.method, path, body: requestBody }),
+          });
+      const payload = await response.json(); setResult(payload);
+      if (!response.ok) setFailure(`Request failed with HTTP ${response.status}.`);
+    } catch (error) { setFailure(error instanceof Error ? error.message : "Sandbox request failed."); }
+    finally { setRunning(false); }
+  };
+  const bodyValue = (() => { try { return parsedBody(); } catch { return {}; } })();
+  const pathNames = Array.from(endpoint.path.matchAll(/\{([^}]+)\}/g), (match) => match[1]);
+  return <section className="try-sandbox"><div className="explorer-head"><div><p className="eyebrow">Request console</p><h2>Try in Sandbox</h2><p>Real sandbox request. Private credentials stay encrypted server-side and all returned authentication headers are redacted.</p></div><span className="sandbox-label">SANDBOX · NO REAL FUNDS</span></div>{endpoint.auth === "Signed" && <div className="explorer-fields"><label>Sandbox project ID<input inputMode="numeric" value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="Project ID" /></label><label>Explorer API key ID<input inputMode="numeric" value={keyId} onChange={(event) => setKeyId(event.target.value)} placeholder="Key ID" /></label></div>}{pathNames.length > 0 && <div className="explorer-fields">{pathNames.map((name) => <label key={name}>{name}<input value={pathValues[name] || ""} required onChange={(event) => setPathValues((current) => ({ ...current, [name]: event.target.value }))} /></label>)}</div>}{contract?.properties && <div className="schema-fields">{Object.entries(contract.properties).map(([name, property]) => <label key={name}><span>{name}{contract.required?.includes(name) && <strong> Required</strong>}</span>{property.enum ? <select value={String(bodyValue[name] ?? "")} onChange={(event) => updateField(name, event.target.value)}><option value="">Select</option>{property.enum.map((item) => <option key={item} value={item}>{item}</option>)}</select> : property.type === "boolean" ? <input type="checkbox" checked={Boolean(bodyValue[name])} onChange={(event) => updateField(name, event.target.checked)} /> : <input value={typeof bodyValue[name] === "object" ? JSON.stringify(bodyValue[name]) : String(bodyValue[name] ?? "")} inputMode={property.type === "integer" ? "numeric" : undefined} onChange={(event) => { let value: unknown = event.target.value; if (property.type === "integer" && event.target.value) value = Number(event.target.value); if ((property.type === "array" || property.type === "object") && event.target.value) { try { value = JSON.parse(event.target.value); } catch { value = event.target.value; } } updateField(name, value); }} />}</label>)}</div>}{contract && <details className="raw-json"><summary>Advanced JSON editor</summary><label className="explorer-body">Request body<textarea spellCheck={false} value={body} onChange={(event) => setBody(event.target.value)} /></label></details>}<div className="explorer-actions"><button onClick={execute} disabled={running || (endpoint.auth === "Signed" && (!projectId || !keyId))}>{running ? "Sending..." : `Send ${endpoint.method} request`}</button><small>{endpoint.auth === "Signed" ? "Requires an authenticated Developer Console session and a newly generated sandbox key." : "No credentials required."}</small></div>{failure && <p className="explorer-error">{failure}</p>}{result !== undefined && <CodeSample title="Sandbox response" code={JSON.stringify(result, null, 2)} />}</section>;
+}
+function NotFound() { return <><DocHead eyebrow="404" title="Documentation not found">The requested reference page does not exist in the current API contract.</DocHead><Link to="/docs" className="primary">Back to documentation</Link></>; }
+
+createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);

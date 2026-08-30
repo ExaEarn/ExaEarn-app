@@ -13,11 +13,13 @@ class DeveloperWebhookDelivery extends Model
         'delivery_uuid',
         'event_id',
         'endpoint_id',
+        'project_id','environment',
         'event_type',
         'payload',
         'attempts',
         'last_status_code',
         'status',
+        'claim_token','claimed_at','claim_expires_at',
         'last_error',
         'next_attempt_at',
         'delivered_at',
@@ -29,6 +31,7 @@ class DeveloperWebhookDelivery extends Model
         'next_attempt_at' => 'datetime',
         'delivered_at' => 'datetime',
         'dead_lettered_at' => 'datetime',
+        'claimed_at'=>'datetime','claim_expires_at'=>'datetime',
     ];
 
     public function endpoint(): BelongsTo

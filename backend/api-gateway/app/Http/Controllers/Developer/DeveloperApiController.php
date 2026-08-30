@@ -18,6 +18,7 @@ use App\Models\Order;
 use App\Models\Swap;
 use App\Services\MarketDataService;
 use App\Services\DeveloperRealtimeService;
+use App\Services\DeveloperOperationalStatusService;
 use App\Services\TradeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,12 +30,25 @@ class DeveloperApiController extends Controller
         private readonly MarketDataService $marketData,
         private readonly TradeService $tradeService,
         private readonly DeveloperRealtimeService $realtime,
+        private readonly DeveloperOperationalStatusService $operationalStatus,
     ) {
     }
 
     public function exchangeInfo(): JsonResponse
     {
         return $this->ok(['symbols' => $this->marketData->symbols(), 'timezone' => 'UTC', 'server_time' => now()->toISOString()]);
+    }
+
+    public function serverTime(): JsonResponse
+    {
+        $now = now();
+
+        return $this->ok([
+            'unix_seconds' => $now->timestamp,
+            'unix_milliseconds' => $now->getTimestampMs(),
+            'iso_8601' => $now->toISOString(),
+            'timezone' => 'UTC',
+        ]);
     }
 
     public function markets(): JsonResponse
@@ -50,6 +64,11 @@ class DeveloperApiController extends Controller
             'websocket_topics' => config('developer_api.websocket.allowed_topics', []),
             'webhook_events' => config('developer_api.webhooks.events', []),
         ]);
+    }
+
+    public function operationalStatus(): JsonResponse
+    {
+        return $this->ok($this->operationalStatus->publicStatus());
     }
 
     public function tickers(): JsonResponse
@@ -113,7 +132,7 @@ class DeveloperApiController extends Controller
         ]);
 
         try {
-            return $this->ok($this->realtime->createSession($project, $payload['topics']));
+            return $this->ok($this->realtime->createSession($project, $request->attributes->get('developer_api_key'), $payload['topics']));
         } catch (RuntimeException $exception) {
             return $this->error('WEBSOCKET_TOPIC_REJECTED', $exception->getMessage(), 422);
         }
@@ -128,7 +147,7 @@ class DeveloperApiController extends Controller
             'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
         ]);
 
-        return $this->ok($this->realtime->replay($project, (string) $payload['stream'], (int) $payload['after_sequence'], (int) ($payload['limit'] ?? 500)));
+        return $this->ok($this->realtime->replay($project, (string) $payload['stream'], (int) $payload['after_sequence'], (int) ($payload['limit'] ?? 500),(string)$request->attributes->get('developer_api_key')->environment));
     }
 
     public function futuresMarkets(): JsonResponse
@@ -264,7 +283,9 @@ class DeveloperApiController extends Controller
                 'code' => $code,
                 'message' => $message,
                 'request_id' => request()->attributes->get('request_id'),
+                'details' => (object) [],
             ],
+            'timestamp' => now()->getTimestampMs(),
         ], $status);
     }
 }

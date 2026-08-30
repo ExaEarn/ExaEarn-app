@@ -16,6 +16,7 @@ class Admin extends Authenticatable
 
     protected $fillable = [
         'name',
+        'canonical_user_id',
         'email',
         'password',
         'role_id',
@@ -42,6 +43,8 @@ class Admin extends Authenticatable
     {
         return $this->belongsTo(Role::class);
     }
+
+    public function canonicalUser(): BelongsTo { return $this->belongsTo(User::class,'canonical_user_id'); }
 
     public function sessions(): HasMany
     {

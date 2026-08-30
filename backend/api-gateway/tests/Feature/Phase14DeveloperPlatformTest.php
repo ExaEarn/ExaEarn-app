@@ -9,22 +9,266 @@ use App\Models\DeveloperApiNonce;
 use App\Models\DeveloperApiRequestLog;
 use App\Models\DeveloperAuditLog;
 use App\Models\DeveloperProject;
+use App\Models\DeveloperProfile;
+use App\Models\DeveloperOrganization;
+use App\Models\DeveloperOrganizationMembership;
 use App\Models\DeveloperRealtimeEvent;
 use App\Models\DeveloperSandboxBalance;
 use App\Models\DeveloperWebhookDelivery;
 use App\Models\DeveloperWebhookEndpoint;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\SreHealthSnapshot;
+use App\Models\SreService;
 use App\Services\DeveloperApiKeyService;
 use App\Services\DeveloperRealtimeService;
 use App\Services\DeveloperWebhookService;
+use App\Services\Security\DnsResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Tests\TestCase;
 
 class Phase14DeveloperPlatformTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->app->instance(DnsResolver::class, new class extends DnsResolver {
+            public function resolve(string $host): array { return ['93.184.216.34']; }
+        });
+    }
+
+    public function test_canonical_user_resolves_one_developer_profile_without_kyc(): void
+    {
+        $user = User::factory()->create([
+            'kyc_level' => 0,
+            'kyc_verified_at' => null,
+        ]);
+
+        $this->actingAs($user)->postJson('/api/developer/session')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.id', $user->id)
+            ->assertJsonPath('data.developer_profile.onboarding_status', 'not_started');
+
+        $this->actingAs($user)->postJson('/api/developer/session')->assertOk();
+
+        $this->assertSame(1, DeveloperProfile::query()->where('user_id', $user->id)->count());
+        $this->assertDatabaseHas('developer_audit_logs', [
+            'user_id' => $user->id,
+            'event_type' => 'developer_profile.created',
+        ]);
+    }
+
+    public function test_developer_session_requires_canonical_authentication(): void
+    {
+        $this->postJson('/api/developer/session')->assertUnauthorized();
+    }
+
+    public function test_developer_signup_uses_canonical_registration_and_sends_verification(): void
+    {
+        Notification::fake();
+
+        $response = $this->postJson('/api/register', [
+            'name' => 'Developer One',
+            'email' => 'developer-one@exaearn.io',
+            'password' => 'StrongPass1!',
+            'password_confirmation' => 'StrongPass1!',
+            'registration_context' => 'developers',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('next', 'developer_email_verification')
+            ->assertJsonPath('user.email', 'developer-one@exaearn.io');
+        $user = User::query()->where('email', 'developer-one@exaearn.io')->firstOrFail();
+        $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, VerifyEmail::class);
+        $this->assertSame(1, User::query()->where('email', $user->email)->count());
+    }
+
+    public function test_email_verification_preserves_developer_intent(): void
+    {
+        $user = User::factory()->unverified()->create();
+        $url = URL::temporarySignedRoute('verification.verify', now()->addMinutes(30), [
+            'id' => $user->id,
+            'hash' => sha1($user->getEmailForVerification()),
+        ]);
+
+        $this->actingAs($user)->get($url)
+            ->assertRedirect(config('app.developer_portal_url').'/developers/onboarding?verified=1');
+        $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_verified_developer_onboarding_creates_one_sandbox_project_idempotently(): void
+    {
+        $user = User::factory()->create(['email_verified_at' => now(), 'kyc_level' => 0, 'kyc_verified_at' => null]);
+        $this->actingAs($user)->postJson('/api/developer/session')->assertOk();
+        $payload = [
+            'developer_type' => 'individual',
+            'use_case' => 'trading_bot',
+            'project_name' => 'Market Maker Sandbox',
+            'terms_accepted' => true,
+        ];
+
+        $this->actingAs($user)->postJson('/api/developer/onboarding', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.project.environment', 'sandbox')
+            ->assertJsonPath('data.profile.onboarding_status', 'completed');
+        $this->actingAs($user)->postJson('/api/developer/onboarding', $payload)->assertCreated();
+
+        $this->assertSame(1, DeveloperProject::query()->where('user_id', $user->id)->count());
+        $this->assertSame(0, DeveloperProject::query()->where('user_id', $user->id)->where('environment', 'production')->count());
+    }
+
+    public function test_unverified_developer_is_blocked_and_company_onboarding_creates_owner_membership(): void
+    {
+        $unverified = User::factory()->unverified()->create();
+        $this->actingAs($unverified)->postJson('/api/developer/session')->assertOk();
+        $this->actingAs($unverified)->postJson('/api/developer/onboarding', [
+            'developer_type' => 'individual', 'project_name' => 'Blocked', 'terms_accepted' => true,
+        ])->assertForbidden()->assertJsonPath('error.code', 'EMAIL_UNVERIFIED');
+
+        $owner = User::factory()->create(['email_verified_at' => now()]);
+        $this->actingAs($owner)->postJson('/api/developer/session')->assertOk();
+        $this->actingAs($owner)->postJson('/api/developer/onboarding', [
+            'developer_type' => 'organization', 'use_case' => 'institutional',
+            'organization_name' => 'Atlas Labs', 'project_name' => 'Atlas Sandbox', 'terms_accepted' => true,
+        ])->assertCreated()->assertJsonPath('data.organization.production_access_status', 'not_activated');
+
+        $organization = DeveloperOrganization::query()->firstOrFail();
+        $this->assertDatabaseHas('developer_organization_memberships', [
+            'organization_id' => $organization->id, 'user_id' => $owner->id, 'role' => 'owner',
+        ]);
+        $this->assertSame(1, DeveloperOrganizationMembership::query()->count());
+    }
+
+    public function test_public_server_time_contract_is_available_for_signature_clock_sync(): void
+    {
+        $response = $this->getJson('/api/developer/v1/time');
+
+        $response->assertOk()
+            ->assertHeader('X-Exa-Request-Id')
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.timezone', 'UTC')
+            ->assertJsonStructure(['data' => ['unix_seconds', 'unix_milliseconds', 'iso_8601', 'timezone']]);
+
+        $this->assertLessThanOrEqual(1000, abs((now()->timestamp * 1000) - (int) $response->json('data.unix_milliseconds')));
+    }
+
+    public function test_developer_documentation_catalog_uses_real_routes_and_scopes(): void
+    {
+        $catalog = file_get_contents(base_path('../../apps/developers/src/docsCatalog.ts'));
+        $openApi = file_get_contents(base_path('../../openapi/exaearn-developer-v1.yaml'));
+        $routes = file_get_contents(base_path('routes/api.php'));
+
+        $this->assertIsString($catalog);
+        $this->assertIsString($openApi);
+        $this->assertIsString($routes);
+        $this->assertStringContainsString('/api/developer/v1/time', $catalog);
+        $spec = json_decode($openApi, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertArrayHasKey('/api/developer/v1/time', $spec['paths']);
+        $this->assertSame('3.1.0', $spec['openapi']);
+        $operationIds = [];
+        foreach ($spec['paths'] as $path => $operations) {
+            foreach ($operations as $method => $operation) {
+                $this->assertContains(strtoupper((string) $operation['x-exaearn-status']), ['STABLE', 'BETA', 'RESTRICTED', 'DEPRECATED']);
+                $this->assertNotContains($operation['operationId'], $operationIds, "Duplicate operationId at {$method} {$path}");
+                $operationIds[] = $operation['operationId'];
+            }
+        }
+        $this->assertStringContainsString("Route::get('time'", $routes);
+
+        preg_match_all('/scope:\s*"([a-z.]+)"/', $catalog, $scopeMatches);
+        foreach (array_unique($scopeMatches[1] ?? []) as $scope) {
+            $this->assertContains($scope, (array) config('developer_api.permissions'), "Documented scope {$scope} is not configured.");
+        }
+
+        foreach (['AVAILABLE', 'PRIVATE_BETA', 'COMING_SOON'] as $legacyStatus) {
+            $this->assertStringNotContainsString('status: "' . $legacyStatus . '"', $catalog);
+        }
+    }
+
+    public function test_every_developer_write_has_an_explicit_valid_request_contract_or_is_bodyless(): void
+    {
+        $spec = json_decode(
+            file_get_contents(base_path('../../openapi/exaearn-developer-v1.yaml')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        $schemas = $spec['components']['schemas'];
+        $operationIds = [];
+
+        foreach ($spec['paths'] as $path => $operations) {
+            foreach ($operations as $method => $operation) {
+                $this->assertArrayNotHasKey($operation['operationId'], $operationIds, "Duplicate operationId {$operation['operationId']}");
+                $operationIds[$operation['operationId']] = true;
+                if (! in_array(strtoupper($method), ['POST', 'PATCH', 'PUT', 'DELETE'], true)) {
+                    continue;
+                }
+
+                $reference = $operation['requestBody']['content']['application/json']['schema']['$ref'] ?? null;
+                if ($reference === null) {
+                    $this->assertSame('NONE', $operation['x-exaearn-request-body'] ?? null, "Undocumented bodyless write {$method} {$path}");
+                    $this->assertNotEmpty($operation['x-exaearn-request-body-reason'] ?? null);
+                    continue;
+                }
+
+                $schemaName = basename($reference);
+                $this->assertNotSame('GenericRequest', $schemaName, "Accidental GenericRequest at {$method} {$path}");
+                $this->assertArrayHasKey($schemaName, $schemas, "Broken schema reference {$reference}");
+                $schema = $schemas[$schemaName];
+                $this->assertArrayHasKey('example', $schema, "Missing sandbox-safe example for {$schemaName}");
+                foreach ($schema['required'] ?? [] as $required) {
+                    $this->assertArrayHasKey($required, $schema['properties'] ?? [], "Required field {$required} is orphaned in {$schemaName}");
+                    $this->assertArrayHasKey($required, $schema['example'], "Example misses required field {$required} in {$schemaName}");
+                }
+                if (($schema['additionalProperties'] ?? true) === false) {
+                    foreach (array_keys($schema['example']) as $field) {
+                        $this->assertArrayHasKey($field, $schema['properties'] ?? [], "Example field {$field} is not accepted by {$schemaName}");
+                    }
+                }
+            }
+        }
+
+        $generatedExplorerContracts = file_get_contents(base_path('../../apps/developers/src/openapiRequestSchemas.generated.ts'));
+        $this->assertIsString($generatedExplorerContracts);
+        $this->assertStringNotContainsString('GenericRequest', $generatedExplorerContracts);
+        $this->assertStringContainsString('ConvertQuoteRequest', $generatedExplorerContracts);
+        $this->assertStringContainsString('ExaAiSessionRequest', $generatedExplorerContracts);
+    }
+
+    public function test_public_operational_status_uses_sanitized_phase19_telemetry(): void
+    {
+        $registry = app(\App\Services\SreServiceRegistry::class);
+        $registry->register(['service_id' => 'spot-engine', 'service_name' => 'Spot', 'service_type' => 'TRADING', 'status' => 'HEALTHY']);
+        $registry->register(['service_id' => 'market-data', 'service_name' => 'Market Data', 'service_type' => 'MARKET_DATA', 'status' => 'DEGRADED']);
+        SreHealthSnapshot::query()->create([
+            'snapshot_uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'scope' => 'GLOBAL',
+            'overall_status' => 'DEGRADED',
+            'liveness' => ['api' => 'PASS'],
+            'readiness' => ['database' => 'PASS'],
+            'dependency_health' => [],
+            'business_readiness' => [],
+            'reason_codes' => [],
+            'captured_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/developer/v1/operational-status');
+        $response->assertOk()
+            ->assertJsonPath('data.overall_status', 'DEGRADED')
+            ->assertJsonPath('data.components.SPOT', 'OPERATIONAL')
+            ->assertJsonPath('data.components.MARKET_DATA', 'DEGRADED');
+
+        $this->assertArrayNotHasKey('dependency_health', $response->json('data'));
+        $this->assertArrayNotHasKey('reason_codes', $response->json('data'));
+    }
 
     public function test_developer_can_create_project_and_api_key_with_secret_shown_once(): void
     {
@@ -38,7 +282,7 @@ class Phase14DeveloperPlatformTest extends TestCase
         $projectResponse->assertCreated()->assertJsonPath('success', true);
         $project = DeveloperProject::query()->firstOrFail();
 
-        $keyResponse = $this->actingAs($user)->postJson("/api/developer/projects/{$project->id}/keys", [
+        $keyResponse = $this->actingAs($user)->withSession(['auth_recent_at' => time()])->postJson("/api/developer/projects/{$project->id}/keys", [
             'name' => 'Readonly key',
             'permissions' => ['account.read', 'market.read'],
             'passphrase' => 'desk-passphrase',
@@ -61,7 +305,7 @@ class Phase14DeveloperPlatformTest extends TestCase
             'environment' => 'production',
         ]);
 
-        $response = $this->actingAs($user)->postJson("/api/developer/projects/{$project->id}/keys", [
+        $response = $this->actingAs($user)->withSession(['auth_recent_at' => time()])->postJson("/api/developer/projects/{$project->id}/keys", [
             'name' => 'Withdrawal key',
             'permissions' => ['wallet.withdraw'],
         ]);
@@ -96,6 +340,57 @@ class Phase14DeveloperPlatformTest extends TestCase
             'available' => '50',
         ]);
         $this->assertSame('12.00000000', (string) Wallet::query()->where('user_id', $user->id)->where('currency', 'USDT')->firstOrFail()->available_balance);
+    }
+
+    public function test_documentation_explorer_executes_real_signed_sandbox_request_without_exposing_secrets(): void
+    {
+        $user = User::factory()->create();
+        $credentials = $this->createSandboxKey($user, ['account.read']);
+        $project = $credentials['project'];
+        $key = $credentials['key'];
+        app(\App\Services\DeveloperSandboxService::class)->faucet($project, 'USDT', '25');
+
+        $response = $this->actingAs($user)->postJson("/api/developer/projects/{$project->id}/sandbox/explorer", [
+            'api_key_id' => $key->id,
+            'method' => 'GET',
+            'path' => '/api/developer/v1/wallet/balances',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.environment', 'sandbox')
+            ->assertJsonPath('data.status', 200)
+            ->assertJsonPath('data.request_headers.exa-api-key', '[REDACTED]')
+            ->assertJsonPath('data.request_headers.exa-api-signature', '[REDACTED]')
+            ->assertJsonPath('data.body.data.0.asset', 'USDT');
+
+        $serialized = json_encode($response->json(), JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString($credentials['api_key'], $serialized);
+        $this->assertStringNotContainsString($credentials['api_secret'], $serialized);
+    }
+
+    public function test_documentation_explorer_rejects_production_project_server_side(): void
+    {
+        $user = User::factory()->create();
+        $project = app(DeveloperApiKeyService::class)->createProject($user->id, ['name' => 'Production', 'environment' => 'production']);
+        $this->assertDatabaseHas('developer_project_environments', [
+            'project_id' => $project->id,
+            'type' => 'production',
+            'status' => 'not_activated',
+        ]);
+        $credentials = app(DeveloperApiKeyService::class)->createKey($user->id, $project, [
+            'name' => 'Sandbox read',
+            'environment' => 'sandbox',
+            'permissions' => ['account.read'],
+        ]);
+
+        $credentials['key']->update(['environment' => 'production']);
+
+        $this->actingAs($user)->postJson("/api/developer/projects/{$project->id}/sandbox/explorer", [
+            'api_key_id' => $credentials['key']->id,
+            'method' => 'GET',
+            'path' => '/api/developer/v1/wallet/balances',
+        ])->assertStatus(422)->assertJsonPath('error.code', 'SANDBOX_EXPLORER_REJECTED');
     }
 
     public function test_signed_private_api_request_reads_sandbox_balances_and_logs_request(): void
@@ -228,12 +523,12 @@ class Phase14DeveloperPlatformTest extends TestCase
         $user = User::factory()->create();
         $project = app(DeveloperApiKeyService::class)->createProject($user->id, ['name' => 'Hooks', 'environment' => 'sandbox']);
 
-        $ok = $this->actingAs($user)->postJson("/api/developer/projects/{$project->id}/webhooks", [
+        $ok = $this->actingAs($user)->withSession(['auth_recent_at' => time()])->postJson("/api/developer/projects/{$project->id}/webhooks", [
             'url' => 'https://hooks.example.test/ok',
             'events' => ['order.filled'],
         ])->assertCreated()->json('data');
 
-        $down = $this->actingAs($user)->postJson("/api/developer/projects/{$project->id}/webhooks", [
+        $down = $this->actingAs($user)->withSession(['auth_recent_at' => time()])->postJson("/api/developer/projects/{$project->id}/webhooks", [
             'url' => 'https://hooks.example.test/down',
             'events' => ['order.filled'],
         ])->assertCreated()->json('data');
@@ -254,7 +549,7 @@ class Phase14DeveloperPlatformTest extends TestCase
         $replay->assertCreated();
         $this->assertSame((string) $delivery->event_id, (string) DeveloperWebhookDelivery::query()->latest('id')->firstOrFail()->event_id);
 
-        $this->actingAs($user)->postJson('/api/developer/webhooks/' . DeveloperWebhookEndpoint::query()->firstOrFail()->id . '/rotate-secret')
+        $this->actingAs($user)->withSession(['auth_recent_at' => time()])->postJson('/api/developer/webhooks/' . DeveloperWebhookEndpoint::query()->firstOrFail()->id . '/rotate-secret')
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -407,7 +702,7 @@ class Phase14DeveloperPlatformTest extends TestCase
             $this->assertSame($i, $event->sequence);
         }
 
-        $session = $service->createSession($project, ['account.balance', 'market.BTCUSDT.ticker']);
+        $session = $service->createSession($project, $credentials['key'], ['account.balance', 'market.BTCUSDT.ticker']);
         $tail = $service->replay($project, 'account.balance', 995, 10);
 
         $this->assertSame(1000, DeveloperRealtimeEvent::query()->where('project_id', $project->id)->count());

@@ -10,6 +10,7 @@
     "build:giftcard": "tsc -p tsconfig.json",
     "lint": "eslint src/",
     "test": "jest --runInBand",
+    "test:developer-ws-load": "node scripts/developer-ws-load.js",
     "contracts:compile": "hardhat compile",
     "contracts:test": "hardhat test",
     "contracts:deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
