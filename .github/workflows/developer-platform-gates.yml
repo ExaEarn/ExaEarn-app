@@ -62,6 +62,8 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.3', extensions: 'mbstring,pgsql,pdo_pgsql,sqlite3,pdo_sqlite,bcmath,gd', coverage: none }
       - run: composer validate --strict
+      - name: Prepare Laravel bootstrap cache
+        run: mkdir -p bootstrap/cache && chmod u+rwx bootstrap/cache
       - run: composer install --no-interaction --no-progress --prefer-dist
       - run: find app config database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: php ../../scripts/validate-production-config.php --ci
@@ -94,6 +96,8 @@ jobs:
         working-directory: backend/services/blockchain-service
         env: { DATABASE_URL: 'postgresql://exaearn_ci:ci-only-password@127.0.0.1:5432/exaearn_ci' }
         run: pnpm exec prisma validate --schema prisma/schema.prisma && pnpm exec prisma generate --schema prisma/schema.prisma
+      - name: Prepare Laravel bootstrap cache
+        run: mkdir -p backend/api-gateway/bootstrap/cache && chmod u+rwx backend/api-gateway/bootstrap/cache
       - run: composer install --working-dir=backend/api-gateway --no-interaction --no-progress --prefer-dist
       - run: php scripts/generate-developer-openapi.php
       - run: git diff --exit-code -- openapi/exaearn-developer-v1.yaml apps/developers/src/openapiRequestSchemas.generated.ts
@@ -113,8 +117,8 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter exaearn-blockchain-service lint
-      - run: pnpm --filter exaearn-blockchain-service test
       - run: pnpm --filter exaearn-blockchain-service contracts:compile
+      - run: pnpm --filter exaearn-blockchain-service test
       - run: pnpm --filter exaearn-blockchain-service contracts:test
       - run: pnpm --filter exaearn-blockchain-service test:developer-ws-load
       - name: Validate Metro configuration
@@ -126,8 +130,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
-        env: { GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Scan repository history with Gitleaks OSS
+        uses: docker://ghcr.io/gitleaks/gitleaks:v8.30.1
+        with:
+          args: git --redact --verbose /github/workspace
       - uses: pnpm/action-setup@v4
         with: { version: 10.0.0 }
       - uses: actions/setup-node@v4
@@ -202,7 +208,7 @@ jobs:
           context: backend/api-gateway
           load: true
           tags: exaearn/api-gateway:${{ github.sha }}
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with: { image-ref: 'exaearn/api-gateway:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: false }
       - uses: docker/build-push-action@v6
         with:
@@ -210,5 +216,5 @@ jobs:
           file: backend/services/blockchain-service/Dockerfile
           load: true
           tags: exaearn/realtime:${{ github.sha }}
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with: { image-ref: 'exaearn/realtime:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: false }
