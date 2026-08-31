@@ -65,7 +65,7 @@ jobs:
       - name: Prepare Laravel bootstrap cache
         run: mkdir -p bootstrap/cache && chmod u+rwx bootstrap/cache
       - run: composer install --no-interaction --no-progress --prefer-dist
-      - run: find app config database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php ../../scripts/lint-php.php app config database routes tests
       - run: php ../../scripts/validate-production-config.php --ci
       - run: php ../../scripts/tests/production-config-validator-fixtures.php
       - run: php ../../scripts/classify-migrations.php --fail-on-unclassified --json=../../artifacts/migration-safety.json
@@ -101,7 +101,7 @@ jobs:
       - run: composer install --working-dir=backend/api-gateway --no-interaction --no-progress --prefer-dist
       - run: php scripts/generate-developer-openapi.php
       - run: git diff --exit-code -- openapi/exaearn-developer-v1.yaml apps/developers/src/openapiRequestSchemas.generated.ts
-      - run: pnpm dlx @redocly/cli@1.34.0 lint openapi/exaearn-developer-v1.yaml
+      - run: pnpm --package=@redocly/cli@1.34.0 dlx redocly lint openapi/exaearn-developer-v1.yaml --format=stylish
       - run: pnpm --filter @exaearn/sdk typecheck
       - run: python -m unittest discover packages/python-sdk/tests
       - run: pnpm --filter @exaearn/developers typecheck && pnpm --filter @exaearn/developers build
@@ -156,19 +156,19 @@ jobs:
           upload-artifact: false
       - uses: anchore/sbom-action@v0
         with:
-          path: backend/services/blockchain-service
+          path: .
           format: cyclonedx-json
           output-file: realtime-sbom.cdx.json
           upload-artifact: false
       - uses: anchore/sbom-action@v0
         with:
-          path: apps/developers
+          path: .
           format: cyclonedx-json
           output-file: developer-portal-sbom.cdx.json
           upload-artifact: false
       - uses: anchore/sbom-action@v0
         with:
-          path: apps/admin
+          path: .
           format: cyclonedx-json
           output-file: admin-sbom.cdx.json
           upload-artifact: false

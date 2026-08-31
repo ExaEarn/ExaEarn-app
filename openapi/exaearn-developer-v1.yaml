@@ -3,7 +3,10 @@
     "info": {
         "title": "ExaEarn Developer API",
         "version": "1.0.0",
-        "description": "Generated from registered ExaEarn developer routes. Restricted product status remains independent from documentation completeness."
+        "description": "Generated from registered ExaEarn developer routes. Restricted product status remains independent from documentation completeness.",
+        "license": {
+            "name": "Proprietary"
+        }
     },
     "servers": [
         {
@@ -7092,11 +7095,6 @@
                     "idempotency_key": "prod-access-demo-001"
                 }
             },
-            "DecimalString": {
-                "type": "string",
-                "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$",
-                "example": "100.00000000"
-            },
             "SuccessResponse": {
                 "type": "object",
                 "required": [
@@ -7107,7 +7105,9 @@
                     "success": {
                         "type": "boolean"
                     },
-                    "data": [],
+                    "data": {
+                        "description": "Endpoint-specific response payload."
+                    },
                     "timestamp": {
                         "type": "integer"
                     }

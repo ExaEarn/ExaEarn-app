@@ -10,9 +10,11 @@ RUN apk add --no-cache icu-libs libpq libzip && apk add --no-cache --virtual .bu
 WORKDIR /app
 COPY --from=vendor /app/vendor vendor
 COPY . .
-RUN php artisan package:discover --ansi && chown -R www-data:www-data storage bootstrap/cache
+ENV LOG_CHANNEL=stderr
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
+    && php artisan package:discover --ansi \
+    && chown -R www-data:www-data storage bootstrap/cache
 USER www-data
 EXPOSE 8080
 STOPSIGNAL SIGTERM
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
-

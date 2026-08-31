@@ -70,7 +70,7 @@ class PaymentRouterService
     {
         $dbProviders = PaymentProvider::query()->where('status', 'active')->get();
         if ($dbProviders->isNotEmpty()) {
-            return $dbProviders->mapWithKeys(fn (PaymentProvider $provider) => [strtolower($provider->code) => array_merge($provider->toArray(), ['code' => strtolower($provider->code))])]);
+            return $dbProviders->mapWithKeys(fn (PaymentProvider $provider) => [strtolower($provider->code) => array_merge($provider->toArray(), ['code' => strtolower($provider->code)])]);
         }
 
         return collect($this->getProviderDefinitions())->filter(fn (array $provider) => $provider['status'] === 'active');
