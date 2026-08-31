@@ -11,6 +11,7 @@ RC1 failed mandatory CI before any job was scheduled. It was therefore not promo
 ## Index
 
 - `release-candidate.md`: immutable identity and hashes
+- `environment-audit.md`: actual local, deployment, provider, and human evidence boundaries
 - `ci-results.md`: GitHub workflow evidence
 - `security-scans.md`: dependency, secret, static, and container evidence
 - `sbom-images.md`: SBOM and image status
@@ -21,4 +22,3 @@ RC1 failed mandatory CI before any job was scheduled. It was therefore not promo
 - `backup-pitr-restore-rollback.md`: recovery evidence
 - `monitoring-alerting-incident.md`: operational evidence
 - `providers-security-legal.md`: external evidence
-

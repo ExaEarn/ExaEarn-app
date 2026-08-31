@@ -16,7 +16,7 @@ No image was built, so no image digest exists. No environment was deployed.
 
 ## CI and security
 
-GitHub workflow runs `33350901543` and `33350898028` both failed with zero jobs. Consequently no mandatory backend, migration, contract, SDK, frontend, Gitleaks, dependency, CodeQL, SBOM, image, or Trivy job executed.
+GitHub workflow runs `33350901543` and `33350898028` both failed with zero jobs. Pinned `actionlint 1.7.12` reproduced a YAML parse failure at `.github/workflows/developer-platform-gates.yml:131`; unquoted GitHub expressions occur inside flow mappings for container image tags. This is a newly discovered software P1 in RC1. Consequently no mandatory backend, migration, contract, SDK, frontend, Gitleaks, dependency, CodeQL, SBOM, image, or Trivy job executed.
 
 GitHub reported 222 Dependabot vulnerabilities: 2 Critical, 83 High, 120 Moderate, and 17 Low. No accepted Critical or owned High risk record was supplied. Dependency security fails.
 
@@ -55,7 +55,7 @@ No production product is authorized from RC1. Continue Level C Public Sandbox Be
 
 ## Remaining gates
 
-1. Remediate the CI configuration failure and create RC2; do not alter RC1.
+1. Remediate the proven workflow YAML failure and create RC2; do not alter RC1.
 2. Triage/fix or formally accept all security findings; no unaccepted Critical is permitted.
 3. Produce signed SBOMs and scanned immutable image digests.
 4. Deploy RC2 into a controlled production-like stack with real PostgreSQL, Redis, workers, scheduler, API, realtime, ingress, NetworkPolicy, and secret injection.
@@ -97,6 +97,19 @@ PROVIDER READINESS: FAIL
 LEGAL/JURISDICTION: APPROVAL REQUIRED
 ORGANIZATION PRODUCTION: BLOCKED
 WALLET WITHDRAW: BLOCKED
+```
+
+## Phase status
+
+```text
+LEVEL D DEPLOYMENT EVIDENCE PHASE: BLOCKED
+NEW SOFTWARE P0: 0
+NEW SOFTWARE P1: 1
+DEPLOYMENT P1 REMAINING: 6
+EXTERNAL P1 REMAINING: 4
+SOFTWARE REMEDIATION REQUIRED: YES
+READY FOR FINAL LEVEL D AUTHORIZATION AUDIT: NO
+NEXT ACTION: Fix the workflow YAML in a new immutable RC2, obtain a successful mandatory CI run, then execute the production-like evidence program against RC2 only.
 ```
 
 ## Conclusion
