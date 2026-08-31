@@ -3,3 +3,4 @@ packages:
   - "backend/services/*"
   - "packages/*"
   - "blockchain"
+injectWorkspacePackages: true

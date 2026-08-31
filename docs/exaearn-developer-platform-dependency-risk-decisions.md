@@ -10,18 +10,18 @@ This document is a decision packet, not a risk acceptance. Production Access, Pr
 
 | Root cause | High paths | Production runtime | Build/CI | Developer workstation | Shipped vulnerable code |
 |---|---:|---|---|---|---|
-| Hardhat 2 toolchain | 6 | No | Yes | Yes | No: blockchain production image installs `--prod` and Hardhat is a devDependency |
-| Prisma 7 CLI/configuration | 1 | No identified runtime call path | Yes | Yes | No identified service imports `PrismaClient`; two schemas/configurations are repository tooling inputs |
-| Metro `image-size` parser | 2 | No | Yes | Yes | No: Metro is a mobile bundler dependency, not application runtime code |
+| Hardhat 2 toolchain | 6 | No | Yes | Yes | No: the production image copies a service-only `pnpm deploy --prod` closure and Hardhat is a devDependency |
+| Prisma 7 CLI/configuration | 1 | No | Yes | Yes | No: Prisma is a root workspace dependency and is excluded from the service-only production closure |
+| Metro `image-size` parser | 2 | No | Yes | Yes | No: React Native and Metro are root/mobile dependencies excluded from the service-only production closure |
 
-All nine paths are build/development reachable and therefore remain security relevant. None is reachable from the deployed Laravel API, Developer Portal, Admin application, realtime gateway, or production blockchain-service runtime based on the current Dockerfiles and imports.
+All nine paths are build/development reachable and therefore remain security relevant. Candidate `5e26e6c96413409cff3ded364af26a9db4fdd880` incorrectly copied the workspace root dependency closure into the realtime image, making the Prisma and Metro findings image-resident. The corrected Dockerfile uses pnpm's portable service-only production deployment closure; a mandatory Trivy rerun must confirm the three findings are absent before runtime reachability returns to zero.
 
 ## Decision packet A: Hardhat 2 toolchain
 
-**Advisories:** 1123686 (`adm-zip`), 1113686 (`serialize-javascript`), 1120654 (`tmp`), 1114638/1114640/1121245 (`undici`)  
+**Advisories:** GHSA-xcpc-8h2w-3j85 (`adm-zip`), GHSA-5c6j-r48x-rmvq (`serialize-javascript`), GHSA-ph9p-34f9-6g65 (`tmp`), GHSA-vrm6-8vpv-qv8q/GHSA-v9p9-hfj2-hcw8/GHSA-vxpw-j846-p89q (`undici`)
 **Installed roots:** Hardhat 2.28.6 and its Mocha/Solc/tooling graph  
 **Required migration:** Hardhat 3 plus compatible ESM plugin/configuration migration  
-**Exposure:** contract compilation, contract tests, deployment/verification scripts, CI, and developer machines. Hardhat is absent from the production blockchain image because the package declares it as a devDependency and the image installs with `pnpm --filter exaearn-blockchain-service --prod`.
+**Exposure:** contract compilation, contract tests, deployment/verification scripts, CI, and developer machines. Hardhat is absent from the production blockchain image because the package declares it as a devDependency and the image copies a `pnpm deploy --prod` service closure.
 
 **Exploit prerequisites:** untrusted contract projects or archives, attacker-controlled serialized/report content, unsafe temporary-file inputs, or attacker-controlled HTTP/WebSocket endpoints processed during contract tooling. The production exchange request path does not invoke Hardhat.
 
@@ -35,7 +35,7 @@ All nine paths are build/development reachable and therefore remain security rel
 
 ## Decision packet B: Prisma 7 tooling
 
-**Advisory:** 1145093 (`deepmerge-ts` 7.1.5; patched in 8.x)  
+**Advisory:** GHSA-ggr8-5vv4-36mx (`deepmerge-ts` 7.1.5; patched in 8.x)
 **Parent:** Prisma/@prisma/client 7.8.0  
 **Repository use:** `backend/database/prisma/schema.prisma`, `backend/services/blockchain-service/prisma/schema.prisma`, and their Prisma configuration files. No application import or construction of `PrismaClient` was found.
 
@@ -51,7 +51,7 @@ All nine paths are build/development reachable and therefore remain security rel
 
 ## Decision packet C: Metro media parser
 
-**Advisories:** 1138808 and 1138809 (`image-size` 1.2.1)  
+**Advisories:** GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq (`image-size` 1.2.1)
 **Parent:** Expo 53 / React Native 0.79.6 / Metro 0.82.5  
 **Patched release:** none published for the affected package according to the captured registry audit.
 
