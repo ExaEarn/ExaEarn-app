@@ -90,7 +90,7 @@ class DeveloperPlatformP0SecurityTest extends TestCase
         config(['developer_api.production_access.organization_enabled'=>true]);
         $owner=User::factory()->create(['verified_country'=>'US','account_status'=>'FULLY_ACTIVE']);
         $institution=InstitutionalAccount::query()->create([
-            'institution_uuid'=>'inst-p0','master_user_id'=>$owner->id,'legal_name'=>'P0 Institution','country_of_incorporation'=>'NG','business_type'=>'LIMITED_COMPANY',
+            'institution_uuid'=>'6d620ac2-2624-43dc-a31c-1af67ae67b06','master_user_id'=>$owner->id,'legal_name'=>'P0 Institution','country_of_incorporation'=>'NG','business_type'=>'LIMITED_COMPANY',
             'status'=>'ACTIVE','kyb_status'=>'APPROVED','compliance_status'=>'CLEARED','risk_rating'=>'LOW',
         ]);
         ComplianceJurisdiction::query()->create(['country_code'=>'NG','country_name'=>'Nigeria','status'=>'ALLOWED','risk_level'=>'LOW','policy_version'=>'p0-test']);
@@ -101,7 +101,7 @@ class DeveloperPlatformP0SecurityTest extends TestCase
         $project=$workspaces->provisionProject($owner,$organization->workspace,['name'=>'Institution Runtime']);
         $project->environments()->where('type','production')->update(['status'=>'active']);
         $access=\App\Models\DeveloperProductionAccessRequest::query()->create([
-            'request_uuid'=>'req-p0','project_id'=>$project->id,'environment_id'=>$project->environments()->where('type','production')->value('id'),
+            'request_uuid'=>'942144cb-5689-4fb6-a434-41520a57465c','project_id'=>$project->id,'environment_id'=>$project->environments()->where('type','production')->value('id'),
             'submitted_by'=>$owner->id,'applicant_type'=>'organization','use_case'=>'trading_application','status'=>'approved','jurisdiction'=>'NG',
             'request_context'=>[],'idempotency_key'=>'p0-runtime','submitted_at'=>now(),'decided_at'=>now(),
         ]);

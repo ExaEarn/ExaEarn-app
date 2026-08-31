@@ -35,14 +35,16 @@ class DeveloperFinalP1RemediationTest extends TestCase
     {
         Http::fake(['*'=>Http::response(['ok'=>true])]);
         [$project,$service]=$this->webhookProject();
-        $service->enqueue($project,'order.filled',['order_id'=>'due'],'evt-due');
-        $service->enqueue($project,'order.filled',['order_id'=>'future'],'evt-future');
-        DeveloperWebhookDelivery::query()->where('event_id','evt-future')->update(['next_attempt_at'=>now()->addHour()]);
+        $dueEvent='00000000-0000-4000-8000-000000000001';
+        $futureEvent='00000000-0000-4000-8000-000000000002';
+        $service->enqueue($project,'order.filled',['order_id'=>'due'],$dueEvent);
+        $service->enqueue($project,'order.filled',['order_id'=>'future'],$futureEvent);
+        DeveloperWebhookDelivery::query()->where('event_id',$futureEvent)->update(['next_attempt_at'=>now()->addHour()]);
 
         $this->artisan('developer:webhooks:dispatch',['--limit'=>10])->assertSuccessful();
 
-        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>'evt-due','status'=>'DELIVERED']);
-        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>'evt-future','status'=>'PENDING']);
+        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>$dueEvent,'status'=>'DELIVERED']);
+        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>$futureEvent,'status'=>'PENDING']);
         Http::assertSentCount(1);
     }
 
@@ -51,24 +53,27 @@ class DeveloperFinalP1RemediationTest extends TestCase
         Http::fake(['*'=>Http::response(['ok'=>true])]);
         [$project,$service]=$this->webhookProject();
         $endpoint=DeveloperWebhookEndpoint::query()->firstOrFail();
-        $service->enqueue($project,'order.filled',['order_id'=>'disabled'],'evt-disabled');
+        $disabledEvent='00000000-0000-4000-8000-000000000003';
+        $archivedEvent='00000000-0000-4000-8000-000000000004';
+        $productionEvent='00000000-0000-4000-8000-000000000005';
+        $service->enqueue($project,'order.filled',['order_id'=>'disabled'],$disabledEvent);
         $endpoint->update(['status'=>'disabled']);
         $service->deliverDue();
-        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>'evt-disabled','status'=>'DEAD_LETTERED']);
+        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>$disabledEvent,'status'=>'DEAD_LETTERED']);
 
         $endpoint->update(['status'=>'active']);
-        $service->enqueue($project,'order.filled',['order_id'=>'archived'],'evt-archived');
+        $service->enqueue($project,'order.filled',['order_id'=>'archived'],$archivedEvent);
         $project->update(['status'=>'archived']);
         $service->deliverDue();
-        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>'evt-archived','status'=>'DEAD_LETTERED']);
+        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>$archivedEvent,'status'=>'DEAD_LETTERED']);
 
         $project->update(['status'=>'active']);
         $project->environments()->where('type','production')->update(['status'=>'active']);
         $service->register($project,['url'=>'https://production.example.test/hook','events'=>['order.filled'],'environment'=>'production']);
-        $service->enqueue($project,'order.filled',['order_id'=>'production'],'evt-production','production');
+        $service->enqueue($project,'order.filled',['order_id'=>'production'],$productionEvent,'production');
         config(['developer_api.webhooks.production_delivery_enabled'=>false,'developer_api.webhooks.production_egress_verified'=>false]);
         $service->deliverDue();
-        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>'evt-production','status'=>'DEAD_LETTERED']);
+        $this->assertDatabaseHas('developer_webhook_deliveries',['event_id'=>$productionEvent,'status'=>'DEAD_LETTERED']);
         Http::assertSentCount(0);
     }
 

@@ -11,7 +11,6 @@ use App\Services\DeveloperApiSignatureService;
 use App\Services\DeveloperProductionAccessService;
 use App\Services\Security\CanonicalClientIp;
 use Closure;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\RateLimiter;
@@ -85,13 +84,14 @@ class DeveloperApiAuth
             return $this->error('INVALID_SIGNATURE', 'API request signature is invalid.', Response::HTTP_UNAUTHORIZED);
         }
 
-        try {
-            DeveloperApiNonce::query()->create([
+        $nonceClaimed = DeveloperApiNonce::query()->insertOrIgnore([
                 'api_key_id' => $key->id,
                 'nonce' => $nonce,
                 'seen_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
-        } catch (QueryException) {
+        if ($nonceClaimed !== 1) {
             $this->auditFailure($key,'NONCE_REPLAYED',$request);
             return $this->error('NONCE_REPLAYED', 'API request nonce has already been used.', Response::HTTP_UNAUTHORIZED);
         }

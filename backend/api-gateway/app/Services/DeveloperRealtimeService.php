@@ -84,10 +84,11 @@ class DeveloperRealtimeService
     {
         $environment=strtolower((string)($environment?:$project->environment?:'sandbox'));
         $event=DB::transaction(function () use ($eventType, $payload, $project, $stream,$environment): DeveloperRealtimeEvent {
+            DeveloperProject::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             $last = DeveloperRealtimeEvent::query()
                 ->where('project_id', $project->id)
+                ->where('environment', $environment)
                 ->where('stream', $stream)
-                ->lockForUpdate()
                 ->max('sequence');
 
             return DeveloperRealtimeEvent::query()->create([

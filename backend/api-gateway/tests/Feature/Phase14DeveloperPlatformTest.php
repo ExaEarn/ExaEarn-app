@@ -726,7 +726,7 @@ class Phase14DeveloperPlatformTest extends TestCase
         app(DeveloperWebhookService::class)->register($project, ['url' => 'https://hooks.example.test/load-down', 'events' => ['order.filled']]);
 
         for ($i = 0; $i < 25; $i++) {
-            app(DeveloperWebhookService::class)->enqueue($project, 'order.filled', ['order_id' => 'ord_' . $i], 'evt_load_' . $i);
+            app(DeveloperWebhookService::class)->enqueue($project, 'order.filled', ['order_id' => 'ord_' . $i], sprintf('00000000-0000-4000-8000-%012d', $i + 100));
         }
 
         $result = app(DeveloperWebhookService::class)->deliverDue(100);

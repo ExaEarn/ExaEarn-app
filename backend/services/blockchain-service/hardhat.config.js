@@ -1,4 +1,6 @@
-require('@nomicfoundation/hardhat-toolbox');
+require('@nomicfoundation/hardhat-ethers');
+require('@nomicfoundation/hardhat-chai-matchers');
+require('@nomicfoundation/hardhat-verify');
 require('dotenv').config();
 
 const accounts = process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [];

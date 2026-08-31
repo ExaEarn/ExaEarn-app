@@ -128,15 +128,23 @@ class DeveloperWorkspaceService
     {
         $this->assert($actor,$organization,'organization.members.update'); $role=strtolower($role);
         if (!in_array($role,['admin','developer','viewer'],true)) throw new RuntimeException('Use ownership transfer to assign an owner.');
-        if ($member->role === 'owner' && $this->ownerCount($organization) <= 1) throw new RuntimeException('The final owner cannot be demoted.');
-        $member->update(['role'=>$role]);
+        DB::transaction(function () use ($organization,$member,$role): void {
+            DeveloperOrganization::query()->whereKey($organization->id)->lockForUpdate()->firstOrFail();
+            $locked=DeveloperOrganizationMembership::query()->lockForUpdate()->findOrFail($member->id);
+            if ($locked->role === 'owner' && $this->ownerCount($organization) <= 1) throw new RuntimeException('The final owner cannot be demoted.');
+            $locked->update(['role'=>$role]);
+        });
     }
 
     public function removeMember(User $actor, DeveloperOrganization $organization, DeveloperOrganizationMembership $member): void
     {
         $this->assert($actor,$organization,'organization.members.remove');
-        if ($member->role === 'owner' && $this->ownerCount($organization) <= 1) throw new RuntimeException('The final owner cannot be removed.');
-        $member->update(['status'=>'removed']);
+        DB::transaction(function () use ($organization,$member): void {
+            DeveloperOrganization::query()->whereKey($organization->id)->lockForUpdate()->firstOrFail();
+            $locked=DeveloperOrganizationMembership::query()->lockForUpdate()->findOrFail($member->id);
+            if ($locked->role === 'owner' && $this->ownerCount($organization) <= 1) throw new RuntimeException('The final owner cannot be removed.');
+            $locked->update(['status'=>'removed']);
+        });
     }
 
     public function transferOwnership(User $actor, DeveloperOrganization $organization, DeveloperOrganizationMembership $target): void
@@ -160,5 +168,5 @@ class DeveloperWorkspaceService
         });
     }
 
-    private function ownerCount(DeveloperOrganization $organization): int { return DeveloperOrganizationMembership::query()->where('organization_id',$organization->id)->where('status','active')->where('role','owner')->lockForUpdate()->count(); }
+    private function ownerCount(DeveloperOrganization $organization): int { return DeveloperOrganizationMembership::query()->where('organization_id',$organization->id)->where('status','active')->where('role','owner')->lockForUpdate()->get(['id'])->count(); }
 }

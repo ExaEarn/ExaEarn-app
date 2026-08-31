@@ -35,13 +35,15 @@ class DeveloperExternalInterfacesWave1Test extends TestCase
         $sandbox=$service->register($pa,['url'=>'https://sandbox.example.test/hook','events'=>['order.filled'],'environment'=>'sandbox'])['endpoint'];
         $production=$service->register($pa,['url'=>'https://production.example.test/hook','events'=>['order.filled'],'environment'=>'production'])['endpoint'];
         $other=$service->register($pb,['url'=>'https://other.example.test/hook','events'=>['order.filled'],'environment'=>'sandbox'])['endpoint'];
-        $service->enqueue($pa,'order.filled',['order_id'=>'ord-sandbox'],'evt-sandbox','sandbox');
-        $service->enqueue($pa,'order.filled',['order_id'=>'ord-production'],'evt-production','production');
-        $this->assertDatabaseHas('developer_webhook_deliveries',['endpoint_id'=>$sandbox->id,'environment'=>'sandbox','event_id'=>'evt-sandbox']);
-        $this->assertDatabaseHas('developer_webhook_deliveries',['endpoint_id'=>$production->id,'environment'=>'production','event_id'=>'evt-production']);
-        $this->assertDatabaseMissing('developer_webhook_deliveries',['endpoint_id'=>$production->id,'event_id'=>'evt-sandbox']);
-        $this->assertDatabaseMissing('developer_webhook_deliveries',['endpoint_id'=>$sandbox->id,'event_id'=>'evt-production']);
-        $this->assertDatabaseMissing('developer_webhook_deliveries',['endpoint_id'=>$other->id,'event_id'=>'evt-sandbox']);
+        $sandboxEvent='00000000-0000-4000-8000-000000000011';
+        $productionEvent='00000000-0000-4000-8000-000000000012';
+        $service->enqueue($pa,'order.filled',['order_id'=>'ord-sandbox'],$sandboxEvent,'sandbox');
+        $service->enqueue($pa,'order.filled',['order_id'=>'ord-production'],$productionEvent,'production');
+        $this->assertDatabaseHas('developer_webhook_deliveries',['endpoint_id'=>$sandbox->id,'environment'=>'sandbox','event_id'=>$sandboxEvent]);
+        $this->assertDatabaseHas('developer_webhook_deliveries',['endpoint_id'=>$production->id,'environment'=>'production','event_id'=>$productionEvent]);
+        $this->assertDatabaseMissing('developer_webhook_deliveries',['endpoint_id'=>$production->id,'event_id'=>$sandboxEvent]);
+        $this->assertDatabaseMissing('developer_webhook_deliveries',['endpoint_id'=>$sandbox->id,'event_id'=>$productionEvent]);
+        $this->assertDatabaseMissing('developer_webhook_deliveries',['endpoint_id'=>$other->id,'event_id'=>$sandboxEvent]);
     }
 
     public function test_webhook_claim_is_exclusive_and_expired_claim_recovers(): void
@@ -50,7 +52,7 @@ class DeveloperExternalInterfacesWave1Test extends TestCase
         $user=User::factory()->create();$project=app(DeveloperApiKeyService::class)->createProject($user->id,['name'=>'Claims','environment'=>'sandbox']);
         $service=app(DeveloperWebhookService::class);
         $service->register($project,['url'=>'https://claims.example.test/hook','events'=>['order.filled']]);
-        $service->enqueue($project,'order.filled',['order_id'=>'ord-1'],'evt-claim');
+        $service->enqueue($project,'order.filled',['order_id'=>'ord-1'],'00000000-0000-4000-8000-000000000013');
         $first=$service->deliverDue();$second=$service->deliverDue();
         $this->assertSame(1,$first['delivered']);$this->assertSame(0,$second['delivered']);
         Http::assertSentCount(1);
