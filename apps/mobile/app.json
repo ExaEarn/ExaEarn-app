@@ -1,20 +1,36 @@
 {
-  "expo": {
-    "name": "ExaEarn",
-    "slug": "exaearn-mobile",
-    "scheme": "exaearn",
-    "version": "0.1.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "dark",
-    "assetBundlePatterns": ["**/*"],
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#07050f"
-      },
-      "edgeToEdgeEnabled": true
-    }
-  }
+    "expo":  {
+                 "name":  "ExaEarn",
+                 "slug":  "exaearn",
+                 "scheme":  "exaearn",
+                 "version":  "0.1.0",
+                 "orientation":  "portrait",
+                 "userInterfaceStyle":  "dark",
+                 "assetBundlePatterns":  [
+                                             "**/*"
+                                         ],
+                 "ios":  {
+                             "supportsTablet":  true,
+                             "bundleIdentifier":  "exaearn.com"
+                         },
+                 "android":  {
+                                 "adaptiveIcon":  {
+                                                      "backgroundColor":  "#07050f"
+                                                  },
+                                 "edgeToEdgeEnabled":  true,
+                                 "package":  "exaearn.com"
+                             },
+                 "runtimeVersion":  {
+                                        "policy":  "fingerprint"
+                                    },
+                 "updates":  {
+                                 "url":  "https://u.expo.dev/b26b731a-9072-440a-9d26-a2e827a2d0bb"
+                             },
+                 "extra":  {
+                               "eas":  {
+                                           "projectId":  "b26b731a-9072-440a-9d26-a2e827a2d0bb"
+                                       }
+                           },
+                 "owner":  "exaearn9470"
+             }
 }
