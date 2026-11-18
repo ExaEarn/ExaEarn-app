@@ -177,3 +177,34 @@ test('actual Node entrypoint loads a staging .env before applying the startup gu
   }
 });
 
+test('staging entrypoint does not mount TON routes or load TON/Zod RPC code at startup', async () => {
+  const Module = require('node:module');
+  const names = Object.keys(safeEnvironment);
+  const prior = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  Object.assign(process.env, safeEnvironment);
+  jest.resetModules();
+  const loadSpy = jest.spyOn(Module, '_load');
+  let index;
+
+  try {
+    index = require('../../index');
+    const routes = index.app._router.stack
+      .filter((layer) => layer.route)
+      .map((layer) => layer.route.path);
+    const rpcModulesLoaded = loadSpy.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request === '@ton/ton' || request === 'zod');
+
+    expect(routes.some((route) => /ton/i.test(String(route)))).toBe(false);
+    expect(rpcModulesLoaded).toEqual([]);
+  } finally {
+    await index.developerRealtimeHub.close();
+    loadSpy.mockRestore();
+    jest.resetModules();
+    for (const name of names) {
+      if (prior[name] === undefined) delete process.env[name];
+      else process.env[name] = prior[name];
+    }
+  }
+});
+
