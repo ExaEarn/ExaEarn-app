@@ -166,10 +166,9 @@ jobs:
           retention-days: 30
 
   compose-and-container-scans:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: Materialize disposable staging env file
         run: cp infrastructure/staging/staging.env.example infrastructure/staging/staging.env
