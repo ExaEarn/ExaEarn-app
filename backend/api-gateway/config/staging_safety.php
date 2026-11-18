@@ -1,0 +1,41 @@
+<?php
+
+return [
+    'enabled' => strtolower((string) env('APP_ENV', '')) === 'staging',
+    'deployment_env' => env('APP_DEPLOYMENT_ENV', env('VERCEL_ENV', '')),
+    'lock' => env('EXAEARN_STAGING_SAFETY_LOCK'),
+    'required_lock' => 'locked',
+    'testnet_rpcs' => [
+        'BASE_RPC_URL' => 'https://sepolia.base.org',
+        'ETHEREUM_RPC_URL' => 'https://ethereum-sepolia-rpc.publicnode.com',
+        'BSC_RPC_URL' => 'https://data-seed-prebsc-1-s1.bnbchain.org:8545',
+        'POLYGON_RPC_URL' => 'https://rpc-amoy.polygon.technology',
+        'XRPL_RPC_URL' => 'https://s.altnet.rippletest.net:51234',
+        'XRPL_WSS' => 'wss://s.altnet.rippletest.net:51233',
+        'XRP_RPC_URL' => 'https://s.altnet.rippletest.net:51234',
+        'SOLANA_RPC_URL' => 'https://api.devnet.solana.com',
+        'TRON_RPC_URL' => 'https://api.shasta.trongrid.io',
+    ],
+    'required_values' => [
+        'BITCOIN_NETWORK' => 'testnet',
+        'BASE_CHAIN_ID' => '84532',
+        'ETHEREUM_CHAIN_ID' => '11155111',
+        'BSC_CHAIN_ID' => '97',
+        'POLYGON_CHAIN_ID' => '80002',
+        'BITCOIN_RPC_URL' => '',
+        'TON_RPC_URL' => '',
+        'TRON_FULL_HOST' => '',
+    ],
+    'sensitive_variables' => [
+        'PRIVATE_KEY', 'DEPLOYER_PRIVATE_KEY', 'WITHDRAWAL_SIGNING_KEY',
+        'BASE_ENCRYPTED_PRIVATE_KEY', 'BITCOIN_ENCRYPTED_PRIVATE_KEY',
+        'XRP_ENCRYPTED_PRIVATE_KEY', 'SOLANA_ENCRYPTED_PRIVATE_KEY',
+        'TRON_ENCRYPTED_PRIVATE_KEY', 'TON_ENCRYPTED_PRIVATE_KEY',
+        'TREASURY_KEY_SECRET', 'STAKING_SECURE_SIGNER_SECRET',
+        'HD_WALLET_MNEMONIC', 'HD_WALLET_PASSPHRASE',
+        'ETHEREUM_HOT_WALLET_PRIVATE_KEY', 'BASE_HOT_WALLET_PRIVATE_KEY',
+        'BSC_HOT_WALLET_PRIVATE_KEY', 'BITCOIN_HOT_WALLET_WIF',
+        'SOLANA_HOT_WALLET_SECRET_KEY', 'TON_HOT_WALLET_MNEMONIC',
+        'XRPL_HOT_WALLET_SECRET', 'TRON_HOT_WALLET_PRIVATE_KEY',
+    ],
+];

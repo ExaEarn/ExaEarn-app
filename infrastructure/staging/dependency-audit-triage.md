@@ -1,0 +1,34 @@
+# Dependency audit triage - 2026-11-18
+
+## Current audit results
+
+- Composer: `composer audit --locked --abandoned=fail --format=json` exit code **0**; `advisories: []`, `abandoned: []`.
+- pnpm 10.34.5: `pnpm audit --json` exit code **1**; 1,601 dependencies, 0 critical, 19 high, 70 moderate, 13 low. The report is non-empty and is not a passing audit.
+- The pnpm response contains 17 distinct high advisory IDs affecting eight transitive package families. The audit's severity metadata reports 19 high findings because multiple installed instances are affected. No remaining high is a direct manifest dependency.
+- The three original critical advisories and the prior 91 high findings were reduced through compatible same-major overrides and direct compatible updates. A later audit revealed a new `tmp` advisory after the 0.2.6 update; `tmp` is now overridden to 0.2.7 and that package no longer appears among the high findings.
+
+## Remaining high findings
+
+| Package and IDs | Production exposure | Exploitability / reachable input | Available fix and compatibility | Status |
+| --- | --- | --- | --- | --- |
+| `serialize-javascript` 6.0.2 - 1113686 | Mocha/Hardhat dev dependency; excluded by the blockchain image's `pnpm --prod deploy` stage | RCE requires a crafted RegExp/date-like value to reach the serializer while a developer or CI runs the toolchain; no staging request path | At least 7.0.5 also clears the related moderate advisory; major version, so Mocha/Hardhat consumer compatibility needs a dedicated upgrade | Not updated; build-only, still audit-blocking |
+| `undici` 5.29.0 - 1114638, 1114640, 1243476, 1243479, 1244534 | `@nomicfoundation/hardhat-verify` dev dependency; excluded from runtime image | WebSocket, TLS, and decompression attacks need the vulnerable client path to process attacker-controlled peer traffic during verification | At least 6.29.1 covers all listed IDs; major version for the 5.x consumer. Upgrade the Hardhat verifier as a reviewed unit or test the 6.x override against verification flows | Not updated; build-only, still audit-blocking |
+| `adm-zip` 0.4.16 - 1123686, 1239030, 1240032, 1240034, 1240066 | Hardhat dev dependency; excluded from runtime image | Crafted archives could cause memory exhaustion, decompression bypass, permission-bit extraction, or process crash when the developer tool extracts them | At least 0.6.1 covers all listed IDs; major version, requiring Hardhat consumer compatibility tests | Not updated; build-only, still audit-blocking |
+| `deepmerge-ts` 7.1.5 - 1145093 | Prisma config tooling in root dev dependencies; excluded from the service runtime image | Stack exhaustion needs a recursive graph passed to merge; likely local/config-time input, not a staging request | 8.x is a major upgrade and requires Prisma config compatibility review | Not updated; build-only, still audit-blocking |
+| `image-size` 1.2.1 - 1239765, 1239766 | React Native/Metro/Expo build chain; not included in the API or blockchain production image | Crafted JXL, HEIF, or ICNS data can hang the image parser when a mobile build processes it | At least 2.0.3; major version, requires Metro/Expo compatibility tests | Not updated; build-only, still audit-blocking |
+| `@fastify/busboy` 2.1.1 - 1240982 | Nested beneath Hardhat verify's Undici and excluded from runtime image | DoS requires specially named multipart headers to reach that client parser | At least 3.2.1; major version, review with the parent Undici upgrade | Not updated; build-only, still audit-blocking |
+| `zod` 3.25.76 - 1243066 | Production transitive dependency of `@ton/ton`; present in the blockchain production image | GHSA-mrhx-c7xc-m3w5 is a high-severity memory exhaustion issue (CVSS 8.2): an unbounded array schema can accumulate validation issues for an oversized invalid array. TON's `HttpApi.js` parses RPC result arrays (`getTransactions`, shard lists, message stacks) with Zod. `src/index.js` imports no TON controller or `nonEvmChainService`; TON modules are loaded lazily by `nonEvmChainService`/`hdWalletService`, and the active Express routes do not call those paths. So the vulnerable parse path is not exposed by the current HTTP entrypoint, but the library remains in the production image and a direct internal call or future route could reach it. Do not treat it as harmless. | The advisory affects all Zod versions `<4.6.6`; no compatible Zod 3 fix is published. `@ton/ton` 16.3.0, the current upstream release, still declares `zod:^3.21.4`. A global Zod 4 override violates the TON package's supported range; removing TON would break the existing TON wallet and RPC implementation. No safe compatible remediation is available in this branch. | **Runtime package blocker**; the financial lock prevents transaction operations but does not remove this dependency finding |
+| `picomatch` 2.3.2, 3.0.2, 4.0.7 - 1247710 | Vite/Expo/Metro developer and build chains; excluded from the API/blockchain runtime image | ReDoS needs an attacker-controlled matching pattern to reach the affected path during build/tool use | Audit reports no patched version (`<0.0.0`) | Not updated; build-only, still audit-blocking |
+
+All remaining highs cause the dependency-audit and Trivy filesystem jobs to fail. The Zod finding is also expected to fail the blockchain image scan if the image scanner identifies the installed production dependency. No finding is suppressed, ignored, or accepted as a pass.
+
+## Compatible dependency changes already applied
+
+- Direct packages: `axios` 1.18.0 -> 1.20.0; `bitcoinjs-lib` 6.1.7 -> 6.1.8; Vite 6.4.3 -> 6.4.4, 7.3.6 -> 7.3.7, and 8.2.2 -> 8.2.4.
+- Compatible transitive overrides include patched versions of `@xmldom/xmldom`, `body-parser`, `brace-expansion`, `browserslist`, `compression`, `engine.io`, `fast-uri`, `follow-redirects`, `form-data`, `hono`, `immutable`, `js-yaml`, `lodash`, `multer`, `mysql2`, `nanoid`, `node-forge`, `postcss`, `proxy-addr`, `shell-quote`, `socket.io-parser`, `source-map-js`, `tar`, `undici` 6.x, Zod 4.x, and `ws`.
+- `tmp` is overridden from 0.0.33 to patched 0.2.7 for solc. A forced Hardhat compile and contract tests are required in CI and are also run locally for this change.
+- Laravel lockfile updates remain within existing Composer constraints: Laravel 12.68 -> 12.73, CommonMark 2.10.0 -> 2.10.7, and Symfony 7.4 components to patched 7.4 releases. `composer.json` constraints are unchanged.
+
+## Deployment gate
+
+No AWS deployment should proceed while the pnpm audit reports high findings. The prepared workflow fails on every high/critical dependency finding and on high/critical Trivy image, filesystem, or config findings. Resolve remaining findings and obtain successful CI container scans before deployment. Do not use an ignore file, risk-acceptance bypass, or `ignore-unfixed` to bypass these results.

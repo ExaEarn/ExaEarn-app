@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: staging.env
+    environment:
+      POSTGRES_DB: exaearn_staging
+      POSTGRES_USER: exaearn_staging
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    profiles: ["application"]
+    build:
+      context: ../../backend/api-gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: staging.env
+    environment:
+      APP_ENV: staging
+      APP_DEPLOYMENT_ENV: staging
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: exaearn_staging
+      DB_USERNAME: exaearn_staging
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      LOG_CHANNEL: stderr
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  blockchain:
+    profiles: ["application"]
+    build:
+      context: ../..
+      dockerfile: backend/services/blockchain-service/Dockerfile
+    restart: unless-stopped
+    env_file: staging.env
+    environment:
+      APP_ENV: staging
+      APP_DEPLOYMENT_ENV: staging
+      NODE_ENV: staging
+      PORT: "4000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  caddy:
+    profiles: ["public"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file: staging.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

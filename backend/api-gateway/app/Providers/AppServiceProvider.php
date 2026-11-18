@@ -27,6 +27,7 @@ use App\Services\ReferralService;
 use App\Services\RewardEngineService;
 use App\Services\Spot\BinanceSpotVenueAdapter;
 use App\Services\Spot\ExternalSpotVenue;
+use App\Support\StagingSafety;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
@@ -48,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        StagingSafety::validateStartup();
+        StagingSafety::assertWorkerAllowed($_SERVER['argv'] ?? []);
         $deploymentEnv = strtolower((string) env('VERCEL_ENV', env('APP_DEPLOYMENT_ENV', '')));
         if (in_array($deploymentEnv, ['production', 'prod'], true) && app()->environment('local', 'development', 'testing')) {
             throw new \RuntimeException('Unsafe production deployment configuration: development authentication environment is enabled. Set APP_ENV=production before deploying.');
