@@ -32,3 +32,15 @@ All remaining highs cause the dependency-audit and Trivy filesystem jobs to fail
 ## Deployment gate
 
 No AWS deployment should proceed while the pnpm audit reports high findings. The prepared workflow fails on every high/critical dependency finding and on high/critical Trivy image, filesystem, or config findings. Resolve remaining findings and obtain successful CI container scans before deployment. Do not use an ignore file, risk-acceptance bypass, or `ignore-unfixed` to bypass these results.
+
+## Developer Platform Kubernetes findings (proposal only)
+
+The 14 HIGH misconfigurations are in `infrastructure/developer-platform/kubernetes/base.yaml`, which defines production Developer Platform workloads. This staging remediation does not edit that manifest or its workloads.
+
+Proposed reviewed change for the five affected deployments (`api-gateway`, `realtime-gateway`, `scheduler`, `queue-worker`, and `webhook-worker`): set an explicit pod/container security context with `runAsNonRoot: true`, a verified non-root UID/GID, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: ["ALL"]`, and `seccompProfile.type: RuntimeDefault`. Add narrowly scoped `emptyDir` mounts only for confirmed writable paths such as `/tmp`; do not make the whole root filesystem writable to satisfy application behavior.
+
+Before applying this proposal, inspect each image's declared user and write paths, validate migrations/cache/log behavior, run workload-specific tests, render the Kubernetes manifests, and run the pinned Trivy config scan. Roll out in a separate Developer Platform change with workload owners; keep probes, ports, service accounts, and production behavior unchanged unless validation demonstrates a necessary adjustment.
+
+## Separate website npm audit
+
+The website's `apps/website/package-lock.json` audit exits 1 with four HIGH package-path findings: `fdir`, `tinyglobby`, and Vite all resolve the vulnerable `picomatch@4.0.7` path. The other website dependency versions previously flagged by Trivy (Browserslist, Nanoid, PostCSS, Source Map JS, and Vite) are already at patched releases in the lockfile. GitHub's current `GHSA-fc5q-39xc-vjpf` advisory lists no patched `picomatch` version, so changing the Vite lock to another compatible release cannot clear that advisory. Keep the npm gate blocking until upstream publishes a fix or the matching dependency chain can be replaced compatibly.

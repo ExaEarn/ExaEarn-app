@@ -23,6 +23,8 @@ jobs:
         uses: docker://rhysd/actionlint:1.7.12
         with:
           args: .github/workflows/aws-staging-security.yml
+      - name: Test Trivy report gate behavior
+        run: python -m unittest scripts.tests.test_validate_trivy_reports -v
 
   laravel-safety:
     runs-on: ubuntu-latest
@@ -44,7 +46,7 @@ jobs:
           extensions: mbstring,sqlite3,pdo_sqlite,bcmath,gd
           coverage: none
       - name: Prepare Laravel bootstrap cache and test artifacts
-        run: mkdir -p bootstrap/cache ../../artifacts && chmod u+rwx bootstrap/cache
+        run: mkdir -p bootstrap/cache ../../artifacts && touch .env && chmod u+rwx bootstrap/cache
       - name: Install locked Composer dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
       - name: Run staging safety and auth regressions
@@ -70,6 +72,9 @@ jobs:
             exit 1
           fi
           printf '%s' "$output" | grep -F 'Staging safety lock is not enabled'
+      - name: Remove temporary Laravel environment file
+        if: always()
+        run: rm -f .env
       - name: Upload Laravel test and startup reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -79,6 +84,45 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  reward-service-safety:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/services/reward-service
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring,sqlite3,pdo_sqlite,bcmath
+          coverage: none
+      - name: Prepare temporary Laravel test environment
+        run: mkdir -p bootstrap/cache && touch .env && chmod u+rwx bootstrap/cache
+      - name: Install locked Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Run reward-service tests without environment warnings
+        shell: bash
+        run: |
+          set -o pipefail
+          php artisan test 2>&1 | tee reward-service-tests.log
+      - name: Remove temporary Laravel environment file
+        if: always()
+        run: rm -f .env
+      - name: Upload reward-service test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-reward-service-tests-${{ github.sha }}
+          path: backend/services/reward-service/reward-service-tests.log
+          if-no-files-found: warn
+          retention-days: 30
   blockchain-safety:
     runs-on: ubuntu-latest
     steps:
@@ -124,6 +168,21 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  mobile-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck mobile application
+        run: pnpm --filter @exaearn/mobile typecheck
   dependency-audits:
     runs-on: ubuntu-latest
     steps:
@@ -140,20 +199,32 @@ jobs:
           php-version: '8.3'
       - name: Composer lockfile audit
         run: composer audit --working-dir=backend/api-gateway --locked --abandoned=fail
-      - name: pnpm audit (preserve report and fail on findings or tool errors)
+      - name: Reward-service Composer lockfile audit
+        run: composer audit --working-dir=backend/services/reward-service --locked --abandoned=fail
+      - name: Run pnpm audit, strict acceptance policy, and website npm audit
         shell: bash
         run: |
           set +e
           pnpm audit --json > pnpm-audit.json 2>&1
-          status=$?
+          pnpm_status=$?
+          node scripts/validate-node-audit.mjs --audit-file pnpm-audit.json --policy security/node-audit-acceptances.json > node-audit-policy.log 2>&1
+          policy_status=$?
+          (cd apps/website && npm audit --workspaces=false --package-lock-only --json > ../../website-npm-audit.json 2>&1)
+          npm_status=$?
           set -e
-          echo "pnpm audit exit code: $status" | tee pnpm-audit-exit-code.txt
-          echo "pnpm_audit_exit_code=$status" >> "$GITHUB_STEP_SUMMARY"
-          if [ ! -s pnpm-audit.json ]; then
-            echo 'pnpm audit produced an empty response; treating this as a failure.' >&2
-            exit 2
+          printf '%s\n' "pnpm audit exit code: $pnpm_status" | tee pnpm-audit-exit-code.txt
+          printf '%s\n' "Node audit policy exit code: $policy_status" | tee node-audit-policy-exit-code.txt
+          printf '%s\n' "Website npm audit exit code: $npm_status" | tee website-npm-audit-exit-code.txt
+          printf '%s\n' "pnpm_audit_exit_code=$pnpm_status" "node_audit_policy_exit_code=$policy_status" "website_npm_audit_exit_code=$npm_status" >> "$GITHUB_STEP_SUMMARY"
+          for report in pnpm-audit.json node-audit-policy.log website-npm-audit.json; do
+            if [ ! -s "$report" ]; then
+              echo "Required dependency audit report is missing or empty: $report" >&2
+              exit 2
+            fi
+          done
+          if [ "$pnpm_status" -ne 0 ] || [ "$policy_status" -ne 0 ] || [ "$npm_status" -ne 0 ]; then
+            exit 1
           fi
-          exit "$status"
       - name: Upload dependency audit reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -162,6 +233,10 @@ jobs:
           path: |
             pnpm-audit.json
             pnpm-audit-exit-code.txt
+            node-audit-policy.log
+            node-audit-policy-exit-code.txt
+            website-npm-audit.json
+            website-npm-audit-exit-code.txt
           if-no-files-found: warn
           retention-days: 30
 
@@ -264,7 +339,7 @@ jobs:
         with:
           image-ref: exaearn-staging-api:${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: 'false'
           format: json
           output: trivy-api-image.json
@@ -275,7 +350,7 @@ jobs:
         with:
           image-ref: exaearn-staging-blockchain:${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: 'false'
           format: json
           output: trivy-blockchain-image.json
@@ -288,7 +363,7 @@ jobs:
           scan-ref: .
           scanners: vuln,secret,misconfig
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: 'false'
           format: json
           output: trivy-filesystem.json
@@ -300,7 +375,7 @@ jobs:
           scan-type: config
           scan-ref: infrastructure/staging
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: 'false'
           format: json
           output: trivy-staging-config.json
@@ -322,6 +397,7 @@ jobs:
               failed=1
             fi
           done
+          python scripts/validate_trivy_reports.py
           exit "$failed"
       - name: Upload Compose and Trivy reports
         if: always()
