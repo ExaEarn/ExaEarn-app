@@ -241,6 +241,8 @@ jobs:
           PY
       - name: Build Laravel staging image
         uses: docker/build-push-action@v6
+        id: build-api
+        continue-on-error: true
         with:
           context: backend/api-gateway
           platforms: linux/arm64
@@ -248,6 +250,8 @@ jobs:
           tags: exaearn-staging-api:${{ github.sha }}
       - name: Build blockchain staging image
         uses: docker/build-push-action@v6
+        id: build-blockchain
+        continue-on-error: true
         with:
           context: .
           file: backend/services/blockchain-service/Dockerfile
@@ -256,6 +260,8 @@ jobs:
           tags: exaearn-staging-blockchain:${{ github.sha }}
       - name: Scan Laravel image for HIGH and CRITICAL vulnerabilities
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-api
+        continue-on-error: true
         with:
           image-ref: exaearn-staging-api:${{ github.sha }}
           severity: HIGH,CRITICAL
@@ -265,6 +271,8 @@ jobs:
           output: trivy-api-image.json
       - name: Scan blockchain image for HIGH and CRITICAL vulnerabilities
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-blockchain
+        continue-on-error: true
         with:
           image-ref: exaearn-staging-blockchain:${{ github.sha }}
           severity: HIGH,CRITICAL
@@ -274,6 +282,8 @@ jobs:
           output: trivy-blockchain-image.json
       - name: Scan repository for vulnerable dependencies, secrets, and misconfiguration
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-filesystem
+        continue-on-error: true
         with:
           scan-type: fs
           scan-ref: .
@@ -285,6 +295,8 @@ jobs:
           output: trivy-filesystem.json
       - name: Scan staging infrastructure configuration
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-config
+        continue-on-error: true
         with:
           scan-type: config
           scan-ref: infrastructure/staging
@@ -293,6 +305,25 @@ jobs:
           ignore-unfixed: 'false'
           format: json
           output: trivy-staging-config.json
+      - name: Enforce every build and Trivy result
+        if: always()
+        env:
+          BUILD_API_OUTCOME: ${{ steps.build-api.outcome }}
+          BUILD_BLOCKCHAIN_OUTCOME: ${{ steps.build-blockchain.outcome }}
+          SCAN_API_OUTCOME: ${{ steps.scan-api.outcome }}
+          SCAN_BLOCKCHAIN_OUTCOME: ${{ steps.scan-blockchain.outcome }}
+          SCAN_FILESYSTEM_OUTCOME: ${{ steps.scan-filesystem.outcome }}
+          SCAN_CONFIG_OUTCOME: ${{ steps.scan-config.outcome }}
+        shell: bash
+        run: |
+          failed=0
+          for result in "$BUILD_API_OUTCOME" "$BUILD_BLOCKCHAIN_OUTCOME" "$SCAN_API_OUTCOME" "$SCAN_BLOCKCHAIN_OUTCOME" "$SCAN_FILESYSTEM_OUTCOME" "$SCAN_CONFIG_OUTCOME"; do
+            if [ "$result" != success ]; then
+              echo "Required image build or Trivy scan did not pass (outcome: ${result:-not-run})." >&2
+              failed=1
+            fi
+          done
+          exit "$failed"
       - name: Upload Compose and Trivy reports
         if: always()
         uses: actions/upload-artifact@v4

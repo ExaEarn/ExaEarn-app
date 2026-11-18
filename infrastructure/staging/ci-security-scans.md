@@ -1,6 +1,6 @@
 # Staging CI security scans
 
-The workflow at `.github/workflows/aws-staging-security.yml` validates Laravel and Node behavior, audits the locked dependencies, validates default and fully profiled Docker Compose models, builds both staging images, then runs Trivy image, filesystem, and infrastructure configuration scans. All high/critical findings fail their jobs; no scanner is configured to ignore unfixed advisories. Reports are uploaded even when a scan fails.
+The workflow at `.github/workflows/aws-staging-security.yml` validates Laravel and Node behavior, audits the locked dependencies, validates default and fully profiled Docker Compose models, builds both staging images, then runs Trivy image, filesystem, and infrastructure configuration scans. All build and scan steps run independently where possible, and a final aggregate gate fails if any step fails or does not run; no scanner is configured to ignore unfixed advisories. Reports are uploaded even when a scan fails.
 
 Docker Compose validation asserts that default Compose starts only Postgres and Redis, those data services and both app containers publish no host ports, only Caddy publishes 80/443 under the explicit `public` profile, application services require the `application` profile, no worker service exists, and lock/service/custody/RPC/network/chain-ID environment values are the staging-safe values.
 
