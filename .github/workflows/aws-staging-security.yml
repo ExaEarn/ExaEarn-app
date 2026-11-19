@@ -280,6 +280,7 @@ jobs:
           assert published == {('80', '80'), ('443', '443')}, published
           assert services['api'].get('profiles') == ['application']
           assert services['blockchain'].get('profiles') == ['application']
+          assert services['blockchain']['build']['dockerfile'].endswith('Dockerfile.staging')
           assert services['caddy'].get('profiles') == ['public']
           for name in ('api', 'blockchain'):
               env = services[name].get('environment', {})
@@ -328,7 +329,7 @@ jobs:
         continue-on-error: true
         with:
           context: .
-          file: backend/services/blockchain-service/Dockerfile
+          file: backend/services/blockchain-service/Dockerfile.staging
           platforms: linux/arm64
           load: true
           tags: exaearn-staging-blockchain:${{ github.sha }}
@@ -361,7 +362,7 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
-          scanners: vuln,secret,misconfig
+          scanners: vuln,secret
           severity: HIGH,CRITICAL
           exit-code: '0'
           ignore-unfixed: 'false'

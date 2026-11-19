@@ -17,6 +17,55 @@ class TrivyReportValidationTests(unittest.TestCase):
             path = self.write_report(Path(temp), {"Results": []})
             self.assertEqual(validate_report(path, ("Vulnerabilities",)), [])
 
+
+    def test_valid_empty_staging_config_without_results_passes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = self.write_report(
+                Path(temp),
+                {
+                    "SchemaVersion": 2,
+                    "Trivy": {"Version": "0.69.3"},
+                    "ReportID": "test-report",
+                    "CreatedAt": "2026-11-18T12:50:53Z",
+                    "ArtifactName": "infrastructure/staging",
+                    "ArtifactType": "filesystem",
+                    "Metadata": {},
+                },
+            )
+            self.assertEqual(
+                validate_report(path, ("Misconfigurations",), allow_missing_results=True),
+                [],
+            )
+
+    def test_valid_empty_developer_platform_config_without_results_passes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = self.write_report(
+                Path(temp),
+                {
+                    "SchemaVersion": 2,
+                    "Trivy": {"Version": "0.69.3"},
+                    "ReportID": "test-report",
+                    "CreatedAt": "2026-11-18T12:50:53Z",
+                    "ArtifactName": "infrastructure/developer-platform/kubernetes",
+                    "ArtifactType": "filesystem",
+                },
+            )
+            self.assertEqual(
+                validate_report(
+                    path,
+                    ("Misconfigurations",),
+                    allow_missing_results=True,
+                    expected_artifact="infrastructure/developer-platform/kubernetes",
+                ),
+                [],
+            )
+
+    def test_empty_config_without_scan_metadata_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = self.write_report(Path(temp), {"SchemaVersion": 2})
+            self.assertTrue(
+                validate_report(path, ("Misconfigurations",), allow_missing_results=True)
+            )
     def test_high_finding_fails_after_report_is_written(self):
         with tempfile.TemporaryDirectory() as temp:
             path = self.write_report(Path(temp), {"Results": [{"Vulnerabilities": [{"Severity": "HIGH", "VulnerabilityID": "CVE-TEST"}]}]})

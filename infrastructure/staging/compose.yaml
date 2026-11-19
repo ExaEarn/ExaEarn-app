@@ -54,7 +54,7 @@ services:
     profiles: ["application"]
     build:
       context: ../..
-      dockerfile: backend/services/blockchain-service/Dockerfile
+      dockerfile: backend/services/blockchain-service/Dockerfile.staging
     restart: unless-stopped
     env_file: staging.env
     environment:

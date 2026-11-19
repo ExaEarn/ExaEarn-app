@@ -177,7 +177,13 @@ test('actual Node entrypoint loads a staging .env before applying the startup gu
   }
 });
 
-test('staging entrypoint does not mount TON routes or load TON/Zod RPC code at startup', async () => {
+test('the normal workspace install retains optional TON and Web3 runtime support', () => {
+  expect(() => require.resolve('@ton/ton')).not.toThrow();
+  expect(() => require.resolve('@ton/crypto')).not.toThrow();
+  expect(() => require.resolve('web3')).not.toThrow();
+});
+
+test('staging entrypoint does not load TON, Web3, or Zod runtime paths', async () => {
   const Module = require('node:module');
   const names = Object.keys(safeEnvironment);
   const prior = Object.fromEntries(names.map((name) => [name, process.env[name]]));
@@ -193,7 +199,7 @@ test('staging entrypoint does not mount TON routes or load TON/Zod RPC code at s
       .map((layer) => layer.route.path);
     const rpcModulesLoaded = loadSpy.mock.calls
       .map(([request]) => request)
-      .filter((request) => request === '@ton/ton' || request === 'zod');
+      .filter((request) => ['@ton/ton', '@ton/crypto', 'web3', 'zod'].includes(request));
 
     expect(routes.some((route) => /ton/i.test(String(route)))).toBe(false);
     expect(rpcModulesLoaded).toEqual([]);

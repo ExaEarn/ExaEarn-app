@@ -1,46 +1,58 @@
-# Dependency audit triage - 2026-11-18
+# Staging security triage and deployment scope - 2026-11-18
 
-## Current audit results
+## Current validation results
 
-- Composer: `composer audit --locked --abandoned=fail --format=json` exit code **0**; `advisories: []`, `abandoned: []`.
-- pnpm 10.34.5: `pnpm audit --json` exit code **1**; 1,601 dependencies, 0 critical, 19 high, 70 moderate, 13 low. The report is non-empty and is not a passing audit.
-- The pnpm response contains 17 distinct high advisory IDs affecting eight transitive package families. The audit's severity metadata reports 19 high findings because multiple installed instances are affected. No remaining high is a direct manifest dependency.
-- The three original critical advisories and the prior 91 high findings were reduced through compatible same-major overrides and direct compatible updates. A later audit revealed a new `tmp` advisory after the 0.2.6 update; `tmp` is now overridden to 0.2.7 and that package no longer appears among the high findings.
+- pnpm audit --json with the repository-pinned pnpm 10.34.5: exit 1; 0 critical, 7 high, 59 moderate, 10 low. The report is non-empty and is not a passing audit.
+- Website npm audit --json, run from an isolated copy of apps/website/package.json and its existing lockfile to avoid npm mistaking the enclosing pnpm monorepo for an npm workspace: exit 1; 4 high, 0 critical.
+- Composer audits for backend/api-gateway and backend/services/reward-service: both exit 0.
+- API gateway Laravel suite with temporary process-only test settings: 608 passed, 1 skipped; PHPUnit emitted four existing metadata deprecation warnings.
+- Reward-service suite with a temporary dummy-key .env created only for the run and removed immediately afterward: 9 passed, no warnings.
+- Blockchain Jest: 3 suites / 18 tests passed; lint passed; Hardhat compile passed; Hardhat contract tests: 5 passed.
+- Website typecheck and production build passed. Mobile typecheck and Android Expo export passed.
+- Trivy report validator: 9 tests passed.
+- Docker and Trivy executables are unavailable locally. ARM64 image builds, Compose rendering, and Trivy results require the fresh GitHub Actions run. The baseline Trivy artifact from run 44307073969 reported 7 HIGH filesystem dependency findings and 14 HIGH Kubernetes misconfigurations; it predates this change.
 
-## Remaining high findings
+## Compatible dependency remediation already validated
 
-| Package and IDs | Production exposure | Exploitability / reachable input | Available fix and compatibility | Status |
-| --- | --- | --- | --- | --- |
-| `serialize-javascript` 6.0.2 - 1113686 | Mocha/Hardhat dev dependency; excluded by the blockchain image's `pnpm --prod deploy` stage | RCE requires a crafted RegExp/date-like value to reach the serializer while a developer or CI runs the toolchain; no staging request path | At least 7.0.5 also clears the related moderate advisory; major version, so Mocha/Hardhat consumer compatibility needs a dedicated upgrade | Not updated; build-only, still audit-blocking |
-| `undici` 5.29.0 - 1114638, 1114640, 1243476, 1243479, 1244534 | `@nomicfoundation/hardhat-verify` dev dependency; excluded from runtime image | WebSocket, TLS, and decompression attacks need the vulnerable client path to process attacker-controlled peer traffic during verification | At least 6.29.1 covers all listed IDs; major version for the 5.x consumer. Upgrade the Hardhat verifier as a reviewed unit or test the 6.x override against verification flows | Not updated; build-only, still audit-blocking |
-| `adm-zip` 0.4.16 - 1123686, 1239030, 1240032, 1240034, 1240066 | Hardhat dev dependency; excluded from runtime image | Crafted archives could cause memory exhaustion, decompression bypass, permission-bit extraction, or process crash when the developer tool extracts them | At least 0.6.1 covers all listed IDs; major version, requiring Hardhat consumer compatibility tests | Not updated; build-only, still audit-blocking |
-| `deepmerge-ts` 7.1.5 - 1145093 | Prisma config tooling in root dev dependencies; excluded from the service runtime image | Stack exhaustion needs a recursive graph passed to merge; likely local/config-time input, not a staging request | 8.x is a major upgrade and requires Prisma config compatibility review | Not updated; build-only, still audit-blocking |
-| `image-size` 1.2.1 - 1239765, 1239766 | React Native/Metro/Expo build chain; not included in the API or blockchain production image | Crafted JXL, HEIF, or ICNS data can hang the image parser when a mobile build processes it | At least 2.0.3; major version, requires Metro/Expo compatibility tests | Not updated; build-only, still audit-blocking |
-| `@fastify/busboy` 2.1.1 - 1240982 | Nested beneath Hardhat verify's Undici and excluded from runtime image | DoS requires specially named multipart headers to reach that client parser | At least 3.2.1; major version, review with the parent Undici upgrade | Not updated; build-only, still audit-blocking |
-| `zod` 3.25.76 - 1243066 | Production transitive dependency of `@ton/ton`; present in the blockchain production image | GHSA-mrhx-c7xc-m3w5 is a high-severity memory exhaustion issue (CVSS 8.2): an unbounded array schema can accumulate validation issues for an oversized invalid array. TON's `HttpApi.js` parses RPC result arrays (`getTransactions`, shard lists, message stacks) with Zod. `src/index.js` imports no TON controller or `nonEvmChainService`; TON modules are loaded lazily by `nonEvmChainService`/`hdWalletService`, and the active Express routes do not call those paths. So the vulnerable parse path is not exposed by the current HTTP entrypoint, but the library remains in the production image and a direct internal call or future route could reach it. Do not treat it as harmless. | The advisory affects all Zod versions `<4.6.6`; no compatible Zod 3 fix is published. `@ton/ton` 16.3.0, the current upstream release, still declares `zod:^3.21.4`. A global Zod 4 override violates the TON package's supported range; removing TON would break the existing TON wallet and RPC implementation. No safe compatible remediation is available in this branch. | **Runtime package blocker**; the financial lock prevents transaction operations but does not remove this dependency finding |
-| `picomatch` 2.3.2, 3.0.2, 4.0.7 - 1247710 | Vite/Expo/Metro developer and build chains; excluded from the API/blockchain runtime image | ReDoS needs an attacker-controlled matching pattern to reach the affected path during build/tool use | Audit reports no patched version (`<0.0.0`) | Not updated; build-only, still audit-blocking |
+- @nomicfoundation/hardhat-verify 2.1.3 -> 2.1.4 and Undici 5.x -> 6.29.1 override remove the old verifier's vulnerable Undici 5 path. Blockchain Jest and Hardhat tests passed.
+- adm-zip 0.4.16 -> 0.6.1 and deepmerge-ts 7.1.5 -> 8.0.1 remove the prior vulnerable instances. Prisma validate/generate and Hardhat tests passed in local validation.
+- @fastify/busboy is no longer in the audited path.
+- An image-size 2.0.3 override was tested and reverted: Metro/Expo failed its Android export with getImageSize is not a function. The current lock retains 1.2.1 and the Android export passes.
+- No vulnerable version is ignored or risk-accepted.
 
-All remaining highs cause the dependency-audit and Trivy filesystem jobs to fail. The Zod finding is also expected to fail the blockchain image scan if the image scanner identifies the installed production dependency. No finding is suppressed, ignored, or accepted as a pass.
+## Remaining pnpm HIGH advisories
 
-## Compatible dependency changes already applied
+| Package / installed version / advisory | Dependency path and exposure | Patch / compatible option | Status |
+| --- | --- | --- | --- |
+| serialize-javascript 6.0.2, GHSA-5c6j-r48x-rmvq | backend/services/blockchain-service > hardhat > mocha > serialize-javascript; Hardhat test/build tooling only, excluded from the service production deployment. Exploitation needs attacker-controlled values to reach the serializer while the tool runs. | Patched at >=7.0.3. The current Hardhat/Mocha dependency range uses 6.x; a Mocha/Hardhat major change has not been shown compatible with this project. | High; no safe compatible upgrade verified. |
+| image-size 1.2.1, GHSA-5p2g-fcmc-qvqq and GHSA-w3rx-r6r6-pgpr | react-native-worklets > react-native > @react-native/community-cli-plugin > metro > image-size; mobile build tooling only. Crafted JXL, HEIF, or ICNS data can trigger parser loops during a build. | Fixed at >=2.0.3, but the tested upgrade broke Expo's getImageSize import and was reverted. Revisit when Metro/Expo provides a compatible fix. | Two HIGH advisories; no compatible patch in the current chain. |
+| zod 3.25.76, GHSA-mrhx-c7xc-m3w5 | backend/services/blockchain-service > @ton/ton > zod; ordinary production installs include optional dependencies, so the main production image can contain it. TON's RPC parsing path is lazy and not mounted by the current Express entrypoint, but future/internal calls can reach it. | The advisory fixes at >=4.6.6; TON requires Zod 3 and no compatible Zod 3 patch is available. Do not force Zod 4 into TON. | Production dependency finding remains open. |
+| picomatch 2.3.2, 3.0.2, 4.0.7, GHSA-fc5q-39xc-vjpf | Admin Vite, mobile Expo CLI, and Metro/Jest tooling paths. ReDoS requires attacker-controlled glob patterns to reach the matching operation. | Advisory currently publishes no patched version. No fixed compatible release can be selected. | Three HIGH instances; audit-blocking. |
 
-- Direct packages: `axios` 1.18.0 -> 1.20.0; `bitcoinjs-lib` 6.1.7 -> 6.1.8; Vite 6.4.3 -> 6.4.4, 7.3.6 -> 7.3.7, and 8.2.2 -> 8.2.4.
-- Compatible transitive overrides include patched versions of `@xmldom/xmldom`, `body-parser`, `brace-expansion`, `browserslist`, `compression`, `engine.io`, `fast-uri`, `follow-redirects`, `form-data`, `hono`, `immutable`, `js-yaml`, `lodash`, `multer`, `mysql2`, `nanoid`, `node-forge`, `postcss`, `proxy-addr`, `shell-quote`, `socket.io-parser`, `source-map-js`, `tar`, `undici` 6.x, Zod 4.x, and `ws`.
-- `tmp` is overridden from 0.0.33 to patched 0.2.7 for solc. A forced Hardhat compile and contract tests are required in CI and are also run locally for this change.
-- Laravel lockfile updates remain within existing Composer constraints: Laravel 12.68 -> 12.73, CommonMark 2.10.0 -> 2.10.7, and Symfony 7.4 components to patched 7.4 releases. `composer.json` constraints are unchanged.
+## TON / Zod staging boundary
 
-## Deployment gate
+TON and Web3 are now optionalDependencies. A normal pnpm install and the unchanged production Dockerfile install optional dependencies, preserving existing TON/Web3 support. The blockchain provider loads Web3 lazily so it does not need Web3 merely to start.
 
-No AWS deployment should proceed while the pnpm audit reports high findings. The prepared workflow fails on every high/critical dependency finding and on high/critical Trivy image, filesystem, or config findings. Resolve remaining findings and obtain successful CI container scans before deployment. Do not use an ignore file, risk-acceptance bypass, or `ignore-unfixed` to bypass these results.
+The staging-only Dockerfile.staging installs and deploys with --no-optional. A local production-deploy-tree inspection confirmed that the staging tree contains no @ton/ton, @ton/crypto, web3, or Zod package. The Node startup test also verifies the staging entrypoint does not load TON, Web3, or Zod modules. infrastructure/staging/compose.yaml now selects Dockerfile.staging; the general production Dockerfile is unchanged.
 
-## Developer Platform Kubernetes findings (proposal only)
+This is a staging-only containment measure. The full workspace audit still reports the production TON/Zod issue, and the main production image remains affected until TON supports a patched Zod version or TON functionality is replaced with a reviewed compatible implementation. The new ARM64 build and Trivy image scan are still pending in GitHub CI; the local package-tree check is not a substitute for those scans.
 
-The 14 HIGH misconfigurations are in `infrastructure/developer-platform/kubernetes/base.yaml`, which defines production Developer Platform workloads. This staging remediation does not edit that manifest or its workloads.
+## Website npm HIGH findings
 
-Proposed reviewed change for the five affected deployments (`api-gateway`, `realtime-gateway`, `scheduler`, `queue-worker`, and `webhook-worker`): set an explicit pod/container security context with `runAsNonRoot: true`, a verified non-root UID/GID, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: ["ALL"]`, and `seccompProfile.type: RuntimeDefault`. Add narrowly scoped `emptyDir` mounts only for confirmed writable paths such as `/tmp`; do not make the whole root filesystem writable to satisfy application behavior.
+The isolated website lockfile audit reports fdir 6.5.0, picomatch 4.0.7, tinyglobby 0.2.17, and Vite 6.4.6 as four HIGH package findings through the picomatch advisory. The registry reports no patched picomatch release. npm suggests changing Vite to 6.2.7 (a downgrade from the locked Vite 6.4.6); that suggestion does not provide a verified compatible fix for the underlying unpatched picomatch advisory. No website dependency was changed.
 
-Before applying this proposal, inspect each image's declared user and write paths, validate migrations/cache/log behavior, run workload-specific tests, render the Kubernetes manifests, and run the pinned Trivy config scan. Roll out in a separate Developer Platform change with workload owners; keep probes, ports, service accounts, and production behavior unchanged unless validation demonstrates a necessary adjustment.
+## Kubernetes findings tracked separately from EC2 staging
 
-## Separate website npm audit
+The baseline Trivy filesystem report identified 14 HIGH misconfigurations in infrastructure/developer-platform/kubernetes/base.yaml, which defines production Developer Platform workloads. This staging change leaves that manifest unchanged and runs a separate, blocking Trivy config job against that path in developer-platform-gates.yml; its JSON report is uploaded even on findings. The staging filesystem scan is limited to vulnerability/secret scanning, while the Kubernetes findings remain visible to the repository's independent blocking config scan.
 
-The website's `apps/website/package-lock.json` audit exits 1 with four HIGH package-path findings: `fdir`, `tinyglobby`, and Vite all resolve the vulnerable `picomatch@4.0.7` path. The other website dependency versions previously flagged by Trivy (Browserslist, Nanoid, PostCSS, Source Map JS, and Vite) are already at patched releases in the lockfile. GitHub's current `GHSA-fc5q-39xc-vjpf` advisory lists no patched `picomatch` version, so changing the Vite lock to another compatible release cannot clear that advisory. Keep the npm gate blocking until upstream publishes a fix or the matching dependency chain can be replaced compatibly.
+The 14 baseline findings are:
+- KSV-0014 (5): root filesystem is not read-only on api-gateway, realtime-gateway, scheduler, queue-worker, and webhook-worker.
+- KSV-0118 (9): containers in those workloads lack explicit security contexts.
+
+Proposed follow-up, in a separate Developer Platform change: verify image users and writable paths; set runAsNonRoot, a verified UID/GID, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities.drop: [ALL], and seccompProfile: RuntimeDefault; add only confirmed writable emptyDir mounts; render manifests and rerun the pinned Trivy config scan with workload tests. Do not modify production manifests as part of this staging PR.
+
+## Compose and deployment decision
+
+The Compose model keeps PostgreSQL and Redis private (no host ports), starts only those two services by default, and places API/blockchain behind the application profile and Caddy behind the public profile. No financial worker or queue service is defined. With all profiles selected, only Caddy publishes ports 80/443. CI additionally asserts the blockchain service selects Dockerfile.staging.
+
+Decision: NO-GO for AWS staging at this point. The local unit/build tests pass, but the dependency audits still return blocking HIGH findings, production TON/Zod remains unresolved, and the fresh ARM64 image/Compose/Trivy CI results are not available yet. Do not deploy until the required runtime scans pass, dependency audit blockers have a reviewed compatible disposition, and staging secrets (including APP_KEY and database password) are supplied through the approved secret manager rather than committed files. Production deployment is also blocked by the production TON/Zod finding and the separate Developer Platform Kubernetes gate.

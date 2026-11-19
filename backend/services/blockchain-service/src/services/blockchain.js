@@ -6,10 +6,20 @@
  */
 
 const { ethers } = require('ethers');
-const { Web3 } = require('web3');
 const config = require('../config');
 const hdWalletService = require('./hdWalletService');
 const logger = require('../utils/logger');
+
+function loadWeb3Constructor() {
+  try {
+    return require('web3').Web3;
+  } catch (error) {
+    if (error.code === 'MODULE_NOT_FOUND' && error.message.includes("'web3'")) {
+      throw new Error('Web3 runtime support is not installed in this deployment.');
+    }
+    throw error;
+  }
+}
 
 const ERC20_ABI = [
   'event Transfer(address indexed from, address indexed to, uint256 value)',
@@ -95,6 +105,7 @@ class BlockchainProvider {
 
     if (!this._web3Instances.has(normalized)) {
       const networkConfig = config.getNetworkConfig(normalized);
+      const Web3 = loadWeb3Constructor();
       this._web3Instances.set(normalized, new Web3(networkConfig.rpcUrl));
 
       logger.info('Web3.js instance initialized', {
