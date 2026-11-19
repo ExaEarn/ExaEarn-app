@@ -209,7 +209,7 @@ jobs:
           pnpm_status=$?
           node scripts/validate-node-audit.mjs --audit-file pnpm-audit.json --policy security/node-audit-acceptances.json > node-audit-policy.log 2>&1
           policy_status=$?
-          (cd apps/website && npm audit --workspaces=false --package-lock-only --json > ../../website-npm-audit.json 2>&1)
+          (cd apps/website && npm audit --workspaces=false --json > ../../website-npm-audit.json 2>&1)
           npm_status=$?
           set -e
           printf '%s\n' "pnpm audit exit code: $pnpm_status" | tee pnpm-audit-exit-code.txt
