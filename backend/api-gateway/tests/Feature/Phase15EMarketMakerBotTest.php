@@ -275,6 +275,11 @@ class Phase15EMarketMakerBotTest extends TestCase
         $this->assertSame(1, InstitutionalTransferRequest::query()->where('idempotency_key', 'MM-BOT-REBALANCE-rebalance-1')->count());
 
         $primaryBot = MarketMakerBot::query()->where('bot_uuid', $bot['bot_uuid'])->firstOrFail();
+        $probeRiskLimits = $primaryBot->risk_limits ?? [];
+        $probeRiskLimits['max_market_data_age_seconds'] = 600;
+        $primaryBot->risk_limits = $probeRiskLimits;
+        $primaryBot->save();
+
         for ($i = 2; $i <= 10; $i++) {
             MarketMakerBot::query()->create(array_merge($primaryBot->replicate()->toArray(), [
                 'bot_uuid' => (string) Str::uuid(),
@@ -285,8 +290,16 @@ class Phase15EMarketMakerBotTest extends TestCase
                 'worker_lease_expires_at' => null,
             ]));
         }
+        $latestMarketSnapshot = SpotOrderBookSnapshot::query()
+            ->where('market_id', $market->id)
+            ->latest('last_sequence')
+            ->firstOrFail();
+        DB::table($latestMarketSnapshot->getTable())
+            ->where($latestMarketSnapshot->getKeyName(), $latestMarketSnapshot->getKey())
+            ->update(['created_at' => now(), 'updated_at' => now()]);
+
         $run = app(MarketMakerBotLoadTestService::class)->run(10, 3);
-        $this->assertSame('PASS', $run->status);
+        $this->assertSame('PASS', $run->status, 'Load probe metrics: '.json_encode($run->metrics, JSON_UNESCAPED_SLASHES));
         $this->assertSame(30, $run->metrics['decisions']);
         $this->assertSame(1, MarketMakerBotLoadRun::query()->count());
 
