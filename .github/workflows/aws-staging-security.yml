@@ -323,6 +323,12 @@ jobs:
           platforms: linux/arm64
           load: true
           tags: exaearn-staging-api:${{ github.sha }}
+      - name: Assert PostgreSQL and Redis PHP drivers in API image
+        id: verify-api-runtime
+        if: steps.build-api.outcome == 'success'
+        run: >-
+          docker run --rm exaearn-staging-api:${{ github.sha }} php -r
+          '$required=["redis","pdo_pgsql"]; $missing=array_diff($required,get_loaded_extensions()); if ($missing) {fwrite(STDERR, "Missing PHP extensions: ".implode(", ",$missing).PHP_EOL); exit(1);}'
       - name: Build blockchain staging image
         uses: docker/build-push-action@v6
         id: build-blockchain
@@ -384,6 +390,7 @@ jobs:
         if: always()
         env:
           BUILD_API_OUTCOME: ${{ steps.build-api.outcome }}
+          VERIFY_API_RUNTIME_OUTCOME: ${{ steps.verify-api-runtime.outcome }}
           BUILD_BLOCKCHAIN_OUTCOME: ${{ steps.build-blockchain.outcome }}
           SCAN_API_OUTCOME: ${{ steps.scan-api.outcome }}
           SCAN_BLOCKCHAIN_OUTCOME: ${{ steps.scan-blockchain.outcome }}
@@ -392,7 +399,7 @@ jobs:
         shell: bash
         run: |
           failed=0
-          for result in "$BUILD_API_OUTCOME" "$BUILD_BLOCKCHAIN_OUTCOME" "$SCAN_API_OUTCOME" "$SCAN_BLOCKCHAIN_OUTCOME" "$SCAN_FILESYSTEM_OUTCOME" "$SCAN_CONFIG_OUTCOME"; do
+          for result in "$BUILD_API_OUTCOME" "$VERIFY_API_RUNTIME_OUTCOME" "$BUILD_BLOCKCHAIN_OUTCOME" "$SCAN_API_OUTCOME" "$SCAN_BLOCKCHAIN_OUTCOME" "$SCAN_FILESYSTEM_OUTCOME" "$SCAN_CONFIG_OUTCOME"; do
             if [ "$result" != success ]; then
               echo "Required image build or Trivy scan did not pass (outcome: ${result:-not-run})." >&2
               failed=1
