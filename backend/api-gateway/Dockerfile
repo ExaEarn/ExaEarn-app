@@ -4,7 +4,8 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative --no-scripts
 
 FROM php:8.3-cli-alpine
-RUN apk add --no-cache icu-libs libpq libzip && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev libzip-dev \
+RUN apk upgrade --no-cache libxml2 \
+    && apk add --no-cache icu-libs libpq libzip && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev libzip-dev \
     && docker-php-ext-install bcmath intl opcache pcntl pdo_pgsql zip \
     && pecl install redis-6.3.0 \
     && docker-php-ext-enable redis \
