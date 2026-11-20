@@ -1,79 +1,97 @@
 # ExaEarn AWS staging preparation
 
-This directory is a **preparation-only** deployment bundle for an isolated
-`us-east-1` staging host. It creates no AWS resources and must not be used for
-production.
+This directory contains a preparation-only deployment bundle for one isolated
+ARM64 EC2 staging host in `us-east-1`. It does not provision AWS resources or
+deploy the application. Never use it for production.
 
-## Safety gates
+## Hard gates
 
-`docker compose up` starts only PostgreSQL and Redis. The API, blockchain
-service, and public reverse proxy are in the `application` profile and are
-intentionally blocked pending the gates below.
+- Keep `EXAEARN_STAGING_SAFETY_LOCK=locked`,
+  `FINANCIAL_SERVICES_ENABLED=false`, `STAGING_WORKERS_ENABLED=false`,
+  and `CUSTODY_PRODUCTION_ENABLED=false`.
+- Use testnet RPC endpoints only. Do not add mainnet contract addresses, wallet
+  addresses, signing keys, seed phrases, or payment-provider credentials.
+- Do not start the application profile until all required HIGH/CRITICAL
+  dependency and image security gates pass. Current dependency findings keep
+  staging at **NO-GO**.
+- Do not publish images, launch EC2, start application services, or expose DNS
+  until separately approved.
+- No application worker, scheduler, withdrawal, deposit, trade execution, or
+  custody service is part of the Compose stack.
 
-Do not start the application profile until all of these are complete:
+## Proposed host and network
 
-1. The code-level staging lock has passed Laravel and Node runtime tests in CI.
-   Startup requires the explicit lock, disabled financial services and
-   workers, testnet RPC configuration, and empty signing credentials. HTTP
-   state-changing operations and Node transaction execution remain blocked.
-2. Mainnet RPC URLs, mainnet contract addresses, wallet addresses, private
-   keys, seed phrases, signing keys, and payment-provider credentials are
-   absent from the host and from AWS Parameter Store.
-3. The security review has no unresolved HIGH or CRITICAL findings that affect
-   the images or deployed services.
-4. The host has passed ARM64 image build/pull, health, migration, backup, and
-   rollback tests.
+- Ubuntu 24.04 ARM64, `t4g.medium`, 30 GiB encrypted gp3, IMDSv2 required,
+  and the `ExaEarnStagingInstanceProfile`.
+- Use the existing public subnet without a NAT gateway so the instance can
+  reach SSM and approved HTTPS dependencies. The attached staging security
+  group must have **zero inbound rules** and only outbound TCP 443. Do not
+  attach the existing partially configured staging group until an administrator
+  has applied the prepared repair.
+- Do not assign an SSH key or open SSH. Use SSM Session Manager.
+- PostgreSQL, Redis, API, and blockchain ports are not published to the host.
+  The Caddy `public` profile publishes 80/443 only inside the host network
+  namespace; with zero security-group ingress those ports remain unreachable
+  from the Internet. Keep this profile disabled until separately approved.
+- No DNS changes or public ingress are included.
 
-The Laravel and Node applications both retain mainnet defaults outside
-staging. The staging startup validators reject missing or unexpected staging
-RPC endpoints before those defaults can be used. The application profile must
-remain disabled until CI proves those startup checks and the required scans.
+## Monthly cost estimate
 
-## Host plan
+A 730-hour month at the current us-east-1 on-demand rates is approximately:
 
-- Ubuntu 24.04 ARM64 on one `t4g.small`, with 30 GiB encrypted gp3 EBS.
-- No SSH ingress. Use a pre-created EC2 role with AWS Systems Manager (SSM).
-- Security group ingress: TCP 80/443 only after DNS and HTTPS approval. The
-  database, Redis, and Node service have no host ports.
-- Docker Compose named volumes remain on encrypted EBS. Database backups are
-  encrypted EBS snapshots; test restoration before relying on them.
-- Caddy obtains TLS only after `api-staging.exaearn.com` resolves to the host.
-  DNS is deliberately outside this bundle.
+| Item | Estimate |
+| --- | ---: |
+| Linux `t4g.medium` at $0.0336/hour | $24.53 |
+| 30 GiB gp3 at $0.08/GiB-month | $2.40 |
+| One in-use public IPv4 at $0.005/hour | $3.65 |
+| **Estimated baseline** | **$30.58/month** |
 
-## Secrets and environment
+This excludes taxes, data transfer, S3 backups, snapshots, CloudWatch ingestion,
+and other usage. The account's current $25 monthly budget is below the baseline.
+Obtain budget approval or a lower-cost reviewed design before creating
+billable resources. A private subnet without NAT would require VPC endpoints
+for SSM and image/package access; their hourly charges must be quoted before
+choosing that design.
 
-Copy `staging.env.example` to `staging.env` on the server only. It is ignored
-by Git. Populate values from SSM Parameter Store SecureString parameters under
-`/exaearn/staging/`; never commit or print them.
+## Environment and secrets
 
-The example contains only testnet endpoints:
+Copy `staging.env.example` to `staging.env` on the host only. The real file
+is ignored by Git. Supply fresh, staging-only secrets from SSM Parameter Store
+SecureString; never reuse production values or print secrets in logs.
 
-- Base Sepolia
-- Ethereum Sepolia
-- BSC Testnet
+The sample RPC endpoints are testnets. TON, Bitcoin, and TRON RPC endpoints
+remain empty. Laravel and blockchain startup guards must reject missing locks,
+mainnet endpoints, or signing secrets before any service starts.
 
-No queue worker or scheduler is included. Do not add one until job allowlists
-and the financial kill switch have been proven.
+## Controlled rollout and operations
 
-## Controlled rollout
-
-1. Create SSM SecureString values and the EC2 instance role.
-2. Launch the approved host with encryption, IMDSv2 required, no SSH key, and
-   the `ExaEarnStagingInstanceRole` only.
-3. Install Docker Engine and Compose through SSM, pull/build ARM64 images, and
-   run only the default data-service profile.
-4. Restore a disposable, non-production database backup or initialize an empty
-   `exaearn_staging` database. Do not copy production financial or customer data.
-5. After the code-level financial gate is merged and tested, run migrations
-   manually (`php artisan migrate --force`) only after confirming the target
-   database name is `exaearn_staging`.
-6. Enable the application profile, validate `/up` and `/health`, then obtain
-   explicit DNS approval before exposing 80/443.
+1. An authorized administrator repairs the staging security group, creates
+   the instance profile, attaches the existing SSM-enabled role, and prepares
+   the launch template. The separate administrator script must be reviewed and
+   run under an administrator profile; the staging deployer cannot perform
+   these IAM operations.
+2. Review the exact monthly estimate and approve the billable host before
+   running the EC2 launch command. The preparation script must finish with
+   `RunInstances --dry-run`; it must not launch the instance.
+3. After the host exists, use SSM to install Docker and Compose and retrieve
+   the staging environment. Keep the default data-service profile inactive
+   until the application security gates pass.
+4. Use a dedicated, encrypted S3 bucket and staging-only instance-role access
+   for PostgreSQL backups. Set retention/lifecycle and test a restore before
+   relying on backups. Do not store plaintext dumps on the host.
+5. Configure CloudWatch log shipping, disk/CPU alarms, and backup-failure
+   alerts before starting application containers.
+6. After all dependency gates pass and startup checks are reviewed, obtain
+   approval before pulling approved digest-pinned images and starting the
+   `application` profile. Run migrations only against the
+   `exaearn_staging` database.
+7. Validate API `/up` and blockchain `/health` healthchecks, testnet-only
+   settings, logs, SSM access, backup, and rollback before requesting any
+   ingress or DNS change.
 
 ## Rollback
 
-Stop the `application` profile, retain the EBS volume, and restore the most
-recent tested snapshot to a replacement staging volume. Do not roll back by
-pointing any staging service at production databases, secrets, or RPC signing
+Stop the `application` profile and retain the encrypted data volume. Restore a
+tested staging backup to a replacement staging volume if needed. Never point a
+staging service at production databases, production secrets, or production RPC
 credentials.
-
