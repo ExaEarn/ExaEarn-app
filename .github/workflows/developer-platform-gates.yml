@@ -223,3 +223,38 @@ jobs:
           tags: exaearn/realtime:${{ github.sha }}
       - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with: { image-ref: 'exaearn/realtime:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: false }
+  developer-platform-kubernetes-security:
+    name: Production Developer Platform Kubernetes security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan production Kubernetes manifests with Trivy
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: trivy-kubernetes
+        continue-on-error: true
+        with:
+          scan-type: config
+          scan-ref: infrastructure/developer-platform/kubernetes
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          ignore-unfixed: 'false'
+          format: json
+          output: trivy-developer-platform-k8s.json
+      - name: Enforce HIGH and CRITICAL Kubernetes configuration gate
+        if: always()
+        env:
+          TRIVY_SCAN_OUTCOME: ${{ steps.trivy-kubernetes.outcome }}
+        run: |
+          if [ "$TRIVY_SCAN_OUTCOME" != "success" ]; then
+            echo "Production Kubernetes Trivy scan failed or did not run." >&2
+            exit 1
+          fi
+          python scripts/validate_trivy_reports.py --developer-platform-kubernetes
+      - name: Upload production Kubernetes Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: developer-platform-kubernetes-trivy-${{ github.sha }}
+          path: trivy-developer-platform-k8s.json
+          if-no-files-found: error
+          retention-days: 30

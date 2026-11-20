@@ -25,8 +25,17 @@ class MarketMakerBotLoadTestService
                 try {
                     $this->quotes->plan($bot);
                     $decisions++;
-                } catch (\Throwable) {
+                } catch (\Throwable $exception) {
                     $errors++;
+                    if (app()->environment('testing')) {
+                        $message = substr($exception->getMessage(), 0, 256);
+                        $message = preg_replace(
+                            '/\b(password|secret|token|api[_ -]?key|private[_ -]?key|authorization)\b\s*[:=]\s*[^\s,;]+/i',
+                            '$1=[REDACTED]',
+                            $message,
+                        ) ?? '[diagnostic redacted]';
+                        fwrite(STDERR, sprintf("[MarketMakerBotLoadTestService] %s: %s\n", $exception::class, $message));
+                    }
                 }
             }
         }
