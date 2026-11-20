@@ -1,6 +1,7 @@
 FROM node:22-alpine AS dependencies
 WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches patches
 COPY backend/services/blockchain-service/package.json backend/services/blockchain-service/package.json
 COPY backend/services/blockchain-service/src backend/services/blockchain-service/src
 RUN corepack enable \
