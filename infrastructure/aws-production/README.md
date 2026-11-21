@@ -7,7 +7,7 @@ This directory is deployment preparation only; no AWS resources were created dur
 - The Laravel 12 API image is built from `backend/api-gateway/Dockerfile` (PHP 8.3); its current image starts `php artisan serve`, not PHP-FPM/Nginx.
 - `backend/services/blockchain-service/Dockerfile` builds the Node 22 realtime/blockchain service. Its `/health` endpoint is available on port 4000, and its controller exposes transaction execution. It defaults its event listener to enabled unless `BLOCKCHAIN_EVENT_LISTENER_ENABLED=false`.
 - The existing Kubernetes manifest declares three API replicas (each up to 2 vCPU/2 GiB), three queue workers (each up to 2 vCPU/2 GiB), one webhook worker (up to 1 vCPU/1 GiB), one scheduler (0.5 vCPU/768 MiB), and three realtime replicas (each up to 2 vCPU/2 GiB). Summed peak limits are about 19.5 vCPU and 19.75 GiB, excluding PostgreSQL, Redis, Docker, and the operating system; summed requests are about 3.25 vCPU/5 GiB. These are configuration limits, not measured utilization or a benchmark.
-- The repository has no production Compose file. Existing Kubernetes configuration is illustrative (`registry.example.invalid`, example hostnames); it is not evidence of running infrastructure.
+- Before this preparation the repository had no production Compose file; this PR adds a single-host file for a restricted pilot. Existing Kubernetes configuration is illustrative (`registry.example.invalid`, example hostnames); it is not evidence of running infrastructure.
 - Laravel's scheduler includes staking, delegation, liquidity, market-maker, and game jobs. Do not start its scheduler or queue workers until every job and its external effects have been reviewed. The API also contains financial routes; setting a Node signing key to blank is not an API-level kill switch.
 - The blockchain Dockerfile's `start:giftcard` script expects compiled Nest output that this Dockerfile does not build. Gift-card routing is intentionally not included in the prepared Compose stack.
 
@@ -32,10 +32,19 @@ Both options incur data-transfer, Cloudflare, RPC-provider, mail/KYC, and possib
 
 **Option B is the recommendation before meaningful customer or financial traffic.** Use an ECS-on-EC2 capacity provider across three AZs behind an ALB, RDS PostgreSQL Multi-AZ with automated backups/PITR, and a Redis replication group with authentication, encryption, and failover. Three `m7g.4xlarge` hosts provide 48 vCPU/192 GiB aggregate and leave 32 vCPU/128 GiB after losing one host, above the manifest's summed container limits; actual service placement, reservations, and load tests still govern. Use public app subnets with no SSH and put RDS/Redis in private subnets. This still requires a separate financial-control, recovery, load, and failover review.
 
+### Lower-cost restricted pilot
+
+The lowest defensible AWS pilot identified is one `m7g.xlarge` (4 vCPU/16 GiB) with one Laravel API replica, local PostgreSQL and Redis on encrypted EBS, a TLS edge proxy, SSM, CloudWatch, daily PostgreSQL dumps, and daily EBS backups. Keep queues, the scheduler, blockchain service, WebSockets, and all financial execution disabled. It is only suitable for a low-traffic, non-custodial API pilot after representative load and recovery tests; it does not satisfy the existing Kubernetes peak limits and is not the recommendation for customer financial traffic.
+
+Planning subtotal: compute about $119/month; 30 GiB root plus 100 GiB data gp3 about $10.40; one public IPv4 about $3.65; 35-day EBS snapshots about $5 at 100 GiB retained; S3 dumps and low-volume CloudWatch about $6–$17. **Estimated total: $144–$155/month**, before transfer, taxes, support, Cloudflare/RPC costs, or storage growth. No NAT Gateway is used. A `t4g.xlarge` has lower nominal compute pricing (about $98/month) but is burstable; sustained CPU near the 3.25-vCPU aggregate request can consume credits and make its total cost unpredictable, so it is not the defensible baseline without measurements.
+
+There is **no safe production-capable architecture under the current $25/month budget**. The existing `t4g.medium` candidate costs about $24.50/month for compute alone and provides only 2 vCPU/4 GiB, below the manifests' 3.25-vCPU/5-GiB aggregate requests before PostgreSQL, Redis, the OS, EBS, IPv4, backups, and monitoring. Removing encryption, backups, SSM, or security monitoring to fit the budget is not acceptable. If $25 is a hard ceiling, do not provision AWS production compute or accept customer traffic; continue with CI/local development and seek explicit budget approval.
+
 ### Cost assumptions and exclusions
 
 - Indicative rates used: Graviton `m7g.2xlarge` about $0.3264/hour and `m7g.4xlarge` about $0.6528/hour; gp3 about $0.08/GiB-month; public IPv4 $0.005/hour; S3 Standard about $0.023/GiB-month; internet egress starts around $0.09/GiB. Prices and tiers may change. References: [EC2 pricing](https://aws.amazon.com/ec2/pricing/on-demand/), [EBS pricing](https://aws.amazon.com/ebs/pricing/), [public IPv4 pricing](https://aws.amazon.com/vpc/pricing/), [S3 pricing](https://aws.amazon.com/s3/pricing/), and [AWS Pricing Calculator](https://calculator.aws/).
 - Option A includes one dedicated data EBS volume and daily EBS snapshots via AWS Backup (35-day retention), plus encrypted PostgreSQL dumps to a new dedicated S3 bucket (35-day lifecycle). The estimate assumes modest database and log volume. The existing production backup bucket remains untouched.
+- No production CPU/RAM utilization or database growth was measurable because the account has no running application instances or databases. Manifest requests (3.25 vCPU/5 GiB) and limits (about 19.5 vCPU/19.75 GiB for declared containers) are configuration values, not observed usage; database, Redis, Docker, and OS needs are additional.
 - Option B estimate assumes `db.m7g.large` and `cache.m7g.large` class pricing for illustration. Confirm engine/version/class availability and current Multi-AZ/replication pricing in the AWS calculator.
 - CloudWatch log ingestion, custom metrics, S3 backup storage, snapshot storage, ALB LCUs, RDS I/O, transfer, IPv4, and KMS/API charges are usage dependent. No cost ceiling is guaranteed.
 
@@ -72,6 +81,10 @@ Compose keeps PostgreSQL and Redis on a private Docker network with persistent n
 - Connect CloudWatch alarms to an approved notification target; configure dashboard/alert thresholds, incident response, and restore drills.
 - Approve a PostgreSQL/Redis HA and recovery design, restore drills, monitoring/alerts, incident response, and retention/compliance policies.
 - Keep deposits, withdrawals, custody signing, live trading, and customer fund movements disabled until explicit security, operations, legal/compliance, and business approvals.
+
+## PR #3 integration
+
+This branch carries a selective snapshot of the dependency lockfile, required package patches, Node audit policy, production Dockerfile fixes, and the Web3/Zod compatibility test validated on PR #3. The PR #3 branch itself was not changed. Its application/UI, workflow, and unrelated test changes are not copied here. Do not merge either PR without approval. Prefer merging PR #3 first after its review; then update/rebase PR #4 onto the new `main` so the shared dependency/image fixes become base history and PR #4's remaining diff is infrastructure-only. Re-run all gates after that integration.
 
 ## Inventory status
 

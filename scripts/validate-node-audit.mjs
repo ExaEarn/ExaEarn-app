@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
 import process from 'node:process';
 
 const POLICY_PATH = 'security/node-audit-acceptances.json';
@@ -77,8 +78,17 @@ function arg(name) {
 function loadAudit() {
   const auditPath = arg('--audit-file');
   if (auditPath) return parseJsonFile(auditPath);
-  const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const result = spawnSync(command, ['audit', '--audit-level', 'high', '--json'], { encoding: 'utf8' });
+  let command = 'pnpm';
+  let args = ['audit', '--audit-level', 'high', '--json'];
+  if (process.platform === 'win32') {
+    const npmRoot = spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm root -g'], { encoding: 'utf8' });
+    if (npmRoot.status !== 0 || !npmRoot.stdout?.trim()) {
+      throw new Error(`Could not locate global pnpm: ${npmRoot.stderr?.trim() ?? `exit ${npmRoot.status}`}`);
+    }
+    command = process.execPath;
+    args = [join(npmRoot.stdout.trim(), 'pnpm', 'bin', 'pnpm.cjs'), ...args];
+  }
+  const result = spawnSync(command, args, { encoding: 'utf8' });
   if (!result.stdout?.trim()) throw new Error(`pnpm audit produced no JSON (exit ${result.status}): ${result.stderr?.trim()}`);
   if (result.status !== 0 && result.status !== 1) throw new Error(`pnpm audit failed with scanner exit ${result.status}`);
   return JSON.parse(result.stdout);

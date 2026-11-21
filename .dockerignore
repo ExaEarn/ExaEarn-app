@@ -1,0 +1,9 @@
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules/
+**/vendor/
+**/.git/
+**/auth.json
+**/*.pem
+**/*.key
