@@ -38,7 +38,7 @@ class DeveloperDeliveryControlsWave3Test extends TestCase
         $this->assertStringContainsString('image: redis:7-alpine', $workflow);
         $this->assertStringContainsString('severity: \'CRITICAL,HIGH\'', $workflow);
         $this->assertStringContainsString('docker://ghcr.io/gitleaks/gitleaks:v8.30.1', $workflow);
-        $this->assertStringContainsString('detect --source=/github/workspace --redact --verbose', $workflow);
+        $this->assertStringContainsString('git --redact --verbose /github/workspace', $workflow);
         $this->assertStringContainsString('anchore/sbom-action', $workflow);
 
         $rootDockerignore = file_get_contents($root.'/.dockerignore');
