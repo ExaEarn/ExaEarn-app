@@ -1,12 +1,12 @@
 # ExaEarn Developer Platform Dependency Risk Decisions
 
-**Current status as of 2026-11-21 (PR #3; updated GitHub CI pending)**
+**Current status as of 2026-11-21 (dependency-fix commit `4e84fda4b36ce98997da78b4427ae172fe138770`; CI run [44924765659](https://github.com/ExaEarn/ExaEarn-app/actions/runs/44924765659))**
 
 PR #3 pins the two formerly accepted Hardhat transitive findings to patched releases: `serialize-javascript@7.1.1` for GHSA-5c6j-r48x-rmvq, and `tmp@0.2.7` for GHSA-ph9p-34f9-6g65. The selected tmp version also avoids the additional advisory affecting 0.2.6. These are Hardhat build/test dependencies and are excluded from the production blockchain image's `pnpm deploy --prod` closure.
 
-Local validation used pnpm 10.34.5: frozen lockfile validation passed, and `pnpm audit --audit-level high` exited 0 with 43 findings (8 Low, 35 Moderate, 0 High, 0 Critical). The full blockchain regression suite could not be run locally because the C: volume had effectively no free space; the attempted isolated dependency install was stopped. The PR's updated CI must verify tests, dependency policy and container scans before these fixes are considered fully validated.
+Local validation used pnpm 10.34.5: frozen lockfile validation passed, and `pnpm audit --audit-level high` exited 0 with 43 findings (8 Low, 35 Moderate, 0 High, 0 Critical). The full local dependency install was stopped because the C: volume had effectively no free space. GitHub Actions run 44924765659 subsequently passed all six jobs, including the Laravel backend suite, blockchain lint/Jest/Hardhat tests, contracts and clients, security-supply-chain, container security (Trivy gates), and workflow validation. The security-supply-chain log reported Node audit policy PASS (0/0 High) and a clean Composer audit. All seven Vercel preview contexts on this run failed due to Vercel's build-rate limit; those external preview statuses remain a separate PR status issue.
 
-The active `security/node-audit-acceptances.json` registry now contains no exceptions. The earlier approvals for these two advisories remain below as historical records only; they have not been extended or renewed. No security-owner reaffirmation is needed for the fixed versions, but CI must confirm no additional High or Critical findings.
+The active `security/node-audit-acceptances.json` registry now contains no exceptions. The earlier approvals for these two advisories remain below as historical records only; they have not been extended or renewed. No security-owner reaffirmation is needed for the fixed versions, but any new High or Critical finding remains blocking.
 
 The nine-path scope and Prisma/Metro decision packets preserved below describe the historical 2026-08-31 decision snapshot. The recorded 2026-09-30 review deadline and 2026-10-31 Hardhat 3 migration milestone have passed. No later owner reaffirmation is recorded in this repository or PR reviews. The prior acceptance expiry was not extended.
 
