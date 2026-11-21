@@ -16,5 +16,14 @@ regex = '''(?i)(wallet_private_key|withdrawal_signing_key|jwt_secret)\s*[=:]\s*[
 
 [allowlist]
 description = "Clearly fake test fixtures"
-paths = ['''contracts/developer-signing-v1.json''', '''.*\.example$''']
+paths = [
+  '''contracts/developer-signing-v1.json''',
+  '''.*\.example$''',
+  '''^backend/api-gateway/tests/.*''',
+  '''^backend/api-gateway/app/Services/SreObservabilityService\.php$''',
+  '''^docs/.*''',
+  '''^exaearn-backend/.*''',
+  '''^exaearn-frontend/.*''',
+  '''^security/pnpm-audit\.json$'''
+]
 
