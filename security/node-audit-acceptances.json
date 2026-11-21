@@ -1,34 +1,5 @@
 {
   "schema_version": 1,
   "repository": "ExaEarn/ExaEarn-app",
-  "acceptances": [
-    {
-      "advisory_id": "GHSA-5c6j-r48x-rmvq",
-      "status": "approved",
-      "package": "serialize-javascript",
-      "root_cause_group": "hardhat",
-      "approver": "Theophilus Chukwuemeka",
-      "release_role": "Security Owner / Application Security Reviewer",
-      "approval_reference": "EXAEARN-SEC-2026-HARDHAT-001",
-      "approved_at_commit": "10a83a149ae5d96edeb7a77cbf35778099a0bda8",
-      "approved_at": "2026-08-31T00:00:00Z",
-      "expires_at": "2026-11-29T00:00:00Z",
-      "rationale": "Time-bounded acceptance for the reviewed Hardhat build and CI dependency path only; the advisory is absent from production runtime images.",
-      "compensating_controls": ["Frozen lockfile and reviewed build inputs", "Production images use isolated production-only dependency closures", "Trivy production-image policy requires zero Critical and zero High", "Gitleaks, CodeQL, Node audit, and SBOM SHA-binding remain mandatory"]
-    },
-    {
-      "advisory_id": "GHSA-ph9p-34f9-6g65",
-      "status": "approved",
-      "package": "tmp",
-      "root_cause_group": "hardhat",
-      "approver": "Theophilus Chukwuemeka",
-      "release_role": "Security Owner / Application Security Reviewer",
-      "approval_reference": "EXAEARN-SEC-2026-HARDHAT-001",
-      "approved_at_commit": "10a83a149ae5d96edeb7a77cbf35778099a0bda8",
-      "approved_at": "2026-08-31T00:00:00Z",
-      "expires_at": "2026-11-29T00:00:00Z",
-      "rationale": "Time-bounded acceptance for the reviewed Hardhat build and CI dependency path only; the advisory is absent from production runtime images.",
-      "compensating_controls": ["Frozen lockfile and reviewed build inputs", "Production images use isolated production-only dependency closures", "Trivy production-image policy requires zero Critical and zero High", "Gitleaks, CodeQL, Node audit, and SBOM SHA-binding remain mandatory"]
-    }
-  ]
+  "acceptances": []
 }
