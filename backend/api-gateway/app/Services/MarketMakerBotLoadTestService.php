@@ -20,13 +20,21 @@ class MarketMakerBotLoadTestService
         $bots = MarketMakerBot::query()->limit($botCount)->get();
         $decisions = 0;
         $errors = 0;
+        $errorSamples = [];
         foreach ($bots as $bot) {
             for ($i = 0; $i < $cyclesPerBot; $i++) {
                 try {
                     $this->quotes->plan($bot);
                     $decisions++;
-                } catch (\Throwable) {
+                } catch (\Throwable $error) {
                     $errors++;
+                    if (count($errorSamples) < 5) {
+                        $errorSamples[] = [
+                            'bot_uuid' => $bot->bot_uuid,
+                            'type' => $error::class,
+                            'message' => $error->getMessage(),
+                        ];
+                    }
                 }
             }
         }
@@ -46,7 +54,10 @@ class MarketMakerBotLoadTestService
                 'p95_decision_latency_ms' => $elapsedMs,
                 'retail_fairness_probe' => 'non_blocking_calculation_only',
             ],
-            'metadata' => ['capacity_claim' => 'local_software_probe_not_exchange_scale'],
+            'metadata' => [
+                'capacity_claim' => 'local_software_probe_not_exchange_scale',
+                'error_samples' => $errorSamples,
+            ],
             'started_at' => now(),
             'finished_at' => now(),
         ]);
