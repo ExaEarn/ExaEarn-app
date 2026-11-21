@@ -40,7 +40,10 @@ class DeveloperDeliveryControlsWave3Test extends TestCase
         $this->assertStringContainsString('docker://ghcr.io/gitleaks/gitleaks:v8.30.1', $workflow);
         $this->assertStringContainsString('git --redact --verbose /github/workspace', $workflow);
         $this->assertStringContainsString('GIT_CONFIG_VALUE_0: /github/workspace', $workflow);
-        $this->assertStringContainsString('^exaearn-backend/.*', file_get_contents($root.'/.gitleaks.toml'));
+        $gitleaks = file_get_contents($root.'/.gitleaks.toml');
+        $this->assertStringNotContainsString('exaearn-backend/.*', $gitleaks);
+        $this->assertStringContainsString('exaearn-backend/AUDIT_LOG_QUICK_START', $gitleaks);
+        $this->assertStringContainsString('Authorization: Bearer ADMIN_TOKEN', $gitleaks);
         $this->assertStringContainsString('anchore/sbom-action', $workflow);
 
         $rootDockerignore = file_get_contents($root.'/.dockerignore');
