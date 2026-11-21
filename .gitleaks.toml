@@ -12,4 +12,85 @@ keywords = ["exa_live_"]
 [[rules]]
 id = "exaearn-private-key-material"
 description = "Private key assignment"
-regex = '''(?i)(wallet_private_key|withdrawal_signing_key|jwt_secret)\s*[=:]\s*['\"]?[A-Za-z0-9+/=_-]{20,}'''
+regex = '''(?i)(wallet_private_key|withdrawal_signing_key|jwt_secret)[ \t]*[=:][ \t]*['\"]?[A-Za-z0-9+/=_-]{20,}'''
+
+[[allowlists]]
+description = "Reviewed idempotency identifiers and request paths in exact regression tests"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^backend/api-gateway/tests/Feature/Phase15EMarketMakerBotTest\.php$''',
+  '''^backend/api-gateway/tests/Feature/AgriTechFlowTest\.php$''',
+  '''^backend/api-gateway/tests/Feature/Phase7TradingOperationsTest\.php$''',
+  '''^backend/api-gateway/tests/Feature/Phase8LiquidityOperationsTest\.php$''',
+  '''^backend/api-gateway/tests/Feature/Phase6MarginTradingTest\.php$''',
+  '''^backend/api-gateway/tests/Feature/ExaEarnStakingRemovalTest\.php$'''
+]
+regexes = ['''(?i)(idempotency[-_]key|postJson)''']
+
+[[allowlists]]
+description = "Reviewed OpenAPI SHA-256 evidence digest, not a credential"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^docs/level-d-evidence/release-candidate\.md$''']
+regexes = ['''OpenAPI SHA-256''']
+
+[[allowlists]]
+description = "Reviewed prose describing production readiness blockers"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^docs/exaearn-developer-platform-p0-p1-remediation-plan\.md$''']
+regexes = ['''cannot be made PASS by changing documentation''']
+
+[[allowlists]]
+description = "Reviewed static SLI label in observability telemetry"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^backend/api-gateway/app/Services/SreObservabilityService\.php$''']
+regexes = ['''sli_key''']
+
+[[allowlists]]
+description = "Reviewed course identifiers, not authentication credentials"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^exaearn-frontend/src/pages/EdTech/EdTech\.jsx$''',
+  '''^exaearn-frontend/src/pages/EdTech/CourseUpload\.jsx$'''
+]
+regexes = ['''courseKey\s*[:=]''']
+
+[[allowlists]]
+description = "Reviewed public USDC contract address in legacy environment template"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^exaearn-node/\.env\.example$''']
+regexes = ['''USDC_TOKEN_ADDRESS\s*=\s*0x[0-9a-fA-F]{40}''']
+
+[[allowlists]]
+description = "Reviewed non-secret placeholder tokens in legacy localhost curl examples"
+targetRules = ["curl-auth-header"]
+condition = "AND"
+regexTarget = "match"
+paths = [
+  '''^exaearn-backend/AUDIT_LOG_QUICK_START\.md$''',
+  '''^exaearn-backend/AUDIT_LOG_FILES_DELIVERED\.md$'''
+]
+regexes = ['''YOUR_TOKEN''']
+
+[[allowlists]]
+description = "Reviewed synthetic strings embedded in the stored dependency-audit fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+paths = ['''^security/pnpm-audit\.json$''']
+regexes = [
+  '''prod-secret-key-123!?''',
+  '''sk-prod-a1b2c3d4''',
+  '''P@ssw0rd123!?'''
+]
