@@ -35,12 +35,12 @@ for image_name in API_IMAGE BLOCKCHAIN_IMAGE POSTGRES_IMAGE REDIS_IMAGE NGINX_IM
   fi
 done
 
-if [[ -z "${AWS_REGION:-}" || -z "${BACKUP_BUCKET:-}" || -z "${APPLICATION_ENVIRONMENT_SECRET_ARN:-}" ]]; then
-  echo "Set AWS_REGION, BACKUP_BUCKET, and APPLICATION_ENVIRONMENT_SECRET_ARN from approved configuration." >&2
+if [[ -z "${AWS_REGION:-}" || -z "${BACKUP_BUCKET:-}" ]]; then
+  echo "Set AWS_REGION and BACKUP_BUCKET from approved CloudFormation outputs." >&2
   exit 2
 fi
 
-if ! grep -Eq '^BLOCKCHAIN_EVENT_LISTENER_ENABLED=false$' "$ENV_FILE"; then
+if ! grep -Eq '^BLOCKCHAIN_EVENT_LISTENER_ENABLED="?false"?$' "$ENV_FILE"; then
   echo "BLOCKCHAIN_EVENT_LISTENER_ENABLED=false must be present in the production environment." >&2
   exit 2
 fi

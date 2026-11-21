@@ -25,14 +25,20 @@ fi
 
 profile="${AWS_PROFILE:?Set AWS_PROFILE to a separately approved ECR publisher profile}"
 region="${AWS_REGION:-us-east-1}"
-repository="${ECR_REPOSITORY_URI:?Set ECR_REPOSITORY_URI from the approved ECR output}"
+api_repository="${API_ECR_REPOSITORY_URI:?Set API_ECR_REPOSITORY_URI from the approved CloudFormation output}"
+blockchain_repository="${BLOCKCHAIN_ECR_REPOSITORY_URI:?Set BLOCKCHAIN_ECR_REPOSITORY_URI from the approved CloudFormation output}"
 api_tag="${release_sha}-api"
 blockchain_tag="${release_sha}-blockchain"
 
 account_id="$(aws sts get-caller-identity --profile "$profile" --region "$region" --query Account --output text)"
-registry="${repository%%/*}"
-if [[ "$registry" != "$account_id.dkr.ecr.$region.amazonaws.com" ]]; then
+registry="${api_repository%%/*}"
+blockchain_registry="${blockchain_repository%%/*}"
+if [[ "$registry" != "$account_id.dkr.ecr.$region.amazonaws.com" || "$blockchain_registry" != "$registry" ]]; then
   echo "ECR registry account/region does not match the authenticated publisher identity." >&2
+  exit 2
+fi
+if [[ "${api_repository##*/}" != "exaearn-production-api" || "${blockchain_repository##*/}" != "exaearn-production-blockchain" ]]; then
+  echo "The image URIs must reference the existing production API and blockchain repositories." >&2
   exit 2
 fi
 
@@ -42,24 +48,24 @@ aws ecr get-login-password --profile "$profile" --region "$region" |
 docker buildx build \
   --platform linux/arm64 \
   --file "$ROOT/backend/api-gateway/Dockerfile" \
-  --tag "$repository:$api_tag" \
+  --tag "$api_repository:$api_tag" \
   --push \
   "$ROOT/backend/api-gateway"
 
 docker buildx build \
   --platform linux/arm64 \
   --file "$ROOT/backend/services/blockchain-service/Dockerfile" \
-  --tag "$repository:$blockchain_tag" \
+  --tag "$blockchain_repository:$blockchain_tag" \
   --push \
   "$ROOT"
 
-api_digest="$(aws ecr describe-images --profile "$profile" --region "$region" --repository-name exaearn/production --image-ids "imageTag=$api_tag" --query 'imageDetails[0].imageDigest' --output text)"
-blockchain_digest="$(aws ecr describe-images --profile "$profile" --region "$region" --repository-name exaearn/production --image-ids "imageTag=$blockchain_tag" --query 'imageDetails[0].imageDigest' --output text)"
+api_digest="$(aws ecr describe-images --profile "$profile" --region "$region" --repository-name exaearn-production-api --image-ids "imageTag=$api_tag" --query 'imageDetails[0].imageDigest' --output text)"
+blockchain_digest="$(aws ecr describe-images --profile "$profile" --region "$region" --repository-name exaearn-production-blockchain --image-ids "imageTag=$blockchain_tag" --query 'imageDetails[0].imageDigest' --output text)"
 
 if [[ "$api_digest" != sha256:* || "$blockchain_digest" != sha256:* ]]; then
   echo "ECR did not return valid immutable image digests." >&2
   exit 1
 fi
 
-printf 'API_IMAGE=%s@%s\n' "$repository" "$api_digest"
-printf 'BLOCKCHAIN_IMAGE=%s@%s\n' "$repository" "$blockchain_digest"
+printf 'API_IMAGE=%s@%s\n' "$api_repository" "$api_digest"
+printf 'BLOCKCHAIN_IMAGE=%s@%s\n' "$blockchain_repository" "$blockchain_digest"

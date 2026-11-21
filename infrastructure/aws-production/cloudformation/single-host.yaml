@@ -12,19 +12,11 @@ Parameters:
     Default: 100
     MinValue: 100
     MaxValue: 1000
-  ApplicationEnvironmentSecretArn:
-    Type: String
-    NoEcho: true
-    Description: Existing same-account Secrets Manager ARN for the production environment file; use the AWS managed key.
-  VpcCidr:
-    Type: String
-    Default: 10.42.0.0/16
-
 Resources:
   ProductionVpc:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: !Ref VpcCidr
+      CidrBlock: 10.42.0.0/16
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
@@ -87,6 +79,22 @@ Resources:
           ToPort: 443
           CidrIp: 0.0.0.0/0
           Description: TLS only; Cloudflare client-certificate validation is mandatory at Nginx.
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 10.42.0.0/16
+          Description: DNS resolution within the production VPC.
+        - IpProtocol: udp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 10.42.0.0/16
+          Description: DNS resolution within the production VPC.
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: TLS egress for SSM, ECR, backups, package sources, and approved RPC providers.
       Tags:
         - Key: Name
           Value: exaearn-production-origin
@@ -96,34 +104,6 @@ Resources:
     Properties:
       LogGroupName: /exaearn/production/host
       RetentionInDays: 30
-
-  ProductionEcrRepository:
-    Type: AWS::ECR::Repository
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      RepositoryName: exaearn/production
-      ImageTagMutability: IMMUTABLE
-      ImageScanningConfiguration:
-        ScanOnPush: true
-      EncryptionConfiguration:
-        EncryptionType: AES256
-      LifecyclePolicy:
-        LifecyclePolicyText: |
-          {
-            "rules": [
-              {
-                "rulePriority": 1,
-                "description": "Retain the newest 30 release images",
-                "selection": {
-                  "tagStatus": "any",
-                  "countType": "imageCountMoreThan",
-                  "countNumber": 30
-                },
-                "action": { "type": "expire" }
-              }
-            ]
-          }
 
   BackupBucket:
     Type: AWS::S3::Bucket
@@ -169,78 +149,57 @@ Resources:
               Bool:
                 aws:SecureTransport: false
 
-  ProductionInstanceRole:
-    Type: AWS::IAM::Role
+  ProductionRuntimeExtensionPolicy:
+    Type: AWS::IAM::Policy
     Properties:
-      AssumeRolePolicyDocument:
+      PolicyName: ExaEarnProductionHostRuntimeExtension
+      Roles:
+        - ExaEarnProductionInstanceRole
+      PolicyDocument:
         Version: '2012-10-17'
         Statement:
+          - Sid: WriteHostLogs
+            Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub '${ProductionLogGroup.Arn}:*'
           - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Policies:
-        - PolicyName: exaearn-production-instance-access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: PullProductionImages
-                Effect: Allow
-                Action:
-                  - ecr:GetAuthorizationToken
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - ecr:BatchCheckLayerAvailability
-                  - ecr:BatchGetImage
-                  - ecr:GetDownloadUrlForLayer
-                Resource: !GetAtt ProductionEcrRepository.Arn
-              - Sid: WriteEncryptedDatabaseBackups
-                Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                Resource: !Sub '${BackupBucket.Arn}/postgres/*'
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                  - s3:ListBucketMultipartUploads
-                Resource: !GetAtt BackupBucket.Arn
-                Condition:
-                  StringLike:
-                    s3:prefix: postgres/*
-              - Effect: Allow
-                Action:
-                  - s3:AbortMultipartUpload
-                Resource: !Sub '${BackupBucket.Arn}/postgres/*'
-              - Sid: WriteHostLogs
-                Effect: Allow
-                Action:
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - logs:DescribeLogStreams
-                Resource: !Sub '${ProductionLogGroup.Arn}:*'
-              - Sid: PublishHostMetrics
-                Effect: Allow
-                Action:
-                  - cloudwatch:PutMetricData
-                Resource: '*'
-                Condition:
-                  StringEquals:
-                    cloudwatch:namespace: CWAgent
-              - Sid: ReadApprovedProductionEnvironment
-                Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource: !Ref ApplicationEnvironmentSecretArn
-
-  ProductionInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref ProductionInstanceRole
+            Action:
+              - logs:DescribeLogStreams
+            Resource: !GetAtt ProductionLogGroup.Arn
+          - Sid: PublishHostMetrics
+            Effect: Allow
+            Action:
+              - cloudwatch:PutMetricData
+            Resource: '*'
+            Condition:
+              StringEquals:
+                cloudwatch:namespace: CWAgent
+          - Sid: LocateBackupBucket
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+            Resource: !GetAtt BackupBucket.Arn
+          - Sid: ListDatabaseBackupObjects
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+            Resource: !GetAtt BackupBucket.Arn
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - postgres
+                  - postgres/*
+          - Sid: ReadAndWriteDatabaseBackups
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:AbortMultipartUpload
+              - s3:ListMultipartUploadParts
+            Resource: !Sub '${BackupBucket.Arn}/postgres/*'
 
   ProductionElasticIp:
     Type: AWS::EC2::EIP
@@ -261,7 +220,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      AvailabilityZone: !GetAtt ProductionInstance.AvailabilityZone
+      AvailabilityZone: !GetAtt ProductionSubnet.AvailabilityZone
       Size: !Ref DataVolumeSizeGiB
       VolumeType: gp3
       Encrypted: true
@@ -287,7 +246,7 @@ Resources:
     Properties:
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
       InstanceType: !Ref InstanceType
-      IamInstanceProfile: !Ref ProductionInstanceProfile
+      IamInstanceProfile: ExaEarnProductionInstanceProfile
       SubnetId: !Ref ProductionSubnet
       SecurityGroupIds:
         - !Ref ProductionSecurityGroup
@@ -307,11 +266,18 @@ Resources:
           #!/bin/bash
           set -euo pipefail
           dnf update -y
-          dnf install -y docker docker-compose-plugin amazon-cloudwatch-agent
+          dnf install -y docker docker-compose-plugin amazon-cloudwatch-agent python3 amazon-ec2-utils
           usermod -aG docker ec2-user
           device=""
+          data_volume_id="${ProductionDataVolume}"
+          data_volume_id=$(printf '%s' "$data_volume_id" | tr -d '-')
           for attempt in $(seq 1 60); do
-            if [ -b /dev/nvme1n1 ]; then device=/dev/nvme1n1; break; fi
+            for candidate in /dev/nvme*n1; do
+              [ -b "$candidate" ] || continue
+              candidate_volume_id=$(ebsnvme-id -v "$candidate" 2>/dev/null | tr -d '-')
+              if [ "$candidate_volume_id" = "$data_volume_id" ]; then device="$candidate"; break; fi
+            done
+            [ -n "$device" ] && break
             sleep 5
           done
           test -n "$device"
@@ -382,7 +348,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BackupVaultName: exaearn-production-ebs
+      BackupVaultName: !Sub 'exaearn-production-ebs-${AWS::AccountId}'
 
   BackupServiceRole:
     Type: AWS::IAM::Role
@@ -431,9 +397,11 @@ Outputs:
     Value: !Ref ProductionInstance
   OriginElasticIp:
     Value: !Ref ProductionElasticIp
-  EcrRepositoryUri:
-    Value: !GetAtt ProductionEcrRepository.RepositoryUri
+  ApiEcrRepositoryUri:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/exaearn-production-api'
+  BlockchainEcrRepositoryUri:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/exaearn-production-blockchain'
   DatabaseBackupBucket:
     Value: !Ref BackupBucket
   SsmInstanceRole:
-    Value: !GetAtt ProductionInstanceRole.Arn
+    Value: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ExaEarnProductionInstanceRole'
