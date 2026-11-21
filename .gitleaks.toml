@@ -81,7 +81,10 @@ paths = [
   '''^exaearn-backend/AUDIT_LOG_QUICK_START\.md$''',
   '''^exaearn-backend/AUDIT_LOG_FILES_DELIVERED\.md$'''
 ]
-regexes = ['''Authorization: Bearer ADMIN_TOKEN''']
+regexes = [
+  '''Authorization: Bearer YOUR_TOKEN''',
+  '''Authorization: Bearer ADMIN_TOKEN'''
+]
 
 [[allowlists]]
 description = "Reviewed synthetic strings embedded in the stored dependency-audit fixture"
