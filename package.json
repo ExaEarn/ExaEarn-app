@@ -80,7 +80,9 @@
       "image-size": "2.0.3",
       "abitype": "1.2.3",
       "abitype@1.2.3>zod": "4.6.6",
-      "web3-validator>zod": "4.6.6"
+      "web3-validator>zod": "4.6.6",
+      "serialize-javascript@6.0.2": "7.1.1",
+      "tmp@0.0.33": "0.2.7"
     },
     "patchedDependencies": {
       "@ton/ton@15.4.0": "patches/@ton__ton@15.4.0.patch",
