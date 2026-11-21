@@ -55,6 +55,7 @@ class Phase15EMarketMakerBotTest extends TestCase
         $admin = $this->admin();
         [$institution, $subaccount, $profile] = $this->marketMakerInstitution($owner);
         $market = $this->market();
+        $this->freezeTime();
         $this->book($market, 11);
         $this->fundUserTrading($owner, 'USDT', '1000000');
         $this->fundUserTrading($owner, 'BTC', '20');
@@ -295,6 +296,10 @@ class Phase15EMarketMakerBotTest extends TestCase
                 'risk_limits' => $primaryBot->risk_limits,
             ]));
         }
+        foreach (MarketMakerBot::query()->limit(10)->get() as $loadBot) {
+            app(MarketMakerQuoteEngine::class)->plan($loadBot);
+        }
+        $this->book($market, 12);
         foreach (MarketMakerBot::query()->limit(10)->get() as $loadBot) {
             app(MarketMakerQuoteEngine::class)->plan($loadBot);
         }
