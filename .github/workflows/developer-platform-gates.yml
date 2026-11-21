@@ -207,6 +207,7 @@ jobs:
         run: |
           python -m venv "$RUNNER_TEMP/exaearn-python-audit"
           source "$RUNNER_TEMP/exaearn-python-audit/bin/activate"
+          python -m pip install --upgrade --disable-pip-version-check pip==26.2
           python -m pip install --disable-pip-version-check pip-audit==2.9.0
           python -m pip install --disable-pip-version-check -e packages/python-sdk
           python -m pip_audit --local --skip-editable
