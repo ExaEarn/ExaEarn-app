@@ -16,6 +16,8 @@ class DeveloperDeliveryControlsWave3Test extends TestCase
         foreach ([
             '.github/workflows/developer-platform-gates.yml',
             '.gitleaks.toml',
+            '.dockerignore',
+            'backend/api-gateway/.dockerignore',
             'backend/api-gateway/Dockerfile',
             'backend/services/blockchain-service/Dockerfile',
             'infrastructure/developer-platform/kubernetes/base.yaml',
@@ -37,7 +39,31 @@ class DeveloperDeliveryControlsWave3Test extends TestCase
         $this->assertStringContainsString('severity: \'CRITICAL,HIGH\'', $workflow);
         $this->assertStringContainsString('docker://ghcr.io/gitleaks/gitleaks:v8.30.1', $workflow);
         $this->assertStringContainsString('git --redact --verbose /github/workspace', $workflow);
+        $this->assertStringContainsString('GIT_CONFIG_VALUE_0: /github/workspace', $workflow);
+        $this->assertStringContainsString('^exaearn-backend/.*', file_get_contents($root.'/.gitleaks.toml'));
         $this->assertStringContainsString('anchore/sbom-action', $workflow);
+
+        $rootDockerignore = file_get_contents($root.'/.dockerignore');
+        $apiDockerignore = file_get_contents($root.'/backend/api-gateway/.dockerignore');
+        foreach (['**/.env', '**/.env.*', '**/*.pem', '**/*.key', '**/auth.json'] as $pattern) {
+            $this->assertStringContainsString($pattern, $rootDockerignore);
+        }
+        foreach (['.env', '.env.*', '*.pem', '*.key', 'auth.json'] as $pattern) {
+            $this->assertStringContainsString($pattern, $apiDockerignore);
+        }
+    }
+
+    public function test_api_docker_image_installs_its_configured_redis_runtime(): void
+    {
+        $root = realpath(base_path('../..'));
+        $dockerfile = file_get_contents($root.'/backend/api-gateway/Dockerfile');
+        $databaseConfig = file_get_contents($root.'/backend/api-gateway/config/database.php');
+        $envExample = file_get_contents($root.'/backend/api-gateway/.env.example');
+
+        $this->assertStringContainsString('pecl install redis-6.3.0', $dockerfile);
+        $this->assertStringContainsString('docker-php-ext-enable redis', $dockerfile);
+        $this->assertStringContainsString("env('REDIS_CLIENT', 'phpredis')", $databaseConfig);
+        $this->assertStringContainsString('REDIS_CLIENT=phpredis', $envExample);
     }
 
     public function test_production_manifests_fail_closed_at_sensitive_boundaries(): void

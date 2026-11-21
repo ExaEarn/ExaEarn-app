@@ -36,8 +36,11 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
+    "@babel/plugin-transform-react-jsx": "^7.29.7",
     "@types/react": "~19.0.10",
+    "babel-preset-expo": "~13.2.5",
     "tailwindcss": "^3.4.17",
+    "metro-runtime": "0.82.5",
     "typescript": "~5.8.3"
   }
 }
