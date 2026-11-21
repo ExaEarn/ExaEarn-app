@@ -1,10 +1,14 @@
 # ExaEarn Developer Platform Dependency Risk Decisions
 
-**Current status as of 2026-11-21 (PR #3 head `39594a681384bf85ce554c5060952f564e4b6e71`)**
+**Current status as of 2026-11-21 (PR #3; updated GitHub CI pending)**
 
-The machine-enforced `security/node-audit-acceptances.json` registry at this revision contains exactly two High advisory records: GHSA-5c6j-r48x-rmvq (`serialize-javascript`) and GHSA-ph9p-34f9-6g65 (`tmp`). Both name Theophilus Chukwuemeka, cite approval EXAEARN-SEC-2026-HARDHAT-001, and expire at 2026-11-29T00:00:00Z. The security workflow for this head (run 44914953151) reported `Node audit policy PASS: 2/2 High advisories explicitly accepted`.
+PR #3 pins the two formerly accepted Hardhat transitive findings to patched releases: `serialize-javascript@7.1.1` for GHSA-5c6j-r48x-rmvq, and `tmp@0.2.7` for GHSA-ph9p-34f9-6g65. The selected tmp version also avoids the additional advisory affecting 0.2.6. These are Hardhat build/test dependencies and are excluded from the production blockchain image's `pnpm deploy --prod` closure.
 
-The nine-path scope and Prisma/Metro decision packets preserved below describe the historical 2026-08-31 decision snapshot. They do not create active exceptions unless the exact advisory is present in the current machine-enforced registry. The recorded 2026-09-30 review deadline and 2026-10-31 Hardhat 3 migration milestone have passed. No later owner reaffirmation is recorded in this repository or PR reviews. The existing expiry has not been extended.
+Local validation used pnpm 10.34.5: frozen lockfile validation passed, and `pnpm audit --audit-level high` exited 0 with 43 findings (8 Low, 35 Moderate, 0 High, 0 Critical). The full blockchain regression suite could not be run locally because the C: volume had effectively no free space; the attempted isolated dependency install was stopped. The PR's updated CI must verify tests, dependency policy and container scans before these fixes are considered fully validated.
+
+The active `security/node-audit-acceptances.json` registry now contains no exceptions. The earlier approvals for these two advisories remain below as historical records only; they have not been extended or renewed. No security-owner reaffirmation is needed for the fixed versions, but CI must confirm no additional High or Critical findings.
+
+The nine-path scope and Prisma/Metro decision packets preserved below describe the historical 2026-08-31 decision snapshot. The recorded 2026-09-30 review deadline and 2026-10-31 Hardhat 3 migration milestone have passed. No later owner reaffirmation is recorded in this repository or PR reviews. The prior acceptance expiry was not extended.
 
 ## Historical decision record (2026-08-31; preserved)
 
@@ -142,7 +146,7 @@ Repository evidence verifies a committed lockfile, frozen-lockfile CI installati
 
 ## Advisory-specific CI decision mechanism
 
-`scripts/validate-node-audit.mjs` runs the canonical audit and compares every current Critical/High advisory with `security/node-audit-acceptances.json`. Critical findings are never accepted. A High finding passes only when its exact GHSA identifier has a current `approved` record containing package and root-cause identity, an attributable approver and release role, approval reference, approval timestamp, expiry, rationale, compensating controls, repository, and 40-character approval commit. Expired records, stale records not present in the audit, duplicate records, wrong repositories, missing identifiers, and every new High fail closed. At the 2026-08-31 snapshot, the registry contained the nine approvals recorded above. The current registry contains only the two exact Hardhat advisory records identified in the current-status notice at the top of this document.
+`scripts/validate-node-audit.mjs` runs the canonical audit and compares every current Critical/High advisory with `security/node-audit-acceptances.json`. Critical findings are never accepted. A High finding passes only when its exact GHSA identifier has a current `approved` record containing package and root-cause identity, an attributable approver and release role, approval reference, approval timestamp, expiry, rationale, compensating controls, repository, and 40-character approval commit. Expired records, stale records not present in the audit, duplicate records, wrong repositories, missing identifiers, and every new High fail closed. At the 2026-08-31 snapshot, the registry contained the approvals recorded above. The current registry contains no active exceptions; the two formerly accepted Hardhat advisories are addressed by the patched resolutions identified in the current-status notice at the top of this document.
 
 Authorized owners must add one record per approved GHSA through normal reviewed Git history. They must not group unknown future advisories, use wildcard identifiers, or extend expiry without a fresh decision. `scripts/tests/node-audit-policy-fixtures.mjs` covers valid, missing, expired, Critical, stale, unattributed, and cross-repository cases.
 
