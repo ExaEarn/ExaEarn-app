@@ -58,7 +58,7 @@ describe('NonEvmChainService TON withdrawal compatibility', () => {
     expect(transfer.seqno).toBe(7);
     expect(transfer.secretKey).toEqual(Buffer.alloc(64, 2));
     expect(transfer.messages).toHaveLength(1);
-    expect(transfer.messages[0].info.dest.toString()).toBe(destination);
+    expect(transfer.messages[0].info.dest.toString()).toBe(tonSdk.Address.parse(destination).toString());
   });
 
   test('rejects malformed withdrawal destinations before calling the wallet send method', async () => {
