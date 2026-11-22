@@ -40,6 +40,7 @@ overrides:
   'hardhat>adm-zip': 0.6.1
   'hardhat>undici': 6.29.1
   '@nomicfoundation/hardhat-verify>undici': 6.29.1
+  '@ton/ton>zod': 4.6.6
   vite@>=6 <7: 6.4.4
   vite@>=7 <8: 7.3.7
   vite@>=8 <9: 8.2.4
@@ -9986,7 +9987,7 @@ snapshots:
       dataloader: 2.2.3
       symbol.inspect: 1.0.1
       teslabot: 1.5.0
-      zod: 3.25.76
+      zod: 4.6.6
     transitivePeerDependencies:
       - debug
       - supports-color
