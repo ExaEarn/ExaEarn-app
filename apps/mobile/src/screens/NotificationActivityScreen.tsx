@@ -76,7 +76,7 @@ export default function NotificationActivityScreen({ fontsReady, onBack }: Props
           <Ionicons name="chevron-back" size={20} color={colors.violetText} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={[styles.title, fontsReady && fonts.soraSemi]}>Activity Center</Text>
+          <Text style={[styles.title, fontsReady && fonts.display]}>Activity Center</Text>
           <Text style={styles.subtitle}>Notifications and account history</Text>
         </View>
       </View>
