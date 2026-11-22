@@ -133,7 +133,7 @@ jobs:
       - run: pnpm --filter @exaearn/mobile typecheck
       - name: Export mobile Android bundle
         env: { EXPO_NO_TELEMETRY: '1' }
-        run: pnpm --filter @exaearn/mobile exec expo export --platform android --output-dir "$RUNNER_TEMP/exaearn-mobile-android-export"
+        run: pnpm --filter @exaearn/mobile exec expo export --platform android --output-dir .expo-export/android
 
   security-supply-chain:
     runs-on: ubuntu-latest
