@@ -215,8 +215,30 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - uses: github/codeql-action/analyze@v3
+      - name: Capture Node dependency audit report
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set +e
+          pnpm audit --audit-level high --json > artifacts/pnpm-audit.json
+          audit_exit=$?
+          set -e
+          echo "pnpm audit exit code: $audit_exit"
+          if [[ "$audit_exit" -gt 1 ]]; then
+            echo "::error::pnpm audit scanner failed with exit code $audit_exit"
+            exit "$audit_exit"
+          fi
+          node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync('artifacts/pnpm-audit.json','utf8')); if (!report || typeof report.advisories !== 'object' || !report.metadata?.vulnerabilities) process.exit(1)"
+      - name: Upload Node dependency audit report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: exaearn-pnpm-audit-${{ github.sha }}
+          path: artifacts/pnpm-audit.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Audit Node dependencies
-        run: node scripts/validate-node-audit.mjs
+        run: node scripts/validate-node-audit.mjs --audit-file artifacts/pnpm-audit.json
       - name: Audit Composer dependencies
         if: ${{ always() }}
         run: composer audit --working-dir=backend/api-gateway --locked --abandoned=fail
