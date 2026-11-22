@@ -172,6 +172,7 @@ jobs:
       - run: python -m pip install --disable-pip-version-check -e packages/python-sdk
       - run: node scripts/tests/sbom-validator-fixtures.mjs
       - run: node scripts/tests/node-audit-policy-fixtures.mjs
+      - run: node scripts/tests/trivy-report-validator-fixtures.mjs
       - uses: anchore/sbom-action@v0
         with:
           path: backend/api-gateway
@@ -259,13 +260,52 @@ jobs:
           context: backend/api-gateway
           load: true
           tags: exaearn/api-gateway:${{ github.sha }}
-      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with: { image-ref: 'exaearn/api-gateway:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: false }
+      - name: Scan API image with Trivy
+        id: trivy_api
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: exaearn/api-gateway:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          format: json
+          output: trivy-api-gateway.json
+          exit-code: '0'
+          ignore-unfixed: false
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: backend/services/blockchain-service/Dockerfile
           load: true
           tags: exaearn/realtime:${{ github.sha }}
-      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with: { image-ref: 'exaearn/realtime:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: false }
+      - name: Scan blockchain image with Trivy
+        id: trivy_blockchain
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: exaearn/realtime:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          format: json
+          output: trivy-blockchain.json
+          exit-code: '0'
+          ignore-unfixed: false
+      - name: Upload Trivy image reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-reports-${{ github.sha }}
+          path: |
+            trivy-api-gateway.json
+            trivy-blockchain.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce Trivy scan success and vulnerability policy
+        if: ${{ always() }}
+        env:
+          API_TRIVY_OUTCOME: ${{ steps.trivy_api.outcome }}
+          BLOCKCHAIN_TRIVY_OUTCOME: ${{ steps.trivy_blockchain.outcome }}
+        run: |
+          if [[ "$API_TRIVY_OUTCOME" != "success" || "$BLOCKCHAIN_TRIVY_OUTCOME" != "success" ]]; then
+            echo "::error::One or more Trivy scans failed to execute successfully."
+            exit 1
+          fi
+          node scripts/validate-trivy-reports.mjs trivy-api-gateway.json trivy-blockchain.json
