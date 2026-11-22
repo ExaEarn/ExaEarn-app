@@ -37,6 +37,7 @@
   "pnpm": {
     "overrides": {
       "axios": "1.18.0",
+      "bitcoinjs-lib@>=6.0.0 <6.1.8": "6.1.8",
       "brace-expansion@>=1 <2": "1.1.18",
       "brace-expansion@>=2 <3": "2.1.4",
       "brace-expansion@>=5 <6": "5.0.9",
@@ -50,7 +51,8 @@
       "multer@>=2 <3": "2.2.0",
       "nanoid@>=3 <4": "3.3.18",
       "postcss@>=8 <9": "8.5.18",
-      "shell-quote": "1.9.0",
+      "proxy-addr@<2.0.8": "2.0.8",
+      "shell-quote@<1.11.0": "1.11.0",
       "socket.io-parser@>=4 <5": "4.2.7",
       "tar": "7.5.21",
       "undici@>=6 <7": "6.27.0",
