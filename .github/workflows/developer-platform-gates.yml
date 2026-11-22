@@ -124,6 +124,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter exaearn-blockchain-service lint
       - run: pnpm --filter exaearn-blockchain-service contracts:compile
+      - name: Smoke-test Hardhat Verify CLI without network writes
+        working-directory: backend/services/blockchain-service
+        run: pnpm exec hardhat verify --help
       - run: pnpm --filter exaearn-blockchain-service test
       - run: pnpm --filter exaearn-blockchain-service contracts:test
       - run: pnpm --filter exaearn-blockchain-service test:developer-ws-load
