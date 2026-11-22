@@ -532,9 +532,6 @@ importers:
       uuid:
         specifier: ^10.0.0
         version: 10.0.0
-      web3:
-        specifier: ^4.13.0
-        version: 4.16.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76)
       winston:
         specifier: ^3.14.0
         version: 3.19.0
