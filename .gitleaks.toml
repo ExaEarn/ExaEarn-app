@@ -18,3 +18,74 @@ regex = '''(?i)(wallet_private_key|withdrawal_signing_key|jwt_secret)\s*[=:]\s*[
 description = "Clearly fake test fixtures"
 paths = ['''contracts/developer-signing-v1.json''', '''.*\.example$''']
 
+
+# These line-scoped exceptions cover reviewed fixtures, identifiers, and published examples.
+# Each exception is limited to the generic-api-key or curl-auth-header detector and exact paths.
+[[allowlists]]
+description = "Non-secret replay/idempotency identifiers in backend tests."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''backend/api-gateway/tests/Feature/Phase15EMarketMakerBotTest\.php$''',
+  '''backend/api-gateway/tests/Feature/AgriTechFlowTest\.php$''',
+  '''backend/api-gateway/tests/Feature/Phase7TradingOperationsTest\.php$''',
+  '''backend/api-gateway/tests/Feature/Phase8LiquidityOperationsTest\.php$''',
+  '''backend/api-gateway/tests/Feature/Phase6MarginTradingTest\.php$''',
+  '''backend/api-gateway/tests/Feature/ExaEarnStakingRemovalTest\.php$'''
+]
+regexes = ['''(?i)(idempotency[_-]key|idempotency-1)''']
+
+[[allowlists]]
+description = "Published local API examples use explicit placeholder bearer values."
+targetRules = ["curl-auth-header"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''exaearn-backend/AUDIT_LOG_FILES_DELIVERED\.md$''',
+  '''exaearn-backend/AUDIT_LOG_QUICK_START\.md$'''
+]
+regexes = ['''(?i)Authorization\s*:\s*Bearer\s+(?:<[^>]+>|\$\{[^}]+\}|(?:your|example|sample|test|placeholder|replace)[A-Z0-9_.-]*)''']
+
+[[allowlists]]
+description = "Release evidence contains a public OpenAPI SHA-256 digest, not a credential."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''docs/level-d-evidence/release-candidate\.md$''']
+regexes = ['''(?i)OpenAPI SHA-256:\s*[a-f0-9]{64}''']
+
+[[allowlists]]
+description = "The remediation plan sentence describes required credentials; it contains no credential value."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''docs/exaearn-developer-platform-p0-p1-remediation-plan\.md$''']
+regexes = ['''The following cannot be made PASS by changing documentation''']
+
+[[allowlists]]
+description = "SRE SLO catalog keys and thresholds are non-secret configuration constants."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''backend/api-gateway/app/Services/SreObservabilityService\.php$''']
+regexes = ['''\x27sli_key\x27\s*=>\s*\x27[^\x27]+\x27''']
+
+[[allowlists]]
+description = "EdTech courseKey fields contain static course identifiers, not credentials."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''exaearn-frontend/src/pages/EdTech/EdTech\.jsx$''',
+  '''exaearn-frontend/src/pages/EdTech/CourseUpload\.jsx$'''
+]
+regexes = ['''courseKey\s*[:=]\s*["\x27][a-z0-9-]{17}["\x27]''']
+
+[[allowlists]]
+description = "Tracked package audit embeds a published, illustrative advisory PoC string."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''security/pnpm-audit\.json$''']
+regexes = ['''(response-secret|prod-secret-key-123|sk-prod-a1b2c3d4|P@ssw0rd123)''']

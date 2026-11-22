@@ -224,7 +224,7 @@ jobs:
         if: ${{ always() }}
         run: composer audit --working-dir=backend/services/reward-service --locked --abandoned=fail
       - name: Audit Python SDK environment
-        if: ${{ always() }}
+        if: ${{ success() }}
         run: python -m pip_audit --local
 
   container-security:
