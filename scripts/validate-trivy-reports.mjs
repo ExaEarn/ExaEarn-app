@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export function inspectTrivyReport(report, label) {
   if (!report || report.SchemaVersion !== 2 || typeof report.ArtifactName !== 'string' ||
@@ -39,7 +41,7 @@ function main(paths) {
   if (blocked) process.exitCode = 1;
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].replaceAll('\\\\', '/')}`).href) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   try {
     main(process.argv.slice(2));
   } catch (error) {
