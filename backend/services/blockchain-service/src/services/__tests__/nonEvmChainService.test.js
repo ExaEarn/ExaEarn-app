@@ -32,7 +32,7 @@ describe('NonEvmChainService TON RPC response bounds', () => {
     optionalModule.mockReset();
   });
 
-  it('caps RPC response bytes before TON Zod schemas process returned collections', async () => {
+  test('caps RPC response bytes before TON Zod schemas process returned collections', async () => {
     const transport = jest.fn().mockResolvedValue({ data: { ok: true } });
     jest.spyOn(axios, 'getAdapter').mockReturnValue(transport);
 
