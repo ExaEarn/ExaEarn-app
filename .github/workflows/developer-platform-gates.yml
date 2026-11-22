@@ -108,6 +108,10 @@ jobs:
       - run: python -m unittest discover packages/python-sdk/tests
       - run: pnpm --filter @exaearn/developers typecheck && pnpm --filter @exaearn/developers build
       - run: pnpm --filter @exaearn/admin typecheck && pnpm --filter @exaearn/admin lint && pnpm --filter @exaearn/admin build
+      - run: pnpm --filter @exaearn/web typecheck && pnpm --filter @exaearn/web build
+      - run: pnpm --filter @exaearn/website typecheck && pnpm --filter @exaearn/website build
+      - run: pnpm --filter @exaearn/listing typecheck && pnpm --filter @exaearn/listing build
+      - run: pnpm --filter exaearn-reward-service build
 
   node-realtime:
     runs-on: ubuntu-latest
@@ -126,6 +130,10 @@ jobs:
       - name: Validate Metro configuration
         working-directory: apps/mobile
         run: node -e "const config=require('./metro.config.js'); if (!config || !config.resolver) process.exit(1)"
+      - run: pnpm --filter @exaearn/mobile typecheck
+      - name: Export mobile Android bundle
+        env: { EXPO_NO_TELEMETRY: '1' }
+        run: pnpm --filter @exaearn/mobile exec expo export --platform android --output-dir "$RUNNER_TEMP/exaearn-mobile-android-export"
 
   security-supply-chain:
     runs-on: ubuntu-latest
