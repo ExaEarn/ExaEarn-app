@@ -6,7 +6,6 @@
  */
 
 const { ethers } = require('ethers');
-const { Web3 } = require('web3');
 const config = require('../config');
 const hdWalletService = require('./hdWalletService');
 const logger = require('../utils/logger');
@@ -24,7 +23,6 @@ class BlockchainProvider {
   constructor() {
     this._ethersProviders = new Map();
     this._ethersWsProviders = new Map();
-    this._web3Instances = new Map();
     this._signers = new Map();
     this._tokenContracts = new Map();
   }
@@ -88,22 +86,6 @@ class BlockchainProvider {
     }
 
     return this._ethersWsProviders.get(normalized);
-  }
-
-  getWeb3(network = 'base') {
-    const normalized = this.ensureEvmNetwork(network);
-
-    if (!this._web3Instances.has(normalized)) {
-      const networkConfig = config.getNetworkConfig(normalized);
-      this._web3Instances.set(normalized, new Web3(networkConfig.rpcUrl));
-
-      logger.info('Web3.js instance initialized', {
-        network: normalized,
-        rpcUrl: networkConfig.rpcUrl,
-      });
-    }
-
-    return this._web3Instances.get(normalized);
   }
 
   getSigner(network = 'base') {
