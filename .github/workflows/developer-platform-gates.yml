@@ -27,16 +27,6 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: exaearn_ci
-          POSTGRES_USER: exaearn_ci
-          POSTGRES_PASSWORD: ci-only-password
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U exaearn_ci -d exaearn_ci"
-          --health-interval 5s --health-timeout 5s --health-retries 20
       redis:
         image: redis:7-alpine
         ports: ['6379:6379']
@@ -59,6 +49,23 @@ jobs:
     defaults: { run: { working-directory: backend/api-gateway } }
     steps:
       - uses: actions/checkout@v4
+      - name: Start isolated PostgreSQL with sufficient migration lock capacity
+        run: |
+          docker run --detach --name exaearn-ci-postgres \
+            --publish 5432:5432 \
+            --env POSTGRES_DB=exaearn_ci \
+            --env POSTGRES_USER=exaearn_ci \
+            --env POSTGRES_PASSWORD=ci-only-password \
+            postgres:16-alpine \
+            postgres -c max_locks_per_transaction=1024
+          for attempt in $(seq 1 30); do
+            if docker exec exaearn-ci-postgres pg_isready -U exaearn_ci -d exaearn_ci; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs exaearn-ci-postgres
+          exit 1
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.3', extensions: 'mbstring,pgsql,pdo_pgsql,sqlite3,pdo_sqlite,bcmath,gd', coverage: none }
       - run: composer validate --strict

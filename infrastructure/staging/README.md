@@ -21,7 +21,7 @@ deploy the application. Never use it for production.
 
 ## Proposed host and network
 
-- Ubuntu 24.04 ARM64, `t4g.medium`, 30 GiB encrypted gp3, IMDSv2 required,
+- Ubuntu 24.04 ARM64, `t4g.small`, 30 GiB encrypted gp3, IMDSv2 required,
   and the `ExaEarnStagingInstanceProfile`.
 - Use the existing public subnet without a NAT gateway so the instance can
   reach SSM and approved HTTPS dependencies. The attached staging security
@@ -41,23 +41,25 @@ A 730-hour month at the current us-east-1 on-demand rates is approximately:
 
 | Item | Estimate |
 | --- | ---: |
-| Linux `t4g.medium` at $0.0336/hour | $24.53 |
+| Linux `t4g.small` at $0.0168/hour | $12.26 |
 | 30 GiB gp3 at $0.08/GiB-month | $2.40 |
 | One in-use public IPv4 at $0.005/hour | $3.65 |
-| **Estimated baseline** | **$30.58/month** |
+| Daily 30 GiB EBS snapshot equivalent | $1.50 |
+| **Estimated baseline** | **$19.81/month** |
 
 This excludes taxes, data transfer, S3 backups, snapshots, CloudWatch ingestion,
-and other usage. The account's current $25 monthly budget is below the baseline.
-Obtain budget approval or a lower-cost reviewed design before creating
-billable resources. A private subnet without NAT would require VPC endpoints
-for SSM and image/package access; their hourly charges must be quoted before
-choosing that design.
+and other usage; costs may exceed the current $25 monthly budget. Obtain explicit
+budget and spend-limit approval before creating billable resources. A private
+subnet without NAT would require VPC endpoints for SSM and image/package access;
+their hourly charges must be quoted before choosing that design.
 
 ## Environment and secrets
 
 Copy `staging.env.example` to `staging.env` on the host only. The real file
 is ignored by Git. Supply fresh, staging-only secrets from SSM Parameter Store
-SecureString; never reuse production values or print secrets in logs.
+SecureString; never reuse production values or print secrets in logs. Set a
+strong `DB_PASSWORD` and a separate URL-safe `REDIS_PASSWORD`; Compose requires
+both and enables Redis authentication.
 
 The sample RPC endpoints are testnets. TON, Bitcoin, and TRON RPC endpoints
 remain empty. Laravel and blockchain startup guards must reject missing locks,
@@ -83,8 +85,9 @@ mainnet endpoints, or signing secrets before any service starts.
    alerts before starting application containers.
 6. After all dependency gates pass and startup checks are reviewed, obtain
    approval before pulling approved digest-pinned images and starting the
-   `application` profile. Run migrations only against the
-   `exaearn_staging` database.
+   `application` profile. Pass `--env-file staging.env` when running Compose
+   so required database and Redis secrets are validated; keep the `public`
+   profile disabled. Run migrations only against the `exaearn_staging` database.
 7. Validate API `/up` and blockchain `/health` healthchecks, testnet-only
    settings, logs, SSM access, backup, and rollback before requesting any
    ingress or DNS change.

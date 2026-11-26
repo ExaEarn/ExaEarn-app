@@ -242,10 +242,19 @@ jobs:
       - name: Materialize disposable staging env file
         run: cp infrastructure/staging/staging.env.example infrastructure/staging/staging.env
       - name: Validate default Compose model
+        env:
+          DB_PASSWORD: ci-only-staging-db-password
+          REDIS_PASSWORD: ci-only-staging-redis-password
         run: docker compose -f infrastructure/staging/compose.yaml config --quiet
       - name: Capture default Compose model
+        env:
+          DB_PASSWORD: ci-only-staging-db-password
+          REDIS_PASSWORD: ci-only-staging-redis-password
         run: docker compose -f infrastructure/staging/compose.yaml config --format json > compose-default.json
       - name: Validate fully selected Compose profiles
+        env:
+          DB_PASSWORD: ci-only-staging-db-password
+          REDIS_PASSWORD: ci-only-staging-redis-password
         run: docker compose -f infrastructure/staging/compose.yaml --profile application --profile public config --format json > compose-staging.json
       - name: Enforce Compose exposure and locked testnet policy
         shell: bash
@@ -265,6 +274,11 @@ jobs:
           services = data['services']
           assert {'postgres', 'redis', 'api', 'blockchain', 'caddy'} <= services.keys()
           assert not any('worker' in name or 'queue' in name for name in services)
+          assert services['postgres']['environment']['POSTGRES_PASSWORD'] == 'ci-only-staging-db-password'
+          assert services['redis']['environment']['REDIS_PASSWORD'] == 'ci-only-staging-redis-password'
+          redis_command = ' '.join(services['redis']['command'])
+          assert '--requirepass' in redis_command
+          assert 'ci-only-staging-redis-password' not in redis_command
           for name in ('postgres', 'redis', 'api', 'blockchain'):
               assert not services[name].get('ports'), f'{name} must not publish host ports'
           published = {
@@ -274,6 +288,11 @@ jobs:
           assert published == {('80', '80'), ('443', '443')}, published
           assert services['api'].get('profiles') == ['application']
           assert services['blockchain'].get('profiles') == ['application']
+          api_env = services['api'].get('environment', {})
+          assert api_env.get('REDIS_PASSWORD') == 'ci-only-staging-redis-password'
+          blockchain_env = services['blockchain'].get('environment', {})
+          assert blockchain_env.get('REDIS_PASSWORD') == 'ci-only-staging-redis-password'
+          assert blockchain_env.get('REDIS_URL') == 'redis://:ci-only-staging-redis-password@redis:6379'
           assert services['blockchain']['build']['dockerfile'].endswith('Dockerfile.staging')
           assert services['caddy'].get('profiles') == ['public']
           for name in ('api', 'blockchain'):

@@ -13,6 +13,7 @@ services:
     environment:
       POSTGRES_DB: exaearn_staging
       POSTGRES_USER: exaearn_staging
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in staging.env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,26 +26,13 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     logging: *staging-logging
-    command:
-      - redis-server
-      - --appendonly
-      - "yes"
-      - --appendfsync
-      - everysec
-      - --save
-      - "900"
-      - "1"
-      - --save
-      - "300"
-      - "10"
-      - --maxmemory
-      - 256mb
-      - --maxmemory-policy
-      - noeviction
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in staging.env}
+    command: ["sh", "-c", "exec redis-server --requirepass \"$${REDIS_PASSWORD}\" --appendonly yes --appendfsync everysec --save 900 1 --save 300 10 --maxmemory 256mb --maxmemory-policy noeviction"]
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,8 +53,10 @@ services:
       DB_PORT: "5432"
       DB_DATABASE: exaearn_staging
       DB_USERNAME: exaearn_staging
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in staging.env}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in staging.env}
       LOG_CHANNEL: stderr
     depends_on:
       postgres:
@@ -93,6 +83,8 @@ services:
       APP_DEPLOYMENT_ENV: staging
       NODE_ENV: staging
       PORT: "4000"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in staging.env}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in staging.env}@redis:6379
     depends_on:
       redis:
         condition: service_healthy

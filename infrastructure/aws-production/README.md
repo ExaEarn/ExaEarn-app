@@ -60,6 +60,8 @@ Compose keeps PostgreSQL and Redis on a private Docker network with persistent n
 
 ## Safe release and recovery
 
+Production Compose requires non-empty `DB_PASSWORD` and `REDIS_PASSWORD` values from the protected environment file. Use a strong URL-safe random Redis password because the blockchain service consumes it through an authenticated Redis URL.
+
 1. Require a reviewed, protected-branch commit; build and scan API and blockchain images in CI and publish immutable SHA tags/digests to their respective existing ECR repositories with `scripts/publish-images.sh` (or an equivalent protected CI OIDC publisher). The script requires an operator attestation that the CI image scan passed; it is not itself proof of a workflow result.
 2. Before any release, confirm the `exaeaen-admin` identity/account, refresh the read-only inventory, quotas, budget alarms, CIDR plan, and a separate written cost approval. The existing $25/month budget is insufficient for either proposed architecture. Never run `cloudformation deploy` as part of this preparation.
 3. Configure the Cloudflare origin certificate, hostname, Authenticated Origin Pulls, and strict origin TLS, then independently verify the certificate chain and mTLS from an allowed Cloudflare edge. Do not change DNS in this task.
