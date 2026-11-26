@@ -79,7 +79,6 @@ test('actual Node startup skips every background worker when staging workers are
     }
   }
 });
-
 test('actual contract transaction route rejects staging financial execution', async () => {
   const http = require('node:http');
   const names = Object.keys(safeEnvironment);
