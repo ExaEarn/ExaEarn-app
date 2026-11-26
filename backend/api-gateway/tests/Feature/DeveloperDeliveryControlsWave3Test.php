@@ -35,8 +35,13 @@ class DeveloperDeliveryControlsWave3Test extends TestCase
         $this->assertStringContainsString('image: postgres:16-alpine', $workflow);
         $this->assertStringContainsString('image: redis:7-alpine', $workflow);
         $this->assertStringContainsString('severity: \'CRITICAL,HIGH\'', $workflow);
-        $this->assertStringContainsString('docker://ghcr.io/gitleaks/gitleaks:v8.30.1', $workflow);
-        $this->assertStringContainsString('git --redact --verbose /github/workspace', $workflow);
+        $this->assertStringContainsString('fetch-depth: 0', $workflow);
+        $this->assertStringContainsString('docker run --rm', $workflow);
+        $this->assertStringContainsString('GIT_CONFIG_KEY_0=safe.directory', $workflow);
+        $this->assertStringContainsString('GIT_CONFIG_VALUE_0=/repo', $workflow);
+        $this->assertStringContainsString('git rev-list --all --count', $workflow);
+        $this->assertStringContainsString('git --redact --verbose --config /repo/.gitleaks.toml /repo', $workflow);
+        $this->assertStringContainsString('[1-9][0-9]* commits scanned', $workflow);
         $this->assertStringContainsString('anchore/sbom-action', $workflow);
     }
 

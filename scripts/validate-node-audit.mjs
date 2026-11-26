@@ -57,10 +57,19 @@ export function validateAuditPolicy(audit, policy, options = {}) {
   for (const acceptedId of byId.keys()) {
     if (!currentIds.has(acceptedId)) throw new Error(`Acceptance is not present in the current audit: ${acceptedId}`);
   }
-  const unaccepted = findings.map(idFor).filter((id) => !byId.has(id));
-  if (unaccepted.length) throw new Error(`Unaccepted High Node advisories: ${unaccepted.join(', ')}`);
+  const unaccepted = findings.filter((advisory) => !byId.has(idFor(advisory)));
+  if (unaccepted.length) {
+    throw new Error(`Unaccepted High Node advisories: ${unaccepted.map(describeFinding).join('; ')}`);
+  }
 
   return { high: findings.length, accepted: byId.size };
+}
+
+function describeFinding(advisory) {
+  const paths = (advisory.findings ?? []).flatMap((finding) =>
+    (finding.paths ?? []).map((path) => `${finding.version ?? 'unknown'} via ${path}`));
+  const version = advisory.range ?? advisory.vulnerable_versions ?? 'affected version unknown';
+  return `${idFor(advisory)} [${advisory.module_name ?? 'unknown package'}; ${version}${paths.length ? `; paths: ${paths.join(' | ')}` : ''}]`;
 }
 
 function idFor(advisory) {
