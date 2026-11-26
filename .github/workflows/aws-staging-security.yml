@@ -1,0 +1,420 @@
+name: AWS Staging Security Readiness
+
+on:
+  push:
+    branches: [chore/aws-staging-prep]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-staging-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflow-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate this workflow with actionlint
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: .github/workflows/aws-staging-security.yml
+      - name: Test Trivy report gate behavior
+        run: python -m unittest scripts.tests.test_validate_trivy_reports -v
+
+  laravel-safety:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/api-gateway
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring,sqlite3,pdo_sqlite,bcmath,gd
+          coverage: none
+      - name: Prepare Laravel bootstrap cache and test artifacts
+        run: mkdir -p bootstrap/cache ../../artifacts && touch .env && chmod u+rwx bootstrap/cache
+      - name: Install locked Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Run staging safety and auth regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          php artisan test tests/Feature/StagingSafetyTest.php tests/Unit/StagingSafetyTest.php tests/Feature/AuthFlowTest.php 2>&1 | tee ../../artifacts/laravel-staging-safety.log
+      - name: Run complete Laravel backend suite
+        shell: bash
+        run: |
+          set -o pipefail
+          php artisan test 2>&1 | tee ../../artifacts/laravel-full-suite.log
+      - name: Verify Laravel startup refuses a missing staging lock
+        shell: bash
+        run: |
+          set +e
+          output="$(APP_ENV=staging APP_DEPLOYMENT_ENV=staging APP_KEY='base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' php artisan about 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output" | tee ../../artifacts/laravel-missing-lock-startup.log
+          if [ "$status" -eq 0 ]; then
+            echo 'Laravel unexpectedly started staging without the safety lock.' >&2
+            exit 1
+          fi
+          printf '%s' "$output" | grep -F 'Staging safety lock is not enabled'
+      - name: Remove temporary Laravel environment file
+        if: always()
+        run: rm -f .env
+      - name: Upload Laravel test and startup reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-laravel-tests-${{ github.sha }}
+          path: artifacts/laravel-*.log
+          if-no-files-found: warn
+          retention-days: 30
+
+  reward-service-safety:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/services/reward-service
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring,sqlite3,pdo_sqlite,bcmath
+          coverage: none
+      - name: Prepare temporary Laravel test environment
+        run: mkdir -p bootstrap/cache && touch .env && chmod u+rwx bootstrap/cache
+      - name: Install locked Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Run reward-service tests without environment warnings
+        shell: bash
+        run: |
+          set -o pipefail
+          php artisan test 2>&1 | tee reward-service-tests.log
+      - name: Remove temporary Laravel environment file
+        if: always()
+        run: rm -f .env
+      - name: Upload reward-service test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-reward-service-tests-${{ github.sha }}
+          path: backend/services/reward-service/reward-service-tests.log
+          if-no-files-found: warn
+          retention-days: 30
+  blockchain-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Prepare test artifacts
+        run: mkdir -p artifacts
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Compile contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter exaearn-blockchain-service contracts:compile 2>&1 | tee artifacts/blockchain-compile.log
+      - name: Lint blockchain service
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter exaearn-blockchain-service lint 2>&1 | tee artifacts/blockchain-lint.log
+      - name: Run startup and financial-safety Jest tests
+        working-directory: backend/services/blockchain-service
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm exec jest --runInBand --json --outputFile=../../../artifacts/blockchain-jest-results.json 2>&1 | tee ../../../artifacts/blockchain-jest.log
+      - name: Run blockchain contract tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter exaearn-blockchain-service contracts:test 2>&1 | tee artifacts/blockchain-contract-tests.log
+      - name: Upload blockchain test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-blockchain-tests-${{ github.sha }}
+          path: artifacts/blockchain-*
+          if-no-files-found: warn
+          retention-days: 30
+
+  mobile-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck mobile application
+        run: pnpm --filter @exaearn/mobile typecheck
+  dependency-audits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Composer lockfile audit
+        run: composer audit --working-dir=backend/api-gateway --locked --abandoned=fail
+      - name: Reward-service Composer lockfile audit
+        run: composer audit --working-dir=backend/services/reward-service --locked --abandoned=fail
+      - name: Run pnpm audit, strict acceptance policy, and website npm audit
+        shell: bash
+        run: |
+          set +e
+          pnpm audit --json > pnpm-audit.json 2>&1
+          pnpm_status=$?
+          node scripts/validate-node-audit.mjs --audit-file pnpm-audit.json --policy security/node-audit-acceptances.json > node-audit-policy.log 2>&1
+          policy_status=$?
+          (cd apps/website && npm audit --workspaces=false --json > ../../website-npm-audit.json 2>&1)
+          npm_status=$?
+          set -e
+          printf '%s\n' "pnpm audit exit code: $pnpm_status" | tee pnpm-audit-exit-code.txt
+          printf '%s\n' "Node audit policy exit code: $policy_status" | tee node-audit-policy-exit-code.txt
+          printf '%s\n' "Website npm audit exit code: $npm_status" | tee website-npm-audit-exit-code.txt
+          printf '%s\n' "pnpm_audit_exit_code=$pnpm_status" "node_audit_policy_exit_code=$policy_status" "website_npm_audit_exit_code=$npm_status" >> "$GITHUB_STEP_SUMMARY"
+          for report in pnpm-audit.json node-audit-policy.log website-npm-audit.json; do
+            if [ ! -s "$report" ]; then
+              echo "Required dependency audit report is missing or empty: $report" >&2
+              exit 2
+            fi
+          done
+          if [ "$pnpm_status" -ne 0 ] || [ "$policy_status" -ne 0 ] || [ "$npm_status" -ne 0 ]; then
+            exit 1
+          fi
+      - name: Upload dependency audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-dependency-audits-${{ github.sha }}
+          path: |
+            pnpm-audit.json
+            pnpm-audit-exit-code.txt
+            node-audit-policy.log
+            node-audit-policy-exit-code.txt
+            website-npm-audit.json
+            website-npm-audit-exit-code.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  compose-and-container-scans:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Materialize disposable staging env file
+        run: cp infrastructure/staging/staging.env.example infrastructure/staging/staging.env
+      - name: Validate default Compose model
+        run: docker compose -f infrastructure/staging/compose.yaml config --quiet
+      - name: Capture default Compose model
+        run: docker compose -f infrastructure/staging/compose.yaml config --format json > compose-default.json
+      - name: Validate fully selected Compose profiles
+        run: docker compose -f infrastructure/staging/compose.yaml --profile application --profile public config --format json > compose-staging.json
+      - name: Enforce Compose exposure and locked testnet policy
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          default = json.loads(Path('compose-default.json').read_text())
+          default_services = default['services']
+          default_active = {name for name, service in default_services.items() if not service.get('profiles')}
+          assert default_active == {'postgres', 'redis'}, default_active
+          dockerignore = Path('backend/api-gateway/.dockerignore').read_text()
+          assert '.env' in dockerignore and '!.env.example' in dockerignore
+          assert not any('worker' in name or 'queue' in name for name in default_services)
+          data = json.loads(Path('compose-staging.json').read_text())
+          services = data['services']
+          assert {'postgres', 'redis', 'api', 'blockchain', 'caddy'} <= services.keys()
+          assert not any('worker' in name or 'queue' in name for name in services)
+          for name in ('postgres', 'redis', 'api', 'blockchain'):
+              assert not services[name].get('ports'), f'{name} must not publish host ports'
+          published = {
+              (str(port.get('published')), str(port.get('target')))
+              for port in services['caddy'].get('ports', [])
+          }
+          assert published == {('80', '80'), ('443', '443')}, published
+          assert services['api'].get('profiles') == ['application']
+          assert services['blockchain'].get('profiles') == ['application']
+          assert services['blockchain']['build']['dockerfile'].endswith('Dockerfile.staging')
+          assert services['caddy'].get('profiles') == ['public']
+          for name in ('api', 'blockchain'):
+              env = services[name].get('environment', {})
+              assert env.get('APP_ENV') == 'staging'
+              assert env.get('APP_DEPLOYMENT_ENV') == 'staging'
+              assert env.get('EXAEARN_STAGING_SAFETY_LOCK') == 'locked'
+              assert env.get('FINANCIAL_SERVICES_ENABLED') == 'false'
+              assert env.get('STAGING_WORKERS_ENABLED') == 'false'
+              assert env.get('CUSTODY_PRODUCTION_ENABLED') == 'false'
+          node_env = services['blockchain'].get('environment', {})
+          assert node_env.get('NODE_ENV') == 'staging'
+          values = services['blockchain'].get('environment', {})
+          assert values.get('BITCOIN_NETWORK') == 'testnet'
+          assert values.get('BASE_CHAIN_ID') == '84532'
+          assert values.get('ETHEREUM_CHAIN_ID') == '11155111'
+          assert values.get('BSC_CHAIN_ID') == '97'
+          assert values.get('POLYGON_CHAIN_ID') == '80002'
+          assert values.get('BITCOIN_RPC_URL', '') == ''
+          assert values.get('TON_RPC_URL', '') == ''
+          assert values.get('TRON_FULL_HOST', '') == ''
+          for name in ('BASE_RPC_WSS', 'BASE_WSS', 'ETHEREUM_RPC_WSS', 'ETHEREUM_WSS', 'BSC_RPC_WSS', 'BSC_WSS', 'POLYGON_RPC_WSS', 'POLYGON_WSS'):
+              assert values.get(name, '') == '', name
+          assert values.get('BASE_RPC_URL') == 'https://sepolia.base.org'
+          assert values.get('ETHEREUM_RPC_URL') == 'https://ethereum-sepolia-rpc.publicnode.com'
+          assert values.get('BSC_RPC_URL') == 'https://data-seed-prebsc-1-s1.bnbchain.org:8545'
+          assert values.get('POLYGON_RPC_URL') == 'https://rpc-amoy.polygon.technology'
+          assert values.get('XRPL_RPC_URL') == 'https://s.altnet.rippletest.net:51234'
+          assert values.get('XRPL_WSS') == 'wss://s.altnet.rippletest.net:51233'
+          assert values.get('XRP_RPC_URL') == 'https://s.altnet.rippletest.net:51234'
+          assert values.get('SOLANA_RPC_URL') == 'https://api.devnet.solana.com'
+          assert values.get('TRON_RPC_URL') == 'https://api.shasta.trongrid.io'
+          print('Compose staging policy passed: private DB/cache, explicit app profiles, lock enabled, testnet RPCs.')
+          PY
+      - name: Build Laravel staging image
+        uses: docker/build-push-action@v6
+        id: build-api
+        continue-on-error: true
+        with:
+          context: backend/api-gateway
+          platforms: linux/arm64
+          load: true
+          tags: exaearn-staging-api:${{ github.sha }}
+      - name: Assert PostgreSQL and Redis PHP drivers in API image
+        id: verify-api-runtime
+        if: steps.build-api.outcome == 'success'
+        run: >-
+          docker run --rm exaearn-staging-api:${{ github.sha }} php -r
+          '$required=["redis","pdo_pgsql"]; $missing=array_diff($required,get_loaded_extensions()); if ($missing) {fwrite(STDERR, "Missing PHP extensions: ".implode(", ",$missing).PHP_EOL); exit(1);}'
+      - name: Build blockchain staging image
+        uses: docker/build-push-action@v6
+        id: build-blockchain
+        continue-on-error: true
+        with:
+          context: .
+          file: backend/services/blockchain-service/Dockerfile.staging
+          platforms: linux/arm64
+          load: true
+          tags: exaearn-staging-blockchain:${{ github.sha }}
+      - name: Scan Laravel image for HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-api
+        continue-on-error: true
+        with:
+          image-ref: exaearn-staging-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          ignore-unfixed: 'false'
+          format: json
+          output: trivy-api-image.json
+      - name: Scan blockchain image for HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-blockchain
+        continue-on-error: true
+        with:
+          image-ref: exaearn-staging-blockchain:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          ignore-unfixed: 'false'
+          format: json
+          output: trivy-blockchain-image.json
+      - name: Scan repository for vulnerable dependencies, secrets, and misconfiguration
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-filesystem
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          ignore-unfixed: 'false'
+          format: json
+          output: trivy-filesystem.json
+      - name: Scan staging infrastructure configuration
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        id: scan-config
+        continue-on-error: true
+        with:
+          scan-type: config
+          scan-ref: infrastructure/staging
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          ignore-unfixed: 'false'
+          format: json
+          output: trivy-staging-config.json
+      - name: Enforce every build and Trivy result
+        if: always()
+        env:
+          BUILD_API_OUTCOME: ${{ steps.build-api.outcome }}
+          VERIFY_API_RUNTIME_OUTCOME: ${{ steps.verify-api-runtime.outcome }}
+          BUILD_BLOCKCHAIN_OUTCOME: ${{ steps.build-blockchain.outcome }}
+          SCAN_API_OUTCOME: ${{ steps.scan-api.outcome }}
+          SCAN_BLOCKCHAIN_OUTCOME: ${{ steps.scan-blockchain.outcome }}
+          SCAN_FILESYSTEM_OUTCOME: ${{ steps.scan-filesystem.outcome }}
+          SCAN_CONFIG_OUTCOME: ${{ steps.scan-config.outcome }}
+        shell: bash
+        run: |
+          failed=0
+          for result in "$BUILD_API_OUTCOME" "$VERIFY_API_RUNTIME_OUTCOME" "$BUILD_BLOCKCHAIN_OUTCOME" "$SCAN_API_OUTCOME" "$SCAN_BLOCKCHAIN_OUTCOME" "$SCAN_FILESYSTEM_OUTCOME" "$SCAN_CONFIG_OUTCOME"; do
+            if [ "$result" != success ]; then
+              echo "Required image build or Trivy scan did not pass (outcome: ${result:-not-run})." >&2
+              failed=1
+            fi
+          done
+          python scripts/validate_trivy_reports.py
+          exit "$failed"
+      - name: Upload Compose and Trivy reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-container-scans-${{ github.sha }}
+          path: |
+            compose-default.json
+            compose-staging.json
+            trivy-*.json
+          if-no-files-found: warn
+          retention-days: 30

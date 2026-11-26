@@ -1,0 +1,25 @@
+FROM node:22-alpine AS dependencies
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY backend/services/blockchain-service/package.json backend/services/blockchain-service/package.json
+COPY backend/services/blockchain-service/src backend/services/blockchain-service/src
+RUN corepack enable \
+    && corepack prepare pnpm@10.34.5 --activate \
+    && pnpm install --filter exaearn-blockchain-service --frozen-lockfile --no-optional \
+    && pnpm --filter exaearn-blockchain-service --prod deploy --no-optional /runtime \
+    && cd /runtime \
+    && node -e "const fs=require('node:fs');const path=require('node:path');const root='/runtime/node_modules';const forbidden=['@ton/ton','@ton/crypto','web3'];const locations=[root,path.join(root,'.pnpm','node_modules')];for(const entry of fs.readdirSync(path.join(root,'.pnpm'),{withFileTypes:true})){if(entry.isDirectory())locations.push(path.join(root,'.pnpm',entry.name,'node_modules'));}const found=[];for(const base of locations){for(const name of forbidden){const manifest=path.join(base,name,'package.json');if(fs.existsSync(manifest))found.push(name);}const manifest=path.join(base,'zod','package.json');if(fs.existsSync(manifest)&&Number(JSON.parse(fs.readFileSync(manifest,'utf8')).version.split('.')[0])===3)found.push('vulnerable Zod 3');}if(found.length){console.error('Staging image unexpectedly contains: '+[...new Set(found)].join(', '));process.exit(1);}"
+
+FROM node:22-alpine
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx \
+    && addgroup -S exaearn \
+    && adduser -S exaearn -G exaearn
+WORKDIR /workspace
+COPY --from=dependencies --chown=exaearn:exaearn /runtime ./
+USER exaearn
+ENV NODE_ENV=production PORT=4000
+EXPOSE 4000
+STOPSIGNAL SIGTERM
+CMD ["node", "src/index.js"]
