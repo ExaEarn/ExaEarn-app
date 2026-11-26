@@ -20,7 +20,7 @@ paths = ['''contracts/developer-signing-v1.json''', '''.*\.example$''']
 
 
 # These line-scoped exceptions cover reviewed fixtures, identifiers, and published examples.
-# Each exception is limited to the generic-api-key or curl-auth-header detector and exact paths.
+# Each exception is limited to specific detectors and exact paths.
 [[allowlists]]
 description = "Non-secret replay/idempotency identifiers in backend tests."
 targetRules = ["generic-api-key"]
@@ -92,7 +92,7 @@ regexes = ['''(response-secret|prod-secret-key-123|sk-prod-a1b2c3d4|P@ssw0rd123)
 
 [[allowlists]]
 description = "Firebase/Google mobile configuration contains a published client API key, not a server credential."
-targetRules = ["generic-api-key"]
+targetRules = ["gcp-api-key", "generic-api-key"]
 paths = [
   '''apps/mobile/android/app/google-services\.json$''',
   '''apps/mobile/google-services\.json$'''
