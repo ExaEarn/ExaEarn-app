@@ -18,6 +18,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext.jsx";
 import { useWebSocketEvent } from "../../services/webSocketService";
 import TransferModal from "../../components/TransferModal";
+import { readSecurityPreferences, SECURITY_PREFERENCES_EVENT, saveSecurityPreferences } from "../../security/securityPreferences";
 
 const DISPLAY_CURRENCIES = ["USD", "USDT", "NGN", "EUR", "GBP", "BTC"];
 const ASSET_FILTERS = ["all", "crypto", "fiat"];
@@ -193,7 +194,7 @@ function buildAccountRows(accountPayload, mergedAssets) {
 function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw, onOpenTransactions, onOpenTrade }) {
   const { request, user } = useAuth();
   const { t } = useLanguage();
-  const [privacyMode, setPrivacyMode] = useState(() => localStorage.getItem("exaearn_assets_privacy") === "hidden");
+  const [privacyMode, setPrivacyMode] = useState(() => readSecurityPreferences().preferences.hideBalances || localStorage.getItem("exaearn_assets_privacy") === "hidden");
   const [displayCurrency, setDisplayCurrency] = useState(() => localStorage.getItem("exaearn_assets_currency") || "USD");
   const [hideZeroBalances, setHideZeroBalances] = useState(() => localStorage.getItem("exaearn_assets_hide_zero") === "true");
   const [activeTab, setActiveTab] = useState("assets");
@@ -210,6 +211,23 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
   const [showCurrencySelector, setShowCurrencySelector] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    const updatePreferences = (event) => {
+      setPrivacyMode((event.detail || readSecurityPreferences().preferences).hideBalances);
+    };
+    const updateStoredPreferences = (event) => {
+      if (event.key === "exaearn-security-preferences-v1") {
+        setPrivacyMode(readSecurityPreferences().preferences.hideBalances);
+      }
+    };
+    window.addEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+    window.addEventListener("storage", updateStoredPreferences);
+    return () => {
+      window.removeEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+      window.removeEventListener("storage", updateStoredPreferences);
+    };
+  }, []);
 
   const loadAssets = useCallback(async (mode = "full") => {
     if (mode === "full") setLoading(true);
@@ -245,6 +263,16 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
   useEffect(() => {
     localStorage.setItem("exaearn_assets_privacy", privacyMode ? "hidden" : "visible");
   }, [privacyMode]);
+
+  const togglePrivacyMode = () => {
+    const nextHidden = !privacyMode;
+    try {
+      saveSecurityPreferences({ ...readSecurityPreferences().preferences, hideBalances: nextHidden });
+      setPrivacyMode(nextHidden);
+    } catch {
+      setError("This browser could not save the balance privacy preference. No change was applied.");
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem("exaearn_assets_currency", displayCurrency);
@@ -328,7 +356,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label={t("assets.toggleBalancePrivacy")} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
+            <button type="button" onClick={togglePrivacyMode} aria-label={t("assets.toggleBalancePrivacy")} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
               {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
             <button type="button" onClick={onOpenTransactions} aria-label={t("assets.openTransactionHistory")} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200">
@@ -351,7 +379,7 @@ function Assets({ onBack, onOpenSend, onOpenAddFunds, onOpenSwap, onOpenWithdraw
             <div>
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-slate-500">
                 <span>{t("assets.totalAssets")}</span>
-                <button type="button" onClick={() => setPrivacyMode((value) => !value)} aria-label={t("assets.toggleBalancePrivacy")} className="text-[var(--exa-text-muted)]">
+                <button type="button" onClick={togglePrivacyMode} aria-label={t("assets.toggleBalancePrivacy")} className="text-[var(--exa-text-muted)]">
                   {privacyMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Domain\Staking\Contracts\SecureSignerInterface;
 use App\Domain\Staking\Services\HttpSecureSigner;
 use App\Contracts\NftMediaStorageProviderInterface;
+use App\Contracts\MalwareScannerInterface;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 use App\Models\AutoTradingStrategy;
@@ -22,6 +23,7 @@ use App\Policies\NotificationPolicy;
 use App\Policies\TradingSignalPolicy;
 use App\Services\PortfolioService;
 use App\Services\NftLocalMediaStorageProvider;
+use App\Services\NotConnectedMalwareScanner;
 use App\Services\RealtimeStreamService;
 use App\Services\ReferralService;
 use App\Services\RewardEngineService;
@@ -38,9 +40,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(\App\Services\ExaPay\Offline\OfflineIssuerSigningProvider::class, \App\Services\ExaPay\Offline\ConfiguredOpenSslIssuerSigningProvider::class);
+        $this->app->bind(\App\Services\ExaPay\Offline\OfflineDeviceAttestationVerifier::class, \App\Services\ExaPay\Offline\UnsupportedOfflineDeviceAttestationVerifier::class);
+        $this->app->bind(\App\Services\ExaPay\Offline\OfflineSecureDeviceAdapter::class, \App\Services\ExaPay\Offline\UnsupportedOfflineSecureDeviceAdapter::class);
         $this->app->bind(SecureSignerInterface::class, HttpSecureSigner::class);
         $this->app->bind(ExternalSpotVenue::class, BinanceSpotVenueAdapter::class);
         $this->app->bind(NftMediaStorageProviderInterface::class, NftLocalMediaStorageProvider::class);
+        $this->app->bind(MalwareScannerInterface::class, NotConnectedMalwareScanner::class);
     }
 
     /**

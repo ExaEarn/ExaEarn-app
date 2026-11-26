@@ -1,322 +1,99 @@
-import React, { FormEvent, useEffect, useMemo, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyhole, MessageSquare, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Bell, Check, Eye, EyeOff, FileUp, FolderKanban, LockKeyhole, LogOut, RefreshCw, ShieldCheck } from "lucide-react";
+import { api, ApiError } from "./api";
+import { OrganizationKyb } from "./OrganizationKyb";
 import "./styles.css";
 
-type Organization = {
-  id: number;
-  legal_name: string;
-  project_name: string;
-  jurisdiction: string;
-  website?: string | null;
-};
+type Organization = { id: number; legal_name: string; project_name: string; jurisdiction: string; kyb_status?: string; kyb_progress?: number };
+type Application = { id: number; reference: string; application_status: string; integration_status: string; progress_percent: number; asset_information?: Record<string, unknown> };
+type User = { id: number; name: string; email: string; email_verified_at?: string | null; two_factor_enabled?: boolean };
+type RegistrationCountry = { code: string; name: string; registration_available: boolean };
+type RegistrationMetadata = { countries: RegistrationCountry[]; terms_version: string; listing_terms_version: string };
+type Field = { key: string; label: string; required?: boolean; type?: "url" | "date" | "number" | "textarea" | "select"; options?: string[]; hint?: string };
+type Step = { title: string; section: string; description: string; fields: Field[] };
 
-type ListingApplication = {
-  id: number;
-  reference: string;
-  application_type: string;
-  application_status: string;
-  integration_status: string;
-  completion_percent: number;
-  project_information?: Record<string, unknown>;
-  asset_information?: Record<string, unknown>;
-  blockchain_information?: Record<string, unknown>;
-  reviews?: Array<{ review_type: string; status: string }>;
-};
-
-const apiBase = (import.meta.env.VITE_API_URL || "https://api.exaearn.com").replace(/\/$/, "");
-
-async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(body.message || "Listing request failed.");
-  }
-  return response.json() as Promise<T>;
-}
-
-const requiredSections = [
-  "project_information",
-  "asset_information",
-  "blockchain_information",
-  "tokenomics",
-  "technology",
-  "security",
-  "legal_compliance",
-  "market_community",
-  "liquidity",
-  "listing_request",
+const f = (key: string, label: string, required = false, type?: Field["type"], hint?: string): Field => ({ key, label, required, type, hint });
+const steps: Step[] = [
+  { title: "Project", section: "project_information", description: "Company, product and market context", fields: [f("name","Project name",true),f("description","Project description",true,"textarea"),f("problem","Problem being solved",true,"textarea"),f("category","Product category",true),f("launch_date","Launch date",false,"date"),f("status","Current status",true,"select"),f("business_model","Business model",true),f("primary_markets","Primary markets"),f("target_users","Target users"),f("website","Official website",true,"url"),f("documentation_url","Documentation URL",false,"url"),f("whitepaper_url","Whitepaper URL",false,"url")] },
+  { title: "Team", section: "project_information", description: "Leadership and relevant experience", fields: [f("team_lead_name","Team lead full name",true),f("team_lead_role","Role",true),f("team_lead_country","Country",true),f("team_lead_profile","Professional profile",true,"textarea"),f("team_lead_url","Public profile URL",false,"url"),f("team_experience","Relevant team experience",true,"textarea")] },
+  { title: "Asset", section: "asset_information", description: "Canonical identity of the proposed asset", fields: [f("name","Asset name",true),f("symbol","Ticker / symbol",true),f("asset_type","Asset type",true,"select"),f("classification","Applicant classification",true),f("description","Description",true,"textarea"),f("utility","Utility",true,"textarea"),f("trading_status","Current trading status"),f("existing_listings","Existing exchange listings",false,undefined,"Applicant declaration; ExaEarn verifies independently.")] },
+  { title: "Blockchain", section: "blockchain_information", description: "Network and contract declarations", fields: [f("network","Network",true),f("chain_id","Chain ID",false,"number"),f("contract_address","Contract address"),f("token_standard","Token standard",true),f("decimals","Decimals",true,"number"),f("explorer_url","Explorer URL",false,"url"),f("memo_requirement","Memo / tag requirement"),f("privileges","Mint, burn, pause, freeze, blacklist and proxy capabilities",true,"textarea","Declared metadata is independently validated.")] },
+  { title: "Tokenomics", section: "tokenomics", description: "Supply and allocation structure", fields: [f("total_supply","Total supply",true,"number"),f("maximum_supply","Maximum supply",false,"number"),f("circulating_supply","Circulating supply",true,"number"),f("initial_supply","Initial supply",false,"number"),f("inflation_model","Inflation model",true),f("emission_schedule","Emission schedule",true,"textarea"),...['team','investors','community','treasury','foundation','liquidity','ecosystem','other'].map((x)=>f(`allocation_${x}`,`${x} allocation %`,false,"number"))] },
+  { title: "Distribution & Vesting", section: "tokenomics", description: "Unlocks and distribution controls", fields: [f("vesting_schedule","Vesting schedule",true,"textarea"),f("cliff_periods","Cliff periods"),f("team_unlock","Team unlock schedule",false,"textarea"),f("investor_unlock","Investor unlock schedule",false,"textarea"),f("treasury_unlock","Treasury unlock schedule",false,"textarea"),f("upcoming_unlocks","Upcoming token unlocks",false,"textarea")] },
+  { title: "Technology & Security", section: "technology", description: "Code, audits and privileged controls", fields: [f("repository","Source repository",true,"url"),f("repository_visibility","Repository visibility"),f("language","Smart-contract language"),f("framework","Blockchain framework"),f("audit_provider","Audit provider",true),f("audit_date","Audit date",false,"date"),f("bug_bounty","Bug bounty"),f("known_vulnerabilities","Known vulnerabilities",true,"textarea"),f("known_incidents","Known incidents / exploits",true,"textarea"),f("admin_keys","Admin-key and multisig structure",true,"textarea")] },
+  { title: "Legal & Compliance", section: "legal_compliance", description: "Declarations for authorized human review", fields: [f("operating_jurisdictions","Operating jurisdictions",true),f("restricted_jurisdictions","Restricted jurisdictions",true),f("legal_entity","Legal entity",true),f("legal_classification","Legal classification / opinion",true,"textarea"),f("licenses","Regulatory licenses"),f("investigations","Regulatory investigations",true,"textarea"),f("sanctions_declaration","Sanctions declaration",true,"textarea"),f("aml_concerns","AML concerns",true,"textarea"),f("securities_assessment","Securities-law assessment",false,"textarea")] },
+  { title: "Market & Community", section: "market_community", description: "Official channels and declared metrics", fields: [f("website","Website",true,"url"),f("x","X URL",false,"url"),f("telegram","Telegram URL",false,"url"),f("discord","Discord URL",false,"url"),f("github","GitHub URL",false,"url"),f("community_size","Declared community size",false,"number"),f("token_holders","Declared token holders",false,"number"),f("monthly_active_users","Declared monthly active users",false,"number"),f("current_markets","Current markets"),f("historical_volume","Declared historical volume")] },
+  { title: "Liquidity", section: "liquidity", description: "Project declaration, not verified market data", fields: [f("market_maker","Market maker / liquidity provider",true),f("contact","Liquidity contact",true),f("requested_pairs","Requested pairs",true),f("initial_liquidity","Initial liquidity",true),f("base_inventory","Base inventory"),f("quote_inventory","Quote inventory"),f("expected_spread","Expected spread"),f("depth_05","Expected depth +/-0.5%"),f("depth_1","Expected depth +/-1%"),f("depth_2","Expected depth +/-2%"),f("daily_volume","Expected daily volume"),f("rebalancing","Rebalancing strategy",false,"textarea"),f("commitment","Launch liquidity commitment",true,"textarea")] },
+  { title: "Listing Request", section: "listing_request", description: "Preferences do not guarantee launch", fields: [f("requested_pairs","Requested pairs",true,undefined,"Example: TOKEN/USDT, TOKEN/USDC"),f("launch_preference","Launch preference",true,"select"),f("preferred_launch_date","Preferred launch date",false,"date"),f("notes","Additional notes",false,"textarea")] },
 ];
+const initialData = Object.fromEntries([...new Set(steps.map((x)=>x.section))].map((section)=>[section,{}])) as Record<string,Record<string,string>>;
+const options: Record<string,string[]> = { status:['PRE_LAUNCH','BETA','LIVE'], asset_type:['TOKEN','COIN','STABLECOIN','OTHER'], launch_preference:['STANDARD','COORDINATED','OTHER'] };
 
-function parseJson(value: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
+function Status({value}:{value:string}) { const tone=value==='LIVE'||value.includes('APPROVED')?'good':value.includes('REJECT')||value.includes('BLOCK')?'bad':'warn'; return <span className={`pill ${tone}`}>{value.replaceAll('_',' ')}</span>; }
+
+function Workspace({user,onLogout}:{user:User;onLogout:()=>void}) {
+  const [organizations,setOrganizations]=useState<Organization[]>([]), [applications,setApplications]=useState<Application[]>([]);
+  const [orgId,setOrgId]=useState<number|''>(''), [application,setApplication]=useState<Application|null>(null), [step,setStep]=useState(0);
+  const [data,setData]=useState(initialData), [loading,setLoading]=useState(true), [busy,setBusy]=useState(false), [notice,setNotice]=useState('');
+  const [error,setError]=useState<ApiError|null>(null), [org,setOrg]=useState({legal_name:'',project_name:'',jurisdiction:'',website:'',business_email:''});
+  const invitationToken=location.pathname==='/invite'?new URLSearchParams(location.search).get('token'):null;
+  const refresh=useCallback(async()=>{setLoading(true);setError(null);try{const [a,b]=await Promise.all([api<{data:Organization[]}>('/listing/organizations'),api<{data:{data:Application[]}}>('/listing/applications')]);setOrganizations(a.data);setApplications(b.data.data||[]);setOrgId((v)=>v||a.data[0]?.id||'');}catch(e){setError(e as ApiError);}finally{setLoading(false);}},[]);
+  useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{if(!invitationToken)return;api('/listing/invitations/accept',{method:'POST',body:JSON.stringify({token:invitationToken})}).then(async()=>{history.replaceState({},'','/');setNotice('Organization invitation accepted.');await refresh();}).catch((reason)=>setError(reason as ApiError));},[invitationToken,refresh]);
+  const required=useMemo(()=>steps.flatMap((s)=>s.fields.filter((x)=>x.required).map((x)=>`${s.section}.${x.key}`)),[]);
+  const completion=Math.round(required.filter((path)=>{const [s,k]=path.split('.');return String(data[s]?.[k]||'').trim();}).length/required.length*100);
+  const current=steps[step];
+  const selectedOrganization=organizations.find((item)=>item.id===orgId);
+  const setField=(key:string,value:string)=>setData((state)=>({...state,[current.section]:{...state[current.section],[key]:value}}));
+  async function createOrganization(event:FormEvent){event.preventDefault();setBusy(true);try{await api('/listing/organizations',{method:'POST',body:JSON.stringify(org)});setNotice('Organization created.');await refresh();}catch(e){setError(e as ApiError);}finally{setBusy(false);}}
+  async function saveDraft(){if(!orgId)return setError(new ApiError('Create or select an organization first.',422));setBusy(true);setError(null);setNotice('Saving...');try{const payload={idempotency_key:`listing-${orgId}-NEW_TOKEN_LISTING`,application_type:'NEW_TOKEN_LISTING',...data,security:{...data.technology,audit_reports:data.technology.audit_provider?[data.technology.audit_provider]:[],known_incidents:data.technology.known_incidents},blockchain_information:{...data.blockchain_information,upgradeable:/upgrade|proxy/i.test(data.blockchain_information.privileges||''),mint_authority:/mint/i.test(data.blockchain_information.privileges||''),freeze_authority:/freeze/i.test(data.blockchain_information.privileges||'')}};const result=await api<{data:Application}>(`/listing/organizations/${orgId}/applications`,{method:'POST',body:JSON.stringify(payload)});setApplication(result.data);setNotice('Saved');await refresh();}catch(e){setNotice('');setError(e as ApiError);}finally{setBusy(false);}}
+  async function submit(){if(!application||completion<100)return;setBusy(true);try{await api(`/listing/applications/${application.reference}/submit`,{method:'POST',body:JSON.stringify({authorized_declaration:true})});setNotice('Application submitted for review.');await refresh();}catch(e){setError(e as ApiError);}finally{setBusy(false);}}
+  if(!loading&&selectedOrganization&&selectedOrganization.kyb_status!=='APPROVED')return <main className="portal-shell"><header className="portal-header"><div><span className="brand-mark">E</span><strong>ExaEarn</strong><span className="portal-product">Listing Portal</span></div><nav className="portal-nav" aria-label="Listing Portal"><a href="#overview">Overview</a><a href="#organizations">Organizations</a><a href="https://exaearn.com/support">Help</a></nav><div className="account-actions"><button aria-label="Notifications"><Bell size={17}/></button><span title={user.email}>{user.name.slice(0,1).toUpperCase()}</span><button onClick={onLogout} aria-label="Log out"><LogOut size={17}/></button></div></header><OrganizationKyb organization={selectedOrganization} user={user} onRefresh={refresh}/></main>;
+  return <main className="portal-shell"><header className="portal-header"><div><span className="brand-mark">E</span><strong>ExaEarn</strong><span className="portal-product">Listing Portal</span></div><nav className="portal-nav" aria-label="Listing Portal"><a href="#overview">Overview</a><a href="#applications">My Applications</a><a href="#organizations">Organizations</a><a href="https://exaearn.com/support">Help</a></nav><div className="account-actions"><button aria-label="Notifications"><Bell size={17}/></button><span title={user.email}>{user.name.slice(0,1).toUpperCase()}</span><button onClick={onLogout} aria-label="Log out"><LogOut size={17}/></button></div></header>
+    <section className="workspace-intro"><p className="eyebrow">Asset listing governance</p><h1>Build a complete listing application.</h1><p>Approval authorizes technical integration only. Deposits, withdrawals, market data and trading remain independently controlled.</p></section>
+    {error&&<div className="notice error" role="alert"><AlertTriangle size={18}/><span>{error.message}{error.requestId&&<small>Request {error.requestId}</small>}</span><button onClick={()=>void refresh()}><RefreshCw size={16}/>Retry</button></div>}{notice&&<div className="notice success"><Check size={18}/>{notice}</div>}
+    {loading?<section className="panel skeleton-panel"><div/><div/><div/></section>:<>{organizations.length===0?<form className="panel organization-form" onSubmit={createOrganization}><div className="welcome-copy"><p className="eyebrow">Welcome to ExaEarn Listing Portal</p><h2>Set up your applicant organization.</h2><p>Submit and manage asset listing applications through ExaEarn's structured review process. Organization verification and asset due diligence remain separate from your ExaEarn account.</p></div><div className="section-title"><FolderKanban/><div><p>Step 1</p><h3>Create your applicant organization</h3></div></div><div className="form-grid">{Object.keys(org).map((key)=><label key={key}><span>{key.replaceAll('_',' ')}</span><input required={['legal_name','project_name','jurisdiction'].includes(key)} type={key.includes('email')?'email':key==='website'?'url':'text'} value={org[key as keyof typeof org]} onChange={(e)=>setOrg({...org,[key]:e.target.value})}/></label>)}</div><button className="button primary" disabled={busy}>{busy?'Setting up...':'Set Up Organization'}</button></form>:<section className="application-workspace"><aside className="step-nav"><label><span>Organization</span><select value={orgId} onChange={(e)=>setOrgId(Number(e.target.value))}>{organizations.map((x)=><option key={x.id} value={x.id}>{x.project_name}</option>)}</select></label><div className="overall-progress"><span><strong>{completion}%</strong> complete</span><progress value={completion} max="100"/></div>{steps.map((x,i)=><button className={i===step?'active':''} key={`${x.section}-${x.title}`} onClick={()=>setStep(i)}><span>{i+2}</span>{x.title}</button>)}</aside><section className="panel wizard-panel"><div className="wizard-heading"><div><p className="eyebrow">Step {step+2} of 15</p><h2>{current.title}</h2><p>{current.description}</p></div><span className="declaration-tag">Applicant declaration</span></div><div className="form-grid">{current.fields.map((field)=><label className={field.type==='textarea'?'span-2':''} key={field.key}><span>{field.label}{field.required&&<b> *</b>}</span>{field.type==='textarea'?<textarea required={field.required} value={data[current.section]?.[field.key]||''} onChange={(e)=>setField(field.key,e.target.value)}/>:field.type==='select'?<select required={field.required} value={data[current.section]?.[field.key]||''} onChange={(e)=>setField(field.key,e.target.value)}><option value="">Select</option>{options[field.key]?.map((x)=><option key={x}>{x}</option>)}</select>:<input required={field.required} type={field.type||'text'} value={data[current.section]?.[field.key]||''} onChange={(e)=>setField(field.key,e.target.value)}/>} {field.hint&&<small>{field.hint}</small>}</label>)}</div><div className="sticky-actions"><button className="button ghost" disabled={step===0} onClick={()=>setStep((v)=>v-1)}><ArrowLeft size={17}/>Back</button><button className="button ghost" disabled={busy} onClick={()=>void saveDraft()}>Save draft</button>{step<steps.length-1?<button className="button primary" onClick={()=>setStep((v)=>v+1)}>Continue<ArrowRight size={17}/></button>:<button className="button primary" disabled={!application||completion<100||busy} onClick={()=>void submit()}>Review & submit</button>}</div></section></section>}
+      <section className="panel applications" id="applications"><div className="section-title"><FolderKanban/><div><p>Review pipeline</p><h2>Your applications</h2></div></div>{applications.length===0?<p className="empty">No application has been saved yet.</p>:applications.map((x)=><button className="application-row" key={x.reference} onClick={()=>setApplication(x)}><span><strong>{String(x.asset_information?.symbol||x.reference)}</strong><small>{x.reference}</small></span><span>{x.progress_percent}% complete</span><Status value={x.application_status}/><Status value={x.integration_status}/></button>)}</section></>}
+    <section className="evidence-note"><FileUp/><div><strong>Private evidence vault</strong><p>Evidence is access-controlled, versioned and checksum-bound. Malware scanning remains NOT CONNECTED until an approved provider is configured.</p></div></section></main>;
 }
 
-function StatusPill({ value }: { value: string }) {
-  const tone = value.includes("APPROVED") || value === "LIVE" ? "good" : value.includes("REJECT") || value.includes("BLOCK") ? "bad" : "warn";
-  return <span className={`pill ${tone}`}>{value.replaceAll("_", " ")}</span>;
+type AuthMode = 'login'|'signup'|'forgot'|'reset'|'verify';
+const routeMode = ():AuthMode => location.pathname.includes('signup')?'signup':location.pathname.includes('forgot')?'forgot':location.pathname.includes('reset')?'reset':location.pathname.includes('verify')?'verify':'login';
+const safeReturn = () => { const value=new URLSearchParams(location.search).get('returnTo'); if(value&&value.startsWith('/')&&!value.startsWith('//')&&!value.startsWith('/login'))return value; return location.pathname==='/invite'?`${location.pathname}${location.search}`:'/'; };
+
+function AuthScreen({mode,setMode,onAuthenticated,user}:{mode:AuthMode;setMode:(mode:AuthMode)=>void;onAuthenticated:(user:User)=>void;user?:User|null}) {
+  const [show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[mfa,setMfa]=useState(false);
+  const [metadata,setMetadata]=useState<RegistrationMetadata|null>(null),[fieldErrors,setFieldErrors]=useState<Record<string,string>>({});
+  const [form,setForm]=useState({name:'',email:user?.email||'',country:'',password:'',password_confirmation:'',terms_accepted:false,listing_terms_accepted:false,two_factor_code:'',token:new URLSearchParams(location.search).get('token')||''});
+  const update=(key:string,value:string)=>setForm((state)=>({...state,[key]:value}));
+  useEffect(()=>{if(mode==='signup')api<{data:RegistrationMetadata}>('/registration/metadata').then((result)=>setMetadata(result.data)).catch((reason)=>setError((reason as ApiError).message));},[mode]);
+  const navigate=(next:AuthMode)=>{history.replaceState({},'',next==='login'?'/login':`/${next}`);setMode(next);setError('');setMessage('');};
+  async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError('');setMessage('');try{
+    if(mode==='login'){const result=await api<{user:User}>('/login',{method:'POST',body:JSON.stringify({email:form.email,password:form.password,two_factor_code:mfa?form.two_factor_code:undefined,device_name:'listing-portal'})});onAuthenticated(result.user);history.replaceState({},'',safeReturn());return;}
+    if(mode==='signup'){const errors:Record<string,string>={};const selectedCountry=metadata?.countries.find((country)=>country.name.toLowerCase()===form.country.trim().toLowerCase()||country.code===form.country.trim().toUpperCase());if(!form.name.trim())errors.name='Enter your full name.';if(!/^\S+@\S+\.\S+$/.test(form.email))errors.email='Enter a valid work email address.';if(!selectedCountry)errors.country='Select a country or region from the available list.';else if(!selectedCountry.registration_available)errors.country='Registration is currently unavailable in this region.';if(!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{10,}$/.test(form.password))errors.password='Password does not meet ExaEarn security requirements.';if(form.password!==form.password_confirmation)errors.password_confirmation='Passwords do not match.';if(!form.terms_accepted)errors.terms_accepted='You must accept the Terms of Service and Privacy Policy.';if(!form.listing_terms_accepted)errors.listing_terms_accepted='You must acknowledge the Listing Portal Terms.';setFieldErrors(errors);if(Object.keys(errors).length)throw new ApiError('Please check the highlighted fields.',422);const result=await api<{user:User}>('/register',{method:'POST',body:JSON.stringify({...form,country:selectedCountry!.code,registration_context:'listing'})});setForm((state)=>({...state,password:'',password_confirmation:''}));onAuthenticated(result.user);navigate(result.user.email_verified_at?'login':'verify');return;}
+    if(mode==='forgot'){await api('/forgot-password',{method:'POST',body:JSON.stringify({email:form.email,portal_context:'listing'})});setMessage('If the account can be recovered, reset instructions have been sent.');return;}
+    if(mode==='reset'){await api('/reset-password',{method:'POST',body:JSON.stringify({email:form.email,token:form.token,password:form.password,password_confirmation:form.password_confirmation})});setMessage('Password reset. You can now log in.');return;}
+  }catch(reason){const problem=reason as ApiError;if(problem.details&&typeof problem.details==='object')setFieldErrors(Object.fromEntries(Object.entries(problem.details as Record<string,string[]>).map(([key,value])=>[key,Array.isArray(value)?value[0]:String(value)])));if(problem.status===428||problem.code==='2FA_REQUIRED'){setMfa(true);setError('Enter the code from your authenticator app.');}else if(problem.code==='INVALID_CREDENTIALS')setError('Email or password is incorrect.');else if(problem.code==='ACCOUNT_EXISTS')setError('An ExaEarn account may already exist. Log in or recover your password.');else if(problem.code==='JURISDICTION_RESTRICTED')setError('Registration is currently unavailable in your region.');else if(problem.status===429)setError('Too many attempts. Please try again later.');else setError(problem.message);}finally{setBusy(false);}}
+  async function resend(){setBusy(true);setError('');try{await api('/email/verification-notification',{method:'POST'});setMessage('If verification is pending, a new email has been sent.');}catch(reason){setError((reason as ApiError).message);}finally{setBusy(false);}}
+  if(mode==='verify')return <AuthLayout><section className="auth-card compact"><div className="auth-brand"><span className="brand-mark">E</span><div><strong>ExaEarn</strong><small>Listing Portal</small></div></div><div className="auth-heading"><span><ShieldCheck/>Identity verification</span><h1>Verify your email</h1><p>We sent a verification message to your ExaEarn account email.</p></div>{error&&<p className="auth-error" role="alert">{error}</p>}{message&&<p className="auth-message">{message}</p>}<button className="button primary full" disabled={busy} onClick={()=>void resend()}>{busy?'Sending...':'Resend verification'}</button><button className="auth-link" onClick={async()=>{try{const result=await api<{user:User}>('/user');if(result.user.email_verified_at){onAuthenticated(result.user);history.replaceState({},'','/');}else setError('Email verification is still pending.');}catch(reason){setError((reason as ApiError).message);}}}>Already verified? Continue</button></section></AuthLayout>;
+  const signup=mode==='signup', forgot=mode==='forgot', reset=mode==='reset';
+  return <AuthLayout><section className="auth-card"><div className="auth-brand"><span className="brand-mark">E</span><div><strong>ExaEarn</strong><small>Listing Portal</small></div></div><div className="auth-heading"><span><LockKeyhole/>{signup?'Shared ExaEarn identity':'Secure applicant access'}</span><h1>{signup?'Create your ExaEarn account':forgot?'Recover your account':reset?'Reset your password':'Welcome back'}</h1><p>{signup?'Create one ExaEarn account to access the Listing Portal and other ExaEarn services.':forgot?'Enter your ExaEarn account email to receive recovery instructions.':reset?'Use the secure token from your ExaEarn recovery email.':'Sign in with your ExaEarn account to manage listing applications.'}</p></div><form className="auth-form" onSubmit={submit} noValidate>
+    {signup&&<label><span>Full name *</span><input required autoComplete="name" aria-invalid={!!fieldErrors.name} value={form.name} onChange={(e)=>update('name',e.target.value)}/>{fieldErrors.name&&<small className="field-error">{fieldErrors.name}</small>}</label>}
+    <label><span>{signup?'Work email *':'Email'}</span><input required type="email" autoComplete="email" aria-invalid={!!fieldErrors.email} value={form.email} onChange={(e)=>update('email',e.target.value)}/>{fieldErrors.email&&<small className="field-error">{fieldErrors.email}</small>}</label>
+    {signup&&<label><span>Country / Region *</span><input required list="registration-countries" autoComplete="country-name" placeholder={metadata?'Search country or region':'Loading available regions...'} aria-invalid={!!fieldErrors.country} value={form.country} onChange={(e)=>update('country',e.target.value)} disabled={!metadata}/><datalist id="registration-countries">{metadata?.countries.map((country)=><option key={country.code} value={country.name}>{country.code}{country.registration_available?'':' - Registration unavailable'}</option>)}</datalist>{fieldErrors.country&&<small className="field-error">{fieldErrors.country}</small>}</label>}
+    {reset&&<label><span>Reset token</span><input required autoComplete="one-time-code" value={form.token} onChange={(e)=>update('token',e.target.value)}/></label>}
+    {!forgot&&<label><span>Password{signup?' *':''}</span><div className="password-input"><input required minLength={signup||reset?10:1} aria-invalid={!!fieldErrors.password} type={show?'text':'password'} autoComplete={signup||reset?'new-password':'current-password'} value={form.password} onChange={(e)=>update('password',e.target.value)}/><button type="button" onClick={()=>setShow((value)=>!value)} aria-label={show?'Hide password':'Show password'}>{show?<EyeOff/>:<Eye/>}</button></div>{(signup||reset)&&<small>At least 10 characters with uppercase, lowercase, number and symbol.</small>}{fieldErrors.password&&<small className="field-error">{fieldErrors.password}</small>}</label>}
+    {(signup||reset)&&<label><span>Confirm password *</span><input required type={show?'text':'password'} aria-invalid={!!fieldErrors.password_confirmation} autoComplete="new-password" value={form.password_confirmation} onChange={(e)=>update('password_confirmation',e.target.value)}/>{fieldErrors.password_confirmation&&<small className="field-error">{fieldErrors.password_confirmation}</small>}</label>}
+    {mfa&&<label><span>Authenticator code</span><input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={form.two_factor_code} onChange={(e)=>update('two_factor_code',e.target.value.replace(/\D/g,''))}/></label>}
+    {!signup&&!forgot&&!reset&&<div className="auth-options"><span>Session protected by ExaEarn</span><button type="button" onClick={()=>navigate('forgot')}>Forgot password?</button></div>}
+    {signup&&<div className="consent-list"><label className="consent"><input type="checkbox" checked={form.terms_accepted} onChange={(e)=>setForm((state)=>({...state,terms_accepted:e.target.checked}))}/><span>I agree to the ExaEarn <a href="https://exaearn.com/terms" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="https://exaearn.com/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</span></label>{fieldErrors.terms_accepted&&<small className="field-error">{fieldErrors.terms_accepted}</small>}<label className="consent"><input type="checkbox" checked={form.listing_terms_accepted} onChange={(e)=>setForm((state)=>({...state,listing_terms_accepted:e.target.checked}))}/><span>I acknowledge the ExaEarn Listing Portal Terms.</span></label>{fieldErrors.listing_terms_accepted&&<small className="field-error">{fieldErrors.listing_terms_accepted}</small>}</div>}
+    {error&&<p className="auth-error" role="alert">{error}</p>}{message&&<p className="auth-message">{message}</p>}<button className="button primary full" disabled={busy}>{busy?(signup?'Creating account...':forgot?'Sending...':reset?'Resetting...':'Signing in...'):(signup?'Create account':forgot?'Send recovery email':reset?'Reset password':'Log in')}</button>
+  </form><p className="auth-switch">{signup?'Already have an ExaEarn account?':forgot||reset?'Remembered your password?':"Don't have an ExaEarn account?"}<button onClick={()=>navigate(signup||forgot||reset?'login':'signup')}>{signup||forgot||reset?'Log in':'Create account'}</button></p><div className="identity-trust"><ShieldCheck/>Secure access powered by ExaEarn Identity</div></section></AuthLayout>;
 }
 
-function App() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [applications, setApplications] = useState<ListingApplication[]>([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<number | "">("");
-  const [selectedApplication, setSelectedApplication] = useState<ListingApplication | null>(null);
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+function AuthLayout({children}:{children:React.ReactNode}) { return <main className="auth-shell"><section className="auth-story"><div className="auth-story-brand"><span className="brand-mark">E</span><span>ExaEarn<br/><small>Listing Portal</small></span></div><div><p className="eyebrow">Controlled asset onboarding</p><h1>Bring your asset to ExaEarn.</h1><p>Create your ExaEarn account and begin a structured asset listing application.</p><ul><li><Check/>Structured review</li><li><Check/>Secure documentation</li><li><Check/>Application tracking</li></ul></div></section><section className="auth-form-side">{children}</section></main>; }
 
-  const [orgForm, setOrgForm] = useState({
-    legal_name: "",
-    project_name: "",
-    jurisdiction: "",
-    website: "",
-    business_email: "",
-  });
+function Root(){const [user,setUser]=useState<User|null>(null),[checking,setChecking]=useState(true),[mode,setMode]=useState<AuthMode>(routeMode());useEffect(()=>{api<{user:User}>('/user').then((result)=>{setUser(result.user);if(!result.user.email_verified_at)setMode('verify');}).catch(()=>setUser(null)).finally(()=>setChecking(false));},[]);async function logout(){try{await api('/logout',{method:'POST'});}finally{setUser(null);setMode('login');history.replaceState({},'','/login');}}if(checking)return <main className="auth-loading"><span className="brand-mark">E</span><p>Securing your Listing Portal session...</p></main>;if(user&&user.email_verified_at)return <Workspace user={user} onLogout={()=>void logout()}/>;return <AuthScreen mode={mode} setMode={setMode} onAuthenticated={(next)=>{setUser(next);if(!next.email_verified_at)setMode('verify');}} user={user}/>;}
 
-  const [draftForm, setDraftForm] = useState({
-    application_type: "NEW_TOKEN_LISTING",
-    project_information: "{\"summary\":\"\",\"team\":\"\"}",
-    asset_information: "{\"name\":\"\",\"symbol\":\"\",\"asset_type\":\"token\"}",
-    blockchain_information: "{\"network\":\"\",\"contract_address\":\"\",\"token_standard\":\"ERC-20\"}",
-    tokenomics: "{\"total_supply\":\"\",\"circulating_supply\":\"\"}",
-    technology: "{\"repository\":\"\",\"audit_reports\":[]}",
-    security: "{\"audit_provider\":\"\",\"known_incidents\":\"none\"}",
-    legal_compliance: "{\"jurisdictions\":\"\",\"legal_opinion\":\"\"}",
-    market_community: "{\"website\":\"\",\"community_channels\":[]}",
-    liquidity: "{\"market_maker\":\"\",\"expected_depth\":\"\"}",
-    listing_request: "{\"requested_pairs\":[\"TOKEN/USDT\"],\"launch_preference\":\"standard\"}",
-  });
-
-  const completion = useMemo(() => {
-    const filled = requiredSections.filter((key) => Object.keys(parseJson(draftForm[key as keyof typeof draftForm])).length > 0).length;
-    return Math.round((filled / requiredSections.length) * 100);
-  }, [draftForm]);
-
-  async function refresh() {
-    const [orgResponse, appResponse] = await Promise.all([
-      api<{ data: Organization[] }>("/listing/organizations"),
-      api<{ data: { data: ListingApplication[] } | ListingApplication[] }>("/listing/applications"),
-    ]);
-    const appData = Array.isArray(appResponse.data) ? appResponse.data : appResponse.data.data;
-    setOrganizations(orgResponse.data);
-    setApplications(appData || []);
-    setSelectedOrgId((current) => current || orgResponse.data[0]?.id || "");
-  }
-
-  useEffect(() => {
-    refresh().catch((err: Error) => setError(err.message));
-  }, []);
-
-  async function createOrganization(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await api("/listing/organizations", { method: "POST", body: JSON.stringify(orgForm) });
-      await refresh();
-      setMessage("Organization created.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create organization.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveDraft(event: FormEvent) {
-    event.preventDefault();
-    if (!selectedOrgId) return setError("Create or select an organization first.");
-    setBusy(true);
-    setError("");
-    try {
-      const payload = {
-        idempotency_key: `listing-${selectedOrgId}-${draftForm.application_type}`,
-        application_type: draftForm.application_type,
-        ...Object.fromEntries(requiredSections.map((key) => [key, parseJson(draftForm[key as keyof typeof draftForm])])),
-      };
-      const response = await api<{ data: ListingApplication }>(`/listing/organizations/${selectedOrgId}/applications`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setSelectedApplication(response.data);
-      await refresh();
-      setMessage("Draft saved.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save draft.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitApplication() {
-    const application = selectedApplication || applications[0];
-    if (!application) return setError("Save a draft before submitting.");
-    setBusy(true);
-    setError("");
-    try {
-      const response = await api<{ data: ListingApplication }>(`/listing/applications/${application.reference}/submit`, {
-        method: "POST",
-        body: JSON.stringify({ authorized_declaration: true }),
-      });
-      setSelectedApplication(response.data);
-      await refresh();
-      setMessage("Application submitted for ExaEarn review.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit application.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <main className="portal-shell">
-      <section className="hero">
-        <div>
-          <p className="eyebrow">ExaEarn Listing Portal</p>
-          <h1>Apply for a token listing with exchange-grade controls.</h1>
-          <p className="hero-copy">
-            Submit project, token, legal, technical, liquidity, and security information for formal review. Approval starts
-            integration; it never activates trading automatically.
-          </p>
-          <div className="hero-actions">
-            <a href="#application" className="button primary">Start Application <ArrowRight size={18} /></a>
-            <a href="#status" className="button ghost">Track Status</a>
-          </div>
-        </div>
-        <div className="assurance-panel" aria-label="Listing assurance">
-          {[
-            ["No fake markets", "Listings go live only after asset, custody, ledger, market-data and launch checks pass."],
-            ["Maker-checker approval", "Final scheduling requires a second authorized operator."],
-            ["Public safety", "Deposits and trading stay disabled until controlled activation."],
-          ].map(([title, body]) => (
-            <div className="assurance-item" key={title}>
-              <ShieldCheck size={20} />
-              <span><strong>{title}</strong>{body}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {(error || message) && (
-        <div className={`notice ${error ? "error" : "success"}`} role="status">
-          {error ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
-          {error || message}
-        </div>
-      )}
-
-      <section className="grid">
-        <form className="panel" onSubmit={createOrganization}>
-          <div className="section-title">
-            <FileText />
-            <div>
-              <p>Step 1</p>
-              <h2>Project Organization</h2>
-            </div>
-          </div>
-          {(["legal_name", "project_name", "jurisdiction", "website", "business_email"] as const).map((field) => (
-            <label key={field}>
-              <span>{field.replaceAll("_", " ")}</span>
-              <input value={orgForm[field]} onChange={(event) => setOrgForm({ ...orgForm, [field]: event.target.value })} />
-            </label>
-          ))}
-          <button className="button primary full" disabled={busy}>Create Organization</button>
-        </form>
-
-        <form className="panel wide" id="application" onSubmit={saveDraft}>
-          <div className="section-title">
-            <ClipboardCheck />
-            <div>
-              <p>Step 2</p>
-              <h2>Listing Application</h2>
-            </div>
-            <span className="progress">{completion}% ready</span>
-          </div>
-          <label>
-            <span>Organization</span>
-            <select value={selectedOrgId} onChange={(event) => setSelectedOrgId(Number(event.target.value))}>
-              <option value="">Select organization</option>
-              {organizations.map((organization) => (
-                <option key={organization.id} value={organization.id}>{organization.project_name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Application type</span>
-            <select value={draftForm.application_type} onChange={(event) => setDraftForm({ ...draftForm, application_type: event.target.value })}>
-              {["NEW_TOKEN_LISTING", "ADDITIONAL_NETWORK", "ADDITIONAL_TRADING_PAIR", "TOKEN_MIGRATION", "REBRAND_TICKER_CHANGE"].map((type) => (
-                <option key={type}>{type}</option>
-              ))}
-            </select>
-          </label>
-          <div className="section-grid">
-            {requiredSections.map((key) => (
-              <label key={key}>
-                <span>{key.replaceAll("_", " ")}</span>
-                <textarea
-                  rows={4}
-                  value={draftForm[key as keyof typeof draftForm]}
-                  onChange={(event) => setDraftForm({ ...draftForm, [key]: event.target.value })}
-                />
-              </label>
-            ))}
-          </div>
-          <div className="footer-actions">
-            <button className="button ghost" type="submit" disabled={busy}>Save Draft</button>
-            <button className="button primary" type="button" onClick={submitApplication} disabled={busy}>
-              Submit Declaration
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="panel" id="status">
-        <div className="section-title">
-          <LockKeyhole />
-          <div>
-            <p>Review pipeline</p>
-            <h2>Your Listing Applications</h2>
-          </div>
-        </div>
-        <div className="application-list">
-          {applications.length === 0 && <p className="empty">No listing application has been saved yet.</p>}
-          {applications.map((application) => (
-            <button key={application.reference} className="application-row" onClick={() => setSelectedApplication(application)}>
-              <span>
-                <strong>{application.asset_information?.symbol?.toString() || application.reference}</strong>
-                <small>{application.reference}</small>
-              </span>
-              <StatusPill value={application.application_status} />
-              <StatusPill value={application.integration_status} />
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="section-title">
-          <MessageSquare />
-          <div>
-            <p>Important</p>
-            <h2>Listing Safety Rules</h2>
-          </div>
-        </div>
-        <div className="rules">
-          <p>ExaEarn never credits unknown token deposits until the asset and network are officially supported.</p>
-          <p>Listing review does not create price, volume, liquidity, wallets, market data, or trading access.</p>
-          <p>Production launch requires launch-day revalidation and can be paused by authorized operations staff.</p>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById('root')!).render(<React.StrictMode><Root/></React.StrictMode>);

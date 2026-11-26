@@ -9,10 +9,17 @@ use Illuminate\Notifications\Messages\MailMessage;
 
 class DeveloperPasswordResetNotification extends ResetPassword
 {
+    public function __construct(string $token, private readonly string $portalContext = 'exchange')
+    {
+        parent::__construct($token);
+    }
+
     public function toMail($notifiable): MailMessage
     {
-        $base = rtrim((string) config('app.developer_portal_url'), '/');
-        $url = $base.'/developers/reset-password?token='.urlencode($this->token)
+        $listing = $this->portalContext === 'listing';
+        $base = rtrim((string) config($listing ? 'app.listing_portal_url' : 'app.developer_portal_url'), '/');
+        $path = $listing ? '/reset' : '/developers/reset-password';
+        $url = $base.$path.'?token='.urlencode($this->token)
             .'&email='.urlencode((string) $notifiable->getEmailForPasswordReset());
 
         return (new MailMessage)

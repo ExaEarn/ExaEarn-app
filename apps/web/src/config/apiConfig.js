@@ -23,7 +23,7 @@ function isPublicBrowserOrigin() {
 }
 
 function isRuntimeLocalApiAllowed(runtimeConfig) {
-  return runtimeConfig.ALLOW_LOCAL_API_ON_PUBLIC_ORIGIN === true;
+  return import.meta.env.DEV && runtimeConfig.ALLOW_LOCAL_API_ON_PUBLIC_ORIGIN === true;
 }
 
 function cleanRuntimeUrl(value, runtimeConfig = {}) {
@@ -38,16 +38,21 @@ function cleanRuntimeUrl(value, runtimeConfig = {}) {
 
 export function getApiBaseUrl() {
   const runtimeConfig = readRuntimeConfig();
-  return cleanRuntimeUrl(runtimeConfig.API_URL, runtimeConfig) || cleanUrl(import.meta.env.VITE_API_URL);
+  return (
+    cleanRuntimeUrl(runtimeConfig.API_URL, runtimeConfig) ||
+    cleanRuntimeUrl(import.meta.env.VITE_API_URL, runtimeConfig) ||
+    (import.meta.env.PROD ? "https://api.exaearn.com" : "")
+  );
 }
 
 export function getAdminApiBaseUrl() {
   const runtimeConfig = readRuntimeConfig();
   return (
     cleanRuntimeUrl(runtimeConfig.ADMIN_API_URL, runtimeConfig) ||
-    cleanUrl(import.meta.env.VITE_ADMIN_API_URL) ||
+    cleanRuntimeUrl(import.meta.env.VITE_ADMIN_API_URL, runtimeConfig) ||
     cleanRuntimeUrl(runtimeConfig.API_URL, runtimeConfig) ||
-    cleanUrl(import.meta.env.VITE_API_URL)
+    cleanRuntimeUrl(import.meta.env.VITE_API_URL, runtimeConfig) ||
+    (import.meta.env.PROD ? "https://api.exaearn.com" : "")
   );
 }
 
@@ -65,7 +70,7 @@ export function isLaravelSseEnabled() {
 
 export function isLocalApiPreview() {
   const runtimeConfig = readRuntimeConfig();
-  return isRuntimeLocalApiAllowed(runtimeConfig) && isLocalBackendUrl(runtimeConfig.API_URL);
+  return import.meta.env.DEV && isRuntimeLocalApiAllowed(runtimeConfig) && isLocalBackendUrl(runtimeConfig.API_URL);
 }
 export function isDemoAuthEnabled() {
   const runtimeConfig = readRuntimeConfig();

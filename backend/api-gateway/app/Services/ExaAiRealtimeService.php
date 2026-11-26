@@ -13,16 +13,15 @@ class ExaAiRealtimeService
     public function publish(?int $userId, string $stream, string $eventType, array $payload): ExaAiRealtimeEvent
     {
         return DB::transaction(function () use ($eventType, $payload, $stream, $userId): ExaAiRealtimeEvent {
-            $last = ExaAiRealtimeEvent::query()
+            $sequence = app(RealtimeSequenceService::class)->next('exaai:'.($userId ?? 'system').":{$stream}", fn (): int => (int) ExaAiRealtimeEvent::query()
                 ->where('user_id', $userId)
                 ->where('stream', $stream)
-                ->lockForUpdate()
-                ->max('sequence');
+                ->max('sequence'));
 
             return ExaAiRealtimeEvent::query()->create([
                 'user_id' => $userId,
                 'stream' => $stream,
-                'sequence' => ((int) $last) + 1,
+                'sequence' => $sequence,
                 'event_type' => $eventType,
                 'payload' => $payload,
                 'published_at' => now(),

@@ -27,6 +27,7 @@ import { colors, fonts } from "../theme/colors";
 type ExaCardScreenProps = {
   fontsReady: boolean;
   onBack: () => void;
+  onOpenTransactions: () => void;
 };
 
 function money(value: unknown, currency = "USD") {
@@ -34,7 +35,7 @@ function money(value: unknown, currency = "USD") {
   return `${currency} ${Number.isFinite(numeric) ? numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}`;
 }
 
-export default function ExaCardScreen({ fontsReady, onBack }: ExaCardScreenProps) {
+export default function ExaCardScreen({ fontsReady, onBack, onOpenTransactions }: ExaCardScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { request } = useAuth();
@@ -244,6 +245,10 @@ export default function ExaCardScreen({ fontsReady, onBack }: ExaCardScreenProps
           </Panel>
 
           <Panel title="Recent activity">
+            <AnimatedPressable onPress={onOpenTransactions} style={styles.viewHistory} accessibilityRole="button">
+              <Text style={styles.viewHistoryText}>View all ExaCard activity</Text>
+              <Ionicons name="arrow-forward" size={14} color={colors.auric300} />
+            </AnimatedPressable>
             {activity.length ? activity.slice(0, 8).map((item) => (
               <View key={item.transaction_uuid || item.authorization_uuid} style={styles.activityRow}>
                 <View>
@@ -297,6 +302,8 @@ const styles = StyleSheet.create({
   realtimePillWarn: { borderColor: "rgba(253,230,138,0.25)", backgroundColor: "rgba(253,230,138,0.1)" },
   providerText: { color: "rgba(220,252,231,0.9)", fontFamily: fonts.semibold, fontSize: 10 },
   panel: { borderRadius: 22, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(12,16,25,0.9)", padding: 14 },
+  viewHistory: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.03)" },
+  viewHistoryText: { color: colors.auric300, fontFamily: fonts.medium, fontSize: 11 },
   sectionTitle: { color: colors.violetText, fontFamily: fonts.display, fontSize: 17 },
   productGrid: { marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 8 },
   product: { width: "48.5%", borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.04)", padding: 12 },

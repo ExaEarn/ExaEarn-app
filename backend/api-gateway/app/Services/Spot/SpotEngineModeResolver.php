@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Spot;
 
 use App\Models\Market;
+use App\Services\MarketActivationService;
 
 class SpotEngineModeResolver
 {
@@ -67,6 +68,7 @@ class SpotEngineModeResolver
 
     public function assertOrderEntryAllowed(Market $market): void
     {
+        app(MarketActivationService::class)->assertTradeable($market);
         if ($this->rejectsNewOrders($market)) {
             throw new \RuntimeException('Market is not accepting new orders during engine cutover.');
         }

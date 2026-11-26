@@ -33,6 +33,7 @@ use App\Jobs\RefreshPortfolioOracle;
 use App\Jobs\ReleaseUnstakedPrincipal;
 use App\Console\Commands\TickFlightGameRounds;
 use App\Console\Commands\DispatchDeveloperWebhooks;
+use App\Console\Commands\DispatchListingLaunches;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -85,6 +86,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command(DispatchDeveloperWebhooks::class, ['--limit' => 100])
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        $schedule->command(DispatchListingLaunches::class, ['--limit' => 100])
             ->everyMinute()
             ->withoutOverlapping()
             ->onOneServer();
@@ -168,6 +174,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command(TickFlightGameRounds::class)
             ->everySecond()
             ->withoutOverlapping();
+
+        if ((bool) config('exapay_offline.enabled')
+            && \App\Services\ExaPay\Offline\OfflineEnvironmentGuard::allowsSimulation()) {
+            $schedule->command('exapay:offline-reconcile-pending --limit=100')
+                ->everyMinute()
+                ->withoutOverlapping()
+                ->onOneServer();
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (AuthenticationException $exception, Request $request) {

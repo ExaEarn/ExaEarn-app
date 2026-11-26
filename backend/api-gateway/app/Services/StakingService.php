@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Domain\Staking\Services\StakingLedgerService;
 use App\Domain\Staking\Services\StakingProviderRegistry;
+use Illuminate\Contracts\Pagination\CursorPaginator as CursorPaginatorContract;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -303,6 +304,17 @@ class StakingService
             ->get()
             ->map(fn ($transaction) => (array) $transaction)
             ->all();
+    }
+
+    public function userTransactionsCursor(int $userId, int $perPage, ?string $cursor = null): CursorPaginatorContract
+    {
+        return DB::table('staking_transactions')
+            ->join('staking_assets', 'staking_assets.id', '=', 'staking_transactions.staking_asset_id')
+            ->where('staking_transactions.user_id', $userId)
+            ->select('staking_transactions.*', 'staking_assets.symbol', 'staking_assets.network', 'staking_assets.amount_precision as precision')
+            ->orderByDesc('staking_transactions.created_at')
+            ->orderByDesc('staking_transactions.id')
+            ->cursorPaginate($perPage, ['*'], 'cursor', $cursor);
     }
 
     public function apyHistory(): array

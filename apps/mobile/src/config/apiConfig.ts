@@ -7,8 +7,10 @@ export function getApiBaseUrl() {
       };
     }
   ).process?.env;
-  const baseUrl = env?.EXPO_PUBLIC_API_URL || env?.VITE_API_URL || "http://127.0.0.1:8000";
-  
+  const developmentUrl =
+    typeof __DEV__ !== "undefined" && __DEV__ ? "http://127.0.0.1:8000" : "https://api.exaearn.com";
+  const baseUrl = env?.EXPO_PUBLIC_API_URL || env?.VITE_API_URL || developmentUrl;
+
   return String(baseUrl || "").trim().replace(/\/+$/, "");
 }
 

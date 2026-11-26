@@ -1,9 +1,17 @@
 <?php
 
-$frontendOrigins = array_filter(array_map(
+$configuredFrontendOrigins = array_filter(array_map(
     static fn (string $origin): string => trim($origin),
     explode(',', (string) env('FRONTEND_URL', ''))
 ));
+
+$frontendOrigins = array_merge([
+    'https://exaearn.com',
+    'https://app.exaearn.com',
+    'https://admin.exaearn.com',
+    'https://developers.exaearn.com',
+    'https://listing.exaearn.com',
+], $configuredFrontendOrigins);
 
 $defaultDevOrigins = [
     'http://localhost:5173',
@@ -20,17 +28,23 @@ $defaultDevOrigins = [
     'http://127.0.0.1:8082',
 ];
 
+$isProduction = env('APP_ENV') === 'production';
+$allowedOrigins = $isProduction
+    ? $frontendOrigins
+    : array_merge($frontendOrigins, $defaultDevOrigins);
+$allowedOriginPatterns = $isProduction
+    ? []
+    : ['#^https?://(localhost|127\\.0\\.0\\.1):517[0-9]$#'];
+
 return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_unique(array_merge($frontendOrigins, $defaultDevOrigins))),
+    'allowed_origins' => array_values(array_unique($allowedOrigins)),
 
-    'allowed_origins_patterns' => [
-        '#^https?://(localhost|127\\.0\\.0\\.1):517[0-9]$#',
-    ],
+    'allowed_origins_patterns' => $allowedOriginPatterns,
 
     'allowed_headers' => ['*'],
 

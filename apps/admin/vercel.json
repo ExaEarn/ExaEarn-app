@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "cd ../.. && pnpm --filter @exaearn/admin build",
+  "framework": "vite",
+  "installCommand": "cd ../.. && corepack pnpm@10.34.5 install --frozen-lockfile",
+  "buildCommand": "cd ../.. && corepack pnpm@10.34.5 --filter @exaearn/admin build",
   "outputDirectory": "dist",
+  "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs admin",
   "rewrites": [
     {
       "source": "/(.*)",

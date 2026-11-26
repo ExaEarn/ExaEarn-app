@@ -14,7 +14,7 @@ class SessionSecurityService
     {
     }
 
-    public function activeSessions(User $user): array
+    public function activeSessions(User $user, ?int $currentTokenId = null): array
     {
         return $user->tokens()->latest()->get()->map(fn ($token) => [
             'id' => $token->id,
@@ -22,6 +22,7 @@ class SessionSecurityService
             'last_used_at' => $token->last_used_at,
             'created_at' => $token->created_at,
             'risk_state' => 'NORMAL',
+            'is_current' => $currentTokenId !== null && (int) $token->id === $currentTokenId,
         ])->all();
     }
 

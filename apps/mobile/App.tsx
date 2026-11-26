@@ -28,9 +28,26 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { LanguageProvider, useLanguage } from "./src/context/LanguageContext";
+import { SecurityPreferencesProvider } from "./src/context/SecurityPreferencesContext";
+import { SecurityLifecycleGuard } from "./src/components/SecurityLifecycleGuard";
+import { GlobalErrorProvider, useGlobalError } from "./src/errors/GlobalErrorContext";
+import { ErrorBoundary } from "./src/errors/ErrorBoundary";
+import { createAppError } from "./src/errors/errorMessageRegistry";
+import { resolveTransactionStatus } from "./src/errors/TransactionStatusResolver";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import CrowdfundingScreen from "./src/screens/CrowdfundingScreen";
 import ExaCardScreen from "./src/screens/ExaCardScreen";
+import ExaPayScreen from "./src/screens/ExaPayScreen";
+import ExaPayOfflinePayScreen from "./src/screens/ExaPayOfflinePayScreen";
+import ExaPayPaymentReviewScreen from "./src/screens/ExaPayPaymentReviewScreen";
+import ExaPayPaymentResultScreen from "./src/screens/ExaPayPaymentResultScreen";
+import ExaPayNearbyDevicesScreen from "./src/screens/ExaPayNearbyDevicesScreen";
+import ExaPaySyncRedeemScreen from "./src/screens/ExaPaySyncRedeemScreen";
+import ExaPayTransferDraftScreen from "./src/screens/ExaPayTransferDraftScreen";
+import type {
+  ExaPayPaymentDraft,
+  ExaPayPaymentResult,
+} from "./src/services/exaPayPaymentReviewModel";
 import ExaSkillsScreen from "./src/screens/ExaSkillsScreen";
 import GiftcardScreen from "./src/screens/GiftcardScreen";
 import MarketScreen from "./src/screens/MarketScreen";
@@ -39,9 +56,14 @@ import NftMarketplaceScreen from "./src/screens/NftMarketplaceScreen";
 import StakingScreen from "./src/screens/StakingScreen";
 import SupportScreen from "./src/screens/SupportScreen";
 import TradeScreen from "./src/screens/TradeScreen";
+import SecurityCenterScreen from "./src/screens/SecurityCenterScreen";
+import UnifiedTransactionHistoryScreen from "./src/screens/UnifiedTransactionHistoryScreen";
+import TransactionResultScreen from "./src/screens/TransactionResultScreen";
+import type { HistorySource } from "./src/services/transactionHistoryAdapter";
+import type { TransactionResult } from "./src/services/transactionResultMapper";
 import { colors, fonts } from "./src/theme/colors";
 
-type RouteName = "dashboard" | "staking" | "giftcard" | "exacard" | "exaskills" | "market" | "trade" | "activity" | "support" | "crowdfunding" | "nft";
+type RouteName = "dashboard" | "security" | "staking" | "giftcard" | "exacard" | "exapay" | "exapayOffline" | "exapayNearby" | "exapaySyncRedeem" | "exapayTransferDraft" | "exapayReview" | "exapayResult" | "exaskills" | "market" | "trade" | "activity" | "transactionHistory" | "transactionDetail" | "support" | "crowdfunding" | "nft";
 
 export default function App() {
   const [fontsReady] = useFonts({
@@ -56,8 +78,16 @@ export default function App() {
       <SafeAreaProvider>
         <LanguageProvider>
           <AuthProvider>
-            <StatusBar style="light" />
-            <RootShell fontsReady={fontsReady} />
+            <SecurityPreferencesProvider>
+              <GlobalErrorProvider>
+                <StatusBar style="light" />
+                <ErrorBoundary>
+                  <SecurityLifecycleGuard>
+                    <RootShell fontsReady={fontsReady} />
+                  </SecurityLifecycleGuard>
+                </ErrorBoundary>
+              </GlobalErrorProvider>
+            </SecurityPreferencesProvider>
           </AuthProvider>
         </LanguageProvider>
       </SafeAreaProvider>
@@ -66,23 +96,204 @@ export default function App() {
 }
 
 function RootShell({ fontsReady }: { fontsReady: boolean }) {
-  const { user } = useAuth();
+  const { user, authReady, request } = useAuth();
+  const { presentError } = useGlobalError();
   const [route, setRoute] = useState<RouteName>("dashboard");
+  const [activityReturnRoute, setActivityReturnRoute] = useState<RouteName>("dashboard");
+  const [supportReturnRoute, setSupportReturnRoute] = useState<RouteName>("dashboard");
+  const [offlinePayMethod, setOfflinePayMethod] = useState<"bluetooth" | "qr" | "nearby">("bluetooth");
+  const [transferDraftMode, setTransferDraftMode] = useState<"online" | "qr">("online");
+  const [paymentDraft, setPaymentDraft] = useState<ExaPayPaymentDraft | null>(null);
+  const [paymentResult, setPaymentResult] = useState<ExaPayPaymentResult | null>(null);
+  const [reviewReturnRoute, setReviewReturnRoute] = useState<RouteName>("exapay");
+  const [historyReturnRoute, setHistoryReturnRoute] = useState<RouteName>("dashboard");
+  const [historySource, setHistorySource] = useState<HistorySource | undefined>();
+  const [selectedHistoryTransaction, setSelectedHistoryTransaction] = useState<TransactionResult | null>(null);
+
+  const openTransactionHistory = (source?: HistorySource, returnRoute: RouteName = route) => {
+    setHistorySource(source);
+    setHistoryReturnRoute(returnRoute);
+    setRoute("transactionHistory");
+  };
+
+  if (!authReady) {
+    return (
+      <View style={[styles.fill, { justifyContent: "center", alignItems: "center", backgroundColor: "#090b12" }]}>
+        <ActivityIndicator size="small" color="#dce4ec" />
+      </View>
+    );
+  }
 
   if (!user) {
     return <AuthScreen fontsReady={fontsReady} />;
   }
 
+  if (route === "security") {
+    return (
+      <SecurityCenterScreen
+        fontsReady={fontsReady}
+        onBack={() => setRoute("dashboard")}
+        onOpenExaPay={() => setRoute("exapay")}
+        onOpenExaCard={() => setRoute("exacard")}
+      />
+    );
+  }
+
   if (route === "staking") {
-    return <StakingScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+    return <StakingScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} onOpenTransactions={() => openTransactionHistory("staking", "staking")} />;
   }
 
   if (route === "giftcard") {
-    return <GiftcardScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+    return <GiftcardScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} onOpenTransactions={() => openTransactionHistory("giftcard", "giftcard")} />;
   }
 
   if (route === "exacard") {
-    return <ExaCardScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+    return <ExaCardScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} onOpenTransactions={() => openTransactionHistory("card", "exacard")} />;
+  }
+
+  if (route === "exapay") {
+    return (
+      <ExaPayScreen
+        fontsReady={fontsReady}
+        onOpenHome={() => setRoute("dashboard")}
+        onOpenMarkets={() => setRoute("market")}
+        onOpenTransactions={() => {
+          openTransactionHistory("exapay", "exapay");
+        }}
+        onOpenMore={() => setRoute("dashboard")}
+        onOpenSyncRedeem={() => setRoute("exapaySyncRedeem")}
+        onOpenTransfer={(mode = "online") => {
+          setPaymentDraft(null);
+          setPaymentResult(null);
+          setTransferDraftMode(mode);
+          setRoute("exapayTransferDraft");
+        }}
+        onOpenOfflinePay={(method = "bluetooth") => {
+          setPaymentDraft(null);
+          setPaymentResult(null);
+          if (method === "nearby") {
+            setRoute("exapayNearby");
+            return;
+          }
+          setOfflinePayMethod(method);
+          setRoute("exapayOffline");
+        }}
+      />
+    );
+  }
+
+  if (route === "exapayOffline") {
+    return (
+      <ExaPayOfflinePayScreen
+        fontsReady={fontsReady}
+        initialMethod={offlinePayMethod}
+        initialDraft={paymentDraft?.channel === "bluetooth" ? paymentDraft : null}
+        onBack={() => {
+          setPaymentDraft(null);
+          setRoute("exapay");
+        }}
+        onReview={(draft) => {
+          setPaymentDraft(draft);
+          setReviewReturnRoute("exapayOffline");
+          setRoute("exapayReview");
+        }}
+      />
+    );
+  }
+
+  if (route === "exapayNearby") {
+    return (
+      <ExaPayNearbyDevicesScreen
+        fontsReady={fontsReady}
+        onBack={() => setRoute("exapay")}
+        onOpenQrFallback={() => {
+          setTransferDraftMode("qr");
+          setRoute("exapayTransferDraft");
+        }}
+        onViewAllHistory={() => {
+          openTransactionHistory("exapay", "exapayNearby");
+        }}
+      />
+    );
+  }
+
+  if (route === "exapayTransferDraft") {
+    return (
+      <ExaPayTransferDraftScreen
+        fontsReady={fontsReady}
+        mode={transferDraftMode}
+        initialDraft={paymentDraft}
+        onBack={() => setRoute("exapay")}
+        onContinue={(draft) => {
+          setPaymentDraft(draft);
+          setReviewReturnRoute("exapayTransferDraft");
+          setRoute("exapayReview");
+        }}
+      />
+    );
+  }
+
+  if (route === "exapayReview" && paymentDraft) {
+    return (
+      <ExaPayPaymentReviewScreen
+        fontsReady={fontsReady}
+        draft={paymentDraft}
+        onBack={() => setRoute(reviewReturnRoute)}
+        onCancel={() => {
+          setPaymentDraft(null);
+          setRoute("exapay");
+        }}
+        onResult={(draft, result) => {
+          setPaymentDraft(draft);
+          setPaymentResult(result);
+          setRoute("exapayResult");
+          if (result.outcome === "recovery-required") {
+            presentError(createAppError({ code: "recovery_required", reference: result.reference }), {
+              check_transfer: async () => {
+                const status = await resolveTransactionStatus(result.reference, (path) => request<Record<string, unknown>>(path, { method: "GET" }));
+                if (status === "settled") {
+                  presentError(createAppError({ code: "transaction_settled", reference: result.reference }));
+                  return;
+                }
+                openTransactionHistory("exapay", "exapayResult");
+              },
+              contact_support: () => setRoute("support"),
+            });
+          }
+        }}
+      />
+    );
+  }
+
+  if (route === "exapayResult" && paymentDraft && paymentResult) {
+    return (
+      <ExaPayPaymentResultScreen
+        fontsReady={fontsReady}
+        draft={paymentDraft}
+        result={paymentResult}
+        onDone={() => {
+          setPaymentDraft(null);
+          setPaymentResult(null);
+          setRoute("exapay");
+        }}
+      />
+    );
+  }
+
+  if (route === "exapaySyncRedeem") {
+    return (
+      <ExaPaySyncRedeemScreen
+        fontsReady={fontsReady}
+        onBack={() => setRoute("exapay")}
+        onViewAllHistory={() => {
+          openTransactionHistory("exapay", "exapaySyncRedeem");
+        }}
+        onOpenRecoverySupport={() => {
+          setSupportReturnRoute("exapaySyncRedeem");
+          setRoute("support");
+        }}
+      />
+    );
   }
 
   if (route === "exaskills") {
@@ -94,15 +305,40 @@ function RootShell({ fontsReady }: { fontsReady: boolean }) {
   }
 
   if (route === "trade") {
-    return <TradeScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+    return <TradeScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} onOpenTransactions={() => openTransactionHistory("exchange", "trade")} />;
   }
 
   if (route === "activity") {
-    return <NotificationActivityScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+    return <NotificationActivityScreen fontsReady={fontsReady} onBack={() => setRoute(activityReturnRoute)} />;
+  }
+
+  if (route === "transactionHistory") {
+    return (
+      <UnifiedTransactionHistoryScreen
+        fontsReady={fontsReady}
+        initialSource={historySource}
+        onBack={() => setRoute(historyReturnRoute)}
+        onOpenTransaction={(transaction) => {
+          setSelectedHistoryTransaction(transaction);
+          setRoute("transactionDetail");
+        }}
+      />
+    );
+  }
+
+  if (route === "transactionDetail" && selectedHistoryTransaction) {
+    return (
+      <TransactionResultScreen
+        fontsReady={fontsReady}
+        transaction={selectedHistoryTransaction}
+        returnLabel="Back to history"
+        onReturn={() => setRoute("transactionHistory")}
+      />
+    );
   }
 
   if (route === "support") {
-    return <SupportScreen fontsReady={fontsReady} onBack={() => setRoute("dashboard")} />;
+    return <SupportScreen fontsReady={fontsReady} onBack={() => setRoute(supportReturnRoute)} />;
   }
 
   if (route === "crowdfunding") {
@@ -117,6 +353,7 @@ function RootShell({ fontsReady }: { fontsReady: boolean }) {
     <DashboardScreen
       fontsReady={fontsReady}
       onOpenExaCard={() => setRoute("exacard")}
+      onOpenExaPay={() => setRoute("exapay")}
       onOpenGiftcard={() => setRoute("giftcard")}
       onOpenMarket={() => setRoute("market")}
       onOpenNotifications={() => setRoute("activity")}
@@ -126,6 +363,8 @@ function RootShell({ fontsReady }: { fontsReady: boolean }) {
       onOpenCrowdfunding={() => setRoute("crowdfunding")}
       onOpenExaSkills={() => setRoute("exaskills")}
       onOpenNft={() => setRoute("nft")}
+      onOpenSecurity={() => setRoute("security")}
+      onOpenTransactions={() => openTransactionHistory(undefined, "dashboard")}
     />
   );
 }

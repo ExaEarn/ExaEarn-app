@@ -6,6 +6,7 @@ import { NotificationOperationsPage } from "../pages/NotificationOperationsPage"
 import { SupportOperationsPage } from "../pages/SupportOperationsPage";
 import { CrowdfundingOperationsPage } from "../pages/CrowdfundingOperationsPage";
 import { DeveloperProductionAccessPage } from "../pages/DeveloperProductionAccessPage";
+import { ExaPayOfflineOperationsPage } from "../pages/ExaPayOfflineOperationsPage";
 
 export const routeRegistry = {
   "/admin": { key: "dashboard", element: DashboardPage },
@@ -32,6 +33,7 @@ export const routeRegistry = {
   "/admin/giftcard": { key: "giftcard", element: ModulePage },
   "/admin/exacard": { key: "exacard", element: ModulePage },
   "/admin/exapay": { key: "exapay", element: ModulePage },
+  "/admin/exapay-offline": { key: "exapay-offline", element: ExaPayOfflineOperationsPage },
   "/admin/campaigns": { key: "campaigns", element: ContentManagerPage },
   "/admin/kyc": { key: "kyc", element: ModulePage },
   "/admin/treasury": { key: "treasury", element: ModulePage },

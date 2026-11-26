@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Archive, ArrowLeft, Bell, CheckCheck, ChevronRight, Clock, Filter, Loader2, Settings } from "lucide-react";
+import { readSecurityPreferences, SECURITY_PREFERENCES_EVENT } from "../../security/securityPreferences";
 
 const FILTERS = [
   { key: "", label: "All" },
@@ -16,6 +17,7 @@ function normalizePage(payload) {
 }
 
 function ActivityCenter({ request, onBack, onNavigate, onOpenPreferences }) {
+  const [privateNotifications, setPrivateNotifications] = useState(() => readSecurityPreferences().preferences.privateNotifications);
   const [tab, setTab] = useState("notifications");
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
@@ -25,6 +27,23 @@ function ActivityCenter({ request, onBack, onNavigate, onOpenPreferences }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
+
+  useEffect(() => {
+    const updatePreferences = (event) => {
+      setPrivateNotifications((event.detail || readSecurityPreferences().preferences).privateNotifications);
+    };
+    const updateStoredPreferences = (event) => {
+      if (event.key === "exaearn-security-preferences-v1") {
+        setPrivateNotifications(readSecurityPreferences().preferences.privateNotifications);
+      }
+    };
+    window.addEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+    window.addEventListener("storage", updateStoredPreferences);
+    return () => {
+      window.removeEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+      window.removeEventListener("storage", updateStoredPreferences);
+    };
+  }, []);
 
   const endpoint = useMemo(() => {
     if (tab === "activity") {
@@ -95,7 +114,7 @@ function ActivityCenter({ request, onBack, onNavigate, onOpenPreferences }) {
     }
     const target = String(item.deep_link || "").replace(/^\//, "");
     if (target && onNavigate) {
-      const map = { assets: "assets", trade: "trade", earn: "staking", security: "security", settings: "settings", exacard: "exacard", giftcard: "giftcard", exaai: "aiAssistant", kyc: "kycVerification" };
+      const map = { assets: "assets", trade: "trade", earn: "staking", security: "securityCenter", settings: "settings", exacard: "exacard", giftcard: "giftcard", exaai: "aiAssistant", kyc: "kycVerification" };
       onNavigate(map[target] || target);
     }
   };
@@ -150,7 +169,7 @@ function ActivityCenter({ request, onBack, onNavigate, onOpenPreferences }) {
             <div className="p-6 text-center"><p className="text-sm text-rose-200">{error}</p><button type="button" onClick={load} className="mt-3 rounded-xl bg-[var(--exa-gold)] px-4 py-2 text-sm font-semibold text-[var(--exa-gold-contrast)]">Try again</button></div>
           ) : items.length ? (
             <div className="divide-y divide-[var(--exa-border)]">
-              {items.map((item) => <CenterRow key={item.id} item={item} tab={tab} busy={busyId === item.id} onOpen={() => openItem(item)} onArchive={() => archive(item)} />)}
+              {items.map((item) => <CenterRow key={item.id} item={item} tab={tab} privateNotifications={privateNotifications} busy={busyId === item.id} onOpen={() => openItem(item)} onArchive={() => archive(item)} />)}
             </div>
           ) : (
             <div className="p-8 text-center"><Bell className="mx-auto h-8 w-8 text-[var(--exa-text-muted)]" /><p className="mt-3 text-sm font-semibold">Nothing here yet</p><p className="mt-1 text-xs text-[var(--exa-text-muted)]">{tab === "activity" ? "Your account activity will appear here." : "Notifications that need your attention will appear here."}</p></div>
@@ -167,16 +186,17 @@ function ActivityCenter({ request, onBack, onNavigate, onOpenPreferences }) {
   );
 }
 
-function CenterRow({ item, tab, busy, onOpen, onArchive }) {
+function CenterRow({ item, tab, privateNotifications, busy, onOpen, onArchive }) {
+  const hideDetails = tab === "notifications" && privateNotifications;
   return (
     <article className="flex items-center gap-3 p-3">
       <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${item.unread ? "bg-[var(--exa-gold)]" : "bg-[var(--exa-border)]"}`} />
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span className="flex flex-wrap items-center gap-2">
-          <strong className="text-sm text-[var(--exa-text-primary)]">{item.title || item.action || "Account update"}</strong>
+          <strong className="text-sm text-[var(--exa-text-primary)]">{hideDetails ? "Private notification" : item.title || item.action || "Account update"}</strong>
           <small className="rounded-full border border-[var(--exa-border)] px-2 py-0.5 text-[10px] uppercase text-[var(--exa-text-muted)]">{item.product || item.category || item.source}</small>
         </span>
-        <span className="mt-1 block truncate text-xs text-[var(--exa-text-muted)]">{item.description || item.status || "Open for details."}</span>
+        <span className="mt-1 block truncate text-xs text-[var(--exa-text-muted)]">{hideDetails ? "Open ExaEarn to view this notification." : item.description || item.status || "Open for details."}</span>
         <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-[var(--exa-text-muted)]"><Clock className="h-3 w-3" />{item.timestamp ? new Date(item.timestamp).toLocaleString() : "Recently"}</span>
       </button>
       {tab === "notifications" ? (

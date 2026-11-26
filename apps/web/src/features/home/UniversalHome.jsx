@@ -187,7 +187,7 @@ export default function UniversalHome({
         <div className="uh-module-head"><h2>Earn & More</h2><button type="button" onClick={() => onNavigate("more")}>All Services <ChevronRight size={13} /></button></div>
         <div className="uh-service-grid">
           <button type="button" onClick={() => onNavigate("staking")}><HandCoins size={18} /><strong>Earn</strong><small>{earnApy ? `Up to ${earnApy}% APY` : "Explore products"}</small></button>
-          <button type="button" onClick={() => onNavigate("addFunds")}><Wallet size={18} /><strong>ExaPay</strong><small>Fast payments</small></button>
+          <button type="button" onClick={() => onNavigate("exapay")}><Wallet size={18} /><strong>ExaPay</strong><small>Fast payments</small></button>
           <button type="button" onClick={() => onNavigate("exacard")}><CreditCard size={18} /><strong>ExaCard</strong><small>Spend eligible funds</small></button>
           <button type="button" onClick={() => onNavigate("more")}><Sparkles size={18} /><strong>More</strong><small>All services</small></button>
         </div>

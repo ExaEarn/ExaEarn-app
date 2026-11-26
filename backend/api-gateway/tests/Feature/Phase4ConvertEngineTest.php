@@ -13,6 +13,7 @@ use App\Models\TreasuryAccount;
 use App\Models\TreasuryBalance;
 use App\Models\User;
 use App\Services\LedgerService;
+use App\Services\MarketDataService;
 use App\Services\SwapEngineService;
 use App\Services\SwapReconciliationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,6 +73,42 @@ class Phase4ConvertEngineTest extends TestCase
         $this->expectExceptionMessage('CONVERT_CAPACITY_UNAVAILABLE');
 
         app(SwapEngineService::class)->createQuote($user->id, 'USDT', 'BTC', '1000');
+    }
+
+    public function test_stale_external_reference_is_rejected(): void
+    {
+        $this->mock(MarketDataService::class, function ($mock): void {
+            $mock->shouldReceive('ticker')->with('BTC/USDT')->andReturn([
+                'last_price' => '100000.00',
+                'last_trade_price' => null,
+                'reference_price' => '100000.00',
+                'source' => MarketDataService::SOURCE_REFERENCE,
+                'updated_at' => now()->subMinutes(5)->toISOString(),
+            ]);
+        });
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('No fresh price is available for BTC/USDT.');
+
+        app(SwapEngineService::class)->createQuote(User::factory()->create()->id, 'USDT', 'BTC', '1000');
+    }
+
+    public function test_unknown_price_source_does_not_default_to_internal(): void
+    {
+        $this->mock(MarketDataService::class, function ($mock): void {
+            $mock->shouldReceive('ticker')->with('BTC/USDT')->andReturn([
+                'last_price' => '100000.00',
+                'last_trade_price' => null,
+                'reference_price' => '100000.00',
+                'source' => 'UNKNOWN',
+                'updated_at' => now()->toISOString(),
+            ]);
+        });
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('No fresh price is available for BTC/USDT.');
+
+        app(SwapEngineService::class)->createQuote(User::factory()->create()->id, 'USDT', 'BTC', '1000');
     }
 
     public function test_quote_rejects_destination_fiat_when_provider_capacity_is_unavailable(): void
@@ -138,7 +175,7 @@ class Phase4ConvertEngineTest extends TestCase
         $quote = $service->createQuote($user->id, 'USDT', 'BTC', '1000');
         $swap = $service->queueExecution($user->id, $quote->quote_id, 'convert-fail-1');
 
-        $swap->metadata = array_merge($swap->metadata ?? [], ['reservation_id' => 'missing-reservation']);
+        $swap->metadata = array_merge($swap->metadata ?? [], ['reservation_id' => '00000000-0000-4000-8000-000000000001']);
         $swap->save();
 
         $failed = $service->executeQueuedSwap($swap->id);

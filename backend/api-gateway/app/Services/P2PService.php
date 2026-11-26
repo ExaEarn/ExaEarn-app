@@ -21,6 +21,7 @@ use App\Models\SuspiciousUser;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Pagination\CursorPaginator as CursorPaginatorContract;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -286,6 +287,23 @@ class P2PService
         }
 
         return $query->get()->map(fn (P2PTrade $trade) => $this->transformTrade($trade));
+    }
+
+    public function myTradesCursor(User $user, int $perPage, ?string $cursor = null, ?string $status = null): CursorPaginatorContract
+    {
+        $query = P2PTrade::query()
+            ->with(['ad.user', 'buyer', 'seller'])
+            ->where(function (Builder $builder) use ($user): void {
+                $builder->where('buyer_id', $user->id)->orWhere('seller_id', $user->id);
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        return $query->cursorPaginate($perPage, ['*'], 'cursor', $cursor);
     }
 
     public function showTradeForUser(User $user, string $tradeUuid): array

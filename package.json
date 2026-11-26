@@ -1,6 +1,9 @@
 {
   "name": "exaearn",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "packageManager": "pnpm@10.34.5",
   "workspaces": [
     "apps/*",

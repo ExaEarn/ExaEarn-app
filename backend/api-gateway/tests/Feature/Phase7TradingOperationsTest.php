@@ -10,6 +10,8 @@ use App\Models\FinancialReconciliationRun;
 use App\Models\InsuranceFundTransaction;
 use App\Models\MarginLendingPool;
 use App\Models\Market;
+use App\Models\Permission;
+use App\Models\Role;
 use App\Models\TradingCircuitBreaker;
 use App\Models\TradingIncident;
 use App\Models\TradingLoadRun;
@@ -47,6 +49,8 @@ class Phase7TradingOperationsTest extends TestCase
             'quote_currency' => 'USDT',
             'status' => 'active',
             'trading_status' => 'trading',
+            'governance_source' => 'LEGACY_APPROVED',
+            'activated_at' => now(),
             'last_price' => '50000',
             'price_precision' => '0.01',
             'tick_size' => '0.01',
@@ -212,12 +216,16 @@ class Phase7TradingOperationsTest extends TestCase
 
     private function admin(): Admin
     {
+        $role = Role::query()->create(['name' => 'phase7-market-operations-'.uniqid()]);
+        $permission = Permission::query()->firstOrCreate(['name' => 'trade.manage']);
+        $role->permissions()->attach($permission->id);
         return Admin::query()->create([
             'name' => 'Phase 7 Admin',
             'email' => 'phase7-admin-' . uniqid() . '@example.test',
             'password' => 'secret',
             'status' => 'active',
             'two_factor_enabled' => true,
+            'role_id' => $role->id,
         ]);
     }
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1067903252989",
+    "project_id": "exaearn-e63c5",
+    "storage_bucket": "exaearn-e63c5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1067903252989:android:8d450e6dead30f7d7a4194",
+        "android_client_info": {
+          "package_name": "exaearn.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_zCmFs4Q6C-78CKSYT40WZdDu2OSxe-Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -9,7 +9,6 @@ import {
   Coins,
   CreditCard,
   FileSearch,
-  Fingerprint,
   Globe,
   Landmark,
   Languages,
@@ -24,10 +23,8 @@ import {
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 
-function SettingsPage({ onBack, onOpenInstitutional, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods, onOpenActivityLogs, onOpenPersonalization }) {
+function SettingsPage({ onBack, onOpenInstitutional, onOpenSecurityCenter, onOpenLanguageRegion, onOpenCurrencyPreference, onOpenMarketAnalytics, onOpenNotificationPreferences, onOpenPaymentCurrency, onOpenPaymentMethods, onOpenActivityLogs, onOpenPersonalization, onOpenPhoneVerification }) {
   const { theme, setTheme } = useTheme();
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [cacheUsage, setCacheUsage] = useState("Calculating...");
   const [languageRegionSummary, setLanguageRegionSummary] = useState("English (Default), Nigeria");
   const [currencySummary, setCurrencySummary] = useState("Display USD, Transaction USD");
@@ -123,11 +120,11 @@ function SettingsPage({ onBack, onOpenInstitutional, onOpenLanguageRegion, onOpe
   ];
 
   const securityItems = [
-    { icon: ShieldCheck, title: "Security Center" },
-    { icon: Lock, title: "Change Password" },
-    { icon: Smartphone, title: "Device Management" },
+    { icon: ShieldCheck, title: "Security Center", description: "Account, device, privacy and financial security", action: onOpenSecurityCenter, securityAccent: true },
+    { icon: Smartphone, title: "Phone Number Verification", description: "Secure account recovery", securityAccent: true, action: onOpenPhoneVerification },
+    { icon: Smartphone, title: "Device Management", description: "Sessions and login-device records", action: onOpenSecurityCenter },
     { icon: FileSearch, title: "Activity Log", action: onOpenActivityLogs },
-    { icon: Globe, title: "Anti-Phishing Code" },
+    { icon: Globe, title: "Anti-Phishing Code", description: "Not available in the account API" },
   ];
 
   const ecosystemItems = [
@@ -195,26 +192,11 @@ function SettingsPage({ onBack, onOpenInstitutional, onOpenLanguageRegion, onOpe
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                securityAccent
+                description={item.description}
+                securityAccent={item.securityAccent ?? false}
                 onClick={item.action}
               />
             ))}
-            <ToggleRow
-              icon={ShieldCheck}
-              title="Two-Factor Authentication (2FA)"
-              description={twoFactorEnabled ? "Enabled" : "Disabled"}
-              enabled={twoFactorEnabled}
-              onToggle={() => setTwoFactorEnabled((prev) => !prev)}
-              securityAccent
-            />
-            <ToggleRow
-              icon={Fingerprint}
-              title="Biometric Login"
-              description={biometricEnabled ? "Enabled" : "Disabled"}
-              enabled={biometricEnabled}
-              onToggle={() => setBiometricEnabled((prev) => !prev)}
-              securityAccent
-            />
           </Section>
 
           <Section title="Ecosystem Settings">
@@ -266,33 +248,6 @@ function SettingsRow({ icon: Icon, title, description, securityAccent = false, o
         </span>
       </div>
       <ArrowRight className="h-4 w-4 text-[var(--exa-text-muted)] transition-all duration-300 group-hover:translate-x-1 group-hover:text-[var(--exa-gold-light)]" />
-    </button>
-  );
-}
-
-function ToggleRow({ icon: Icon, title, description, enabled, onToggle, securityAccent = false }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="group flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-all duration-300 hover:bg-[var(--exa-surface-hover)] hover:shadow-[var(--exa-shadow-soft)] active:scale-[0.99]"
-    >
-      <div className="flex items-center gap-3">
-        <span
-          className={`flex h-9 w-9 items-center justify-center rounded-lg border bg-[var(--exa-surface-hover)] ${
-            securityAccent ? "border-[var(--exa-border-active)] text-[var(--exa-gold-light)]" : "border-[var(--exa-border)] text-[var(--exa-text-secondary)]"
-          }`}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
-        <span>
-          <span className="block text-sm font-medium text-[var(--exa-text-secondary)]">{title}</span>
-          {description ? <span className="block text-xs text-[var(--exa-text-muted)]">{description}</span> : null}
-        </span>
-      </div>
-      <span className={`relative h-6 w-11 rounded-full transition-colors duration-300 ${enabled ? "bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold)]" : "bg-[var(--exa-surface-hover)]"}`}>
-        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all duration-300 ${enabled ? "left-6" : "left-1"}`} />
-      </span>
     </button>
   );
 }

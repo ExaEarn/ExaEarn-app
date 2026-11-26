@@ -10,19 +10,23 @@ import { DashboardPersonalization } from "../components/DashboardPersonalization
 import { apiHelpText } from "../config/apiConfig";
 import { useAuth } from "../context/AuthContext";
 import { colors, fonts } from "../theme/colors";
+import { useSecurityPreferences } from "../context/SecurityPreferencesContext";
 
 type DashboardScreenProps = {
   fontsReady: boolean;
   onOpenExaCard?: () => void;
+  onOpenExaPay?: () => void;
   onOpenGiftcard?: () => void;
   onOpenMarket?: () => void;
   onOpenNotifications?: () => void;
+  onOpenTransactions?: () => void;
   onOpenStaking?: () => void;
   onOpenSupport?: () => void;
   onOpenTrade?: () => void;
   onOpenCrowdfunding?: () => void;
   onOpenExaSkills?: () => void;
   onOpenNft?: () => void;
+  onOpenSecurity?: () => void;
 };
 
 type Balance = {
@@ -69,6 +73,7 @@ const featureAssets = {
 
 const features = [
   { label: "ExaCard", image: featureAssets.giftcard, icon: "card-outline" as const, tone: "#f9e2ad" },
+  { label: "ExaPay", image: featureAssets.earn, icon: "swap-horizontal-outline" as const, tone: "#f9e2ad" },
   { label: "Gift Cards", image: featureAssets.giftcard, icon: "gift-outline" as const, tone: "#f9e2ad" },
   { label: "ExaEarn Staking", image: featureAssets.earn, icon: "cash-outline" as const, tone: "#67e8f9" },
   { label: "Support", image: featureAssets.more, icon: "headset-outline" as const, tone: "#93c5fd" },
@@ -93,6 +98,7 @@ const navItems = [
   { label: "Market", icon: "bar-chart-outline" as const },
   { label: "Trade", icon: "diamond-outline" as const },
   { label: "P2P", icon: "people-outline" as const },
+  { label: "Transactions", icon: "receipt-outline" as const },
   { label: "Assets", icon: "wallet-outline" as const },
 ];
 
@@ -210,10 +216,11 @@ function DailyRewardCard({
   );
 }
 
-export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftcard, onOpenMarket, onOpenNotifications, onOpenStaking, onOpenSupport, onOpenTrade, onOpenCrowdfunding, onOpenExaSkills, onOpenNft }: DashboardScreenProps) {
+export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenExaPay, onOpenGiftcard, onOpenMarket, onOpenNotifications, onOpenTransactions, onOpenStaking, onOpenSupport, onOpenTrade, onOpenCrowdfunding, onOpenExaSkills, onOpenNft, onOpenSecurity }: DashboardScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { user, logout, request, apiBaseUrl } = useAuth();
+  const { preferences: securityPreferences, isSensitiveHidden, toggleSensitiveReveal } = useSecurityPreferences();
   const [balances, setBalances] = useState<Balance[]>([]);
   const [points, setPoints] = useState<Record<string, unknown> | null>(null);
   const [liveMarkets, setLiveMarkets] = useState<MarketItem[]>([]);
@@ -496,6 +503,14 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
               </View>
             </View>
             <View style={styles.headerActions}>
+              <AnimatedPressable
+                style={styles.iconButton}
+                onPress={onOpenTransactions}
+                accessibilityRole="button"
+                accessibilityLabel="Transaction history"
+              >
+                <Ionicons name="receipt-outline" size={18} color="rgba(255,255,255,0.62)" />
+              </AnimatedPressable>
               <View style={styles.notificationMenu}>
                 <AnimatedPressable style={styles.iconButton} onPress={() => onOpenNotifications ? onOpenNotifications() : setNotificationsOpen((value) => !value)}>
                   <Ionicons name="notifications-outline" size={18} color="rgba(255,255,255,0.62)" />
@@ -523,10 +538,10 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
                             <View style={styles.notificationDot} />
                             <View className="min-w-0 flex-1">
                               <Text className="text-[10px] text-violet-50" numberOfLines={1} style={{ fontFamily: fonts.semibold }}>
-                                {item.title || item.type || "Notification"}
+                                {securityPreferences.privateNotifications ? "Private notification" : item.title || item.type || "Notification"}
                               </Text>
                               <Text className="mt-0.5 text-[9px] text-violet-100/62" numberOfLines={2} style={{ fontFamily: fonts.body }}>
-                                {item.message || item.body || "New update available."}
+                                {securityPreferences.privateNotifications ? "Open ExaEarn to view this notification." : item.message || item.body || "New update available."}
                               </Text>
                             </View>
                             <Text style={styles.notificationTime}>Now</Text>
@@ -544,7 +559,7 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
                   </View>
                 ) : null}
               </View>
-              <AnimatedPressable style={styles.iconButton} onPress={() => setActivePanel("Settings")}>
+              <AnimatedPressable style={styles.iconButton} onPress={() => (onOpenSecurity ? onOpenSecurity() : setActivePanel("Settings"))}>
                 <Ionicons name="settings-outline" size={18} color="rgba(255,255,255,0.62)" />
               </AnimatedPressable>
             </View>
@@ -586,9 +601,15 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
                 <Text className="text-[10px] text-[#9aa3b2]" style={{ fontFamily: fonts.body }}>
                 Est. Portfolio Value
               </Text>
-                <Text className="mt-1 text-[25px] leading-[31px] text-violet-50" style={{ fontFamily: fonts.display }}>
-                {formatMoney(portfolioValue)}
-              </Text>
+                <AnimatedPressable
+                  onPress={isSensitiveHidden ? toggleSensitiveReveal : undefined}
+                  accessibilityRole={isSensitiveHidden ? "button" : undefined}
+                  accessibilityLabel={isSensitiveHidden ? "Reveal portfolio value" : "Portfolio value"}
+                >
+                  <Text className="mt-1 text-[25px] leading-[31px] text-violet-50" style={{ fontFamily: fonts.display }}>
+                    {isSensitiveHidden ? "••••••" : formatMoney(portfolioValue)}
+                  </Text>
+                </AnimatedPressable>
                 <View style={styles.balanceAccent} />
                 <View className="mt-3 flex-row items-center">
                   <View style={styles.pnlPill}>
@@ -652,6 +673,10 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
                     }
                     if (item.label === "ExaCard" && onOpenExaCard) {
                       onOpenExaCard();
+                      return;
+                    }
+                    if (item.label === "ExaPay" && onOpenExaPay) {
+                      onOpenExaPay();
                       return;
                     }
                     if (item.label === "ExaEarn Staking" && onOpenStaking) {
@@ -889,6 +914,10 @@ export default function DashboardScreen({ fontsReady, onOpenExaCard, onOpenGiftc
             <AnimatedPressable
               key={item.label}
               onPress={() => {
+                if (item.label === "Transactions" && onOpenTransactions) {
+                  onOpenTransactions();
+                  return;
+                }
                 if (item.label === "Market" && onOpenMarket) {
                   onOpenMarket();
                   return;

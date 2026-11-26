@@ -91,6 +91,23 @@ return [
         'secret' => env('MAILGUN_SECRET'),
     ],
 
+    'sms' => [
+        'provider' => env('SMS_PROVIDER'),
+        'test' => [
+            'enabled' => filter_var(env('SMS_TEST_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        ],
+        'twilio' => [
+            'sid' => env('TWILIO_SID'),
+            'token' => env('TWILIO_TOKEN'),
+            'from' => env('TWILIO_FROM'),
+        ],
+        'vonage' => [
+            'api_key' => env('VONAGE_API_KEY'),
+            'api_secret' => env('VONAGE_API_SECRET'),
+            'from' => env('VONAGE_FROM'),
+        ],
+    ],
+
     'staking_rpc' => [
         'sol' => ['primary' => env('STAKING_SOL_PRIMARY_RPC'), 'secondary' => env('STAKING_SOL_SECONDARY_RPC')],
         'eth' => ['primary' => env('STAKING_ETH_PRIMARY_RPC'), 'secondary' => env('STAKING_ETH_CONSENSUS_RPC')],

@@ -52,6 +52,7 @@ export const adminMenu = [
   { key: "giftcard", label: "Giftcard", icon: ShoppingBag, permissions: ["giftcard.manage"] },
   { key: "exacard", label: "ExaCard", icon: CreditCard, permissions: ["finance.view"] },
   { key: "exapay", label: "ExaPay", icon: Wallet, permissions: ["finance.view"] },
+  { key: "exapay-offline", label: "ExaPay Offline Safety", icon: ShieldCheck, permissions: ["exapay.offline.view"] },
   { key: "campaigns", label: "Campaigns", icon: Bell, permissions: ["campaign.manage"] },
   { key: "kyc", label: "KYC", icon: FileCheck2, permissions: ["kyc.review"] },
   { key: "treasury", label: "Treasury", icon: Landmark, permissions: ["treasury.manage"] },

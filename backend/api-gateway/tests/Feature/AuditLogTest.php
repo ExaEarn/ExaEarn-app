@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\ActivityLog;
+use App\Models\Admin;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\ActivityAuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -117,12 +119,8 @@ class AuditLogTest extends TestCase
             'asset' => 'USDT',
         ]);
 
-        $this->assertDatabaseHas('activity_logs', [
-            'user_id' => $user->id,
-            'type' => 'wallet',
-            'action' => 'deposit',
-            'data' => json_encode(['amount' => 100, 'asset' => 'USDT']),
-        ]);
+        $log = ActivityLog::query()->where('user_id', $user->id)->where('type', 'wallet')->where('action', 'deposit')->firstOrFail();
+        $this->assertSame(['amount' => 100, 'asset' => 'USDT'], (array) $log->data);
     }
 
     /**
@@ -130,15 +128,21 @@ class AuditLogTest extends TestCase
      */
     public function test_admin_logs_activity(): void
     {
+        $role = Role::query()->firstOrCreate(['name' => 'audit_test_admin']);
+        $admin = Admin::query()->create([
+            'name' => 'Audit Test Admin', 'email' => 'audit-admin@example.test',
+            'password' => Hash::make('A strong test-only password 482!'), 'role_id' => $role->id,
+            'status' => 'active',
+        ]);
         $service = app(ActivityAuditService::class);
 
-        $service->logAdmin(1, 'adjust_balance', [
+        $service->logAdmin((int) $admin->id, 'adjust_balance', [
             'user_id' => 123,
             'adjustment' => 1000,
         ]);
 
         $this->assertDatabaseHas('activity_logs', [
-            'admin_id' => 1,
+            'admin_id' => $admin->id,
             'type' => 'admin',
             'action' => 'adjust_balance',
         ]);

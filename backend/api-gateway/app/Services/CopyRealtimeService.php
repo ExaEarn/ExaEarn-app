@@ -14,17 +14,16 @@ class CopyRealtimeService
     public function record(int $userId, string $eventType, array $payload, string $stream = 'copy'): CopyRealtimeEvent
     {
         return DB::transaction(function () use ($eventType, $payload, $stream, $userId): CopyRealtimeEvent {
-            $last = (int) CopyRealtimeEvent::query()
+            $sequence = app(RealtimeSequenceService::class)->next("copy:{$userId}:{$stream}", fn (): int => (int) CopyRealtimeEvent::query()
                 ->where('user_id', $userId)
                 ->where('stream', $stream)
-                ->lockForUpdate()
-                ->max('sequence');
+                ->max('sequence'));
 
             $event = CopyRealtimeEvent::query()->create([
                 'event_id' => (string) Str::uuid(),
                 'user_id' => $userId,
                 'stream' => $stream,
-                'sequence' => $last + 1,
+                'sequence' => $sequence,
                 'event_type' => $eventType,
                 'payload' => $payload,
                 'published_at' => now(),

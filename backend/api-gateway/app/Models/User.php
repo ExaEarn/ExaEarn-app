@@ -27,6 +27,9 @@ class User extends Authenticatable implements MustVerifyEmailContract
         'withdrawal_locked_until',
         'last_withdrawal_at',
         'referral_code',
+        'phone',
+        'phone_country_code',
+        'phone_normalized',
         'phone_verified_at',
         'kyc_verified_at',
         'kyc_level',
@@ -126,6 +129,11 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function developerProfile(): HasOne
     {
         return $this->hasOne(DeveloperProfile::class);
+    }
+
+    public function legalConsents(): HasMany
+    {
+        return $this->hasMany(UserLegalConsent::class);
     }
 
     public function autoTradingStrategies(): HasMany

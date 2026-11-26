@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowRight,
@@ -27,6 +27,7 @@ import {
   Wallet,
 } from "lucide-react";
 import exaearnLogo from "../../assets/images/exaearn-logo.png";
+import { readSecurityPreferences, SECURITY_PREFERENCES_EVENT } from "../../security/securityPreferences";
 import "./responsiveDashboard.css";
 
 const ASSET_LOGOS = {
@@ -202,7 +203,37 @@ function ResponsiveDashboard({
   onAiAssistantOpen,
 }) {
   const [openMenu, setOpenMenu] = useState(null);
-  const [balanceVisible, setBalanceVisible] = useState(true);
+  const [balanceVisible, setBalanceVisible] = useState(() => !readSecurityPreferences().preferences.hideBalances);
+  const [privateNotifications, setPrivateNotifications] = useState(() => readSecurityPreferences().preferences.privateNotifications);
+
+  useEffect(() => {
+    const updatePreferences = (event) => {
+      const preferences = event.detail || readSecurityPreferences().preferences;
+      setBalanceVisible(!preferences.hideBalances);
+      setPrivateNotifications(preferences.privateNotifications);
+    };
+    const updateStoredPreferences = (event) => {
+      if (event.key === "exaearn-security-preferences-v1") {
+        const preferences = readSecurityPreferences().preferences;
+        setBalanceVisible(!preferences.hideBalances);
+        setPrivateNotifications(preferences.privateNotifications);
+      }
+    };
+    const hideWhileBackgrounded = () => {
+      if (document.visibilityState !== "visible" && readSecurityPreferences().preferences.hideBalances) {
+        setBalanceVisible(false);
+      }
+    };
+
+    window.addEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+    window.addEventListener("storage", updateStoredPreferences);
+    document.addEventListener("visibilitychange", hideWhileBackgrounded);
+    return () => {
+      window.removeEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+      window.removeEventListener("storage", updateStoredPreferences);
+      document.removeEventListener("visibilitychange", hideWhileBackgrounded);
+    };
+  }, []);
 
   const normalizedMarkets = useMemo(() => (markets || []).map(normalizeMarket), [markets]);
   const watchlist = useMemo(() => {
@@ -347,7 +378,10 @@ function ResponsiveDashboard({
           <header className="rd-section-head compact"><h2>Recent Activity</h2><button type="button" onClick={() => go("transactions")}>View All</button></header>
           {activity.length ? activity.map((item) => (
             <button type="button" className="rd-activity-row" key={item.id} onClick={() => go("transactions")}>
-              <span><strong>{item.title || "Account update"}</strong><small>{item.message || "Open activity details."}</small></span>
+              <span>
+                <strong>{privateNotifications ? "Private notification" : item.title || "Account update"}</strong>
+                <small>{privateNotifications ? "Open ExaEarn to view this notification." : item.message || "Open activity details."}</small>
+              </span>
               <ChevronRight size={15} />
             </button>
           )) : <p className="rd-muted">No recent account activity.</p>}

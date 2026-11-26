@@ -176,6 +176,7 @@ class SwapController extends Controller
         $swaps = Swap::query()
             ->where('user_id', (int) $request->user()->id)
             ->latest()
+            ->latest('id')
             ->paginate((int) $request->query('per_page', 20));
 
         return response()->json(['data' => $swaps]);

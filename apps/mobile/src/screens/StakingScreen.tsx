@@ -7,9 +7,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { useAuth } from "../context/AuthContext";
+import { mapBackendTransactionResult, type TransactionResult } from "../services/transactionResultMapper";
 import { colors, fonts } from "../theme/colors";
+import TransactionResultScreen from "./TransactionResultScreen";
 
-type Props = { fontsReady: boolean; onBack: () => void };
+type Props = { fontsReady: boolean; onBack: () => void; onOpenTransactions: () => void };
 type ApiEnvelope<T> = { data?: T | { data?: T }; message?: string; code?: string; status?: string };
 type ProviderHealth = { ready?: boolean; status?: string; message?: string };
 type StakingAsset = { id: number; symbol: string; network: string; readiness_status?: string; native_staking_enabled?: boolean | number; new_positions_enabled?: boolean | number; emergency_paused?: boolean | number; amount_precision?: number; expected_activation_seconds?: number | null; unbonding_period_seconds?: number | null; auto_compound_supported?: boolean | number; provider_health?: ProviderHealth };
@@ -63,7 +65,7 @@ const displayPortfolioApy = (value?: string | null, assets: StakingAsset[] = [])
 const messageForError = (error: unknown) => { if (!(error instanceof Error)) return "Something went wrong while talking to staking services."; const payload = (error as Error & { payload?: Record<string, unknown> }).payload; const code = String(payload?.code || ""); const mapped: Record<string, string> = { STAKING_ASSET_DISABLED: "This asset is not enabled for staking.", STAKING_PRODUCT_UNAVAILABLE: "This staking product is not accepting positions.", INSUFFICIENT_AVAILABLE_BALANCE: "Your available balance is not enough for this stake.", BELOW_MINIMUM_STAKE: "The amount is below the product minimum.", ABOVE_MAXIMUM_STAKE: "The amount is above the product maximum.", PRODUCT_CAPACITY_REACHED: "This product has reached capacity.", POSITION_NOT_ACTIVE: "This position is not active yet.", LOCK_PERIOD_ACTIVE: "This position is still inside its lock period.", UNSTAKING_ALREADY_REQUESTED: "An unstake request is already in progress.", NETWORK_UNAVAILABLE: "The staking network is currently unavailable.", PROVIDER_UNAVAILABLE: "The staking provider is currently unavailable.", TERMS_NOT_ACCEPTED: "Please accept the staking terms before continuing.", DUPLICATE_REQUEST: "This request was already submitted.", STAKING_EMERGENCY_PAUSED: "Staking is paused for this network.", TWO_FACTOR_REQUIRED: "Enter your two-factor code to continue.", INVALID_TRANSACTION_PIN: "The transaction PIN was not accepted." }; return mapped[code] || (/stack|sql|database|private|secret|signer/i.test(error.message) ? "The request could not be completed safely. Please try again later." : error.message); };
 const CardMetric = ({ label, value, accent }: { label: string; value: string; accent?: boolean }) => <View style={styles.metricCard}><Text style={styles.metricLabel}>{label}</Text><Text style={[styles.metricValue, accent ? styles.metricAccent : null]}>{value}</Text></View>;
 const Chip = ({ active, label, onPress }: { active?: boolean; label: string; onPress: () => void }) => <Pressable onPress={onPress} style={[styles.chip, active ? styles.chipActive : null]}><Text style={[styles.chipText, active ? styles.chipTextActive : null]}>{label}</Text></Pressable>;
-export default function StakingScreen({ fontsReady, onBack }: Props) {
+export default function StakingScreen({ fontsReady, onBack, onOpenTransactions }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { request, apiBaseUrl } = useAuth();
@@ -97,9 +99,11 @@ export default function StakingScreen({ fontsReady, onBack }: Props) {
   const [twoFactor, setTwoFactor] = useState("");
   const [modalError, setModalError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [transactionResult, setTransactionResult] = useState<TransactionResult | null>(null);
   const [success, setSuccess] = useState<{ publicId?: string; activation?: string; firstReward?: string } | null>(null);
   const loaded = useRef(false);
   const idempotency = useRef(`mobile-stake-${Date.now()}-${Math.round(Math.random() * 100000)}`);
+  const submissionLock = useRef(false);
 
   const assetById = useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const balanceBySymbol = useMemo(() => {
@@ -189,7 +193,7 @@ export default function StakingScreen({ fontsReady, onBack }: Props) {
 
   const openStake = (product: StakingProduct, seed = "") => { setAction({ mode: "stake", product }); setSelectedProductId(product.id); setStep(1); setAmount(seed); setAutoCompound(boolish(product.auto_compound_supported)); setTermsAccepted(false); setRiskAccepted(false); setPin(""); setTwoFactor(""); setModalError(""); setSuccess(null); idempotency.current = `mobile-stake-${product.id}-${Date.now()}-${Math.round(Math.random() * 100000)}`; };
   const openUnstake = (position: StakingPosition) => { setAction({ mode: "unstake", position }); setStep(3); setAmount(position.active_principal_amount || position.principal_amount || ""); setRiskAccepted(false); setPin(""); setTwoFactor(""); setModalError(""); idempotency.current = `mobile-unstake-${position.public_id}-${Date.now()}-${Math.round(Math.random() * 100000)}`; };
-  const openClaim = (mode: "claim-native" | "claim-exa", position: StakingPosition) => { setAction({ mode, position }); setStep(3); setRiskAccepted(true); setModalError(""); };
+  const openClaim = (mode: "claim-native" | "claim-exa", position: StakingPosition) => { setAction({ mode, position }); setStep(3); setRiskAccepted(true); setModalError(""); idempotency.current = `mobile-${mode}-${position.public_id}-${Date.now()}`; };
   const closeModal = () => { if (submitting) return; setAction(null); setSelectedProductId(null); setStep(1); setAmount(""); setAutoCompound(false); setTermsAccepted(false); setRiskAccepted(false); setPin(""); setTwoFactor(""); setModalError(""); setSuccess(null); };
   useEffect(() => {
     if (!filteredProducts.length) {
@@ -207,7 +211,8 @@ export default function StakingScreen({ fontsReady, onBack }: Props) {
   const canSubmitUnstake = Boolean(action?.mode === "unstake") && cmp(amount || "0", "0") > 0 && riskAccepted && !submitting;
   const canSubmitClaim = Boolean(action && (action.mode === "claim-native" || action.mode === "claim-exa")) && !submitting;
   const submit = async () => {
-    if (!action) return;
+    if (!action || submitting || submissionLock.current) return;
+    submissionLock.current = true;
     setSubmitting(true);
     setModalError("");
     try {
@@ -215,22 +220,56 @@ export default function StakingScreen({ fontsReady, onBack }: Props) {
         await request("/api/v1/staking/terms/accept", { method: "POST", body: JSON.stringify({ terms_version: selectedProduct.terms_version }) });
         const payload = await request<ApiEnvelope<StakingPosition>>("/api/v1/staking/positions", { method: "POST", body: JSON.stringify({ staking_product_id: selectedProduct.id, amount, auto_compound: autoCompound, terms_version: selectedProduct.terms_version, transaction_pin: pin || undefined, two_factor_code: twoFactor || undefined, idempotency_key: idempotency.current }) });
         const created = unwrapObject(payload);
+        setTransactionResult(mapBackendTransactionResult(payload, {
+          type: "Stake request",
+          fallbackReference: created?.public_id ?? idempotency.current,
+          amount,
+          asset: selectedProduct.symbol,
+          precision: selectedAsset?.amount_precision ?? 8,
+          source: "ExaEarn wallet",
+          destination: `${selectedProduct.name} staking`,
+        }));
         setSuccess({ publicId: created?.public_id, activation: selectedAsset?.expected_activation_seconds ? new Date(Date.now() + Number(selectedAsset.expected_activation_seconds) * 1000).toISOString() : undefined, firstReward: selectedAsset?.expected_activation_seconds ? new Date(Date.now() + Number(selectedAsset.expected_activation_seconds) * 1000 + 86400000).toISOString() : undefined });
         setNotice(`Stake request submitted for ${formatAmount(amount, selectedProduct.symbol)}. Position ${created?.public_id || "created"} is awaiting delegation.`);
         setStep(5);
         await load();
       } else if (action.mode === "unstake" && canSubmitUnstake) {
-        await request(`/api/v1/staking/positions/${action.position.public_id}/unstake`, { method: "POST", body: JSON.stringify({ amount, transaction_pin: pin || undefined, two_factor_code: twoFactor || undefined, idempotency_key: idempotency.current }) });
+        const payload = await request<Record<string, unknown>>(`/api/v1/staking/positions/${action.position.public_id}/unstake`, { method: "POST", body: JSON.stringify({ amount, transaction_pin: pin || undefined, two_factor_code: twoFactor || undefined, idempotency_key: idempotency.current }) });
+        setTransactionResult(mapBackendTransactionResult(payload, {
+          type: "Unstake request",
+          fallbackReference: idempotency.current,
+          amount,
+          asset: action.position.symbol,
+          precision: 8,
+          source: "Staking position",
+          destination: "ExaEarn wallet",
+        }));
         setNotice("Unstake request submitted. Principal is not available until network confirmation and release.");
         closeModal();
         await load();
       } else if (action.mode === "claim-native" && canSubmitClaim) {
-        await request(`/api/v1/staking/positions/${action.position.public_id}/claim-native-rewards`, { method: "POST" });
+        const payload = await request<Record<string, unknown>>(`/api/v1/staking/positions/${action.position.public_id}/claim-native-rewards`, { method: "POST" });
+        setTransactionResult(mapBackendTransactionResult(payload, {
+          type: "Native reward claim",
+          fallbackReference: "",
+          asset: action.position.symbol,
+          precision: 8,
+          source: "Staking rewards",
+          destination: "ExaEarn wallet",
+        }));
         setNotice("Native reward claim submitted.");
         closeModal();
         await load();
       } else if (action.mode === "claim-exa" && canSubmitClaim) {
-        await request(`/api/v1/staking/positions/${action.position.public_id}/claim-exatoken-rewards`, { method: "POST" });
+        const payload = await request<Record<string, unknown>>(`/api/v1/staking/positions/${action.position.public_id}/claim-exatoken-rewards`, { method: "POST" });
+        setTransactionResult(mapBackendTransactionResult(payload, {
+          type: "ExaToken reward claim",
+          fallbackReference: "",
+          asset: "EXA",
+          precision: 8,
+          source: "Staking rewards",
+          destination: "ExaEarn wallet",
+        }));
         setNotice("ExaToken bonus claim submitted.");
         closeModal();
         await load();
@@ -239,8 +278,22 @@ export default function StakingScreen({ fontsReady, onBack }: Props) {
       setModalError(messageForError(error));
       setPin("");
       setTwoFactor("");
-    } finally { setSubmitting(false); }
+    } finally { submissionLock.current = false; setSubmitting(false); }
   };
+
+  if (transactionResult) {
+    return (
+      <TransactionResultScreen
+        fontsReady={fontsReady}
+        transaction={transactionResult}
+        returnLabel="Back to Staking"
+        onReturn={() => {
+          setTransactionResult(null);
+          closeModal();
+        }}
+      />
+    );
+  }
 
   if (!fontsReady) return <LinearGradient colors={[colors.cosmic950, "#0d1424", "#09111d"]} style={styles.fill} />;
 
@@ -250,6 +303,9 @@ export default function StakingScreen({ fontsReady, onBack }: Props) {
         <Animated.View entering={FadeInDown.duration(420)} style={[styles.shell, { padding: shellPadding }]}>
           <View style={[styles.hero, isDesktopLike ? styles.heroDesktop : null]}><AnimatedPressable onPress={onBack} style={styles.back}><Ionicons name="arrow-back" size={16} color={colors.violetText} /><Text style={styles.backText}>Back</Text></AnimatedPressable><Text style={styles.eyebrow}>ExaEarn Staking</Text><Text style={styles.title}>Earn rewards with your crypto</Text><Text style={styles.subtitle}>Stake eligible assets from your ExaEarn balance and receive verified network rewards.</Text><View style={styles.warning}><Text style={styles.warningText}>Estimated APY is variable and not guaranteed. Locked products, validator performance, network fees, unbonding, and slashing can affect outcomes.</Text></View><View style={[styles.metricGrid, isDesktopLike ? styles.metricGridDesktop : null]}><CardMetric label="Portfolio value" value={formatAmount(totals.activePrincipal)} /><CardMetric label="Active principal" value={formatAmount(totals.activePrincipal)} /><CardMetric label="Rewards earned" value={formatAmount(totals.nativeRewards)} /><CardMetric label="Portfolio APY" value={displayPortfolioApy(averageApy, assets)} accent /><CardMetric label="Claimable native" value={formatAmount(totals.claimableNative)} accent /><CardMetric label="Active positions" value={String(totals.activeCount)} /></View><View style={styles.heroActions}><AnimatedPressable onPress={() => setFocusTab("earn")} style={styles.primary}><Text style={styles.primaryText}>Stake now</Text></AnimatedPressable><AnimatedPressable onPress={() => setFocusTab("positions")} style={styles.secondary}><Text style={styles.secondaryText}>My positions</Text></AnimatedPressable></View></View>
           {notice ? <View style={styles.notice}><Ionicons name="information-circle-outline" size={16} color={colors.auric300} /><Text style={styles.noticeText}>{notice}</Text></View> : null}
+          <AnimatedPressable onPress={onOpenTransactions} style={styles.secondary} accessibilityRole="button">
+            <Text style={styles.secondaryText}>View transaction history</Text>
+          </AnimatedPressable>
           <View style={styles.tabRow}>{(["earn","positions","rewards","campaigns"] as FocusTab[]).map((item) => <Chip key={item} active={focusTab === item} label={item === "earn" ? "Earn" : item === "positions" ? "My Positions" : item === "rewards" ? "Rewards" : "Campaigns"} onPress={() => setFocusTab(item)} />)}</View>
           {focusTab === "earn" ? (
             <Animated.View entering={FadeInUp.delay(60).duration(420)} style={styles.panel}>

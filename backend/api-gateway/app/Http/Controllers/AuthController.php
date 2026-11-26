@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\LoginDevice;
 use App\Models\User;
+use App\Models\ComplianceJurisdiction;
+use App\Models\UserLegalConsent;
 use App\Services\AuditLogService;
 use App\Services\DashboardExperienceRegistry;
 use App\Services\FraudDetectionService;
@@ -26,7 +28,9 @@ use RuntimeException;
 use App\Http\Middleware\Verify2FA;
 use App\Notifications\DeveloperPasswordResetNotification;
 use App\Services\SessionSecurityService;
+use App\Services\RecentAuthenticationService;
 use Illuminate\Support\Facades\Schema;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -39,7 +43,20 @@ class AuthController extends Controller
         private readonly ProfileIdentityService $profileIdentityService,
         private readonly ExperienceRecommendationService $experienceRecommendationService,
         private readonly SessionSecurityService $sessionSecurityService,
+        private readonly RecentAuthenticationService $recentAuthenticationService,
     ) {
+    }
+
+    private function currentPersonalAccessTokenId(User $user): ?int
+    {
+        $token = $user->currentAccessToken();
+        if (! $token instanceof PersonalAccessToken) {
+            return null;
+        }
+
+        $tokenId = $token->getKey();
+
+        return is_numeric($tokenId) ? (int) $tokenId : null;
     }
 
     private function userPayload(User $user): array
@@ -74,10 +91,33 @@ class AuthController extends Controller
             'dashboard_preferences.selected_mode' => ['nullable', 'in:' . implode(',', ExperienceRecommendationService::MODES)],
             'dashboard_preferences.onboarding_version' => ['nullable', 'integer', 'min:4'],
             'dashboard_preferences.onboarding_completed' => ['nullable', 'boolean'],
-            'registration_context' => ['nullable', 'string', 'in:exchange,developers'],
+            'registration_context' => ['nullable', 'string', 'in:exchange,developers,listing'],
+            'country' => ['exclude_unless:registration_context,listing', 'required', 'string', 'size:2'],
+            'terms_accepted' => ['exclude_unless:registration_context,listing', 'required', 'accepted'],
+            'listing_terms_accepted' => ['exclude_unless:registration_context,listing', 'required', 'accepted'],
         ]);
 
         $email = strtolower(trim((string) $validated['email']));
+
+        if (($validated['registration_context'] ?? null) === 'listing') {
+            $country = strtoupper((string) $validated['country']);
+            $jurisdiction = ComplianceJurisdiction::query()->where('country_code', $country)->first();
+            $available = $jurisdiction
+                && in_array($jurisdiction->status, ['ACTIVE', 'ALLOWED', 'SUPPORTED'], true)
+                && (!$jurisdiction->effective_from || $jurisdiction->effective_from->lte(now()))
+                && (!$jurisdiction->effective_to || $jurisdiction->effective_to->gt(now()));
+
+            if (!$available) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ExaEarn services are currently unavailable in this jurisdiction.',
+                    'code' => 'JURISDICTION_RESTRICTED',
+                    'errors' => ['country' => ['Registration is currently unavailable in this region.']],
+                ], 422);
+            }
+
+            $validated['country'] = $country;
+        }
 
         if (User::where('email', $email)->exists()) {
             return response()->json([
@@ -96,7 +136,30 @@ class AuthController extends Controller
                     'password' => Hash::make($validated['password']),
                     'unique_user_id' => $this->generateUniqueUserId(),
                     'preferences' => $dashboardPreferences !== [] ? ['dashboard' => $dashboardPreferences] : null,
+                    'residence_country' => $validated['country'] ?? null,
                 ]);
+
+                if (($validated['registration_context'] ?? null) === 'listing') {
+                    $consentContext = ['registration_context' => 'listing'];
+                    $fingerprints = [
+                        'ip_address_hash' => hash('sha256', (string) $request->ip()),
+                        'user_agent_hash' => hash('sha256', (string) $request->userAgent()),
+                    ];
+                    UserLegalConsent::query()->create(array_merge($fingerprints, [
+                        'user_id' => $user->id,
+                        'consent_type' => 'EXAEARN_TERMS_AND_PRIVACY',
+                        'document_version' => (string) config('listing.account_terms_version'),
+                        'accepted_at' => now(),
+                        'context' => $consentContext,
+                    ]));
+                    UserLegalConsent::query()->create(array_merge($fingerprints, [
+                        'user_id' => $user->id,
+                        'consent_type' => 'LISTING_PORTAL_TERMS',
+                        'document_version' => (string) config('listing.portal_terms_version'),
+                        'accepted_at' => now(),
+                        'context' => $consentContext,
+                    ]));
+                }
 
                 $this->referralService->ensureReferralCode($user);
 
@@ -129,6 +192,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         $request->session()->put('auth_recent_at', time());
+        $request->session()->put('auth_portal', ($validated['registration_context'] ?? null) === 'listing' ? 'listing' : 'exchange');
         $token = $user->createToken('auth_token')->plainTextToken;
 
         if (!$user->hasVerifiedEmail()) {
@@ -143,9 +207,11 @@ class AuthController extends Controller
             'message' => 'Account created successfully.',
             'token' => $token,
             'user' => $this->userPayload($user->fresh()),
-            'next' => ($validated['registration_context'] ?? null) === 'developers'
-                ? 'developer_email_verification'
-                : 'account_onboarding',
+            'next' => match ($validated['registration_context'] ?? null) {
+                'developers' => 'developer_email_verification',
+                'listing' => 'listing_email_verification',
+                default => 'account_onboarding',
+            },
         ], 201);
     }
 
@@ -158,6 +224,10 @@ class AuthController extends Controller
         if (!$user->hasVerifiedEmail()) {
             $user->markEmailAsVerified();
             $this->auditLogService->log($user->id, 'auth_email_verified', $request, ['source' => 'developers']);
+        }
+
+        if ($request->session()->get('auth_portal') === 'listing') {
+            return redirect(rtrim((string) config('app.listing_portal_url'), '/') . '/?verified=1');
         }
 
         return redirect(rtrim((string) config('app.developer_portal_url'), '/') . '/developers/onboarding?verified=1');
@@ -640,6 +710,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'email' => ['required', 'email'],
+            'portal_context' => ['nullable', 'string', 'in:exchange,developers,listing'],
         ]);
 
         $email = strtolower(trim((string) $validated['email']));
@@ -656,7 +727,7 @@ class AuthController extends Controller
 
         if ($user) {
             $token = Password::broker()->createToken($user);
-            $user->notify(new DeveloperPasswordResetNotification($token));
+            $user->notify(new DeveloperPasswordResetNotification($token, (string) ($validated['portal_context'] ?? 'exchange')));
         }
 
         return response()->json([
@@ -726,17 +797,25 @@ class AuthController extends Controller
             return response()->json(['success' => false, 'message' => 'Security confirmation failed.', 'code' => 'REAUTHENTICATION_FAILED'], 422);
         }
 
-        $request->session()->put('auth_recent_at', time());
+        $recentAuthWindow = (int) config('security.auth.recent_auth_seconds');
+        if (! $this->recentAuthenticationService->mark($request, $user, $recentAuthWindow)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This authentication session cannot be marked for sensitive actions.',
+                'code' => 'RECENT_AUTH_SESSION_UNAVAILABLE',
+            ], 409);
+        }
         $this->auditLogService->log($user->id, 'developer.auth.reauthentication.success', $request);
-        return response()->json(['success' => true, 'recent_auth_expires_in' => (int) config('security.auth.recent_auth_seconds')]);
+        return response()->json(['success' => true, 'recent_auth_expires_in' => $recentAuthWindow]);
     }
 
     public function sessions(Request $request)
     {
         /** @var User $user */
         $user = $request->user();
+        $currentTokenId = $this->currentPersonalAccessTokenId($user);
         return response()->json(['success' => true, 'data' => [
-            'sessions' => $this->sessionSecurityService->activeSessions($user),
+            'sessions' => $this->sessionSecurityService->activeSessions($user, $currentTokenId),
             'devices' => $user->loginDevices()->latest('last_login_at')->limit(20)->get()->map(fn (LoginDevice $device) => [
                 'id' => $device->id,
                 'device_name' => $device->device_name,
@@ -752,6 +831,24 @@ class AuthController extends Controller
         abort_unless($this->sessionSecurityService->revokeSession($request->user(), $tokenId), 404);
         $this->auditLogService->log($request->user()->id, 'developer.auth.session_revoked', $request, ['token_id' => $tokenId]);
         return response()->json(['success' => true]);
+    }
+
+    public function logoutOtherSessions(Request $request)
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $currentTokenId = $this->currentPersonalAccessTokenId($user);
+        if ($currentTokenId === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The current API session cannot be identified safely.',
+                'code' => 'CURRENT_SESSION_UNAVAILABLE',
+            ], 409);
+        }
+
+        $revokedCount = $this->sessionSecurityService->revokeOtherSessions($user, $currentTokenId);
+        $this->auditLogService->log($user->id, 'developer.auth.other_sessions_revoked', $request, ['revoked_count' => $revokedCount]);
+        return response()->json(['success' => true, 'revoked_count' => $revokedCount]);
     }
 
     public function logoutAll(Request $request)

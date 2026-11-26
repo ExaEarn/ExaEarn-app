@@ -19,6 +19,7 @@ use App\Services\FinancialDecimal;
 use App\Services\LedgerService;
 use App\Services\ReservationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Contracts\Pagination\CursorPaginator as CursorPaginatorContract;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -340,6 +341,16 @@ class CardService
                 'created_at' => $transaction->provider_created_at?->toISOString() ?? $transaction->created_at?->toISOString(),
             ])
             ->all();
+    }
+
+    public function userTransactionsCursor(User $user, int $perPage, ?string $cursor = null): CursorPaginatorContract
+    {
+        return CardTransaction::query()
+            ->where('user_id', $user->id)
+            ->with('card:id,network')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->cursorPaginate($perPage, ['*'], 'cursor', $cursor);
     }
 
     public function authorizations(User $user, string $cardUuid): array

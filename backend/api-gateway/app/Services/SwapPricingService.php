@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Carbon\CarbonImmutable;
 use RuntimeException;
+use Throwable;
 
 class SwapPricingService
 {
@@ -102,11 +104,31 @@ class SwapPricingService
         $ticker = $this->marketDataService->ticker("{$asset}/USDT");
         $price = (string) ($ticker['last_trade_price'] ?? $ticker['reference_price'] ?? $ticker['last_price'] ?? '0');
 
-        if (FinancialDecimal::compare($price, '0') <= 0) {
+        if (FinancialDecimal::compare($price, '0') <= 0 || !$this->hasTrustedFreshProvenance($ticker)) {
             throw new RuntimeException("No fresh price is available for {$asset}/USDT.");
         }
 
         return $price;
+    }
+
+    private function hasTrustedFreshProvenance(array $ticker): bool
+    {
+        if (!in_array($ticker['source'] ?? null, [
+            MarketDataService::SOURCE_INTERNAL,
+            MarketDataService::SOURCE_REFERENCE,
+        ], true)) {
+            return false;
+        }
+
+        try {
+            $observedAt = CarbonImmutable::parse((string) ($ticker['updated_at'] ?? ''));
+        } catch (Throwable) {
+            return false;
+        }
+
+        $maxAge = max(1, (int) config('swap.reference_price_max_age_seconds', 30));
+
+        return $observedAt->between(now()->subSeconds($maxAge), now()->addSeconds(5));
     }
 
     private function priceSource(string $from, string $to, string $routeType): array

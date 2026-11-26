@@ -6,6 +6,7 @@ namespace App\Services\Spot;
 
 use App\Models\Order;
 use App\Services\FinancialDecimal;
+use App\Services\MarketActivationService;
 use RuntimeException;
 
 class SpotMatchingEngine
@@ -16,6 +17,10 @@ class SpotMatchingEngine
      */
     public function match(Order $incoming, array $restingOrders, array $options = []): array
     {
+        if ($incoming->market_id) {
+            $market = $incoming->market()->first();
+            if ($market) app(MarketActivationService::class)->assertTradeable($market);
+        }
         $remaining = FinancialDecimal::normalize((string) $incoming->remaining_amount);
         $fills = [];
         $isBuy = $incoming->side === 'buy';

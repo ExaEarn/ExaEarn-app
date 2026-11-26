@@ -1,20 +1,52 @@
 {
   "expo": {
     "name": "ExaEarn",
-    "slug": "exaearn-mobile",
+    "slug": "exaearn",
     "scheme": "exaearn",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "@react-native-firebase/app",
+      "./plugins/withFirebaseAndroid",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow ExaEarn to use Face ID to unlock the app."
+        }
+      ],
+      "expo-secure-store"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "exaearn.com",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow ExaEarn to use Face ID to unlock the app."
+      }
     },
     "android": {
+      "package": "exaearn.com",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#07050f"
       },
       "edgeToEdgeEnabled": true
-    }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b26b731a-9072-440a-9d26-a2e827a2d0bb"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b26b731a-9072-440a-9d26-a2e827a2d0bb"
+      }
+    },
+    "owner": "exaearn9470"
   }
 }

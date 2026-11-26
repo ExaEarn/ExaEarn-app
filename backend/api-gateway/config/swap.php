@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 return [
     'quote_ttl_seconds' => (int) env('SWAP_QUOTE_TTL_SECONDS', 20),
+    'reference_price_max_age_seconds' => (int) env('SWAP_REFERENCE_PRICE_MAX_AGE_SECONDS', 30),
     'execution_retry_count' => (int) env('SWAP_EXECUTION_RETRY_COUNT', 3),
     'fee_percent' => (string) env('SWAP_FEE_PERCENT', '0.5'),
     'fx_spread_percent' => (string) env('SWAP_FX_SPREAD_PERCENT', '1.2'),

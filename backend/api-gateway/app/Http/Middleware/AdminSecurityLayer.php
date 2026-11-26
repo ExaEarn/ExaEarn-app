@@ -24,6 +24,10 @@ class AdminSecurityLayer
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        if ($user instanceof Admin && $user->status !== 'active') {
+            return response()->json(['message' => 'Admin account is disabled.'], 403);
+        }
+
         $whitelist = (array) config('security.admin.ip_whitelist', []);
         if ($whitelist !== [] && !in_array((string) $request->ip(), $whitelist, true)) {
             return response()->json(['message' => 'Admin access blocked from this IP.'], 403);
@@ -45,4 +49,3 @@ class AdminSecurityLayer
         return $next($request);
     }
 }
-

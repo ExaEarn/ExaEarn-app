@@ -151,6 +151,40 @@ class StakingController extends Controller
 
     public function transactions(Request $request): JsonResponse
     {
+        if ($request->boolean('cursor_mode')) {
+            $filters = $request->validate([
+                'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'cursor' => ['nullable', 'string', 'max:512'],
+            ]);
+            $page = $this->stakingService->userTransactionsCursor(
+                (int) $request->user()->id,
+                (int) ($filters['per_page'] ?? 30),
+                $filters['cursor'] ?? null,
+            );
+            $items = array_map(static fn (object $transaction): array => [
+                'transaction_id' => $transaction->public_id,
+                'type' => $transaction->transaction_type,
+                'amount' => (string) $transaction->amount,
+                'fee' => (string) $transaction->fee_amount,
+                'net_amount' => (string) $transaction->net_amount,
+                'currency' => $transaction->symbol,
+                'network' => $transaction->network,
+                'precision' => $transaction->precision,
+                'status' => $transaction->status,
+                'tx_hash' => $transaction->blockchain_transaction_hash,
+                'created_at' => $transaction->created_at,
+                'processed_at' => $transaction->processed_at,
+            ], $page->items());
+            return response()->json([
+                'data' => $items,
+                'meta' => [
+                    'next_cursor' => $page->nextCursor()?->encode(),
+                    'has_more' => $page->hasMorePages(),
+                    'per_page' => $page->perPage(),
+                ],
+            ]);
+        }
+
         return response()->json(['data' => $this->stakingService->userTransactions((int) $request->user()->id)]);
     }
 

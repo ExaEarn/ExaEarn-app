@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Admin;
 use App\Models\BlockchainAsset;
 use App\Models\BlockchainNetwork;
+use App\Models\ComplianceJurisdiction;
 use App\Models\ListingApplication;
 use App\Models\ListingAssetNetworkConfiguration;
 use App\Models\ListingAuditLog;
@@ -19,8 +20,16 @@ use App\Models\ListingTestRun;
 use App\Models\Market;
 use App\Models\Role;
 use App\Models\User;
+use App\Jobs\ExecuteListingLaunchEvent;
+use App\Services\ListingLifecycleService;
+use App\Notifications\DeveloperPasswordResetNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class Phase15AListingPortalTest extends TestCase
@@ -30,6 +39,12 @@ class Phase15AListingPortalTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config([
+            'listing.require_approved_kyb_for_listing_submission' => false,
+            'listing.integration_certification_execution_enabled' => true,
+        ]);
+        Queue::fake();
+        Redis::shouldReceive('publish')->zeroOrMoreTimes();
 
         config(['security-ratelimit.enabled' => false]);
     }
@@ -145,20 +160,31 @@ class Phase15AListingPortalTest extends TestCase
 
         $testResponse = $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/tests");
         $testResponse->assertAccepted()->assertJsonPath('data.overall_status', 'PASS');
+        $requiredResults = collect($testResponse->json('data.results'))->where('required', true);
+        $this->assertNotEmpty($requiredResults);
+        $this->assertTrue($requiredResults->every(fn (array $result): bool => $result['status'] === 'PASS' && $result['evidence'] !== []));
+        $this->assertFalse(collect($testResponse->json('data.results'))->contains('test_name', 'canonical_ledger_path'));
+        $this->assertSame(0, User::query()->where('email', 'like', 'listing-cert-%')->count(), 'Rollback-isolated certification users must not persist.');
+
+        $market->forceFill(['tick_size' => '0.0002'])->save();
+        $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/final-approval", [
+            'reason' => 'A stale certification must not authorize this changed market configuration.',
+        ])->assertStatus(422);
+        $market->forceFill(['tick_size' => '0.0001'])->save();
 
         $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/final-approval", [
             'reason' => 'All integration tests passed.',
         ])->assertOk()->assertJsonPath('data.integration_status', 'READY_FOR_LISTING');
 
         $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/schedule", [
-            'trading_open_at' => now()->addHour()->toISOString(),
+            'trading_open_at' => now()->toISOString(),
             'reason' => 'Maker cannot schedule as final approver.',
         ])->assertStatus(422);
 
         $scheduleResponse = $this->actingAs($checker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/schedule", [
             'announcement_at' => now()->toISOString(),
             'deposit_open_at' => now()->addMinutes(15)->toISOString(),
-            'trading_open_at' => now()->addHour()->toISOString(),
+            'trading_open_at' => now()->toISOString(),
             'withdrawal_open_at' => now()->addHours(2)->toISOString(),
             'reason' => 'Schedule approved after tests.',
         ]);
@@ -166,8 +192,11 @@ class Phase15AListingPortalTest extends TestCase
 
         $launchResponse = $this->actingAs($checker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/launch");
         $launchResponse->assertAccepted()
-            ->assertJsonPath('data.integration_status', 'LIVE')
-            ->assertJsonPath('data.asset_configuration.trading_enabled', true);
+            ->assertJsonPath('data.operation.operation_status', 'DISPATCHED');
+        Queue::pushed(ExecuteListingLaunchEvent::class)->each(
+            fn (ExecuteListingLaunchEvent $job) => $job->handle(app(ListingLifecycleService::class))
+        );
+        $this->assertSame('LIVE', ListingApplication::query()->where('reference', $reference)->value('integration_status'));
 
         $this->assertDatabaseHas('markets', [
             'symbol' => 'ATLAS/USDT',
@@ -235,6 +264,43 @@ class Phase15AListingPortalTest extends TestCase
 
         $this->actingAs($admin)->postJson("/api/admin/v1/listing-center/applications/{$reference}/asset-configuration", $payload)->assertCreated();
         $this->actingAs($admin)->postJson("/api/admin/v1/listing-center/applications/{$reference}/asset-configuration", $payload)->assertStatus(422);
+    }
+
+    public function test_listing_submission_requires_semantic_material_fields(): void
+    {
+        $owner = User::factory()->create();
+        BlockchainNetwork::query()->create([
+            'network' => 'ETHEREUM',
+            'family' => 'EVM',
+            'chain_id' => 1,
+            'native_asset' => 'ETH',
+            'state' => 'HEALTHY',
+        ]);
+
+        $organization = $this->actingAs($owner)->postJson('/api/listing/organizations', [
+            'legal_name' => 'Semantic Labs',
+            'project_name' => 'Semantic Token',
+            'jurisdiction' => 'US',
+        ])->assertCreated()->json('data');
+
+        $payload = $this->applicationPayload('BAD');
+        $payload['asset_information']['symbol'] = 'bad symbol';
+        $payload['blockchain_information']['contract_address'] = 'not-a-contract';
+        $payload['technology']['repository'] = 'not-a-url';
+        $payload['security']['audit_reports'] = [];
+        $payload['listing_request']['requested_pairs'] = ['BAD'];
+
+        $application = $this->actingAs($owner)
+            ->postJson('/api/listing/organizations/'.$organization['id'].'/applications', $payload)
+            ->assertCreated()
+            ->json('data');
+
+        $this->actingAs($owner)
+            ->postJson('/api/listing/applications/'.$application['reference'].'/submit', ['authorized_declaration' => true])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Application semantic validation failed: The asset information.symbol field format is invalid.');
+
+        $this->assertSame(0, \App\Models\ListingReview::query()->where('application_id', $application['id'])->count());
     }
 
     public function test_final_listing_automation_multi_network_scheduler_recovery_and_migration_safety(): void
@@ -324,6 +390,56 @@ class Phase15AListingPortalTest extends TestCase
             ->assertAccepted()
             ->assertJsonPath('data.overall_status', 'PASS');
         $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/final-approval", ['reason' => 'All final checks pass.'])->assertOk();
+
+        // Contract validation alone cannot authorize a financial deposit capability.
+        $this->actingAs($maker)->getJson("/api/admin/v1/listing-center/applications/{$reference}/deposit-readiness")
+            ->assertOk()
+            ->assertJsonPath('data.overall_status', 'BLOCKED');
+        $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/deposit-activation/request", [
+            'reason' => 'Contract validation is not sufficient.',
+        ])->assertStatus(422);
+
+        config(['custody.production_enabled' => true]);
+        $operationalEvidence = [
+            'address_generation' => 'PASS', 'memo_tag_policy' => 'PASS', 'deposit_monitor' => 'PASS',
+            'ledger_posting' => 'PASS', 'reconciliation' => 'PASS', 'risk_controls' => 'PASS',
+            'security_controls' => 'PASS', 'operational_runbook' => 'PASS',
+        ];
+        ListingAssetNetworkConfiguration::query()->where('application_id', ListingApplication::query()->where('reference', $reference)->value('id'))
+            ->get()->each(function (ListingAssetNetworkConfiguration $configuration) use ($operationalEvidence): void {
+                $configuration->update(['metadata' => ['deposit_readiness' => $operationalEvidence]]);
+                DB::table('custody_wallets')->insert([
+                    'wallet_id' => 'listing-certification-'.$configuration->id,
+                    'classification' => 'USER_DEPOSIT', 'network' => strtolower($configuration->network),
+                    'asset' => 'ORBT', 'address' => '0x'.str_pad(dechex($configuration->id), 40, '0', STR_PAD_LEFT),
+                    'status' => 'ACTIVE', 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            });
+
+        $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/deposit-activation/request", [
+            'reason' => 'All canonical deposit readiness gates passed.',
+        ])->assertAccepted()->assertJsonPath('data.status', 'REQUESTED');
+        $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/deposit-activation/approve")
+            ->assertStatus(422);
+        $this->actingAs($checker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/deposit-activation/approve")
+            ->assertOk()->assertJsonPath('data.status', 'APPROVED');
+
+        // A live market and development signer cannot authorize production withdrawals.
+        $this->actingAs($maker)->getJson("/api/admin/v1/listing-center/applications/{$reference}/withdrawal-readiness")
+            ->assertOk()
+            ->assertJsonPath('data.overall_status', 'BLOCKED')
+            ->assertJsonPath('data.networks.0.gates.SIGNER_READY.status', 'NOT_CONNECTED');
+        $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/withdrawal-activation/request", [
+            'reason' => 'Development signing must remain blocked.',
+        ])->assertStatus(422);
+
+        // Operational evidence is material configuration, so trading certification is rerun too.
+        $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/tests")
+            ->assertAccepted()->assertJsonPath('data.overall_status', 'PASS');
+        $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/final-approval", [
+            'reason' => 'Re-certified after deposit readiness configuration.',
+        ])->assertOk();
+
         $this->actingAs($checker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/schedule", [
             'announcement_at' => now()->subMinutes(20)->toISOString(),
             'deposit_open_at' => now()->subMinutes(15)->toISOString(),
@@ -335,15 +451,19 @@ class Phase15AListingPortalTest extends TestCase
         $this->assertSame(4, ListingLaunchEvent::query()->where('status', 'PENDING')->count());
         $this->actingAs($checker)->postJson('/api/admin/v1/listing-center/launch-events/process-due')
             ->assertAccepted();
+        Queue::pushed(ExecuteListingLaunchEvent::class)->each(
+            fn (ExecuteListingLaunchEvent $job) => $job->handle(app(ListingLifecycleService::class))
+        );
         $this->actingAs($checker)->postJson('/api/admin/v1/listing-center/launch-events/process-due')
             ->assertAccepted();
 
         $application = ListingApplication::query()->where('reference', $reference)->with(['assetConfiguration', 'networkConfigurations'])->firstOrFail();
         $this->assertSame('LIVE', $application->integration_status);
         $this->assertTrue((bool) $application->assetConfiguration->deposit_enabled);
-        $this->assertTrue((bool) $application->assetConfiguration->withdrawal_enabled);
+        $this->assertFalse((bool) $application->assetConfiguration->withdrawal_enabled);
         $this->assertTrue((bool) $application->assetConfiguration->trading_enabled);
-        $this->assertSame(2, BlockchainAsset::query()->where('asset', 'ORBT')->where('deposit_enabled', true)->where('withdrawal_enabled', true)->count());
+        $this->assertSame(0, BlockchainAsset::query()->where('asset', 'ORBT')->where('withdrawal_enabled', true)->count());
+        $this->assertSame('BLOCKED', ListingLaunchEvent::query()->where('event_type', 'WITHDRAWAL_OPEN')->value('status'));
         $this->assertSame(0, ListingLaunchEvent::query()->where('status', 'PENDING')->count());
 
         $this->actingAs($maker)->postJson("/api/admin/v1/listing-center/applications/{$reference}/token-migrations", [
@@ -364,6 +484,176 @@ class Phase15AListingPortalTest extends TestCase
             'plan' => ['effective_at' => now()->addWeek()->toISOString(), 'user_balance_impact' => 'none_before_swap'],
         ])->assertAccepted();
         $this->assertSame(1, ListingTokenMigration::query()->where('status', 'PENDING_APPROVAL')->count());
+    }
+
+    public function test_listing_draft_autosave_member_roles_and_private_document_authorization(): void
+    {
+        Storage::fake('local');
+        Storage::fake('listing_quarantine');
+        $owner = User::factory()->create();
+        $contributor = User::factory()->create();
+        $viewer = User::factory()->create();
+        $outsider = User::factory()->create();
+
+        $organization = $this->actingAs($owner)->postJson('/api/listing/organizations', [
+            'legal_name' => 'Governed Asset Labs',
+            'project_name' => 'Governed Asset',
+            'jurisdiction' => 'NG',
+        ])->assertCreated()->json('data');
+
+        $this->actingAs($owner)->postJson("/api/listing/organizations/{$organization['id']}/team", [
+            'email' => $contributor->email,
+            'role' => 'CONTRIBUTOR',
+        ])->assertCreated();
+        $this->actingAs($owner)->postJson("/api/listing/organizations/{$organization['id']}/team", [
+            'email' => $viewer->email,
+            'role' => 'VIEWER',
+        ])->assertCreated();
+
+        \App\Models\ListingTeamMember::query()->where('email', $contributor->email)->update(['user_id' => $contributor->id]);
+        \App\Models\ListingTeamMember::query()->where('email', $viewer->email)->update(['user_id' => $viewer->id]);
+
+        $payload = $this->applicationPayload('GOV');
+        $reference = (string) $this->actingAs($owner)
+            ->postJson("/api/listing/organizations/{$organization['id']}/applications", $payload)
+            ->assertCreated()->json('data.reference');
+
+        $payload['project_information']['summary'] = 'Updated through idempotent autosave.';
+        $this->actingAs($contributor)
+            ->postJson("/api/listing/organizations/{$organization['id']}/applications", $payload)
+            ->assertOk()->assertJsonPath('data.project_information.summary', 'Updated through idempotent autosave.');
+        $this->actingAs($viewer)
+            ->postJson("/api/listing/organizations/{$organization['id']}/applications", $payload)
+            ->assertStatus(422);
+
+        $document = $this->actingAs($contributor)->post("/api/listing/applications/{$reference}/documents", [
+            'document_type' => 'WHITEPAPER',
+            'file' => UploadedFile::fake()->create('whitepaper.pdf', 200, 'application/pdf'),
+        ])->assertCreated()->assertJsonPath('data.visibility', 'PRIVATE')->assertJsonPath('data.version', 1)->json('data');
+
+        $this->assertArrayNotHasKey('storage_path', $document);
+        $this->assertSame(64, strlen((string) $document['checksum_sha256']));
+        $this->actingAs($outsider)->get("/api/listing/applications/{$reference}/documents/{$document['document_uuid']}")->assertNotFound();
+        $this->actingAs($viewer)->get("/api/listing/applications/{$reference}/documents/{$document['document_uuid']}")->assertUnprocessable();
+        $reviewer = $this->admin('listing-malware-reviewer@example.com');
+        $this->actingAs($reviewer)->postJson("/api/admin/v1/listing-center/applications/{$reference}/approve", ['reason' => 'Must not use quarantined evidence.'])
+            ->assertUnprocessable()->assertJsonFragment(['message' => 'Listing approval blocked: current WHITEPAPER document is not malware-cleared.']);
+        \App\Models\ListingDocument::query()->where('document_uuid', $document['document_uuid'])->update(['scan_status' => 'INFECTED']);
+        $this->actingAs($viewer)->get("/api/listing/applications/{$reference}/documents/{$document['document_uuid']}")->assertUnprocessable();
+    }
+
+    public function test_information_request_and_rejection_are_explicit_audited_terminal_controls(): void
+    {
+        $owner = User::factory()->create();
+        $admin = $this->admin('listing-review-control@example.com');
+        $organization = $this->actingAs($owner)->postJson('/api/listing/organizations', [
+            'legal_name' => 'Review Controls Ltd', 'project_name' => 'Review Controls', 'jurisdiction' => 'NG',
+        ])->assertCreated()->json('data');
+        $reference = (string) $this->actingAs($owner)
+            ->postJson("/api/listing/organizations/{$organization['id']}/applications", $this->applicationPayload('CTRL'))
+            ->assertCreated()->json('data.reference');
+        $this->actingAs($owner)->postJson("/api/listing/applications/{$reference}/submit", ['authorized_declaration' => true])->assertAccepted();
+
+        $this->actingAs($admin)->postJson("/api/admin/v1/listing-center/applications/{$reference}/information-requests", [
+            'subject' => 'Updated legal opinion',
+            'body' => 'Please provide an updated jurisdiction-specific legal opinion.',
+        ])->assertCreated()->assertJsonPath('data.message_type', 'INFORMATION_REQUEST');
+        $this->assertDatabaseHas('listing_applications', ['reference' => $reference, 'application_status' => 'INFORMATION_REQUESTED']);
+
+        $this->actingAs($admin)->postJson("/api/admin/v1/listing-center/applications/{$reference}/reject", [
+            'reason' => 'Required legal evidence was not provided after formal request.',
+        ])->assertOk()->assertJsonPath('data.application_status', 'REJECTED');
+        $this->actingAs($admin)->postJson("/api/admin/v1/listing-center/applications/{$reference}/reject", [
+            'reason' => 'Attempting to repeat a terminal decision is prohibited.',
+        ])->assertStatus(422);
+        $this->assertDatabaseHas('listing_audit_logs', ['action' => 'listing.application.rejected']);
+    }
+
+    public function test_listing_signup_uses_canonical_user_identity_and_shared_session(): void
+    {
+        ComplianceJurisdiction::query()->create([
+            'country_code' => 'NG',
+            'country_name' => 'Nigeria',
+            'status' => 'ALLOWED',
+            'risk_level' => 'STANDARD',
+            'policy_version' => 'listing-test-v1',
+        ]);
+
+        $this->getJson('/api/registration/metadata')
+            ->assertOk()
+            ->assertJsonPath('data.countries.0.code', 'NG')
+            ->assertJsonPath('data.countries.0.registration_available', true);
+
+        $response = $this->postJson('/api/register', [
+            'name' => 'Listing Applicant',
+            'email' => 'canonical-listing@example.com',
+            'country' => 'NG',
+            'password' => 'Secure!Pass123',
+            'password_confirmation' => 'Secure!Pass123',
+            'terms_accepted' => true,
+            'listing_terms_accepted' => true,
+            'registration_context' => 'listing',
+        ]);
+        $response->assertCreated()
+            ->assertJsonPath('next', 'listing_email_verification')
+            ->assertJsonPath('user.email', 'canonical-listing@example.com');
+
+        $userId = (int) $response->json('user.id');
+        $this->assertDatabaseHas('users', ['id' => $userId, 'email' => 'canonical-listing@example.com', 'residence_country' => 'NG']);
+        $this->assertDatabaseMissing('listing_team_members', ['user_id' => $userId]);
+        $this->assertDatabaseHas('user_legal_consents', [
+            'user_id' => $userId,
+            'consent_type' => 'EXAEARN_TERMS_AND_PRIVACY',
+            'document_version' => config('listing.account_terms_version'),
+        ]);
+        $this->assertDatabaseHas('user_legal_consents', [
+            'user_id' => $userId,
+            'consent_type' => 'LISTING_PORTAL_TERMS',
+            'document_version' => config('listing.portal_terms_version'),
+        ]);
+
+        $this->postJson('/api/listing/organizations', [
+            'legal_name' => 'Canonical Identity Labs',
+            'project_name' => 'Canonical Identity',
+            'jurisdiction' => 'NG',
+        ])->assertCreated()->assertJsonPath('data.owner_user_id', $userId);
+    }
+
+    public function test_listing_signup_fails_closed_for_blocked_jurisdiction(): void
+    {
+        ComplianceJurisdiction::query()->create([
+            'country_code' => 'ZZ',
+            'country_name' => 'Restricted Test Region',
+            'status' => 'BLOCKED',
+            'risk_level' => 'PROHIBITED',
+            'policy_version' => 'listing-test-v1',
+        ]);
+
+        $this->postJson('/api/register', [
+            'name' => 'Restricted Applicant',
+            'email' => 'restricted-listing@example.com',
+            'country' => 'ZZ',
+            'password' => 'Secure!Pass123',
+            'password_confirmation' => 'Secure!Pass123',
+            'terms_accepted' => true,
+            'listing_terms_accepted' => true,
+            'registration_context' => 'listing',
+        ])->assertUnprocessable()->assertJsonPath('code', 'JURISDICTION_RESTRICTED');
+
+        $this->assertDatabaseMissing('users', ['email' => 'restricted-listing@example.com']);
+    }
+
+    public function test_listing_password_reset_notification_returns_to_listing_portal(): void
+    {
+        config(['app.listing_portal_url' => 'https://listing.exaearn.test']);
+        $user = User::factory()->create(['email' => 'listing-recovery@example.com']);
+
+        $message = (new DeveloperPasswordResetNotification('listing-reset-token', 'listing'))->toMail($user);
+
+        $this->assertSame(
+            'https://listing.exaearn.test/reset?token=listing-reset-token&email=listing-recovery%40example.com',
+            $message->actionUrl
+        );
     }
 
     private function applicationPayload(string $symbol = 'ATLAS'): array

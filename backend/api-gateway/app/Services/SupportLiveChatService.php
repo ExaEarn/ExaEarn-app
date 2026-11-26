@@ -258,13 +258,14 @@ class SupportLiveChatService
     private function message(SupportChat $chat, string $senderType, int $senderId, string $body, string $visibility, ?string $key): SupportChatMessage
     {
         return DB::transaction(function () use ($body, $chat, $key, $senderId, $senderType, $visibility): SupportChatMessage {
+            SupportChat::query()->whereKey($chat->id)->lockForUpdate()->firstOrFail();
             if ($key) {
                 $existing = SupportChatMessage::query()->where('chat_id', $chat->id)->where('idempotency_key', $key)->first();
                 if ($existing) {
                     return $existing;
                 }
             }
-            $sequence = ((int) SupportChatMessage::query()->where('chat_id', $chat->id)->lockForUpdate()->max('sequence')) + 1;
+            $sequence = ((int) SupportChatMessage::query()->where('chat_id', $chat->id)->max('sequence')) + 1;
             $message = SupportChatMessage::create([
                 'chat_id' => $chat->id,
                 'message_uuid' => (string) Str::uuid(),

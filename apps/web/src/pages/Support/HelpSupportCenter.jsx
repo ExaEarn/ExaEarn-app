@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   BellRing,
@@ -26,9 +26,10 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import { openLiveSupport } from "../../components/support/TawkToChat.jsx";
 
 const quickActions = [
-  { id: "chat", label: "Chat with Support", icon: BotMessageSquare, tone: "primary" },
+  { id: "chat", label: "Live Support", icon: BotMessageSquare, tone: "primary" },
   { id: "ticket", label: "Submit a Ticket", icon: Ticket },
   { id: "report", label: "Report Suspicious Activity", icon: ShieldAlert },
   { id: "status", label: "View System Status", icon: BellRing },
@@ -133,7 +134,7 @@ const articleSeed = [
   },
 ];
 
-function HelpSupportCenter({ onBack, onOpenLiveChat, onOpenTicketCenter }) {
+function HelpSupportCenter({ onBack, onOpenTicketCenter }) {
   const [search, setSearch] = useState("");
   const [openFaq, setOpenFaq] = useState(faqSeed[0].id);
   const [articleLimit, setArticleLimit] = useState(4);
@@ -166,7 +167,7 @@ function HelpSupportCenter({ onBack, onOpenLiveChat, onOpenTicketCenter }) {
 
   const triggerAction = (id) => {
     if (id === "chat") {
-      onOpenLiveChat?.();
+      void openLiveSupport().catch(() => fireToast("Live Support is unavailable right now. Please try again shortly."));
       return;
     }
     if (id === "ticket") {
@@ -367,9 +368,9 @@ function HelpSupportCenter({ onBack, onOpenLiveChat, onOpenTicketCenter }) {
                 <Mail className="h-4 w-4 text-[#D4AF37]" />
                 support@exaearn.io
               </button>
-              <button type="button" onClick={onOpenLiveChat} className="inline-flex items-center gap-2 hover:text-[#D4AF37]">
+              <button type="button" onClick={() => void openLiveSupport().catch(() => fireToast("Live Support is unavailable right now. Please try again shortly."))} className="inline-flex items-center gap-2 hover:text-[#D4AF37]">
                 <LifeBuoy className="h-4 w-4 text-[#D4AF37]" />
-                Live chat support
+                Live Support
               </button>
               <p className="inline-flex items-center gap-2">
                 <CircleHelp className="h-4 w-4 text-[#D4AF37]" />

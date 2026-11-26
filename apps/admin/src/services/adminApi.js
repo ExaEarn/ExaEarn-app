@@ -493,11 +493,12 @@ export async function fetchAdminBootstrap() {
         "dashboard.view", "users.view", "wallets.view", "transactions.view", "trade.manage", "listing.manage", "institutional.manage", "liquidity.manage", "staking.manage", "reward.manage",
         "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage", "games.view", "games.manage", "games.pause", "games.risk", "games.reconcile", "games.responsible_gaming", "games.settings", "giftcard.manage",
         "campaign.manage", "kyc.review", "notifications.send", "logs.view", "security.view", "settings.manage", "system.view",
+        "exapay.offline.view", "exapay.offline.manage",
       ],
       moderator: [
         "dashboard.view", "users.view", "transactions.view", "trade.manage", "listing.manage", "institutional.manage", "liquidity.manage", "reward.manage", "staking.manage",
         "nft.manage", "agri.manage", "sports.manage", "edtech.manage", "crowdfunding.manage", "lottery.manage", "games.view", "games.reconcile",
-        "giftcard.manage", "campaign.manage", "kyc.review", "logs.view", "security.view", "system.view",
+        "giftcard.manage", "campaign.manage", "kyc.review", "logs.view", "security.view", "system.view", "exapay.offline.view",
       ],
       support: ["dashboard.view", "users.view", "transactions.view", "kyc.review", "logs.view", "notifications.send"],
     },

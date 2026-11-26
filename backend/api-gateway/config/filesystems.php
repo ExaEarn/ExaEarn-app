@@ -38,6 +38,14 @@ return [
             'report' => false,
         ],
 
+        'listing_quarantine' => [
+            'driver' => 'local',
+            'root' => storage_path('app/quarantine/listing'),
+            'serve' => false,
+            'throw' => true,
+            'report' => true,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

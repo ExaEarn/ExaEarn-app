@@ -111,7 +111,7 @@ class MarginLiquidationService
                         try {
                             $limitPrice = $this->pricing->price($asset);
                             $order = $this->trades->placeOrder((int) $account->user_id, $market->symbol, 'sell', 'limit', $amount, $limitPrice, [
-                                'client_order_id' => "margin-liquidation:{$liquidation->liquidation_id}:{$asset}:{$debtAsset}:{$idempotencyKey}",
+                                'client_order_id' => 'mlq:'.substr((string) $liquidation->liquidation_id, 0, 12).":{$asset}:{$debtAsset}:".substr(hash('sha256', $idempotencyKey), 0, 16),
                                 'time_in_force' => 'IOC',
                                 'account_type' => $this->accounts->ledgerAccountType($account),
                                 'source' => 'MARGIN_LIQUIDATION',

@@ -30,6 +30,12 @@ spec:
     metadata: { labels: { app: api-gateway } }
     spec:
       terminationGracePeriodSeconds: 45
+      securityContext: { runAsNonRoot: true, fsGroup: 82, seccompProfile: { type: RuntimeDefault } }
+      volumes:
+        - name: runtime-storage
+          emptyDir: {}
+        - name: runtime-tmp
+          emptyDir: {}
       containers:
         - name: api
           image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
@@ -40,7 +46,10 @@ spec:
           livenessProbe: { httpGet: { path: /up, port: http }, initialDelaySeconds: 20, periodSeconds: 10, failureThreshold: 3 }
           lifecycle: { preStop: { exec: { command: ["/bin/sh","-c","sleep 10"] } } }
           resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
-          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: false, runAsNonRoot: true }
+          volumeMounts:
+            - { name: runtime-storage, mountPath: /app/storage }
+            - { name: runtime-tmp, mountPath: /tmp }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: { drop: ["ALL"] } }
 ---
 apiVersion: v1
 kind: Service
@@ -57,6 +66,12 @@ spec:
     metadata: { labels: { app: queue-worker } }
     spec:
       terminationGracePeriodSeconds: 120
+      securityContext: { runAsNonRoot: true, fsGroup: 82, seccompProfile: { type: RuntimeDefault } }
+      volumes:
+        - name: runtime-storage
+          emptyDir: {}
+        - name: runtime-tmp
+          emptyDir: {}
       containers:
         - name: worker
           image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
@@ -64,6 +79,10 @@ spec:
           envFrom: [{ configMapRef: { name: developer-platform-config } }, { secretRef: { name: developer-platform-secrets } }]
           lifecycle: { preStop: { exec: { command: ["php","artisan","queue:restart"] } } }
           resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
+          volumeMounts:
+            - { name: runtime-storage, mountPath: /app/storage }
+            - { name: runtime-tmp, mountPath: /tmp }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: { drop: ["ALL"] } }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -74,6 +93,12 @@ spec:
   template:
     metadata: { labels: { app: webhook-worker } }
     spec:
+      securityContext: { runAsNonRoot: true, fsGroup: 82, seccompProfile: { type: RuntimeDefault } }
+      volumes:
+        - name: runtime-storage
+          emptyDir: {}
+        - name: runtime-tmp
+          emptyDir: {}
       containers:
         - name: worker
           image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
@@ -81,6 +106,10 @@ spec:
           envFrom: [{ configMapRef: { name: developer-platform-config } }, { secretRef: { name: developer-platform-secrets } }]
           lifecycle: { preStop: { exec: { command: ["/bin/sh","-c","sleep 5"] } } }
           resources: { requests: { cpu: 150m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
+          volumeMounts:
+            - { name: runtime-storage, mountPath: /app/storage }
+            - { name: runtime-tmp, mountPath: /tmp }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: { drop: ["ALL"] } }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -91,12 +120,22 @@ spec:
   template:
     metadata: { labels: { app: scheduler } }
     spec:
+      securityContext: { runAsNonRoot: true, fsGroup: 82, seccompProfile: { type: RuntimeDefault } }
+      volumes:
+        - name: runtime-storage
+          emptyDir: {}
+        - name: runtime-tmp
+          emptyDir: {}
       containers:
         - name: scheduler
           image: registry.example.invalid/exaearn/api-gateway:RELEASE_SHA
           command: ["php","artisan","schedule:work"]
           envFrom: [{ configMapRef: { name: developer-platform-config } }, { secretRef: { name: developer-platform-secrets } }]
           resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 768Mi } }
+          volumeMounts:
+            - { name: runtime-storage, mountPath: /app/storage }
+            - { name: runtime-tmp, mountPath: /tmp }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: { drop: ["ALL"] } }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -109,6 +148,12 @@ spec:
     metadata: { labels: { app: realtime-gateway } }
     spec:
       terminationGracePeriodSeconds: 45
+      securityContext: { runAsNonRoot: true, fsGroup: 100, seccompProfile: { type: RuntimeDefault } }
+      volumes:
+        - name: runtime-logs
+          emptyDir: {}
+        - name: runtime-tmp
+          emptyDir: {}
       containers:
         - name: realtime
           image: registry.example.invalid/exaearn/realtime:RELEASE_SHA
@@ -117,10 +162,15 @@ spec:
           env:
             - { name: NODE_ENV, value: production }
             - { name: PORT, value: "4000" }
+            - { name: LOG_FILE, value: /workspace/logs/blockchain-service.log }
             - { name: DEVELOPER_REALTIME_AUTHORITY_URL, value: "http://api-gateway/api/internal/developer/realtime" }
           readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 5, periodSeconds: 5 }
           livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 10 }
           resources: { requests: { cpu: 500m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
+          volumeMounts:
+            - { name: runtime-logs, mountPath: /workspace/logs }
+            - { name: runtime-tmp, mountPath: /tmp }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: { drop: ["ALL"] } }
 ---
 apiVersion: v1
 kind: Service

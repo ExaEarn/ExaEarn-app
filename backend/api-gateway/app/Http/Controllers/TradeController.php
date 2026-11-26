@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Market;
 use App\Models\Order;
 use App\Models\Trade;
 use App\Services\MarketDataService;
@@ -66,35 +65,7 @@ class TradeController extends Controller
 
     public function createMarket(Request $request): JsonResponse
     {
-        $payload = $request->validate([
-            'symbol' => ['required', 'string', 'max:32'],
-            'base_currency' => ['required', 'string', 'max:16'],
-            'quote_currency' => ['required', 'string', 'max:16'],
-            'status' => ['nullable', 'string', 'max:20'],
-            'last_price' => ['nullable', 'numeric', 'gte:0'],
-            'price_precision' => ['nullable', 'numeric', 'gt:0'],
-            'min_order_size' => ['nullable', 'numeric', 'gte:0'],
-            'max_order_size' => ['nullable', 'numeric', 'gte:0'],
-            'maker_fee' => ['nullable', 'numeric', 'gte:0'],
-            'taker_fee' => ['nullable', 'numeric', 'gte:0'],
-        ]);
-
-        $market = Market::query()->updateOrCreate(
-            ['symbol' => strtoupper((string) $payload['symbol'])],
-            [
-                'base_currency' => strtoupper((string) $payload['base_currency']),
-                'quote_currency' => strtoupper((string) $payload['quote_currency']),
-                'status' => $payload['status'] ?? 'active',
-                'last_price' => $payload['last_price'] ?? 0,
-                'price_precision' => $payload['price_precision'] ?? 0.0001,
-                'min_order_size' => $payload['min_order_size'] ?? 0,
-                'max_order_size' => $payload['max_order_size'] ?? 0,
-                'maker_fee' => $payload['maker_fee'] ?? 0,
-                'taker_fee' => $payload['taker_fee'] ?? 0,
-            ]
-        );
-
-        return response()->json(['data' => $market], 201);
+        return response()->json(['message' => 'Production market management requires internal market governance authority.'], 403);
     }
 
     public function placeOrder(Request $request): JsonResponse
@@ -216,7 +187,8 @@ class TradeController extends Controller
                     ->whereHas('buyOrder', fn ($orderQuery) => $orderQuery->where('user_id', $request->user()->id))
                     ->orWhereHas('sellOrder', fn ($orderQuery) => $orderQuery->where('user_id', $request->user()->id));
             })
-            ->latest('executed_at');
+            ->latest('executed_at')
+            ->latest('id');
 
         if ($request->filled('pair')) {
             $query->where('pair', $this->normalizePair((string) $request->query('pair')));

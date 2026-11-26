@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { useAuth } from "../context/AuthContext";
+import { mapBackendTransactionResult, type TransactionResult } from "../services/transactionResultMapper";
 import { colors, fonts } from "../theme/colors";
+import TransactionResultScreen from "./TransactionResultScreen";
 
-type TradeScreenProps = { fontsReady: boolean; onBack: () => void };
+type TradeScreenProps = { fontsReady: boolean; onBack: () => void; onOpenTransactions: () => void };
 type TradePair = { pair: string; base: string; quote: string; name: string; colorA: string };
 type OrderBookEntry = { price: number; amount: number; depth: number };
 type MarginAccount = { account_uuid: string; mode: string; market_symbol?: string | null; status: string };
@@ -51,7 +53,7 @@ function BottomNavItem({ label, icon, active = false, onPress }: { label: string
   return <AnimatedPressable onPress={onPress} style={styles.bottomNavItem}><View style={[styles.bottomNavIconWrap, active ? styles.bottomNavIconWrapActive : null]}><Ionicons name={icon} size={16} color={active ? "#ffffff" : "#9aa4b2"} /></View><Text style={[styles.bottomNavLabel, active ? styles.bottomNavLabelActive : null]}>{label}</Text></AnimatedPressable>;
 }
 
-export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
+export default function TradeScreen({ fontsReady, onBack, onOpenTransactions }: TradeScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { request } = useAuth();
@@ -72,8 +74,11 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
   const [selectedMarginAccount, setSelectedMarginAccount] = useState("");
   const [borrowMode, setBorrowMode] = useState<"NORMAL" | "AUTO_BORROW" | "AUTO_REPAY">("NORMAL");
   const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [transactionResult, setTransactionResult] = useState<TransactionResult | null>(null);
   const [orderMessage, setOrderMessage] = useState("");
   const [orderError, setOrderError] = useState("");
+  const orderLock = useRef(false);
+  const clientOrderId = useRef(`mobile-margin-${Date.now()}`);
   const [bookTick, setBookTick] = useState(0);
   const [midPrice, setMidPrice] = useState(0);
   const [change24h, setChange24h] = useState(0);
@@ -166,6 +171,7 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
   }, [marginAccounts.length, mode, request]);
 
   const submitMarginOrder = async () => {
+    if (orderLock.current) return;
     setOrderMessage("");
     setOrderError("");
 
@@ -182,13 +188,14 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
       return;
     }
 
+    orderLock.current = true;
     setOrderSubmitting(true);
     try {
-      await request("/api/margin/orders", {
+      const response = await request<Record<string, unknown>>("/api/margin/orders", {
         method: "POST",
         body: JSON.stringify({
           account_uuid: selectedMarginAccount,
-          client_order_id: `mobile-margin-${Date.now()}`,
+          client_order_id: clientOrderId.current,
           pair,
           side,
           type: "limit",
@@ -197,14 +204,39 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
           borrow_mode: borrowMode,
         }),
       });
+      setTransactionResult(mapBackendTransactionResult(response, {
+        type: `${mode} ${side} order`,
+        fallbackReference: clientOrderId.current,
+        amount,
+        asset: selectedPair.base,
+        precision: 8,
+        source: "Margin account",
+        destination: selectedPair.pair,
+      }));
       setShowConfirm(false);
       setOrderMessage("Margin order submitted to the ExaEarn Spot engine.");
     } catch (error) {
       setOrderError(error instanceof Error ? error.message : "Margin order was rejected.");
     } finally {
+      orderLock.current = false;
       setOrderSubmitting(false);
     }
   };
+
+  if (transactionResult) {
+    return (
+      <TransactionResultScreen
+        fontsReady={fontsReady}
+        transaction={transactionResult}
+        returnLabel="Back to Trading"
+        onReturn={() => {
+          setTransactionResult(null);
+          setAmount("");
+          clientOrderId.current = `mobile-margin-${Date.now()}`;
+        }}
+      />
+    );
+  }
 
   if (!fontsReady) return <View style={styles.fill} />;
   return (
@@ -218,7 +250,7 @@ export default function TradeScreen({ fontsReady, onBack }: TradeScreenProps) {
                 <AnimatedPressable onPress={() => setShowPairMenu(true)} style={styles.pairSelectorButton}><PairBadge pair={selectedPair} compact /><Text style={styles.pairSelectorText}>{selectedPair.pair}</Text><Ionicons name="chevron-down-outline" size={15} color="#9aa4b2" /></AnimatedPressable>
               </View>
               <View style={styles.headerIconRow}>
-                <AnimatedPressable style={styles.headerIconButton}><Ionicons name="analytics-outline" size={16} color="#9aa4b2" /></AnimatedPressable>
+                <AnimatedPressable style={styles.headerIconButton} onPress={onOpenTransactions} accessibilityRole="button" accessibilityLabel="Transaction history"><Ionicons name="receipt-outline" size={16} color="#9aa4b2" /></AnimatedPressable>
                 <AnimatedPressable style={styles.headerIconButton}><Ionicons name="bar-chart-outline" size={16} color="#9aa4b2" /></AnimatedPressable>
                 <AnimatedPressable style={styles.headerIconButton}><Ionicons name="options-outline" size={16} color="#9aa4b2" /></AnimatedPressable>
               </View>

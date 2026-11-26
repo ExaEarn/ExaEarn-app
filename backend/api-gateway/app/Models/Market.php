@@ -10,6 +10,10 @@ class Market extends Model
 {
     protected $fillable = [
         'symbol',
+        'governance_source',
+        'listing_application_id',
+        'listing_launch_event_id',
+        'activated_at',
         'base_currency',
         'quote_currency',
         'status',
@@ -48,6 +52,7 @@ class Market extends Model
         'engine_mode_updated_at' => 'datetime',
         'external_routing_enabled' => 'boolean',
         'external_routing_policy' => 'array',
+        'activated_at' => 'datetime',
     ];
 
     public function orders(): HasMany

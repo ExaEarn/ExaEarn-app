@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\ListingApplication;
+use App\Models\ListingDocument;
 use App\Models\ListingOrganization;
+use App\Models\ListingTeamMember;
+use App\Models\User;
 use App\Services\ListingLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ListingPortalController extends Controller
 {
@@ -30,8 +34,8 @@ class ListingPortalController extends Controller
     public function organizations(Request $request): JsonResponse
     {
         return response()->json(['data' => ListingOrganization::query()
-            ->where('owner_user_id', $request->user()->id)
-            ->with('applications')
+            ->whereIn('id', $this->organizationIds($request))
+            ->with(['applications', 'teamMembers'])
             ->latest()
             ->get()]);
     }
@@ -57,11 +61,9 @@ class ListingPortalController extends Controller
 
     public function applications(Request $request): JsonResponse
     {
-        $organizationIds = ListingOrganization::query()->where('owner_user_id', $request->user()->id)->pluck('id');
-
         return response()->json(['data' => ListingApplication::query()
-            ->whereIn('organization_id', $organizationIds)
-            ->with(['organization', 'reviews', 'assetConfiguration', 'networkConfigurations', 'contractValidations', 'marketConfigurations', 'schedule', 'launchEvents'])
+            ->whereIn('organization_id', $this->organizationIds($request))
+            ->with(['organization', 'reviews', 'documents', 'messages' => fn ($query) => $query->where('internal_only', false), 'assetConfiguration', 'networkConfigurations', 'contractValidations', 'marketConfigurations', 'schedule', 'launchEvents'])
             ->latest()
             ->paginate((int) $request->query('per_page', 25))]);
     }
@@ -106,11 +108,10 @@ class ListingPortalController extends Controller
 
     public function show(Request $request, string $reference): JsonResponse
     {
-        $organizationIds = ListingOrganization::query()->where('owner_user_id', $request->user()->id)->pluck('id');
         $application = ListingApplication::query()
             ->where('reference', $reference)
-            ->whereIn('organization_id', $organizationIds)
-            ->with(['organization', 'reviews', 'assetConfiguration', 'networkConfigurations', 'contractValidations', 'marketConfigurations', 'schedule', 'launchEvents'])
+            ->whereIn('organization_id', $this->organizationIds($request))
+            ->with(['organization', 'reviews', 'documents', 'messages' => fn ($query) => $query->where('internal_only', false), 'assetConfiguration', 'networkConfigurations', 'contractValidations', 'marketConfigurations', 'schedule', 'launchEvents'])
             ->firstOrFail();
 
         return response()->json(['data' => $application]);
@@ -119,11 +120,8 @@ class ListingPortalController extends Controller
     public function message(Request $request, string $reference): JsonResponse
     {
         $payload = $request->validate(['subject' => ['nullable', 'string', 'max:140'], 'body' => ['required', 'string', 'max:5000']]);
-        $application = ListingApplication::query()->where('reference', $reference)->with('organization')->firstOrFail();
-
-        if ((int) $application->organization->owner_user_id !== (int) $request->user()->id) {
-            abort(404);
-        }
+        $application = $this->accessibleApplication($request, $reference);
+        $this->listings->assertOrganizationAccess($request->user(), $application->organization, ['OWNER', 'ADMIN', 'CONTRIBUTOR']);
 
         try {
             $message = $this->listings->sendMessage($application, 'user', (int) $request->user()->id, $payload, $request);
@@ -132,5 +130,68 @@ class ListingPortalController extends Controller
         }
 
         return response()->json(['data' => $message], 201);
+    }
+
+    public function team(Request $request, int $organizationId): JsonResponse
+    {
+        $organization = ListingOrganization::query()->findOrFail($organizationId);
+        $this->listings->assertOrganizationAccess($request->user(), $organization);
+
+        return response()->json(['data' => $organization->teamMembers()->latest()->get()]);
+    }
+
+    public function addTeamMember(Request $request, int $organizationId): JsonResponse
+    {
+        $organization = ListingOrganization::query()->findOrFail($organizationId);
+        $this->listings->assertOrganizationAccess($request->user(), $organization, ['OWNER', 'ADMIN']);
+        $payload = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'role' => ['required', 'string', 'in:ADMIN,CONTRIBUTOR,VIEWER'],
+            'metadata' => ['nullable', 'array'],
+        ]);
+        $member = ListingTeamMember::query()->updateOrCreate(
+            ['organization_id' => $organization->id, 'email' => strtolower($payload['email'])],
+            ['user_id' => User::query()->where('email', strtolower($payload['email']))->value('id'), 'role' => $payload['role'], 'status' => 'ACTIVE', 'metadata' => $payload['metadata'] ?? null]
+        );
+
+        return response()->json(['data' => $member], $member->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function uploadDocument(Request $request, string $reference): JsonResponse
+    {
+        $application = $this->accessibleApplication($request, $reference);
+        $payload = $request->validate([
+            'document_type' => ['required', 'string', 'in:WHITEPAPER,LEGAL_OPINION,INCORPORATION,CONTRACT_AUDIT,TOKENOMICS,VESTING,TEAM_VERIFICATION,TECHNICAL_DOCUMENTATION,LIQUIDITY_AGREEMENT,OTHER'],
+            'file' => ['required', 'file', 'max:'.config('listing.documents.max_size_kb'), 'mimes:pdf,png,jpg,jpeg'],
+        ]);
+
+        return response()->json(['data' => $this->listings->storeDocument($request->user(), $application, $payload, $request)], 201);
+    }
+
+    public function downloadDocument(Request $request, string $reference, string $documentUuid): BinaryFileResponse|JsonResponse
+    {
+        $application = $this->accessibleApplication($request, $reference);
+        $document = ListingDocument::query()->where('application_id', $application->id)->where('document_uuid', $documentUuid)->firstOrFail();
+
+        try {
+            return response()->download($this->listings->documentDownload($request->user(), $document), basename(str_replace(["\r", "\n"], '', $document->original_name)), ['Content-Type' => 'application/octet-stream']);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    private function accessibleApplication(Request $request, string $reference): ListingApplication
+    {
+        return ListingApplication::query()->where('reference', $reference)->whereIn('organization_id', $this->organizationIds($request))->with('organization')->firstOrFail();
+    }
+
+    private function organizationIds(Request $request)
+    {
+        $userId = (int) $request->user()->id;
+
+        return ListingOrganization::query()
+            ->where('owner_user_id', $userId)
+            ->orWhereHas('teamMembers', fn ($query) => $query->where('user_id', $userId)->where('status', 'ACTIVE'))
+            ->pluck('id');
     }
 }

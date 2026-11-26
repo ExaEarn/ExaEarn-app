@@ -17,6 +17,7 @@ use App\Services\CircuitBreakerService;
 use App\Services\ExchangeOperationalReadinessService;
 use App\Services\FinancialReconciliationService;
 use App\Services\InsuranceFundService;
+use App\Services\MarketActivationService;
 use App\Services\LendingPoolRiskService;
 use App\Services\TradingLoadProbeService;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +33,7 @@ class TradingOperationsController extends Controller
         private readonly LendingPoolRiskService $lending,
         private readonly InsuranceFundService $insurance,
         private readonly TradingLoadProbeService $loadProbe,
+        private readonly MarketActivationService $marketActivation,
     ) {
     }
 
@@ -109,7 +111,8 @@ class TradingOperationsController extends Controller
     {
         $data = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         $symbol = $this->normalizeSymbol($symbol);
-        Market::query()->where('symbol', $symbol)->update(['trading_status' => 'trading']);
+        $market = Market::query()->where('symbol', $symbol)->firstOrFail();
+        $this->marketActivation->resume($market, $request->user(), $data['reason']);
         $breaker = $this->breakers->transition('MARKET', $symbol, TradingCircuitBreaker::NORMAL, $data['reason'], $request->user()?->id, 'ADMIN_MARKET_RESUME', ['product' => 'spot']);
 
         return response()->json(['data' => $breaker]);

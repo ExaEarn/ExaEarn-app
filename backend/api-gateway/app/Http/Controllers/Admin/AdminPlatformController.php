@@ -35,6 +35,7 @@ use App\Models\UserReward;
 use App\Models\Wallet;
 use App\Services\AdminAuditService;
 use App\Services\LedgerService;
+use App\Services\MarketActivationService;
 use App\Services\NotificationService;
 use App\Services\PermissionService;
 use App\Services\ProfileIdentityService;
@@ -55,6 +56,7 @@ class AdminPlatformController extends Controller
         private readonly TransactionService $transactions,
         private readonly NotificationService $notifications,
         private readonly CryptoTreasuryService $treasuryService,
+        private readonly MarketActivationService $marketActivation,
     ) {}
 
     public function users(Request $request): JsonResponse
@@ -244,9 +246,11 @@ class AdminPlatformController extends Controller
             'symbol' => ['required', 'string', 'max:32'],
             'base_currency' => ['required', 'string', 'max:16'],
             'quote_currency' => ['required', 'string', 'max:16'],
-            'status' => ['nullable', 'string'],
+            'status' => ['prohibited'],
+            'trading_status' => ['prohibited'],
+            'governance_source' => ['prohibited'],
         ]);
-        $market = Market::query()->updateOrCreate(['symbol' => strtoupper($payload['symbol'])], array_merge($payload, ['symbol' => strtoupper($payload['symbol'])]));
+        $market = $this->marketActivation->createConfiguration($payload);
         $this->log($request, 'admin.market.upsert', $payload);
 
         return response()->json(['data' => $market], 201);
@@ -254,10 +258,18 @@ class AdminPlatformController extends Controller
 
     public function updatePair(Request $request): JsonResponse
     {
-        $payload = $request->validate(['symbol' => ['required', 'string'], 'data' => ['required', 'array']]);
+        $payload = $request->validate([
+            'symbol' => ['required', 'string'],
+            'data' => ['required', 'array'],
+            'data.status' => ['prohibited'],
+            'data.trading_status' => ['prohibited'],
+            'data.governance_source' => ['prohibited'],
+            'data.listing_application_id' => ['prohibited'],
+            'data.listing_launch_event_id' => ['prohibited'],
+            'data.activated_at' => ['prohibited'],
+        ]);
         $market = Market::query()->where('symbol', strtoupper($payload['symbol']))->firstOrFail();
-        $market->fill($payload['data']);
-        $market->save();
+        $market = $this->marketActivation->createConfiguration(array_merge($market->only(['symbol', 'base_currency', 'quote_currency']), $payload['data']));
         $this->log($request, 'admin.market.update', $payload);
 
         return response()->json(['data' => $market]);

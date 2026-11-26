@@ -1,0 +1,761 @@
+.exapay-home {
+  --exa-pay-bg: #090b10;
+  --exa-pay-surface: #111720;
+  --exa-pay-surface-raised: #151d27;
+  --exa-pay-border: rgba(224, 232, 241, 0.09);
+  --exa-pay-text: #eef2f7;
+  --exa-pay-muted: #929eae;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 48% -15%, rgba(214, 178, 75, 0.065), transparent 34%),
+    linear-gradient(145deg, #0b0e13 0%, var(--exa-pay-bg) 55%, #080a0e 100%);
+  color: var(--exa-pay-text);
+  padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+}
+
+.exapay-home button {
+  color: inherit;
+  font: inherit;
+}
+
+.exapay-home__page {
+  width: min(100% - 32px, 1120px);
+  margin: 0 auto;
+  padding: 22px 0 34px;
+}
+
+.exapay-home__header,
+.exapay-home__brand,
+.exapay-home__title-line,
+.exapay-home__balance-top,
+.exapay-home__section-heading,
+.exapay-home__tools,
+.exapay-home__offline-banner,
+.exapay-home__trusted,
+.exapay-home__merchant,
+.exapay-home__bottom-nav-inner,
+.exapay-home__nav-item {
+  display: flex;
+  align-items: center;
+}
+
+.exapay-home__header {
+  justify-content: space-between;
+  margin-bottom: 34px;
+}
+
+.exapay-home__brand {
+  gap: 11px;
+}
+
+.exapay-home__brand img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  border: 1px solid rgba(239, 215, 129, 0.22);
+  border-radius: 12px;
+  background: rgba(239, 215, 129, 0.055);
+  padding: 5px;
+}
+
+.exapay-home__brand > span {
+  display: grid;
+  gap: 2px;
+}
+
+.exapay-home__brand strong {
+  color: #eef2f7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.exapay-home__brand small {
+  color: #7f8a99;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+}
+
+.exapay-home__notification {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 14px;
+  background: var(--exa-pay-surface);
+  color: #c3ccd7;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.exapay-home__notification:hover {
+  border-color: var(--exa-border-active);
+  background: var(--exa-pay-surface-raised);
+}
+
+.exapay-home__intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 31px;
+}
+
+.exapay-home__title-line {
+  flex-wrap: wrap;
+  gap: 13px;
+}
+
+.exapay-home__intro h1 {
+  margin: 0;
+  color: var(--exa-pay-text);
+  font-family: "Sora", sans-serif;
+  font-size: clamp(30px, 4vw, 36px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.2;
+}
+
+.exapay-home__intro-copy > p {
+  margin: 8px 0 0;
+  color: var(--exa-pay-muted);
+  font-size: 14px;
+}
+
+.exapay-home__simulation {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(232, 184, 102, 0.22);
+  border-radius: 99px;
+  background: rgba(232, 184, 102, 0.07);
+  color: #e7c68e;
+  padding: 0 10px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.exapay-home__simulation > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e8b866;
+}
+
+.exapay-home__intro-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(239, 215, 129, 0.18);
+  border-radius: 17px;
+  background: rgba(239, 215, 129, 0.06);
+  color: var(--exa-gold-light);
+}
+
+.exapay-home__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -12px 0 22px;
+  border: 1px solid rgba(232, 184, 102, 0.24);
+  border-radius: 12px;
+  background: rgba(232, 184, 102, 0.08);
+  color: #ead2a6;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.exapay-home__notice button {
+  display: grid;
+  min-width: 32px;
+  min-height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.exapay-home__content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.exapay-home__main-column,
+.exapay-home__side-column {
+  display: grid;
+  min-width: 0;
+  gap: 22px;
+}
+
+.exapay-home__section-heading {
+  min-height: 30px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.exapay-home__section-heading h2 {
+  margin: 0;
+  color: #e7ebf1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.exapay-home__text-action {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--exa-gold-light) !important;
+  cursor: pointer;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+.exapay-home__balance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.exapay-home__balance-card {
+  min-width: 0;
+  min-height: 158px;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 17px;
+  background: linear-gradient(150deg, rgba(20, 28, 38, 0.98), rgba(16, 22, 30, 0.98));
+  padding: 14px;
+}
+
+.exapay-home__balance-top {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.exapay-home__icon-box {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+}
+
+.exapay-home__balance-card--online .exapay-home__icon-box {
+  background: rgba(98, 199, 232, 0.12);
+  color: #62c7e8;
+}
+
+.exapay-home__balance-card--offline .exapay-home__icon-box {
+  background: rgba(170, 145, 240, 0.12);
+  color: #b19cf0;
+}
+
+.exapay-home__status-pill {
+  display: inline-flex;
+  min-height: 23px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 99px;
+  padding: 3px 8px;
+  color: #c6cfda;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.exapay-home__status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.exapay-home__status-pill--connected {
+  background: rgba(98, 199, 232, 0.1);
+  color: #70cde9;
+}
+
+.exapay-home__status-pill--device,
+.exapay-home__status-pill--offline {
+  background: rgba(170, 145, 240, 0.11);
+  color: #c0aff4;
+}
+
+.exapay-home__status-pill--pending {
+  background: rgba(232, 184, 102, 0.12);
+  color: #e7c181;
+}
+
+.exapay-home__status-pill--success {
+  background: rgba(114, 211, 160, 0.11);
+  color: #78d6a4;
+}
+
+.exapay-home__balance-label {
+  margin: 13px 0 0;
+  color: #aeb8c7;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.exapay-home__balance-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: #f3f5f8;
+  font-family: "Sora", sans-serif;
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.exapay-home__balance-amount span {
+  color: #8995a5;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.exapay-home__action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.exapay-home__action {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 100px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 16px;
+  background: var(--exa-pay-surface);
+  padding: 13px 38px 13px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.exapay-home__action:hover {
+  transform: translateY(-1px);
+  border-color: rgba(226, 232, 240, 0.17);
+  background: var(--exa-pay-surface-raised);
+}
+
+.exapay-home__action-icon {
+  display: grid;
+  width: 33px;
+  height: 33px;
+  place-items: center;
+  margin-bottom: 10px;
+  border-radius: 10px;
+}
+
+.exapay-home__action-icon--blue {
+  background: rgba(98, 199, 232, 0.12);
+  color: #62c7e8;
+}
+
+.exapay-home__action-icon--violet {
+  background: rgba(170, 145, 240, 0.12);
+  color: #b19cf0;
+}
+
+.exapay-home__action-icon--green {
+  background: rgba(114, 211, 160, 0.12);
+  color: #72d3a0;
+}
+
+.exapay-home__action > strong {
+  color: #e4e9f0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.exapay-home__action-chevron {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  color: #788493;
+}
+
+.exapay-home__tools {
+  min-height: 52px;
+  justify-content: space-around;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 14px;
+  background: rgba(17, 23, 32, 0.72);
+  padding: 4px 8px;
+}
+
+.exapay-home__tools > span {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.exapay-home__tools button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #c2cad5;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.exapay-home__tools button:hover {
+  color: #eef2f7;
+}
+
+.exapay-home__offline-banner {
+  width: 100%;
+  min-height: 86px;
+  gap: 12px;
+  border: 1px solid rgba(170, 145, 240, 0.18);
+  border-radius: 16px;
+  background: linear-gradient(110deg, rgba(36, 31, 52, 0.74), rgba(21, 24, 34, 0.92));
+  padding: 13px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.exapay-home__offline-banner:hover {
+  border-color: rgba(170, 145, 240, 0.36);
+}
+
+.exapay-home__offline-icon,
+.exapay-home__trusted-icon,
+.exapay-home__merchant-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+}
+
+.exapay-home__offline-icon {
+  background: rgba(170, 145, 240, 0.12);
+  color: #b5a2ed;
+}
+
+.exapay-home__offline-copy,
+.exapay-home__trusted-copy,
+.exapay-home__merchant > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+.exapay-home__offline-copy strong,
+.exapay-home__trusted-copy strong,
+.exapay-home__merchant strong {
+  color: #e8eaf0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.exapay-home__offline-copy small,
+.exapay-home__trusted-copy small,
+.exapay-home__merchant small {
+  color: #a3a9b5;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.exapay-home__offline-banner > svg:last-child,
+.exapay-home__merchant > svg:last-child {
+  flex: 0 0 auto;
+  color: #8490a0;
+}
+
+.exapay-home__side-column {
+  gap: 16px;
+}
+
+.exapay-home__activity-section {
+  min-width: 0;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 17px;
+  background: var(--exa-pay-surface);
+  padding: 15px 16px 3px;
+}
+
+.exapay-home__activity-section .exapay-home__section-heading {
+  margin-bottom: 2px;
+}
+
+.exapay-home__activity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exapay-home__activity-row {
+  display: flex;
+  min-height: 79px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+  padding: 11px 0;
+}
+
+.exapay-home__activity-row.is-last {
+  border-bottom: 0;
+}
+
+.exapay-home__activity-copy {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 7px;
+}
+
+.exapay-home__activity-copy > strong {
+  overflow: hidden;
+  max-width: 100%;
+  color: #e3e8ef;
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exapay-home__activity-amount {
+  flex: 0 0 auto;
+  color: #e1e6ed;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.exapay-home__activity-amount span {
+  display: block;
+  margin-top: 3px;
+  color: #929dad;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.exapay-home__activity-amount.is-credit {
+  color: #72d3a0;
+}
+
+.exapay-home__trusted {
+  min-height: 75px;
+  gap: 11px;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 16px;
+  background: var(--exa-pay-surface);
+  padding: 12px;
+}
+
+.exapay-home__trusted-icon {
+  background: rgba(114, 211, 160, 0.1);
+  color: #72d3a0;
+}
+
+.exapay-home__trusted .exapay-home__status-pill {
+  gap: 4px;
+}
+
+.exapay-home__trusted .exapay-home__status-dot {
+  display: none;
+}
+
+.exapay-home__merchant {
+  width: 100%;
+  min-height: 68px;
+  gap: 11px;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 15px;
+  background: rgba(17, 23, 32, 0.65);
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.exapay-home__merchant:hover {
+  border-color: var(--exa-border-active);
+  background: var(--exa-pay-surface-raised);
+}
+
+.exapay-home__merchant-icon {
+  background: rgba(214, 178, 75, 0.09);
+  color: var(--exa-gold-light);
+}
+
+.exapay-home__bottom-nav {
+  position: fixed;
+  z-index: 30;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(9, 11, 16, 0.96);
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+  backdrop-filter: blur(16px);
+}
+
+.exapay-home__bottom-nav-inner {
+  width: min(100%, 1120px);
+  min-height: 60px;
+  justify-content: space-around;
+  gap: 5px;
+  margin: 0 auto;
+  border: 1px solid var(--exa-pay-border);
+  border-radius: 16px;
+  background: #111720;
+  padding: 5px;
+}
+
+.exapay-home__nav-item {
+  min-width: 0;
+  min-height: 48px;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #8792a1 !important;
+  cursor: pointer;
+}
+
+.exapay-home__nav-item span {
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.exapay-home__nav-item:hover {
+  color: #dce3ed !important;
+}
+
+.exapay-home__nav-item.is-active {
+  border: 1px solid rgba(239, 215, 129, 0.19);
+  background: rgba(239, 215, 129, 0.07);
+  color: var(--exa-gold-light) !important;
+}
+
+.exapay-home__nav-item.is-active span {
+  font-weight: 600;
+}
+
+.exapay-home button:focus-visible {
+  outline: 2px solid var(--exa-gold-light);
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .exapay-home__page {
+    width: min(100% - 28px, 560px);
+    padding-top: 14px;
+  }
+
+  .exapay-home__header {
+    margin-bottom: 24px;
+  }
+
+  .exapay-home__intro {
+    margin-bottom: 25px;
+  }
+
+  .exapay-home__content-grid {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .exapay-home__side-column {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .exapay-home__balance-grid {
+    gap: 8px;
+  }
+
+  .exapay-home__balance-card {
+    min-height: 154px;
+    padding: 11px;
+  }
+
+  .exapay-home__balance-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .exapay-home__balance-label {
+    margin-top: 10px;
+    font-size: 11px;
+  }
+
+  .exapay-home__balance-amount {
+    gap: 4px;
+    font-size: 22px;
+  }
+
+  .exapay-home__balance-amount span {
+    font-size: 9px;
+  }
+
+  .exapay-home__offline-copy small {
+    font-size: 10px;
+  }
+
+  .exapay-home__trusted {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .exapay-home__trusted .exapay-home__status-pill {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .exapay-home__nav-item span {
+    font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exapay-home *,
+  .exapay-home *::before,
+  .exapay-home *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

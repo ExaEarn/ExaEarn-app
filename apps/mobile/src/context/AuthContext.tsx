@@ -1,7 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 import { getApiBaseUrl } from "../config/apiConfig";
+import { AppApiError } from "../errors/errorTypes";
+import { appErrorFromException, parseRetryAfter } from "../errors/errorMessageRegistry";
 
 type ExaEarnUser = {
   id?: number | string;
@@ -25,6 +28,7 @@ type AuthContextValue = {
   user: ExaEarnUser | null;
   token: string;
   apiBaseUrl: string;
+  authReady: boolean;
   authLoading: boolean;
   authError: string;
   isGoogleAuthLoading: boolean;
@@ -51,8 +55,11 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const API_UNREACHABLE_MESSAGE = "Unable to reach the API. Check your backend URL and server.";
 const GOOGLE_UNAVAILABLE_MESSAGE = "Google login is not configured for the mobile web build yet.";
+const AUTH_TOKEN_KEY = "exaearn.auth.token.v1";
+const AUTH_TOKEN_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
 
 function getPayloadUser(payload: Record<string, unknown>): ExaEarnUser | null {
   const directUser = payload.user;
@@ -73,6 +80,7 @@ function getPayloadUser(payload: Record<string, unknown>): ExaEarnUser | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<ExaEarnUser | null>(null);
   const [token, setToken] = useState("");
+  const [authReady, setAuthReady] = useState(Platform.OS === "web");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [isGoogleAuthLoading] = useState(false);
@@ -80,8 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const apiBaseUrl = getApiBaseUrl();
   const isGoogleConfigured = false;
 
-  const request = useCallback(
-    async <T,>(path: string, options: RequestOptions = {}) => {
+  const requestWithToken = useCallback(
+    async <T,>(path: string, options: RequestOptions = {}, bearerToken = "") => {
       const normalizedBase = apiBaseUrl.replace(/\/+$/, "");
       const normalizedPath = path.startsWith("/") ? path : `/${path}`;
       const { headers: optionHeaders, ...restOptions } = options;
@@ -89,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const headers = {
         Accept: "application/json",
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
         ...(optionHeaders || {}),
       };
 
@@ -99,8 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...restOptions,
           headers,
         });
-      } catch {
-        throw new Error(API_UNREACHABLE_MESSAGE);
+      } catch (error) {
+        const timeout = error instanceof Error && (error.name === "AbortError" || /timeout/i.test(error.name));
+        const apiError = new AppApiError({ status: 0, backendCode: timeout ? "request_timeout" : "network_error", method: String(restOptions.method ?? "GET") });
+        apiError.message = appErrorFromException(apiError).message;
+        throw apiError;
       }
 
       let payload: Record<string, unknown> = {};
@@ -111,16 +122,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!response.ok || payload.status === "error") {
-        const error = new Error(String(payload.message || `Request failed (${response.status})`));
-        (error as Error & { status?: number; payload?: Record<string, unknown> }).status = response.status;
-        (error as Error & { status?: number; payload?: Record<string, unknown> }).payload = payload;
-        throw error;
+        // Keep only allowlisted diagnostic fields. Raw backend text may contain PII or internal details.
+        const safePayload = {
+          ...(typeof payload.code === "string" ? { code: payload.code.slice(0, 80) } : {}),
+          ...(typeof payload.error_code === "string" ? { error_code: payload.error_code.slice(0, 80) } : {}),
+          ...(typeof payload.reference === "string" ? { reference: payload.reference.slice(0, 100) } : {}),
+          ...(typeof payload.transaction_reference === "string" ? { transaction_reference: payload.transaction_reference.slice(0, 100) } : {}),
+        };
+        const apiError = new AppApiError({
+          status: response.status,
+          backendCode: typeof payload.code === "string" ? payload.code : typeof payload.error_code === "string" ? payload.error_code : undefined,
+          retryAfterMs: parseRetryAfter(response.headers.get("Retry-After")),
+          method: String(restOptions.method ?? "GET"),
+          payload: safePayload,
+        });
+        apiError.message = appErrorFromException(apiError).message;
+        throw apiError;
       }
 
       return payload as T;
     },
-    [apiBaseUrl, token],
+    [apiBaseUrl],
   );
+
+  const request = useCallback(
+    <T,>(path: string, options: RequestOptions = {}) => requestWithToken<T>(path, options, token),
+    [requestWithToken, token],
+  );
+
+  const establishSession = useCallback(async (nextToken: string, nextUser: ExaEarnUser | null) => {
+    if (!nextToken || !nextUser) {
+      throw new Error("The authentication service did not return a valid session.");
+    }
+
+    if (Platform.OS !== "web") {
+      let storageError: unknown;
+      try {
+        if (!(await SecureStore.isAvailableAsync())) {
+          throw new Error("OS-backed secure storage is unavailable.");
+        }
+        await SecureStore.setItemAsync(AUTH_TOKEN_KEY, nextToken, AUTH_TOKEN_OPTIONS);
+      } catch (error) {
+        storageError = error;
+      }
+
+      if (storageError) {
+        try {
+          await requestWithToken("/api/logout", { method: "POST" }, nextToken);
+        } catch {
+          throw new Error("Secure storage is unavailable and the new server session could not be revoked. Contact support or revoke it from another signed-in device.");
+        }
+        throw new Error("Secure storage is unavailable; sign-in was not completed.");
+      }
+    }
+
+    setToken(nextToken);
+    setUser(nextUser);
+    setAuthError("");
+  }, [requestWithToken]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function restoreSession() {
+      try {
+        if (Platform.OS === "web") return;
+        if (!(await SecureStore.isAvailableAsync())) {
+          if (active) setAuthError("OS-backed secure storage is unavailable. Sign in will not be persisted on this device.");
+          return;
+        }
+
+        const storedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY, AUTH_TOKEN_OPTIONS);
+        if (!storedToken) return;
+
+        const payload = await requestWithToken<Record<string, unknown>>("/api/user", { method: "GET" }, storedToken);
+        const restoredUser = getPayloadUser(payload);
+        if (!restoredUser) throw new Error("The account service did not return a valid user session.");
+        if (active) {
+          setToken(storedToken);
+          setUser(restoredUser);
+          setAuthError("");
+        }
+      } catch (error) {
+        const status = (error as Error & { status?: number }).status;
+        if (status === 401 || status === 419) {
+          try {
+            await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY, AUTH_TOKEN_OPTIONS);
+          } catch {
+            if (active) setAuthError("The saved session expired, but could not be cleared from secure device storage.");
+          }
+        } else if (active) {
+          setAuthError(error instanceof Error ? error.message : "The saved account session could not be restored.");
+        }
+      } finally {
+        if (active) setAuthReady(true);
+      }
+    }
+
+    void restoreSession();
+    return () => {
+      active = false;
+    };
+  }, [requestWithToken]);
 
   const startGoogleLogin = useCallback(() => {
     setGoogleAuthError(GOOGLE_UNAVAILABLE_MESSAGE);
@@ -150,8 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const nextToken = typeof payload.token === "string" ? payload.token : "";
         const nextUser = getPayloadUser(payload);
-        setToken(nextToken);
-        setUser(nextUser);
+        await establishSession(nextToken, nextUser);
         return { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : "Login failed.";
@@ -161,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
       }
     },
-    [request],
+    [establishSession, request],
   );
 
   const checkAccountAvailability = useCallback(
@@ -252,8 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const nextToken = typeof payload.token === "string" ? payload.token : "";
         const nextUser = getPayloadUser(payload);
-        setToken(nextToken);
-        setUser(nextUser);
+        await establishSession(nextToken, nextUser);
         return { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : "Registration failed.";
@@ -263,20 +364,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
       }
     },
-    [request],
+    [establishSession, request],
   );
 
   const logout = useCallback(async () => {
+    let logoutError = "";
     try {
       if (token) {
         await request("/api/logout", { method: "POST" });
       }
-    } catch {
-      // Logout should still clear the local app state.
+    } catch (error) {
+      logoutError = error instanceof Error ? error.message : "The server session could not be revoked.";
     } finally {
+      if (Platform.OS !== "web") {
+        try {
+          await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY, AUTH_TOKEN_OPTIONS);
+        } catch {
+          logoutError = "Signed out in this app, but the saved session could not be removed from secure device storage.";
+        }
+      }
       setUser(null);
       setToken("");
-      setAuthError("");
+      setAuthError(logoutError);
       setGoogleAuthError("");
     }
   }, [request, token]);
@@ -286,6 +395,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       apiBaseUrl,
+      authReady,
       authLoading,
       authError,
       isGoogleAuthLoading,
@@ -300,6 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       apiBaseUrl,
+      authReady,
       authError,
       authLoading,
       checkAccountAvailability,

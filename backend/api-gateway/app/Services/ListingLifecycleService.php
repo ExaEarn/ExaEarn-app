@@ -12,6 +12,8 @@ use App\Models\ListingAssetConfiguration;
 use App\Models\ListingAssetNetworkConfiguration;
 use App\Models\ListingAuditLog;
 use App\Models\ListingContractValidation;
+use App\Models\ListingDocument;
+use App\Models\ListingDepositActivationApproval;
 use App\Models\ListingLaunchEvent;
 use App\Models\ListingLaunchSchedule;
 use App\Models\ListingLiquidityRequirement;
@@ -19,19 +21,26 @@ use App\Models\ListingMarketConfiguration;
 use App\Models\ListingMessage;
 use App\Models\ListingOrganization;
 use App\Models\ListingReview;
+use App\Models\ListingReviewAssignment;
+use App\Models\ListingReviewDecisionEvent;
 use App\Models\ListingTestRun;
 use App\Models\ListingTokenMigration;
+use App\Models\ListingWithdrawalActivationApproval;
 use App\Models\Market;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 use App\Services\PersonalizedContent\ProductEventContentService;
 
 class ListingLifecycleService
 {
     public const REVIEW_TYPES = ['INITIAL', 'DUE_DILIGENCE', 'COMPLIANCE', 'TECHNICAL', 'SECURITY', 'LIQUIDITY', 'FINAL'];
+    public const MATERIAL_FIELDS = ['project_information', 'asset_information', 'blockchain_information', 'tokenomics', 'technology', 'security', 'legal_compliance', 'market_community', 'liquidity', 'listing_request'];
     public const APPLICATION_TRANSITIONS = [
         'DRAFT' => ['SUBMITTED'],
         'INFORMATION_REQUESTED' => ['SUBMITTED'],
@@ -95,13 +104,31 @@ class ListingLifecycleService
 
     public function saveDraft(User $user, ListingOrganization $organization, array $payload, ?Request $request = null): ListingApplication
     {
-        $this->assertOrganizationAccess($user, $organization);
+        $this->assertOrganizationAccess($user, $organization, ['OWNER', 'ADMIN', 'CONTRIBUTOR']);
         $idempotencyKey = $payload['idempotency_key'] ?? null;
 
         if ($idempotencyKey) {
             $existing = ListingApplication::query()->where('organization_id', $organization->id)->where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
-                return $existing;
+                if ($existing->application_status !== 'DRAFT' && $existing->application_status !== 'INFORMATION_REQUESTED') {
+                    throw new RuntimeException('Only draft or information-requested applications may be edited.');
+                }
+                $before = $existing->toArray();
+                $fields = array_merge(['application_type'], self::MATERIAL_FIELDS);
+                $updates = collect($fields)->mapWithKeys(fn (string $field): array => array_key_exists($field, $payload) ? [$field => $payload[$field]] : [])->all();
+                if (collect(self::MATERIAL_FIELDS)->contains(fn (string $field): bool => array_key_exists($field, $updates) && $updates[$field] !== $existing->{$field})) {
+                    $updates['application_revision'] = ((int) ($existing->application_revision ?? 1)) + 1;
+                    $updates['recommended_by_admin_id'] = null;
+                    $updates['recommended_at'] = null;
+                    $updates['recommended_revision'] = null;
+                    $this->invalidateCurrentReviews($existing, 'MATERIAL_APPLICANT_CHANGE');
+                }
+                $updates['progress_percent'] = $this->progress(array_merge($existing->toArray(), $payload));
+                $updates['risk_flags'] = $this->riskFlags(array_merge($existing->toArray(), $payload));
+                $existing->fill($updates)->save();
+                $this->audit($existing, 'user', $user->id, 'listing.application.draft_saved', 'listing_application', $existing->id, $before, $existing->fresh()->toArray(), null, $request);
+
+                return $existing->fresh();
             }
         }
 
@@ -114,6 +141,7 @@ class ListingLifecycleService
                 'application_type' => (string) ($payload['application_type'] ?? 'NEW_TOKEN_LISTING'),
                 'application_status' => 'DRAFT',
                 'integration_status' => 'NOT_STARTED',
+                'application_revision' => 1,
                 'progress_percent' => $this->progress($payload),
                 'project_information' => $payload['project_information'] ?? [],
                 'asset_information' => $payload['asset_information'] ?? [],
@@ -136,7 +164,10 @@ class ListingLifecycleService
 
     public function submit(User $user, ListingApplication $application, array $payload, ?Request $request = null): ListingApplication
     {
-        $this->assertOrganizationAccess($user, $application->organization);
+        $this->assertOrganizationAccess($user, $application->organization, ['OWNER', 'ADMIN']);
+        if ((bool) config('listing.require_approved_kyb_for_listing_submission') && $application->organization->kyb_status !== 'APPROVED') {
+            throw new RuntimeException('Organization KYB approval is required before a listing application can be submitted.');
+        }
         if ($application->application_status !== 'DRAFT' && $application->application_status !== 'INFORMATION_REQUESTED') {
             throw new RuntimeException('Only draft or information-requested applications can be submitted.');
         }
@@ -148,17 +179,73 @@ class ListingLifecycleService
         if ($missing !== []) {
             throw new RuntimeException('Application is missing sections: ' . implode(', ', $missing));
         }
+        $this->assertSemanticApplicationFields($application);
 
         $before = $application->toArray();
         $application->forceFill([
             'application_status' => 'SUBMITTED',
             'submitted_at' => now(),
             'progress_percent' => 100,
+            'application_revision' => ((int) ($application->application_revision ?? 1)) + 1,
         ])->save();
         $this->seedReviews($application);
         $this->audit($application, 'user', $user->id, 'listing.application.submitted', 'listing_application', $application->id, $before, $application->fresh()->toArray(), null, $request);
 
         return $application->fresh(['reviews']);
+    }
+
+    public function assignReview(Admin $admin, ListingApplication $application, array $payload, ?Request $request = null): ListingReviewAssignment
+    {
+        $type = strtoupper((string) $payload['review_domain']);
+        if (! in_array($type, self::REVIEW_TYPES, true)) {
+            throw new RuntimeException('Unsupported review domain.');
+        }
+
+        $reviewer = Admin::query()->findOrFail((int) $payload['reviewer_admin_id']);
+        $this->assertReviewerEligible($reviewer, $application, $type);
+
+        return DB::transaction(function () use ($admin, $application, $payload, $request, $reviewer, $type): ListingReviewAssignment {
+            $previous = ListingReviewAssignment::query()
+                ->where('application_id', $application->id)
+                ->where('review_domain', $type)
+                ->where('status', 'ACTIVE')
+                ->lockForUpdate()
+                ->first();
+
+            if ($previous && (int) $previous->reviewer_admin_id === (int) $reviewer->id) {
+                return $previous;
+            }
+
+            if ($previous) {
+                $previous->update(['status' => 'REASSIGNED', 'reassignment_reason' => (string) $payload['reason']]);
+            }
+
+            $assignment = ListingReviewAssignment::query()->create([
+                'assignment_uuid' => (string) Str::uuid(),
+                'application_id' => $application->id,
+                'review_domain' => $type,
+                'reviewer_admin_id' => $reviewer->id,
+                'assigned_by_admin_id' => $admin->id,
+                'assigned_at' => now(),
+                'status' => 'ACTIVE',
+                'reassignment_reason' => $payload['reason'] ?? null,
+            ]);
+
+            ListingReview::query()->updateOrCreate(
+                ['application_id' => $application->id, 'review_type' => $type],
+                [
+                    'review_uuid' => (string) (ListingReview::query()->where('application_id', $application->id)->where('review_type', $type)->value('review_uuid') ?: Str::uuid()),
+                    'reviewer_admin_id' => $reviewer->id,
+                    'assigned_by_admin_id' => $admin->id,
+                    'assigned_at' => now(),
+                    'assignment_reason' => $payload['reason'] ?? null,
+                ]
+            );
+
+            $this->audit($application, 'admin', $admin->id, $previous ? 'listing.review.reassigned' : 'listing.review.assigned', 'listing_review_assignment', $assignment->id, $previous?->toArray(), $assignment->toArray(), $payload['reason'] ?? null, $request);
+
+            return $assignment;
+        });
     }
 
     public function completeReview(Admin $admin, ListingApplication $application, array $payload, ?Request $request = null): ListingReview
@@ -167,30 +254,43 @@ class ListingLifecycleService
         if (! in_array($type, self::REVIEW_TYPES, true)) {
             throw new RuntimeException('Unsupported review type.');
         }
+        $this->assertExpectedRevision($application, $payload['expected_revision'] ?? null);
+        $this->assertReviewerEligible($admin, $application, $type);
+        $this->assertReviewAssignment($admin, $application, $type);
 
-        $review = ListingReview::query()->firstOrCreate(
-            ['application_id' => $application->id, 'review_type' => $type],
-            ['review_uuid' => (string) Str::uuid()]
-        );
-        $before = $review->toArray();
-        $review->fill([
-            'reviewer_admin_id' => $admin->id,
-            'status' => (string) $payload['status'],
-            'score' => $payload['score'] ?? null,
-            'scorecard' => $payload['scorecard'] ?? [],
-            'risk_flags' => $payload['risk_flags'] ?? [],
-            'notes' => $payload['notes'] ?? null,
-            'completed_at' => now(),
-        ])->save();
+        return DB::transaction(function () use ($admin, $application, $payload, $request, $type): ListingReview {
+            $application = ListingApplication::query()->whereKey($application->id)->lockForUpdate()->firstOrFail();
+            $this->assertExpectedRevision($application, $payload['expected_revision'] ?? null);
+            $review = ListingReview::query()->where('application_id', $application->id)->where('review_type', $type)->lockForUpdate()->first()
+                ?: ListingReview::query()->create(['application_id' => $application->id, 'review_type' => $type, 'review_uuid' => (string) Str::uuid()]);
+            $before = $review->toArray();
+            if (in_array($review->status, ['PASSED', 'PASSED_WITH_CONDITIONS', 'FAILED'], true) && (int) $review->application_revision === (int) $application->application_revision) {
+                throw new RuntimeException('REVIEW_ALREADY_DECIDED');
+            }
+            $fingerprint = $this->governanceFingerprint($application);
+            $review->fill([
+                'reviewer_admin_id' => $admin->id,
+                'status' => (string) $payload['status'],
+                'application_revision' => (int) $application->application_revision,
+                'configuration_fingerprint' => $fingerprint,
+                'score' => $payload['score'] ?? null,
+                'scorecard' => $payload['scorecard'] ?? [],
+                'risk_flags' => $payload['risk_flags'] ?? [],
+                'notes' => $payload['notes'] ?? null,
+                'completed_at' => now(),
+            ])->save();
 
-        $application->forceFill([
-            'risk_flags' => array_values(array_unique(array_merge($application->risk_flags ?? [], $review->risk_flags ?? []))),
-            'application_status' => $this->reviewStatusFor($type),
-        ])->save();
+            $application->forceFill([
+                'risk_flags' => array_values(array_unique(array_merge($application->risk_flags ?? [], $review->risk_flags ?? []))),
+                'application_status' => $this->reviewStatusFor($type),
+                'governance_fingerprint' => $fingerprint,
+            ])->save();
 
-        $this->audit($application, 'admin', $admin->id, 'listing.review.completed', 'listing_review', $review->id, $before, $review->fresh()->toArray(), $payload['notes'] ?? null, $request);
+            $this->decisionEvent($application, $review, $admin, $type, (string) $payload['status'], $payload['notes'] ?? null, ['scorecard' => $payload['scorecard'] ?? [], 'risk_flags' => $payload['risk_flags'] ?? []], $fingerprint);
+            $this->audit($application, 'admin', $admin->id, 'listing.review.completed', 'listing_review', $review->id, $before, $review->fresh()->toArray(), $payload['notes'] ?? null, $request);
 
-        return $review->fresh();
+            return $review->fresh();
+        });
     }
 
     public function recommendApproval(Admin $admin, ListingApplication $application, string $reason, ?Request $request = null): ListingApplication
@@ -199,11 +299,13 @@ class ListingLifecycleService
             throw new RuntimeException('Application is not ready for recommendation.');
         }
         $this->requireReviews($application);
+        $this->assertReviewerEligible($admin, $application, 'FINAL');
         $before = $application->toArray();
         $application->forceFill([
             'application_status' => 'FINAL_REVIEW',
             'recommended_by_admin_id' => $admin->id,
             'recommended_at' => now(),
+            'recommended_revision' => (int) ($application->application_revision ?? 1),
             'decision_reason' => $reason,
         ])->save();
         $this->audit($application, 'admin', $admin->id, 'listing.application.recommended', 'listing_application', $application->id, $before, $application->fresh()->toArray(), $reason, $request);
@@ -211,20 +313,64 @@ class ListingLifecycleService
         return $application->fresh();
     }
 
+    public function requestInformation(Admin $admin, ListingApplication $application, array $payload, ?Request $request = null): ListingMessage
+    {
+        if (in_array($application->application_status, ['APPROVED', 'REJECTED', 'WITHDRAWN'], true)) {
+            throw new RuntimeException('Information cannot be requested from a terminal application state.');
+        }
+        $this->assertReviewerEligible($admin, $application, 'INITIAL');
+        $before = $application->toArray();
+        $application->forceFill(['application_status' => 'INFORMATION_REQUESTED', 'application_revision' => ((int) ($application->application_revision ?? 1)) + 1, 'recommended_by_admin_id' => null, 'recommended_at' => null, 'recommended_revision' => null])->save();
+        $this->invalidateCurrentReviews($application, 'INFORMATION_REQUESTED');
+        $message = $this->sendMessage($application, 'admin', $admin->id, [
+            'message_type' => 'INFORMATION_REQUEST',
+            'subject' => $payload['subject'],
+            'body' => $payload['body'],
+            'internal_only' => false,
+        ], $request);
+        $this->audit($application, 'admin', $admin->id, 'listing.information.requested', 'listing_application', $application->id, $before, $application->fresh()->toArray(), $payload['body'], $request);
+
+        return $message;
+    }
+
+    public function rejectApplication(Admin $admin, ListingApplication $application, string $reason, ?Request $request = null): ListingApplication
+    {
+        if (in_array($application->application_status, ['APPROVED', 'REJECTED', 'WITHDRAWN'], true)) {
+            throw new RuntimeException('Application cannot be rejected from its current state.');
+        }
+        $this->assertReviewerEligible($admin, $application, 'FINAL');
+        $before = $application->toArray();
+        $application->forceFill([
+            'application_status' => 'REJECTED',
+            'rejected_by_admin_id' => $admin->id,
+            'rejected_at' => now(),
+            'decision_reason' => $reason,
+        ])->save();
+        $this->audit($application, 'admin', $admin->id, 'listing.application.rejected', 'listing_application', $application->id, $before, $application->fresh()->toArray(), $reason, $request);
+
+        return $application->fresh();
+    }
+
     public function approveApplication(Admin $admin, ListingApplication $application, string $reason, ?Request $request = null): ListingApplication
     {
+        app(ListingDocumentSecurityService::class)->assertListingDocumentsClean($application);
         if (! $application->recommended_by_admin_id) {
             throw new RuntimeException('Maker recommendation is required before approval.');
         }
         if ((int) $application->recommended_by_admin_id === (int) $admin->id) {
             throw new RuntimeException('Senior approver must be different from recommendation maker.');
         }
+        if ((int) ($application->recommended_revision ?? 0) !== (int) ($application->application_revision ?? 1)) {
+            throw new RuntimeException('STALE_REVISION');
+        }
+        $this->assertReviewerEligible($admin, $application, 'FINAL');
         $before = $application->toArray();
         $application->forceFill([
             'application_status' => 'APPROVED',
             'integration_status' => 'INTEGRATION',
             'approved_by_admin_id' => $admin->id,
             'approved_at' => now(),
+            'approved_revision' => (int) ($application->application_revision ?? 1),
             'decision_reason' => $reason,
         ])->save();
         $this->audit($application, 'admin', $admin->id, 'listing.application.approved', 'listing_application', $application->id, $before, $application->fresh()->toArray(), $reason, $request);
@@ -432,12 +578,10 @@ class ListingLifecycleService
         }
 
         return DB::transaction(function () use ($admin, $application, $base, $payload, $quote, $request, $symbol): ListingMarketConfiguration {
-            $market = Market::query()->create([
+            $market = app(MarketActivationService::class)->createConfiguration([
                 'symbol' => $symbol,
                 'base_currency' => $base,
                 'quote_currency' => $quote,
-                'status' => 'pre_launch',
-                'trading_status' => 'PRE_LAUNCH',
                 'engine_mode' => 'NEW_SPOT_ENGINE',
                 'liquidity_mode' => 'INTERNAL',
                 'price_authority_mode' => 'EXAEARN_INTERNAL',
@@ -451,7 +595,7 @@ class ListingLifecycleService
                 'min_notional' => $payload['min_notional'] ?? '0',
                 'maker_fee' => $payload['maker_fee'] ?? '0.00100000',
                 'taker_fee' => $payload['taker_fee'] ?? '0.00100000',
-            ]);
+            ], MarketActivationService::LISTING_GOVERNED, $application);
 
             $configuration = ListingMarketConfiguration::query()->create([
                 'market_config_uuid' => (string) Str::uuid(),
@@ -491,8 +635,20 @@ class ListingLifecycleService
 
     public function runListingTests(Admin $admin, ListingApplication $application, ?Request $request = null): ListingTestRun
     {
-        $results = $this->testResults($application);
-        $critical = collect($results)->filter(fn (array $row): bool => ($row['mandatory'] ?? false) && in_array($row['status'], ['FAIL', 'BLOCKED'], true))->values()->all();
+        $this->audit($application, 'admin', $admin->id, 'listing.certification.started', 'listing_application', $application->id, null, ['certification_version' => ListingIntegrationCertificationService::VERSION], null, $request);
+        $results = app(ListingIntegrationCertificationService::class)->run($application);
+        if (! $this->liquidityReady($application)) {
+            $prototype = $results[0] ?? [];
+            $results[] = array_merge($prototype, [
+                'test_name' => 'liquidity_precondition',
+                'status' => 'BLOCKED',
+                'required' => true,
+                'evidence' => [],
+                'error_code' => 'LIQUIDITY_NOT_READY',
+                'error_message' => 'Persisted liquidity requirements are not ready; executable liquidity verification remains a separate production gate.',
+            ]);
+        }
+        $critical = collect($results)->filter(fn (array $row): bool => ($row['required'] ?? false) && $row['status'] !== 'PASS')->values()->all();
         $run = ListingTestRun::query()->create([
             'test_run_uuid' => (string) Str::uuid(),
             'application_id' => $application->id,
@@ -506,6 +662,7 @@ class ListingLifecycleService
 
         $application->forceFill(['integration_status' => $critical === [] ? 'TESTING' : 'LAUNCH_BLOCKED'])->save();
         $this->audit($application, 'admin', $admin->id, 'listing.tests.executed', 'listing_test_run', $run->id, null, $run->toArray(), null, $request);
+        $this->audit($application, 'admin', $admin->id, $run->overall_status === 'PASS' ? 'listing.certification.completed' : 'listing.certification.failed', 'listing_test_run', $run->id, null, ['overall_status' => $run->overall_status, 'correlation_id' => data_get($results, '0.correlation_id'), 'configuration_fingerprint' => data_get($results, '0.configuration_fingerprint')], null, $request);
 
         return $run;
     }
@@ -567,7 +724,7 @@ class ListingLifecycleService
         });
     }
 
-    public function launch(Admin $admin, ListingApplication $application, ?Request $request = null): ListingApplication
+    public function launch(Admin $admin, ListingApplication $application, ?Request $request = null, ?ListingLaunchEvent $launchEvent = null): ListingApplication
     {
         if ($application->integration_status !== 'SCHEDULED') {
             throw new RuntimeException('Only scheduled listings can be launched.');
@@ -577,16 +734,14 @@ class ListingLifecycleService
             throw new RuntimeException('Launch-time revalidation failed.');
         }
 
-        return DB::transaction(function () use ($admin, $application, $request): ListingApplication {
+        return DB::transaction(function () use ($admin, $application, $request, $launchEvent): ListingApplication {
             $before = $application->toArray();
-            $application->forceFill(['integration_status' => 'LIVE'])->save();
-            $application->assetConfiguration?->update(['status' => 'LIVE', 'trading_enabled' => true]);
             foreach ($application->marketConfigurations as $configuration) {
+                if ($configuration->market_id) app(MarketActivationService::class)->activateListing($application, $configuration, $launchEvent, $admin);
                 $configuration->update(['status' => 'LIVE']);
-                if ($configuration->market_id) {
-                    Market::query()->whereKey($configuration->market_id)->update(['status' => 'active', 'trading_status' => 'TRADING']);
-                }
             }
+            $application->assetConfiguration?->update(['status' => 'LIVE', 'trading_enabled' => true]);
+            $application->forceFill(['integration_status' => 'LIVE'])->save();
             $application->schedule?->update(['status' => 'LIVE']);
             ListingLaunchEvent::query()->where('application_id', $application->id)->where('event_type', 'TRADING_OPEN')->update(['status' => 'EXECUTED', 'executed_at' => now(), 'result' => ['mode' => 'MANUAL_CONTROLLED_LAUNCH']]);
             $this->audit($application, 'admin', $admin->id, 'listing.launched', 'listing_application', $application->id, $before, $application->fresh()->toArray(), 'Launch-time checks passed.', $request);
@@ -595,25 +750,154 @@ class ListingLifecycleService
         });
     }
 
+    public function assertMarketActivationReady(ListingApplication $application): void
+    {
+        if (! $this->launchChecksPass($application)) {
+            throw new RuntimeException('Launch-time governance revalidation failed.');
+        }
+    }
+
     public function processDueLaunchEvents(?Admin $admin = null, ?Request $request = null): array
     {
-        $processed = [];
+        return app(ListingLaunchDispatcherService::class)->dispatchDue();
+    }
 
-        DB::transaction(function () use ($admin, &$processed, $request): void {
-            $events = ListingLaunchEvent::query()
-                ->where('status', 'PENDING')
-                ->whereNotNull('due_at')
-                ->where('due_at', '<=', now())
-                ->orderBy('due_at')
-                ->lockForUpdate()
-                ->get();
-            foreach ($events as $event) {
-                $application = ListingApplication::query()->with(['assetConfiguration', 'marketConfigurations', 'schedule', 'networkConfigurations'])->findOrFail($event->application_id);
-                $processed[] = $this->executeLaunchEvent($application, $event, $admin, $request);
+    public function executeDurableLaunchEvent(int $eventId, string $claimToken): array
+    {
+        $event = DB::transaction(function () use ($eventId, $claimToken): ?ListingLaunchEvent {
+            $event = ListingLaunchEvent::query()->lockForUpdate()->findOrFail($eventId);
+            if (in_array($event->operation_status, ListingLaunchEvent::TERMINAL_STATES, true)) {
+                return null;
             }
+            if ($event->claim_token !== $claimToken) {
+                return null;
+            }
+            if (! in_array($event->operation_status, ListingLaunchEvent::WORKER_CLAIMABLE_STATES, true)) {
+                return null;
+            }
+
+            $event->forceFill([
+                // This transition is the non-cancellable execution boundary.
+                'operation_status' => ListingLaunchEvent::EXECUTING,
+                'attempt_count' => ((int) $event->attempt_count) + 1,
+                'started_at' => $event->started_at ?: now(),
+                'last_heartbeat_at' => now(),
+                'lease_expires_at' => now()->addSeconds(max(30, (int) config('listing.launch.execution_lease_seconds', 180))),
+                'failure_code' => null,
+                'failure_reason' => null,
+            ])->save();
+            return $event;
         });
 
-        return $processed;
+        if (! $event) {
+            return ['status' => 'NOOP', 'idempotent' => true];
+        }
+
+        try {
+            $application = ListingApplication::query()->with([
+                'organization', 'assetConfiguration', 'marketConfigurations', 'schedule', 'networkConfigurations',
+            ])->findOrFail($event->application_id);
+            $currentFingerprint = app(ListingIntegrationCertificationService::class)->fingerprint($application);
+            if (! hash_equals((string) $event->configuration_fingerprint, $currentFingerprint)) {
+                return $this->blockDurableEvent($event, 'CONFIGURATION_FINGERPRINT_MISMATCH', 'Material Listing configuration changed after scheduling.');
+            }
+            if (! $this->protectedLaunchGatesPass($application)) {
+                return $this->blockDurableEvent($event, 'EXECUTION_REVALIDATION_FAILED', 'Current approval, KYB, document, certification, or readiness controls are not passing.');
+            }
+
+            $result = $this->executeLaunchEvent($application, $event, null, null);
+            $event->refresh();
+            $application->refresh()->load(['assetConfiguration', 'marketConfigurations', 'networkConfigurations']);
+            if ($event->status === 'EXECUTED' && ! $this->launchPostconditionsPass($application, $event)) {
+                $event->forceFill([
+                    'operation_status' => ListingLaunchEvent::PARTIALLY_FAILED, 'failure_code' => 'POSTCONDITION_VERIFICATION_FAILED',
+                    'failure_reason' => 'Canonical launch state does not match the intended capability scope.',
+                    'completed_at' => now(), 'lease_expires_at' => null,
+                ])->save();
+                return ['event' => $event->event_type, 'status' => 'PARTIALLY_FAILED'];
+            }
+            $terminal = $event->status === 'EXECUTED' ? ListingLaunchEvent::SUCCEEDED : ListingLaunchEvent::BLOCKED;
+            $event->forceFill([
+                'operation_status' => $terminal,
+                'completed_at' => now(),
+                'lease_expires_at' => null,
+                'failure_code' => $terminal === 'BLOCKED' ? (string) data_get($event->result, 'reason', 'READINESS_BLOCKED') : null,
+            ])->save();
+            return $result;
+        } catch (Throwable $exception) {
+            $event->refresh();
+            $exhausted = (int) $event->attempt_count >= max(1, (int) config('listing.launch.max_attempts', 3));
+            $event->forceFill([
+                'operation_status' => $exhausted ? ListingLaunchEvent::FAILED : ListingLaunchEvent::RETRY_PENDING,
+                'failure_code' => $exhausted ? 'RETRY_EXHAUSTED' : 'TRANSIENT_EXECUTION_FAILURE',
+                'failure_reason' => mb_substr($exception->getMessage(), 0, 2000),
+                'completed_at' => $exhausted ? now() : null,
+                'lease_expires_at' => null,
+            ])->save();
+            throw $exception;
+        }
+    }
+
+    public function cancelLaunchEvent(Admin $admin, ListingLaunchEvent $event, string $reason, ?Request $request = null): ListingLaunchEvent
+    {
+        return DB::transaction(function () use ($admin, $event, $reason, $request): ListingLaunchEvent {
+            $locked = ListingLaunchEvent::query()->lockForUpdate()->findOrFail($event->id);
+            if ($locked->operation_status === ListingLaunchEvent::EXECUTING) {
+                throw new RuntimeException('EXECUTION_IN_PROGRESS: launch operation is too late to cancel.');
+            }
+            if (! in_array($locked->operation_status, ListingLaunchEvent::CANCELLABLE_STATES, true)) {
+                throw new RuntimeException('Terminal launch operations cannot be cancelled.');
+            }
+            $locked->forceFill([
+                'operation_status' => ListingLaunchEvent::CANCELLED, 'status' => 'CANCELLED', 'completed_at' => now(),
+                'lease_expires_at' => null, 'failure_code' => 'CANCELLED_BY_OPERATOR', 'failure_reason' => $reason,
+            ])->save();
+            $application = ListingApplication::query()->findOrFail($locked->application_id);
+            $this->audit($application, 'admin', $admin->id, 'listing.launch.cancelled', 'listing_launch_event', $locked->id, null, $locked->toArray(), $reason, $request);
+            return $locked->fresh();
+        });
+    }
+
+    public function depositReadiness(ListingApplication $application, ?Admin $admin = null): array
+    {
+        $result = app(ListingDepositReadinessService::class)->evaluate($application, $admin);
+        $this->audit($application, $admin ? 'admin' : 'system', $admin?->id, 'listing.deposit_readiness.checked', 'listing_application', $application->id, null, $result, null, null);
+        return $result;
+    }
+
+    public function requestDepositActivation(Admin $admin, ListingApplication $application, string $reason, ?Request $request = null): ListingDepositActivationApproval
+    {
+        $approval = app(ListingDepositReadinessService::class)->requestApproval($application, $admin, $reason);
+        $this->audit($application, 'admin', $admin->id, 'listing.deposit_activation.requested', 'listing_deposit_activation_approval', $approval->id, null, $approval->toArray(), $reason, $request);
+        return $approval;
+    }
+
+    public function approveDepositActivation(Admin $admin, ListingApplication $application, ?Request $request = null): ListingDepositActivationApproval
+    {
+        $approval = app(ListingDepositReadinessService::class)->approve($application, $admin);
+        $this->audit($application, 'admin', $admin->id, 'listing.deposit_activation.approved', 'listing_deposit_activation_approval', $approval->id, null, $approval->toArray(), $approval->reason, $request);
+        return $approval;
+    }
+
+    public function withdrawalReadiness(ListingApplication $application, ?Admin $admin = null): array
+    {
+        $result = app(ListingWithdrawalReadinessService::class)->evaluate($application, $admin);
+        $this->audit($application, $admin ? 'admin' : 'system', $admin?->id, 'listing.withdrawal_readiness.checked', 'listing_application', $application->id, null, $result, null, null);
+        return $result;
+    }
+
+    public function requestWithdrawalActivation(Admin $admin, ListingApplication $application, string $reason, ?Request $request = null): ListingWithdrawalActivationApproval
+    {
+        $approval = app(ListingWithdrawalReadinessService::class)->requestApproval($application, $admin, $reason);
+        $this->audit($application, 'admin', $admin->id, 'listing.withdrawal_activation.requested', 'listing_withdrawal_activation_approval', $approval->id, null, $approval->toArray(), $reason, $request);
+        return $approval;
+    }
+
+    public function approveWithdrawalActivation(Admin $admin, ListingApplication $application, ?Request $request = null): ListingWithdrawalActivationApproval
+    {
+        $approval = app(ListingWithdrawalReadinessService::class)->approve($application, $admin);
+        $this->audit($application, 'admin', $admin->id, 'listing.withdrawal_activation.approved', 'listing_withdrawal_activation_approval', $approval->id, null, $approval->toArray(), $approval->reason, $request);
+        return $approval;
     }
 
     public function createTokenMigration(Admin $admin, ListingApplication $application, array $payload, ?Request $request = null): ListingTokenMigration
@@ -650,12 +934,50 @@ class ListingLifecycleService
         $reason = (string) $payload['reason'];
         $asset = $application->assetConfiguration;
 
+        if ($control === 'RESUME_DEPOSITS') {
+            $decision = app(ListingDepositReadinessService::class)->activationDecision($application);
+            if (! $decision['approved']) {
+                throw new RuntimeException('Deposit resume requires current readiness and a fresh dual approval.');
+            }
+            DB::transaction(function () use ($application, $asset, $decision): void {
+                $asset?->update(['deposit_enabled' => true, 'status' => 'LIVE']);
+                $application->networkConfigurations()->update(['deposit_enabled' => true]);
+                BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['deposit_enabled' => true]);
+                $decision['approval']->update(['status' => 'CONSUMED', 'consumed_at' => now()]);
+                $application->forceFill(['integration_status' => 'LIVE'])->save();
+            });
+            $this->audit($application, 'admin', $admin->id, 'listing.deposits.resumed', 'listing_application', $application->id, null, ['configuration_fingerprint' => $decision['configuration_fingerprint']], $reason, $request);
+            return $application->fresh(['assetConfiguration', 'networkConfigurations']);
+        }
+
+        if ($control === 'RESUME_WITHDRAWALS') {
+            $decision = app(ListingWithdrawalReadinessService::class)->activationDecision($application);
+            if (! $decision['approved']) {
+                throw new RuntimeException('Withdrawal resume requires current readiness and a fresh dual approval.');
+            }
+            DB::transaction(function () use ($application, $asset, $decision): void {
+                $asset?->update(['withdrawal_enabled' => true, 'status' => 'LIVE']);
+                $application->networkConfigurations()->update(['withdrawal_enabled' => true]);
+                BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['withdrawal_enabled' => true]);
+                $decision['approval']->update(['status' => 'CONSUMED', 'consumed_at' => now()]);
+                $application->forceFill(['integration_status' => 'LIVE'])->save();
+            });
+            $this->audit($application, 'admin', $admin->id, 'listing.withdrawals.resumed', 'listing_application', $application->id, null, ['configuration_fingerprint' => $decision['configuration_fingerprint']], $reason, $request);
+            return $application->fresh(['assetConfiguration', 'networkConfigurations']);
+        }
+
         if ($asset && in_array($control, ['PAUSE_DEPOSITS', 'PAUSE_WITHDRAWALS', 'PAUSE_TRADING'], true)) {
             if ($control === 'PAUSE_DEPOSITS') {
                 $asset->update(['deposit_enabled' => false, 'status' => 'LIVE_RESTRICTED']);
+                $application->networkConfigurations()->update(['deposit_enabled' => false]);
+                BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['deposit_enabled' => false]);
+                ListingDepositActivationApproval::query()->where('application_id', $application->id)->whereIn('status', ['REQUESTED', 'APPROVED'])->update(['status' => 'INVALIDATED']);
             }
             if ($control === 'PAUSE_WITHDRAWALS') {
                 $asset->update(['withdrawal_enabled' => false, 'status' => 'LIVE_RESTRICTED']);
+                $application->networkConfigurations()->update(['withdrawal_enabled' => false]);
+                BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['withdrawal_enabled' => false]);
+                ListingWithdrawalActivationApproval::query()->where('application_id', $application->id)->whereIn('status', ['REQUESTED', 'APPROVED'])->update(['status' => 'INVALIDATED']);
             }
             if ($control === 'PAUSE_TRADING') {
                 $asset->update(['trading_enabled' => false, 'status' => 'LIVE_RESTRICTED']);
@@ -687,6 +1009,58 @@ class ListingLifecycleService
         return $message;
     }
 
+    public function storeDocument(User $user, ListingApplication $application, array $payload, ?Request $request = null): ListingDocument
+    {
+        $this->assertOrganizationAccess($user, $application->organization, ['OWNER', 'ADMIN', 'CONTRIBUTOR']);
+        $file = $payload['file'];
+        $type = strtoupper((string) $payload['document_type']);
+        $version = ((int) ListingDocument::query()->where('application_id', $application->id)->where('document_type', $type)->max('version')) + 1;
+        $uuid = (string) Str::uuid();
+        $stored = app(ListingDocumentSecurityService::class)->storeQuarantined($file, 'listing', (string) $application->application_uuid, $uuid);
+
+        $document = ListingDocument::query()->create([
+            'document_uuid' => $uuid,
+            'application_id' => $application->id,
+            'uploaded_by' => $user->id,
+            'document_type' => $type,
+            'original_name' => $file->getClientOriginalName(),
+            'storage_disk' => $stored['storage_disk'],
+            'storage_path' => $stored['storage_path'],
+            'mime_type' => $stored['mime_type'],
+            'size_bytes' => $stored['size_bytes'],
+            'visibility' => 'PRIVATE',
+            'scan_status' => 'QUARANTINED',
+            'checksum_sha256' => $stored['checksum_sha256'],
+            'version' => $version,
+            'review_status' => 'PENDING',
+            'metadata' => ['scanner_adapter' => config('listing.malware_scanner_adapter', 'not_connected')],
+        ]);
+        $before = $application->toArray();
+        $application->forceFill([
+            'application_revision' => ((int) ($application->application_revision ?? 1)) + 1,
+            'recommended_by_admin_id' => null,
+            'recommended_at' => null,
+            'recommended_revision' => null,
+        ])->save();
+        $this->invalidateCurrentReviews($application->fresh(), 'DOCUMENT_REPLACED');
+        $this->audit($application, 'user', $user->id, 'listing.document.uploaded', 'listing_document', $document->id, null, $document->toArray(), null, $request);
+        $this->audit($application, 'system', null, 'listing.application.revision_changed', 'listing_application', $application->id, $before, $application->fresh()->toArray(), 'DOCUMENT_REPLACED', $request);
+        app(ListingDocumentSecurityService::class)->queue('listing', $document);
+
+        return $document;
+    }
+
+    public function documentDownload(User $user, ListingDocument $document): string
+    {
+        $this->assertOrganizationAccess($user, $document->application->organization);
+        app(ListingDocumentSecurityService::class)->assertDownloadable($document);
+        if (! Storage::disk($document->storage_disk)->exists($document->storage_path)) {
+            throw new RuntimeException('Document file is unavailable.');
+        }
+
+        return Storage::disk($document->storage_disk)->path($document->storage_path);
+    }
+
     private function seedReviews(ListingApplication $application): void
     {
         foreach (self::REVIEW_TYPES as $type) {
@@ -703,6 +1077,7 @@ class ListingLifecycleService
             ->where('application_id', $application->id)
             ->whereIn('review_type', ['COMPLIANCE', 'TECHNICAL', 'SECURITY', 'LIQUIDITY'])
             ->whereIn('status', ['PASSED', 'PASSED_WITH_CONDITIONS'])
+            ->where('application_revision', (int) ($application->application_revision ?? 1))
             ->count();
         if ($passed < 4) {
             throw new RuntimeException('Compliance, technical, security and liquidity reviews must pass before approval.');
@@ -742,49 +1117,110 @@ class ListingLifecycleService
 
     private function latestTestsPass(ListingApplication $application): bool
     {
-        return ListingTestRun::query()->where('application_id', $application->id)->latest('id')->value('overall_status') === 'PASS';
+        $run = ListingTestRun::query()->where('application_id', $application->id)->latest('id')->first();
+        if (! $run || $run->overall_status !== 'PASS') {
+            return false;
+        }
+
+        $fingerprint = app(ListingIntegrationCertificationService::class)->fingerprint($application);
+        $results = collect($run->results ?? []);
+
+        return $results->isNotEmpty()
+            && $results->every(fn (array $result): bool => ($result['configuration_fingerprint'] ?? null) === $fingerprint)
+            && $results->where('required', true)->every(fn (array $result): bool => ($result['status'] ?? null) === 'PASS');
     }
 
     private function testResults(ListingApplication $application): array
     {
-        $asset = $application->assetConfiguration;
-        $markets = $application->marketConfigurations;
-        $networks = $application->networkConfigurations;
-        $contractFailures = ListingContractValidation::query()
-            ->where('application_id', $application->id)
-            ->whereIn('status', ['FAIL', 'BLOCKED', 'OPERATIONAL_SETUP_REQUIRED'])
-            ->count();
-        $liquidityReady = $this->liquidityReady($application);
+        return app(ListingIntegrationCertificationService::class)->run($application);
+    }
 
-        return [
-            ['name' => 'network_supported', 'status' => $asset ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'multi_network_configuration', 'status' => $networks->count() > 0 ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'contract_validation', 'status' => $contractFailures === 0 && $networks->count() > 0 ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'contract_risk_flags_recorded', 'status' => ListingContractValidation::query()->where('application_id', $application->id)->exists() ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'contract_registered', 'status' => $asset?->blockchain_asset_id ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'deposit_disabled_before_launch', 'status' => $asset && ! $asset->deposit_enabled ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'withdrawal_disabled_before_launch', 'status' => $asset && ! $asset->withdrawal_enabled ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'market_created_pre_launch', 'status' => $markets->count() > 0 && $markets->every(fn ($m) => $m->status === 'PRE_LAUNCH') ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'no_manual_price', 'status' => Market::query()->whereIn('id', $markets->pluck('market_id')->filter())->where('last_price', '!=', '0')->exists() ? 'FAIL' : 'PASS', 'mandatory' => true],
-            ['name' => 'liquidity_readiness', 'status' => $liquidityReady ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'oms_integration', 'status' => $markets->every(fn ($m) => optional($m->market)->engine_mode === 'NEW_SPOT_ENGINE' || $m->market_id !== null) ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'matching_engine_integration', 'status' => $markets->count() > 0 ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'canonical_ledger_path', 'status' => 'PASS', 'mandatory' => true],
-            ['name' => 'market_data_registry', 'status' => $markets->count() > 0 ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'deposit_test', 'status' => 'NOT_APPLICABLE', 'mandatory' => false],
-            ['name' => 'withdrawal_test', 'status' => 'NOT_APPLICABLE', 'mandatory' => false],
-            ['name' => 'matching_test', 'status' => $markets->count() > 0 ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'partial_fill_test', 'status' => $markets->count() > 0 ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'cancel_test', 'status' => $markets->count() > 0 ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'fee_test', 'status' => $markets->every(fn ($m) => bccomp((string) $m->maker_fee, '0', 8) >= 0 && bccomp((string) $m->taker_fee, '0', 8) >= 0) ? 'PASS' : 'FAIL', 'mandatory' => true],
-            ['name' => 'developer_api_discovery', 'status' => 'PASS', 'mandatory' => false],
-            ['name' => 'websocket_discovery', 'status' => 'PASS', 'mandatory' => false],
-            ['name' => 'cache_invalidation', 'status' => 'PASS', 'mandatory' => false],
-        ];
+    private function assertExpectedRevision(ListingApplication $application, mixed $expectedRevision): void
+    {
+        if ($expectedRevision !== null && (int) $expectedRevision !== (int) ($application->application_revision ?? 1)) {
+            throw new RuntimeException('STALE_REVISION');
+        }
+    }
+
+    private function assertReviewerEligible(Admin $admin, ListingApplication $application, string $domain): void
+    {
+        if ($admin->status !== 'active') {
+            throw new RuntimeException('Admin account is disabled.');
+        }
+
+        $canonicalUserId = $admin->canonical_user_id ? (int) $admin->canonical_user_id : null;
+        if (! $canonicalUserId) {
+            return;
+        }
+
+        $organization = $application->organization;
+        if ((int) $organization->owner_user_id === $canonicalUserId
+            || $organization->teamMembers()->where('user_id', $canonicalUserId)->where('status', 'ACTIVE')->exists()
+            || $organization->people()->where('linked_user_id', $canonicalUserId)->exists()) {
+            throw new RuntimeException('CONFLICT_OF_INTEREST');
+        }
+    }
+
+    private function assertReviewAssignment(Admin $admin, ListingApplication $application, string $type): void
+    {
+        $assignment = ListingReviewAssignment::query()
+            ->where('application_id', $application->id)
+            ->where('review_domain', $type)
+            ->where('status', 'ACTIVE')
+            ->latest('id')
+            ->first();
+
+        if ($assignment && (int) $assignment->reviewer_admin_id !== (int) $admin->id) {
+            throw new RuntimeException('REVIEW_ASSIGNMENT_REQUIRED');
+        }
+
+        if (! $assignment && ! $admin->hasPermission('listing.review.assign')) {
+            throw new RuntimeException('REVIEW_ASSIGNMENT_REQUIRED');
+        }
+    }
+
+    private function invalidateCurrentReviews(ListingApplication $application, string $reason): void
+    {
+        ListingReview::query()
+            ->where('application_id', $application->id)
+            ->whereIn('status', ['PASSED', 'PASSED_WITH_CONDITIONS'])
+            ->update(['status' => 'NOT_STARTED', 'completed_at' => null]);
+
+        $this->audit($application, 'system', null, 'listing.approvals.invalidated', 'listing_application', $application->id, null, [
+            'reason' => $reason,
+            'application_revision' => (int) ($application->application_revision ?? 1),
+        ], $reason, null);
+    }
+
+    private function governanceFingerprint(ListingApplication $application): string
+    {
+        return hash('sha256', json_encode([
+            'application_revision' => (int) ($application->application_revision ?? 1),
+            'material' => collect(self::MATERIAL_FIELDS)->mapWithKeys(fn (string $field): array => [$field => $application->{$field}])->all(),
+            'documents' => $application->documents()->orderBy('document_type')->orderByDesc('version')->get(['document_type', 'version', 'checksum_sha256', 'scan_status'])->toArray(),
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    private function decisionEvent(ListingApplication $application, ListingReview $review, Admin $admin, string $domain, string $decision, ?string $reason, array $evidence, ?string $fingerprint): void
+    {
+        ListingReviewDecisionEvent::query()->create([
+            'event_uuid' => (string) Str::uuid(),
+            'application_id' => $application->id,
+            'review_id' => $review->id,
+            'review_domain' => $domain,
+            'reviewer_admin_id' => $admin->id,
+            'decision' => $decision,
+            'reason' => $reason,
+            'evidence' => $evidence,
+            'application_revision' => (int) ($application->application_revision ?? 1),
+            'configuration_fingerprint' => $fingerprint,
+            'decided_at' => now(),
+        ]);
     }
 
     private function seedLaunchEvents(ListingApplication $application, ListingLaunchSchedule $schedule): void
     {
+        $fingerprint = app(ListingIntegrationCertificationService::class)->fingerprint($application);
         foreach ([
             'ANNOUNCEMENT' => $schedule->announcement_at,
             'DEPOSIT_OPEN' => $schedule->deposit_open_at,
@@ -801,15 +1237,22 @@ class ListingLifecycleService
                 'application_id' => $application->id,
                 'event_type' => $type,
                 'status' => 'PENDING',
+                'operation_status' => 'SCHEDULED',
                 'due_at' => $dueAt,
-                'result' => ['schedule_uuid' => $schedule->schedule_uuid],
+                'configuration_fingerprint' => $fingerprint,
+                'launch_scope' => [$type],
+                'correlation_id' => (string) Str::uuid(),
+                'attempt_count' => 0,
+                'claim_token' => null,
+                'lease_expires_at' => null,
+                'result' => ['schedule_uuid' => $schedule->schedule_uuid, 'configuration_fingerprint' => $fingerprint],
             ]);
         }
     }
 
     private function executeLaunchEvent(ListingApplication $application, ListingLaunchEvent $event, ?Admin $admin, ?Request $request): array
     {
-        if ($event->status !== 'PENDING') {
+        if ($event->status !== 'PENDING' && $event->operation_status !== 'EXECUTING') {
             return ['event' => $event->event_type, 'status' => $event->status, 'idempotent' => true];
         }
 
@@ -843,7 +1286,7 @@ class ListingLifecycleService
                 $event->forceFill(['status' => 'BLOCKED', 'executed_at' => now(), 'result' => ['reason' => 'NO_SYSTEM_APPROVER_AVAILABLE']])->save();
                 return ['event' => 'TRADING_OPEN', 'status' => 'BLOCKED'];
             }
-            $this->launch($launcher, $application, $request);
+            $this->launch($launcher, $application, $request, $event);
             $event->forceFill(['status' => 'EXECUTED', 'executed_at' => now(), 'result' => ['market' => 'LIVE']])->save();
             return ['event' => 'TRADING_OPEN', 'status' => 'EXECUTED'];
         }
@@ -856,17 +1299,74 @@ class ListingLifecycleService
         return ['event' => $event->event_type, 'status' => 'BLOCKED'];
     }
 
+    private function protectedLaunchGatesPass(ListingApplication $application): bool
+    {
+        try {
+            if ($application->application_status !== 'APPROVED') {
+                return false;
+            }
+            if ((bool) config('listing.require_approved_kyb_for_listing_submission', true)) {
+                if ($application->organization?->kyb_status !== 'APPROVED') {
+                    return false;
+                }
+                app(ListingDocumentSecurityService::class)->assertKybDocumentsClean($application->organization);
+            }
+            app(ListingDocumentSecurityService::class)->assertListingDocumentsClean($application);
+            return $this->launchChecksPass($application);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function blockDurableEvent(ListingLaunchEvent $event, string $code, string $reason): array
+    {
+        $event->forceFill([
+            'operation_status' => 'BLOCKED', 'status' => 'BLOCKED', 'failure_code' => $code,
+            'failure_reason' => $reason, 'completed_at' => now(), 'executed_at' => now(), 'lease_expires_at' => null,
+            'result' => array_merge((array) $event->result, ['reason' => $code]),
+        ])->save();
+        return ['event' => $event->event_type, 'status' => 'BLOCKED', 'reason' => $code];
+    }
+
+    private function launchPostconditionsPass(ListingApplication $application, ListingLaunchEvent $event): bool
+    {
+        return match ($event->event_type) {
+            'ANNOUNCEMENT' => $event->status === 'EXECUTED',
+            'TRADING_OPEN' => $application->integration_status === 'LIVE'
+                && (bool) $application->assetConfiguration?->trading_enabled
+                && $application->marketConfigurations->isNotEmpty()
+                && $application->marketConfigurations->every(fn (ListingMarketConfiguration $market): bool => $market->status === 'LIVE')
+                && Market::query()->whereIn('id', $application->marketConfigurations->pluck('market_id')->filter())
+                    ->where(fn ($query) => $query->where('status', '!=', 'active')->orWhere('trading_status', '!=', 'TRADING'))->doesntExist(),
+            'DEPOSIT_OPEN' => (bool) $application->assetConfiguration?->deposit_enabled
+                && $application->networkConfigurations->every(fn (ListingAssetNetworkConfiguration $network): bool => (bool) $network->deposit_enabled),
+            'WITHDRAWAL_OPEN' => (bool) $application->assetConfiguration?->withdrawal_enabled
+                && $application->networkConfigurations->every(fn (ListingAssetNetworkConfiguration $network): bool => (bool) $network->withdrawal_enabled),
+            default => false,
+        };
+    }
+
     private function openDeposits(ListingApplication $application, ListingLaunchEvent $event, ?Admin $admin, ?Request $request): array
     {
-        if (! $this->contractValidationPasses($application)) {
-            $event->forceFill(['status' => 'BLOCKED', 'executed_at' => now(), 'result' => ['reason' => 'CONTRACT_VALIDATION_NOT_PASSING']])->save();
+        $decision = app(ListingDepositReadinessService::class)->activationDecision($application);
+        if (! $this->contractValidationPasses($application) || ! $decision['approved']) {
+            $reason = ! $this->contractValidationPasses($application) ? 'CONTRACT_VALIDATION_NOT_PASSING' : 'DEPOSIT_READINESS_OR_APPROVAL_NOT_PASSING';
+            $event->forceFill(['status' => 'BLOCKED', 'executed_at' => now(), 'result' => [
+                'reason' => $reason,
+                'blocking_gates' => $decision['blocking_gates'],
+                'configuration_fingerprint' => $decision['configuration_fingerprint'],
+            ]])->save();
+            $this->audit($application, $admin ? 'admin' : 'system', $admin?->id, 'listing.deposit_activation.blocked', 'listing_launch_event', $event->id, null, $event->fresh()->toArray(), $reason, $request);
             return ['event' => 'DEPOSIT_OPEN', 'status' => 'BLOCKED'];
         }
 
-        $application->networkConfigurations()->update(['deposit_enabled' => true]);
-        BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['deposit_enabled' => true]);
-        $application->assetConfiguration?->update(['deposit_enabled' => true]);
-        $event->forceFill(['status' => 'EXECUTED', 'executed_at' => now(), 'result' => ['deposits' => 'ENABLED']])->save();
+        DB::transaction(function () use ($application, $decision, $event): void {
+            $application->networkConfigurations()->update(['deposit_enabled' => true]);
+            BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['deposit_enabled' => true]);
+            $application->assetConfiguration?->update(['deposit_enabled' => true]);
+            $decision['approval']->update(['status' => 'CONSUMED', 'consumed_at' => now()]);
+            $event->forceFill(['status' => 'EXECUTED', 'executed_at' => now(), 'result' => ['deposits' => 'ENABLED', 'configuration_fingerprint' => $decision['configuration_fingerprint']]])->save();
+        });
         $this->audit($application, $admin ? 'admin' : 'system', $admin?->id, 'listing.deposits.opened', 'listing_launch_event', $event->id, null, $event->fresh()->toArray(), 'Scheduled deposit opening.', $request);
 
         return ['event' => 'DEPOSIT_OPEN', 'status' => 'EXECUTED'];
@@ -874,15 +1374,24 @@ class ListingLifecycleService
 
     private function openWithdrawals(ListingApplication $application, ListingLaunchEvent $event, ?Admin $admin, ?Request $request): array
     {
-        if ($application->integration_status !== 'LIVE') {
-            $event->forceFill(['status' => 'BLOCKED', 'executed_at' => now(), 'result' => ['reason' => 'TRADING_NOT_LIVE']])->save();
+        $decision = app(ListingWithdrawalReadinessService::class)->activationDecision($application);
+        if (! $decision['approved']) {
+            $event->forceFill(['status' => 'BLOCKED', 'executed_at' => now(), 'result' => [
+                'reason' => 'WITHDRAWAL_READINESS_OR_APPROVAL_NOT_PASSING',
+                'blocking_gates' => $decision['blocking_gates'],
+                'configuration_fingerprint' => $decision['configuration_fingerprint'],
+            ]])->save();
+            $this->audit($application, $admin ? 'admin' : 'system', $admin?->id, 'listing.withdrawal_activation.blocked', 'listing_launch_event', $event->id, null, $event->fresh()->toArray(), 'Withdrawal readiness failed at execution.', $request);
             return ['event' => 'WITHDRAWAL_OPEN', 'status' => 'BLOCKED'];
         }
 
-        $application->networkConfigurations()->update(['withdrawal_enabled' => true]);
-        BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['withdrawal_enabled' => true]);
-        $application->assetConfiguration?->update(['withdrawal_enabled' => true]);
-        $event->forceFill(['status' => 'EXECUTED', 'executed_at' => now(), 'result' => ['withdrawals' => 'ENABLED']])->save();
+        DB::transaction(function () use ($application, $decision, $event): void {
+            $application->networkConfigurations()->update(['withdrawal_enabled' => true]);
+            BlockchainAsset::query()->whereIn('id', $application->networkConfigurations()->pluck('blockchain_asset_id')->filter())->update(['withdrawal_enabled' => true]);
+            $application->assetConfiguration?->update(['withdrawal_enabled' => true]);
+            $decision['approval']->update(['status' => 'CONSUMED', 'consumed_at' => now()]);
+            $event->forceFill(['status' => 'EXECUTED', 'executed_at' => now(), 'result' => ['withdrawals' => 'ENABLED', 'configuration_fingerprint' => $decision['configuration_fingerprint']]])->save();
+        });
         $this->audit($application, $admin ? 'admin' : 'system', $admin?->id, 'listing.withdrawals.opened', 'listing_launch_event', $event->id, null, $event->fresh()->toArray(), 'Scheduled withdrawal opening.', $request);
 
         return ['event' => 'WITHDRAWAL_OPEN', 'status' => 'EXECUTED'];
@@ -894,6 +1403,44 @@ class ListingLifecycleService
             ->filter(fn (string $field): bool => empty($application->{$field}))
             ->values()
             ->all();
+    }
+
+    private function assertSemanticApplicationFields(ListingApplication $application): void
+    {
+        $data = [
+            'project_information' => (array) $application->project_information,
+            'asset_information' => (array) $application->asset_information,
+            'blockchain_information' => (array) $application->blockchain_information,
+            'tokenomics' => (array) $application->tokenomics,
+            'technology' => (array) $application->technology,
+            'security' => (array) $application->security,
+            'legal_compliance' => (array) $application->legal_compliance,
+            'market_community' => (array) $application->market_community,
+            'liquidity' => (array) $application->liquidity,
+            'listing_request' => (array) $application->listing_request,
+        ];
+
+        $validator = Validator::make($data, [
+            'project_information.name' => ['required', 'string', 'max:140'],
+            'asset_information.name' => ['required', 'string', 'max:140'],
+            'asset_information.symbol' => ['required', 'string', 'regex:/^[A-Z0-9]{2,12}$/'],
+            'blockchain_information.network' => ['required', 'string', 'max:64'],
+            'blockchain_information.contract_address' => ['required', 'string', 'regex:/^0x[a-fA-F0-9]{40}$/'],
+            'blockchain_information.token_standard' => ['required', 'string', 'max:40'],
+            'tokenomics.total_supply' => ['required', 'numeric', 'gt:0'],
+            'technology.repository' => ['required', 'url', 'max:255'],
+            'security.audit_reports' => ['required', 'array', 'min:1'],
+            'security.audit_reports.*' => ['required', 'url', 'max:255'],
+            'legal_compliance' => ['required', 'array', 'min:1'],
+            'market_community.website' => ['required', 'url', 'max:255'],
+            'liquidity' => ['required', 'array', 'min:1'],
+            'listing_request.requested_pairs' => ['required', 'array', 'min:1'],
+            'listing_request.requested_pairs.*' => ['required', 'string', 'regex:/^[A-Z0-9]{2,12}\\/[A-Z0-9]{2,12}$/'],
+        ]);
+
+        if ($validator->fails()) {
+            throw new RuntimeException('Application semantic validation failed: '.$validator->errors()->first());
+        }
     }
 
     private function riskFlags(array $payload): array
@@ -935,9 +1482,12 @@ class ListingLifecycleService
         };
     }
 
-    private function assertOrganizationAccess(User $user, ListingOrganization $organization): void
+    public function assertOrganizationAccess(User $user, ListingOrganization $organization, array $roles = ['OWNER', 'ADMIN', 'CONTRIBUTOR', 'VIEWER']): void
     {
-        if ((int) $organization->owner_user_id !== (int) $user->id) {
+        $role = (int) $organization->owner_user_id === (int) $user->id
+            ? 'OWNER'
+            : $organization->teamMembers()->where('user_id', $user->id)->where('status', 'ACTIVE')->value('role');
+        if (! $role || ! in_array($role, $roles, true)) {
             throw new RuntimeException('Listing organization access denied.');
         }
     }

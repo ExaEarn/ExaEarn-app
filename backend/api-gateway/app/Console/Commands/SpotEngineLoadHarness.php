@@ -23,6 +23,10 @@ class SpotEngineLoadHarness extends Command
 
     public function handle(TradeService $tradeService, LedgerService $ledger, MatchingEngineReplayService $replay): int
     {
+        if (! app()->environment(['local', 'testing'])) {
+            $this->error('The Spot load harness is disabled outside local/testing environments.');
+            return self::FAILURE;
+        }
         Config::set('trading.engine.mode', 'new');
         $orders = max(2, (int) $this->option('orders'));
         $symbol = strtoupper((string) $this->option('market'));

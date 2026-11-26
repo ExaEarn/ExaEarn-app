@@ -51,6 +51,7 @@ class GiftcardService
             ->with('giftcard')
             ->where('user_id', $user->id)
             ->latest()
+            ->latest('id')
             ->paginate($perPage);
     }
 

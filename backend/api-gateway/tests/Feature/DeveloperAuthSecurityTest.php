@@ -91,6 +91,41 @@ class DeveloperAuthSecurityTest extends TestCase
         $this->assertDatabaseHas('personal_access_tokens', ['id' => $token->id]);
     }
 
+    public function test_bearer_session_reauthentication_allows_revoking_other_sessions_only(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('Current#Password1'),
+        ]);
+        $currentToken = $user->createToken('current-device');
+        $otherToken = $user->createToken('old-device');
+
+        $this->withToken($currentToken->plainTextToken)
+            ->postJson('/api/auth/reauthenticate', ['password' => 'Current#Password1'])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->withToken($currentToken->plainTextToken)
+            ->postJson('/api/auth/logout-others')
+            ->assertOk()
+            ->assertJsonPath('revoked_count', 1);
+
+        $this->assertDatabaseHas('personal_access_tokens', ['id' => $currentToken->accessToken->id]);
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $otherToken->accessToken->id]);
+    }
+
+    public function test_session_listing_marks_the_current_bearer_session(): void
+    {
+        $user = User::factory()->create();
+        $currentToken = $user->createToken('current-device');
+        $otherToken = $user->createToken('other-device');
+
+        $response = $this->withToken($currentToken->plainTextToken)->getJson('/api/auth/sessions');
+
+        $response->assertOk()
+            ->assertJsonFragment(['id' => $currentToken->accessToken->id, 'is_current' => true])
+            ->assertJsonFragment(['id' => $otherToken->accessToken->id, 'is_current' => false]);
+    }
+
     private function totp(string $secret): string
     {
         $reflection = new \ReflectionClass(Verify2FA::class);

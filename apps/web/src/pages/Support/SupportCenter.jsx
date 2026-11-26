@@ -17,6 +17,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { openLiveSupport } from "../../components/support/TawkToChat.jsx";
 
 const inputClassName =
   "w-full rounded-xl border border-white/15 bg-[#0C1424] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#8E98AA] focus:border-[#D4AF37]/70";
@@ -56,7 +57,7 @@ const faqItems = [
   },
 ];
 
-function SupportCenter({ request, onBack, onOpenLiveChat }) {
+function SupportCenter({ request, onBack }) {
   const [search, setSearch] = useState("");
   const [meta, setMeta] = useState(null);
   const [kb, setKb] = useState([]);
@@ -206,11 +207,11 @@ function SupportCenter({ request, onBack, onOpenLiveChat }) {
               </span>
               <button
                 type="button"
-                onClick={onOpenLiveChat}
+                onClick={() => void openLiveSupport().catch((error) => setSubmitError(error?.message || "Live Support is unavailable right now. Please try again shortly."))}
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#E7C96C] to-[#D4AF37] px-4 py-2 text-sm font-semibold text-[#111827] shadow-[0_8px_20px_rgba(212,175,55,0.3)]"
               >
                 <MessageCircle className="h-4 w-4" />
-                Chat with Support
+                Open Live Support
               </button>
             </div>
           </div>

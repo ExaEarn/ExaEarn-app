@@ -13,12 +13,11 @@ class InstitutionalRealtimeService
     public function publish(int $userId, string $stream, string $eventType, array $payload): DeveloperRealtimeEvent
     {
         return DB::transaction(function () use ($eventType, $payload, $stream, $userId): DeveloperRealtimeEvent {
-            $last = DeveloperRealtimeEvent::query()
+            $sequence = app(RealtimeSequenceService::class)->next("institutional:{$userId}:{$stream}", fn (): int => (int) DeveloperRealtimeEvent::query()
                 ->whereNull('project_id')
                 ->where('user_id', $userId)
                 ->where('stream', $stream)
-                ->lockForUpdate()
-                ->max('sequence');
+                ->max('sequence'));
 
             return DeveloperRealtimeEvent::query()->create([
                 'event_id' => (string) Str::uuid(),
@@ -26,7 +25,7 @@ class InstitutionalRealtimeService
                 'project_id' => null,
                 'environment' => app()->environment('production') ? 'production' : 'sandbox',
                 'stream' => $stream,
-                'sequence' => ((int) $last) + 1,
+                'sequence' => $sequence,
                 'event_type' => $eventType,
                 'payload' => $payload,
                 'created_at' => now(),

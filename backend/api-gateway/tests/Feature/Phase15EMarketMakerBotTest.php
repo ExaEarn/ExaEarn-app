@@ -282,8 +282,9 @@ class Phase15EMarketMakerBotTest extends TestCase
                 'worker_lease_expires_at' => null,
             ]));
         }
+        $this->freezeTime();
         $run = app(MarketMakerBotLoadTestService::class)->run(10, 3);
-        $this->assertSame('PASS', $run->status);
+        $this->assertSame('PASS', $run->status, json_encode($run->metrics, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
         $this->assertSame(30, $run->metrics['decisions']);
         $this->assertSame(1, MarketMakerBotLoadRun::query()->count());
 

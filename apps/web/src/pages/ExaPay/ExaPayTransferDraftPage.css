@@ -1,0 +1,333 @@
+.exa-pay-draft {
+  min-height: 100vh;
+  padding: 28px 20px 42px;
+  background: #090b12;
+  color: #eef2f7;
+}
+
+.exa-pay-draft button,
+.exa-pay-draft input,
+.exa-pay-draft textarea {
+  font: inherit;
+}
+
+.exa-pay-draft__shell {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.exa-pay-draft__header {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 42px;
+}
+
+.exa-pay-draft__back {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(224, 232, 241, 0.1);
+  border-radius: 13px;
+  background: #111720;
+  color: #dce3ed;
+  cursor: pointer;
+}
+
+.exa-pay-draft__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  justify-self: center;
+}
+
+.exa-pay-draft__brand img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.exa-pay-draft__brand span {
+  display: grid;
+  gap: 2px;
+}
+
+.exa-pay-draft__brand strong {
+  font-size: 12px;
+}
+
+.exa-pay-draft__brand small {
+  color: #cdb66e;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.exa-pay-draft__simulation {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(232, 184, 102, 0.19);
+  border-radius: 99px;
+  background: rgba(232, 184, 102, 0.05);
+  color: #d9c491;
+  padding: 7px 10px;
+  font-size: 9px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.exa-pay-draft__simulation i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e8b866;
+}
+
+.exa-pay-draft__heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 22px;
+}
+
+.exa-pay-draft__heading > span {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid rgba(98, 199, 232, 0.16);
+  border-radius: 14px;
+  background: rgba(98, 199, 232, 0.07);
+  color: #79c8df;
+}
+
+.exa-pay-draft__heading > span.is-violet {
+  border-color: rgba(170, 145, 240, 0.18);
+  background: rgba(170, 145, 240, 0.07);
+  color: #b6a3ed;
+}
+
+.exa-pay-draft__heading h1 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+  font-size: clamp(23px, 4vw, 29px);
+  letter-spacing: -0.035em;
+}
+
+.exa-pay-draft__heading p {
+  margin: 5px 0 0;
+  color: #929eae;
+  font-size: 12px;
+}
+
+.exa-pay-draft__card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(224, 232, 241, 0.09);
+  border-radius: 16px;
+  background: #111720;
+  padding: 20px;
+}
+
+.exa-pay-draft__card label {
+  margin-top: 5px;
+  color: #a7b0bd;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.exa-pay-draft__card input,
+.exa-pay-draft__card textarea {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(224, 232, 241, 0.1);
+  border-radius: 10px;
+  outline: none;
+  background: #0c1118;
+  color: #edf1f6;
+  padding: 11px 12px;
+  font-size: 12px;
+}
+
+.exa-pay-draft__card textarea {
+  min-height: 112px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.exa-pay-draft__card input:focus,
+.exa-pay-draft__card textarea:focus {
+  border-color: rgba(205, 182, 110, 0.55);
+}
+
+.exa-pay-draft__card input::placeholder,
+.exa-pay-draft__card textarea::placeholder {
+  color: #657181;
+}
+
+.exa-pay-draft__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border: 1px solid rgba(232, 184, 102, 0.15);
+  border-radius: 11px;
+  background: rgba(232, 184, 102, 0.045);
+  color: #dfc58d;
+  padding: 11px;
+  margin-bottom: 5px;
+}
+
+.exa-pay-draft__notice svg {
+  flex: 0 0 auto;
+}
+
+.exa-pay-draft__notice p,
+.exa-pay-draft__helper {
+  margin: 0;
+  color: #c4b692;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.exa-pay-draft__qr-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 3px;
+}
+
+.exa-pay-draft__secondary,
+.exa-pay-draft__small-primary {
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 13px;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.exa-pay-draft__secondary {
+  border: 1px solid rgba(170, 145, 240, 0.2);
+  background: rgba(170, 145, 240, 0.06);
+  color: #c6b7ed;
+}
+
+.exa-pay-draft__small-primary {
+  border: 0;
+  background: #e6c46b;
+  color: #17140c;
+}
+
+.exa-pay-draft__validated {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(114, 211, 160, 0.16);
+  border-radius: 11px;
+  background: rgba(114, 211, 160, 0.045);
+  color: #72d3a0;
+  padding: 12px;
+  margin-top: 6px;
+}
+
+.exa-pay-draft__validated svg {
+  flex: 0 0 auto;
+}
+
+.exa-pay-draft__validated div {
+  display: grid;
+  gap: 4px;
+  color: #dfe9e3;
+  font-size: 10px;
+}
+
+.exa-pay-draft__validated span,
+.exa-pay-draft__validated small {
+  color: #9eada4;
+  font-size: 10px;
+}
+
+.exa-pay-draft__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid rgba(240, 140, 140, 0.18);
+  border-radius: 11px;
+  background: rgba(240, 140, 140, 0.05);
+  color: #e4aaaa;
+  padding: 11px;
+  margin-top: 12px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.exa-pay-draft__error svg {
+  flex: 0 0 auto;
+}
+
+.exa-pay-draft__footer {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(9, 11, 18, 0.96);
+  padding: 14px 0 10px;
+  margin-top: 22px;
+}
+
+.exa-pay-draft__continue {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 12px;
+  background: #e6c46b;
+  color: #17140c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.exa-pay-draft__footer p {
+  margin: 0;
+  color: #818d9c;
+  font-size: 9px;
+}
+
+@media (max-width: 560px) {
+  .exa-pay-draft {
+    padding: 17px 14px 24px;
+  }
+
+  .exa-pay-draft__header {
+    gap: 8px;
+    margin-bottom: 34px;
+  }
+
+  .exa-pay-draft__brand {
+    gap: 6px;
+  }
+
+  .exa-pay-draft__simulation {
+    padding: 7px 8px;
+    font-size: 8px;
+  }
+
+  .exa-pay-draft__card {
+    padding: 15px;
+  }
+
+  .exa-pay-draft__qr-actions {
+    flex-direction: column;
+  }
+}

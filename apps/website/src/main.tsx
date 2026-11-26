@@ -43,7 +43,13 @@ function resolveWebAppBaseUrl() {
 }
 
 const WEB_APP = resolveWebAppBaseUrl();
-const API_BASE = String(import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
+const API_BASE = (configuredApiUrl && (import.meta.env.DEV || !isLoopbackUrl(configuredApiUrl))
+  ? configuredApiUrl
+  : import.meta.env.PROD
+    ? "https://api.exaearn.com"
+    : ""
+).replace(/\/+$/, "");
 const DEVELOPERS = String(import.meta.env.VITE_DEVELOPER_PORTAL_URL || "/developers").trim();
 const LISTING = String(import.meta.env.VITE_LISTING_PORTAL_URL || "/listing").trim();
 const appUrl = (path: string) => `${WEB_APP}${path.startsWith("/") ? path : `/${path}`}`;

@@ -65,12 +65,11 @@ class CardRealtimeService
     private function record(?int $userId, string $stream, string $eventType, array $payload, ?string $entityId): DeveloperRealtimeEvent
     {
         $event = DB::transaction(function () use ($entityId, $eventType, $payload, $stream, $userId): DeveloperRealtimeEvent {
-            $last = DeveloperRealtimeEvent::query()
+            $sequence = app(\App\Services\RealtimeSequenceService::class)->next('card:'.($userId ?? 'operations').":{$stream}", fn (): int => (int) DeveloperRealtimeEvent::query()
                 ->whereNull('project_id')
                 ->where('user_id', $userId)
                 ->where('stream', $stream)
-                ->lockForUpdate()
-                ->max('sequence');
+                ->max('sequence'));
 
             return DeveloperRealtimeEvent::query()->create([
                 'event_id' => (string) Str::uuid(),
@@ -78,7 +77,7 @@ class CardRealtimeService
                 'project_id' => null,
                 'environment' => app()->environment('production') ? 'production' : 'sandbox',
                 'stream' => $stream,
-                'sequence' => ((int) $last) + 1,
+                'sequence' => $sequence,
                 'event_type' => $eventType,
                 'payload' => [
                     'version' => 1,

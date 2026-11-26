@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\P2POperationsController;
 use App\Http\Controllers\AgriController;
 use App\Http\Controllers\AffiliateController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RegistrationMetadataController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ExaPointController;
 use App\Http\Controllers\ExaCardController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MarginController;
+use App\Http\Controllers\MarketMutationDeniedController;
 use App\Http\Controllers\FiatWithdrawalController;
 use App\Http\Controllers\FiatController;
 use App\Http\Controllers\ExaPayMerchantController;
@@ -49,6 +51,7 @@ use App\Http\Controllers\UnifiedActivityCenterController;
 use App\Http\Controllers\ProfileIdentityController;
 use App\Http\Controllers\PricingController;
 use App\Http\Controllers\KycController;
+use App\Http\Controllers\PhoneVerificationController;
 use App\Http\Controllers\Admin\KycAdminController;
 use App\Http\Controllers\Admin\AIIntelligenceController;
 use App\Http\Controllers\Admin\MarketMakerAdminController;
@@ -101,6 +104,7 @@ use App\Http\Controllers\Developer\DeveloperProductionAccessController;
 use App\Http\Controllers\Admin\DeveloperProductionAccessController as AdminDeveloperProductionAccessController;
 use App\Http\Controllers\InstitutionalController;
 use App\Http\Controllers\ListingPortalController;
+use App\Http\Controllers\ListingKybController;
 use App\Http\Controllers\MarketMakerController;
 use App\Http\Controllers\MarketMakerBotController;
 use App\Http\Controllers\OtcController;
@@ -376,14 +380,35 @@ Route::prefix('v1/staking')->middleware('throttle:120,1')->group(function (): vo
 
 Route::get('listing/meta', [ListingPortalController::class, 'meta'])->middleware('throttle:120,1');
 
-Route::prefix('listing')->middleware(['auth:sanctum', 'throttle:120,1'])->group(function (): void {
+Route::prefix('listing')->middleware([
+    EncryptCookies::class,
+    AddQueuedCookiesToResponse::class,
+    StartSession::class,
+    'auth:sanctum',
+    'throttle:120,1',
+])->group(function (): void {
     Route::get('organizations', [ListingPortalController::class, 'organizations']);
     Route::post('organizations', [ListingPortalController::class, 'createOrganization'])->middleware('rate.limit');
+    Route::get('organizations/{organizationId}/team', [ListingPortalController::class, 'team']);
+    Route::post('organizations/{organizationId}/team', [ListingPortalController::class, 'addTeamMember'])->middleware('rate.limit');
+    Route::get('organizations/{organizationId}/kyb', [ListingKybController::class, 'dashboard']);
+    Route::patch('organizations/{organizationId}/kyb', [ListingKybController::class, 'update'])->middleware('rate.limit');
+    Route::post('organizations/{organizationId}/kyb/people', [ListingKybController::class, 'person'])->middleware('rate.limit');
+    Route::post('organizations/{organizationId}/kyb/declarations', [ListingKybController::class, 'declarations'])->middleware('rate.limit');
+    Route::post('organizations/{organizationId}/kyb/documents', [ListingKybController::class, 'upload'])->middleware('rate.limit');
+    Route::get('organizations/{organizationId}/kyb/documents/{documentUuid}', [ListingKybController::class, 'download']);
+    Route::post('organizations/{organizationId}/invitations', [ListingKybController::class, 'invite'])->middleware('rate.limit');
+    Route::post('invitations/accept', [ListingKybController::class, 'acceptInvitation'])->middleware('rate.limit');
+    Route::patch('organizations/{organizationId}/members/{memberId}', [ListingKybController::class, 'updateMember'])->middleware('rate.limit');
+    Route::post('organizations/{organizationId}/ownership-transfer', [ListingKybController::class, 'transferOwnership'])->middleware(['recent.auth','rate.limit']);
+    Route::post('organizations/{organizationId}/kyb/submit', [ListingKybController::class, 'submit'])->middleware('rate.limit');
     Route::get('applications', [ListingPortalController::class, 'applications']);
     Route::post('organizations/{organizationId}/applications', [ListingPortalController::class, 'saveDraft'])->middleware('rate.limit');
     Route::get('applications/{reference}', [ListingPortalController::class, 'show']);
     Route::post('applications/{reference}/submit', [ListingPortalController::class, 'submit'])->middleware('rate.limit');
     Route::post('applications/{reference}/messages', [ListingPortalController::class, 'message'])->middleware('rate.limit');
+    Route::post('applications/{reference}/documents', [ListingPortalController::class, 'uploadDocument'])->middleware('rate.limit');
+    Route::get('applications/{reference}/documents/{documentUuid}', [ListingPortalController::class, 'downloadDocument']);
 });
 
 Route::post('webhooks/cards/{provider}', [ExaCardWebhookController::class, 'handle'])->middleware('throttle:120,1');
@@ -394,6 +419,7 @@ Route::prefix('cards')->middleware(['auth:sanctum', 'throttle:120,1'])->group(fu
     Route::get('/', [ExaCardController::class, 'index']);
     Route::post('/', [ExaCardController::class, 'store']);
     Route::post('funding-requests', [ExaCardController::class, 'fund']);
+    Route::get('transactions/mine', [ExaCardController::class, 'userTransactionHistory']);
     Route::get('{cardUuid}', [ExaCardController::class, 'show']);
     Route::get('{cardUuid}/transactions', [ExaCardController::class, 'transactions']);
     Route::get('{cardUuid}/authorizations', [ExaCardController::class, 'authorizations']);
@@ -476,8 +502,13 @@ Route::prefix('admin/v1/staking')->middleware(['auth:sanctum', 'admin.security',
 Route::prefix('admin/v1/listing-center')->middleware(['auth:sanctum', 'admin.security', 'admin.audit', 'throttle:120,1'])->group(function (): void {
     Route::get('overview', [ListingCenterController::class, 'overview']);
     Route::get('applications', [ListingCenterController::class, 'applications']);
+    Route::get('kyb-organizations', [ListingCenterController::class, 'kybOrganizations']);
+    Route::post('kyb-organizations/{organizationId}/decision', [ListingCenterController::class, 'kybDecision'])->middleware('rate.limit');
+    Route::post('applications/{reference}/review-assignments', [ListingCenterController::class, 'assignReview'])->middleware('rate.limit');
     Route::post('applications/{reference}/reviews', [ListingCenterController::class, 'review'])->middleware('rate.limit');
     Route::post('applications/{reference}/recommend', [ListingCenterController::class, 'recommend'])->middleware('rate.limit');
+    Route::post('applications/{reference}/information-requests', [ListingCenterController::class, 'requestInformation'])->middleware('rate.limit');
+    Route::post('applications/{reference}/reject', [ListingCenterController::class, 'reject'])->middleware('rate.limit');
     Route::post('applications/{reference}/approve', [ListingCenterController::class, 'approve'])->middleware('rate.limit');
     Route::post('applications/{reference}/asset-configuration', [ListingCenterController::class, 'createAssetConfiguration'])->middleware('rate.limit');
     Route::post('applications/{reference}/networks', [ListingCenterController::class, 'createNetworkConfiguration'])->middleware('rate.limit');
@@ -489,6 +520,15 @@ Route::prefix('admin/v1/listing-center')->middleware(['auth:sanctum', 'admin.sec
     Route::post('applications/{reference}/token-migrations', [ListingCenterController::class, 'tokenMigration'])->middleware('rate.limit');
     Route::post('applications/{reference}/emergency-control', [ListingCenterController::class, 'emergencyControl'])->middleware('rate.limit');
     Route::post('launch-events/process-due', [ListingCenterController::class, 'processDueLaunchEvents'])->middleware('rate.limit');
+    Route::get('launch-operations', [ListingCenterController::class, 'launchOperations'])->middleware('rate.limit');
+    Route::post('applications/{reference}/launch-operations/{eventUuid}/cancel', [ListingCenterController::class, 'cancelLaunchOperation'])->middleware('rate.limit');
+    Route::get('document-security', [ListingCenterController::class, 'documentSecurity'])->middleware('rate.limit');
+    Route::get('applications/{reference}/deposit-readiness', [ListingCenterController::class, 'depositReadiness'])->middleware('rate.limit');
+    Route::post('applications/{reference}/deposit-activation/request', [ListingCenterController::class, 'requestDepositActivation'])->middleware('rate.limit');
+    Route::post('applications/{reference}/deposit-activation/approve', [ListingCenterController::class, 'approveDepositActivation'])->middleware('rate.limit');
+    Route::get('applications/{reference}/withdrawal-readiness', [ListingCenterController::class, 'withdrawalReadiness'])->middleware('rate.limit');
+    Route::post('applications/{reference}/withdrawal-activation/request', [ListingCenterController::class, 'requestWithdrawalActivation'])->middleware('rate.limit');
+    Route::post('applications/{reference}/withdrawal-activation/approve', [ListingCenterController::class, 'approveWithdrawalActivation'])->middleware('rate.limit');
     Route::get('live-assets', [ListingCenterController::class, 'liveAssets']);
     Route::get('test-runs', [ListingCenterController::class, 'testRuns']);
     Route::get('schedules', [ListingCenterController::class, 'schedules']);
@@ -516,7 +556,7 @@ Route::prefix('admin/v1/operations')->middleware(['auth:sanctum', 'admin.securit
     Route::get('treasury-exposure', [TradingOperationsController::class, 'treasuryExposure']);
     Route::post('circuit-breakers', [TradingOperationsController::class, 'transitionBreaker'])->middleware('rate.limit');
     Route::post('markets/{symbol}/pause', [TradingOperationsController::class, 'pauseMarket'])->middleware('rate.limit');
-    Route::post('markets/{symbol}/resume', [TradingOperationsController::class, 'resumeMarket'])->middleware('rate.limit');
+    Route::post('markets/{symbol}/resume', [TradingOperationsController::class, 'resumeMarket'])->middleware(['check.permission:trade.manage', 'rate.limit']);
     Route::post('kill-switch', [TradingOperationsController::class, 'killSwitch'])->middleware('rate.limit');
     Route::put('collateral/{asset}', [TradingOperationsController::class, 'updateCollateral'])->middleware('rate.limit');
     Route::post('insurance-fund/credit', [TradingOperationsController::class, 'insuranceCredit'])->middleware('rate.limit');
@@ -753,6 +793,7 @@ Route::middleware([
     AddQueuedCookiesToResponse::class,
     StartSession::class,
 ])->group(function (): void {
+    Route::get('registration/metadata', RegistrationMetadataController::class)->middleware('throttle:60,1');
     Route::post('register', [AuthController::class, 'register']);
     Route::post('account/check', [AuthController::class, 'checkAccount']);
     Route::post('login', [AuthController::class, 'login']);
@@ -766,6 +807,7 @@ Route::middleware([
         Route::post('auth/reauthenticate', [AuthController::class, 'reauthenticate'])->middleware('throttle:5,1');
         Route::get('auth/sessions', [AuthController::class, 'sessions']);
         Route::delete('auth/sessions/{tokenId}', [AuthController::class, 'revokeSession'])->middleware('recent.auth');
+        Route::post('auth/logout-others', [AuthController::class, 'logoutOtherSessions'])->middleware('recent.auth');
         Route::post('auth/logout-all', [AuthController::class, 'logoutAll'])->middleware('recent.auth');
         Route::post('2fa/verify', [AuthController::class, 'verifyTwoFactor']);
         Route::get('email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
@@ -780,6 +822,9 @@ Route::middleware([
         Route::get('logs/summary', [ActivityLogController::class, 'summary']);
 
         // Security & Account Management
+        Route::get('security/phone', [PhoneVerificationController::class, 'index']);
+        Route::post('security/phone/request', [PhoneVerificationController::class, 'requestOtp'])->middleware('throttle:5,1');
+        Route::post('security/phone/verify', [PhoneVerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
         Route::post('profile/email/change', [AuthController::class, 'changeEmail']);
         Route::post('profile/2fa/enable', [AuthController::class, 'enable2FA']);
         Route::post('profile/2fa/disable', [AuthController::class, 'disable2FA']);
@@ -882,8 +927,8 @@ Route::prefix('admin')->group(function (): void {
         Route::get('transactions', [AdminPlatformController::class, 'transactions']);
 
         // Trading Pairs Management
-        Route::get('trading', [AdminPlatformController::class, 'pairs']);
-        Route::post('trading', [AdminPlatformController::class, 'createPair']);
+        Route::get('trading', [AdminPlatformController::class, 'pairs'])->middleware('check.permission:trade.manage');
+        Route::post('trading', [AdminPlatformController::class, 'createPair'])->middleware(['check.permission:trade.manage', 'rate.limit']);
         Route::get('margin', [MarginController::class, 'adminOverview']);
         Route::get('margin/readiness', [MarginController::class, 'readiness']);
         Route::post('margin/load-probe', [MarginController::class, 'runLoadProbe'])->middleware('rate.limit');
@@ -1096,7 +1141,7 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
         Route::get('klines', [TradeController::class, 'klines']);
         Route::get('orders', [TradeController::class, 'openOrders']);
         Route::get('history', [TradeController::class, 'userTrades']);
-        Route::post('markets', [TradeController::class, 'createMarket'])->middleware('rate.limit');
+        Route::post('markets', MarketMutationDeniedController::class)->middleware('rate.limit');
         Route::post('orders', [TradeController::class, 'placeOrder'])->middleware('rate.limit');
         Route::delete('orders/{orderUuid}', [TradeController::class, 'cancelOrder'])->middleware('rate.limit');
         Route::post('swap', [TradeController::class, 'swap'])->middleware('rate.limit');
@@ -1847,6 +1892,8 @@ Route::middleware(['dev.auth', 'security.layer'])->group(function (): void {
     });
 });
 Route::prefix('internal/developer/realtime')->middleware('node.webhook')->group(function (): void {
-    Route::post('authorize',[DeveloperRealtimeAuthorityController::class,'authorize']);
+    Route::post('authorize',[DeveloperRealtimeAuthorityController::class,'authorizeRealtimeSession']);
     Route::post('replay',[DeveloperRealtimeAuthorityController::class,'replay']);
 });
+
+require __DIR__ . '/exapay_offline.php';

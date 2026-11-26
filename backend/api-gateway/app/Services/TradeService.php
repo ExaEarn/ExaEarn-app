@@ -1174,20 +1174,7 @@ class TradeService
         [$base, $quote] = array_pad(explode('/', $normalized, 2), 2, 'USDT');
         $symbol = sprintf('%s/%s', strtoupper($base), strtoupper($quote));
 
-        return Market::query()->firstOrCreate(
-            ['symbol' => $symbol],
-            [
-                'base_currency' => strtoupper($base),
-                'quote_currency' => strtoupper($quote),
-                'status' => 'active',
-                'last_price' => '0',
-                'price_precision' => '0.0001',
-                'min_order_size' => '0.0001',
-                'max_order_size' => '0',
-                'maker_fee' => '0.001',
-                'taker_fee' => '0.002',
-            ]
-        );
+        return Market::query()->where('symbol', $symbol)->firstOrFail();
     }
 
     private function getBestCounterOrder(int $marketId, string $incomingSide): ?Order

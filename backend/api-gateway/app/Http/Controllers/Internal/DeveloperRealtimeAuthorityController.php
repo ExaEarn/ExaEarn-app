@@ -13,7 +13,7 @@ class DeveloperRealtimeAuthorityController extends Controller
 {
     public function __construct(private readonly DeveloperRealtimeService $realtime) {}
 
-    public function authorize(Request $request): JsonResponse
+    public function authorizeRealtimeSession(Request $request): JsonResponse
     {
         $data=$request->validate(['session_id'=>['required','string','max:160'],'environment'=>['required','in:sandbox,production']]);
         try{return response()->json(['data'=>$this->realtime->authorizeTransport($data['session_id'],$data['environment'])]);}

@@ -4,6 +4,8 @@ import {
   BarChart3,
   Bell,
   Coins,
+  Eye,
+  EyeOff,
   Flame,
   Gamepad2,
   Gem,
@@ -18,6 +20,7 @@ import {
   Loader2,
   MoreHorizontal,
   Plus,
+  ReceiptText,
   Search,
   Settings,
   Sparkles,
@@ -44,6 +47,7 @@ import ForYouFeed from "./features/home/ForYouFeed";
 import { usePersonalizedContent } from "./features/home/usePersonalizedContent";
 import { resolveHomeConfiguration } from "./features/home/homePersonalization";
 import { useResponsive } from "./hooks/useResponsive";
+import { readSecurityPreferences, SECURITY_PREFERENCES_EVENT } from "./security/securityPreferences";
 import "./features/dashboard/dashboard.css";
 import "./features/dashboard/criticalAlerts.css";
 import "./styles/App.css";
@@ -94,6 +98,7 @@ const CurrencyPreferencePage = lazy(() => import("./pages/Settings/CurrencyPrefe
 const MarketAnalyticsPage = lazy(() => import("./pages/Settings/MarketAnalyticsPage"));
 const PaymentCurrencyPage = lazy(() => import("./pages/Settings/PaymentCurrencyPage"));
 const PaymentMethodsPage = lazy(() => import("./pages/Settings/PaymentMethodsPage"));
+const PhoneVerification = lazy(() => import("./pages/Security/PhoneVerification"));
 const AddFundsPage = lazy(() => import("./pages/AddFunds/AddFundsPage"));
 const Send = lazy(() => import("./pages/Send/Send"));
 const Swap = lazy(() => import("./pages/Swap/Swap"));
@@ -102,6 +107,13 @@ const FiatWithdrawalPage = lazy(() => import("./pages/Withdraw/FiatWithdrawalPag
 const MorePage = lazy(() => import("./pages/More/MorePage"));
 const ExaCardPage = lazy(() => import("./pages/ExaCard/ExaCardPage"));
 const ExaPayMerchantPage = lazy(() => import("./pages/ExaPay/ExaPayMerchantPage"));
+const ExaPayHomePage = lazy(() => import("./pages/ExaPay/ExaPayHomePage"));
+const ExaPayOfflinePayPage = lazy(() => import("./pages/ExaPay/ExaPayOfflinePayPage"));
+const ExaPayNearbyDevicesPage = lazy(() => import("./pages/ExaPay/ExaPayNearbyDevicesPage"));
+const ExaPaySyncRedeemPage = lazy(() => import("./pages/ExaPay/ExaPaySyncRedeemPage"));
+const ExaPayTransferDraftPage = lazy(() => import("./pages/ExaPay/ExaPayTransferDraftPage"));
+const ExaPayPaymentReviewPage = lazy(() => import("./pages/ExaPay/ExaPayPaymentReviewPage"));
+const ExaPayPaymentResultPage = lazy(() => import("./pages/ExaPay/ExaPayPaymentResultPage"));
 const AITradingAssistantPage = lazy(() => import("./pages/AI/AITradingAssistantPage"));
 const SupportCenter = lazy(() => import("./pages/Support/SupportCenter"));
 const LiveSupportChat = lazy(() => import("./pages/Support/LiveSupportChat"));
@@ -111,8 +123,7 @@ const ReferralProgram = lazy(() => import("./pages/Referral/ReferralProgram"));
 const NotificationSettings = lazy(() => import("./pages/Notifications/NotificationSettings"));
 const ActivityCenter = lazy(() => import("./pages/Notifications/ActivityCenter"));
 const AboutExaEarn = lazy(() => import("./pages/About/AboutExaEarn"));
-const ChangePassword = lazy(() => import("./pages/Security/ChangePassword"));
-const LoginDevices = lazy(() => import("./pages/Security/LoginDevices"));
+const SecurityCenter = lazy(() => import("./pages/Security/SecurityCenter"));
 const ActivityLogs = lazy(() => import("./pages/Security/ActivityLogs"));
 const Market = lazy(() => import("./pages/market/Market"));
 const CryptoMarkets = lazy(() => import("./pages/market/CryptoMarkets"));
@@ -447,6 +458,8 @@ export default function App() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [authPage, setAuthPageState] = useState(getAuthPageFromLocation);
   const [portfolioValue, setPortfolioValue] = useState("0");
+  const [securityPreferences, setSecurityPreferences] = useState(() => readSecurityPreferences().preferences);
+  const [portfolioRevealed, setPortfolioRevealed] = useState(false);
   const [portfolioCurrency, setPortfolioCurrency] = useState("USDT");
   const [portfolioDayPnl, setPortfolioDayPnl] = useState(null);
   const [portfolioDayPnlPercent, setPortfolioDayPnlPercent] = useState(null);
@@ -455,6 +468,12 @@ export default function App() {
   const [earnApy, setEarnApy] = useState(null);
   const [showSplash, setShowSplash] = useState(false);
   const [currentPage, setCurrentPage] = useState("home");
+  const [exapayOfflineMethod, setExapayOfflineMethod] = useState("bluetooth");
+  const [exapayTransferMode, setExapayTransferMode] = useState("online");
+  const [exapayPaymentDraft, setExapayPaymentDraft] = useState(null);
+  const [exapayPaymentResult, setExapayPaymentResult] = useState(null);
+  const [exapayReviewReturnPage, setExapayReviewReturnPage] = useState("exapay");
+  const [transactionsReturnPage, setTransactionsReturnPage] = useState("home");
   const [p2pInitialSide, setP2pInitialSide] = useState("buy");
   const [showGiftcardChoice, setShowGiftcardChoice] = useState(false);
   const [activeNewsIndex, setActiveNewsIndex] = useState(0);
@@ -467,6 +486,7 @@ export default function App() {
   const [helpReturnPage, setHelpReturnPage] = useState("home");
   const [chatReturnPage, setChatReturnPage] = useState("supportCenter");
   const [activityLogsReturnPage, setActivityLogsReturnPage] = useState("profile");
+  const [securityReturnPage, setSecurityReturnPage] = useState("settings");
   const [rewardProgress, setRewardProgress] = useState(null);
   const [rewardHistory, setRewardHistory] = useState(null);
   const [rewardModalOpen, setRewardModalOpen] = useState(false);
@@ -487,6 +507,30 @@ export default function App() {
   const [homeMarketFilter, setHomeMarketFilter] = useState("Top");
   const [homeMarketPickerOpen, setHomeMarketPickerOpen] = useState(false);
   const [homeMarketSearch, setHomeMarketSearch] = useState("");
+
+  useEffect(() => {
+    const updatePreferences = (event) => {
+      setSecurityPreferences(event.detail || readSecurityPreferences().preferences);
+      setPortfolioRevealed(false);
+    };
+    const updateStoredPreferences = (event) => {
+      if (event.key === "exaearn-security-preferences-v1") {
+        setSecurityPreferences(readSecurityPreferences().preferences);
+        setPortfolioRevealed(false);
+      }
+    };
+    const hideWhileBackgrounded = () => {
+      if (document.visibilityState !== "visible") setPortfolioRevealed(false);
+    };
+    window.addEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+    window.addEventListener("storage", updateStoredPreferences);
+    document.addEventListener("visibilitychange", hideWhileBackgrounded);
+    return () => {
+      window.removeEventListener(SECURITY_PREFERENCES_EVENT, updatePreferences);
+      window.removeEventListener("storage", updateStoredPreferences);
+      document.removeEventListener("visibilitychange", hideWhileBackgrounded);
+    };
+  }, []);
   const [homeMarketPairKeys, setHomeMarketPairKeys] = useState(() => readStoredArray(HOME_MARKET_SELECTION_KEY) ?? DEFAULT_HOME_MARKET_PAIR_KEYS);
   const [homeMarketFavoriteKeys, setHomeMarketFavoriteKeys] = useState(() => readStoredArray(HOME_MARKET_FAVORITES_KEY) ?? DEFAULT_HOME_MARKET_FAVORITES);
   const isAuthenticated = Boolean(user);
@@ -931,6 +975,23 @@ export default function App() {
     );
   }
 
+  const historyShortcut = (
+    <button
+      type="button"
+      onClick={() => {
+        setTransactionsReturnPage(currentPage);
+        setCurrentPage("transactions");
+      }}
+      aria-label="Open transaction history"
+      title="Transaction history"
+      className="fixed bottom-5 right-5 z-40 inline-flex h-12 items-center gap-2 rounded-full border border-[var(--exa-border-active)] bg-[var(--exa-surface-elevated)] px-4 text-sm font-semibold text-[var(--exa-gold-light)] shadow-xl transition hover:-translate-y-0.5 hover:bg-[var(--exa-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--exa-gold)]"
+    >
+      <ReceiptText className="h-4 w-4" aria-hidden="true" />
+      <span className="hidden sm:inline">History</span>
+    </button>
+  );
+  const withHistoryShortcut = (page) => <>{page}{historyShortcut}</>;
+
   if (currentPage === "game") {
     return <Game onBack={() => setCurrentPage("home")} />;
   }
@@ -980,7 +1041,7 @@ export default function App() {
     );
   }
   if (currentPage === "trade") {
-    return (
+    return withHistoryShortcut(
       <ResponsiveTradePage
         TradeComponent={Trade}
         user={user}
@@ -1002,7 +1063,7 @@ export default function App() {
     );
   }
   if (currentPage === "futures") {
-    return (
+    return withHistoryShortcut(
       <Futures
         onBack={() => setCurrentPage("home")}
         onOpenConvert={() => setCurrentPage("swap")}
@@ -1015,21 +1076,21 @@ export default function App() {
     );
   }
   if (currentPage === "margin") {
-    return <Margin onBack={() => setCurrentPage("trade")} onOpenSpot={() => setCurrentPage("trade")} onOpenFutures={() => setCurrentPage("futures")} />;
+    return withHistoryShortcut(<Margin onBack={() => setCurrentPage("trade")} onOpenSpot={() => setCurrentPage("trade")} onOpenFutures={() => setCurrentPage("futures")} />);
   }
   if (currentPage === "options") {
-    return <Options onBack={() => setCurrentPage("futures")} onOpenSmartMoney={() => setCurrentPage("smartMoney")} />;
+    return withHistoryShortcut(<Options onBack={() => setCurrentPage("futures")} onOpenSmartMoney={() => setCurrentPage("smartMoney")} />);
   }
   if (currentPage === "smartMoney") {
-    return <SmartMoney onBack={() => setCurrentPage("futures")} onOpenOptions={() => setCurrentPage("options")} />;
+    return withHistoryShortcut(<SmartMoney onBack={() => setCurrentPage("futures")} onOpenOptions={() => setCurrentPage("options")} />);
   }
 
   if (currentPage === "giftcard") {
-    return <Giftcard onBack={() => setCurrentPage("home")} />;
+    return withHistoryShortcut(<Giftcard onBack={() => setCurrentPage("home")} />);
   }
 
   if (currentPage === "buyGiftcard") {
-    return <BuyGiftcard onBack={() => setCurrentPage("home")} />;
+    return withHistoryShortcut(<BuyGiftcard onBack={() => setCurrentPage("home")} />);
   }
 
   if (currentPage === "nftMarketplace") {
@@ -1185,10 +1246,11 @@ export default function App() {
         onOpenDailyRewards={() => { setRewardModalOpen(true); loadRewardHistory(); }}
       />
       {rewardModalOpen ? <DailyRewardModal progress={rewardProgress} history={rewardHistory} lastReward={lastReward} busy={rewardBusy} onClose={() => setRewardModalOpen(false)} onClaim={claimReward} onOpenMystery={openMysteryBox} onRedeem={redeemReward} /> : null}
+      {historyShortcut}
     </>;
   }
   if (currentPage === "p2pMarketplace") {
-    return (
+    return withHistoryShortcut(
       <P2PMarketplace
         onBack={() => setCurrentPage("home")}
         initialTradeSide={p2pInitialSide}
@@ -1198,13 +1260,26 @@ export default function App() {
     );
   }
   if (currentPage === "transactions") {
-    return <Transactions onBack={() => setCurrentPage("home")} />;
+    const historyInitialFilters = {
+      addFunds: { type: "deposit" },
+      withdraw: { type: "withdrawal" },
+      send: { type: "transfer" },
+      swap: { type: "convert" },
+      trade: { type: "trade" },
+      futures: { type: "trade" },
+      p2pMarketplace: { type: "p2p_trade" },
+      staking: { type: "staking" },
+      giftcard: { type: "giftcard" },
+      buyGiftcard: { type: "giftcard" },
+      exacard: { type: "card_payment" },
+    }[transactionsReturnPage] || {};
+    return <Transactions onBack={() => setCurrentPage(transactionsReturnPage)} initialFilters={historyInitialFilters} />;
   }
   if (currentPage === "rewards") {
     return <Rewards onBack={() => setCurrentPage("home")} />;
   }
   if (currentPage === "assets") {
-    return (
+    return withHistoryShortcut(
       <ResponsiveAssetsPage
         AssetsComponent={Assets}
         user={user}
@@ -1275,8 +1350,14 @@ export default function App() {
           setCurrentPage("helpSupportCenter");
         }}
         onOpenAbout={() => setCurrentPage("aboutExaEarn")}
-        onOpenChangePassword={() => setCurrentPage("changePassword")}
-        onOpenLoginDevices={() => setCurrentPage("loginDevices")}
+        onOpenChangePassword={() => {
+          setSecurityReturnPage("profile");
+          setCurrentPage("securityCenter");
+        }}
+        onOpenLoginDevices={() => {
+          setSecurityReturnPage("profile");
+          setCurrentPage("securityCenter");
+        }}
         onOpenActivityLogs={() => {
           setActivityLogsReturnPage("profile");
           setCurrentPage("activityLogs");
@@ -1311,19 +1392,20 @@ export default function App() {
   if (currentPage === "aboutExaEarn") {
     return <AboutExaEarn onBack={() => setCurrentPage("profile")} />;
   }
-  if (currentPage === "changePassword") {
-    return <ChangePassword onBack={() => setCurrentPage("profile")} onBackToSettings={() => setCurrentPage("settings")} />;
-  }
-  if (currentPage === "loginDevices") {
+  if (currentPage === "securityCenter") {
     return (
-      <LoginDevices
-        onBack={() => setCurrentPage("profile")}
-        onOpenActivityLogs={() => {
-          setActivityLogsReturnPage("profile");
-          setCurrentPage("activityLogs");
-        }}
+      <SecurityCenter
+        onBack={() => setCurrentPage(securityReturnPage)}
+        onOpenExaPay={() => setCurrentPage("exapay")}
+        onOpenExaCard={() => setCurrentPage("exacard")}
       />
     );
+  }
+  if (currentPage === "changePassword") {
+    return <SecurityCenter onBack={() => setCurrentPage("profile")} onOpenExaPay={() => setCurrentPage("exapay")} onOpenExaCard={() => setCurrentPage("exacard")} />;
+  }
+  if (currentPage === "loginDevices") {
+    return <SecurityCenter onBack={() => setCurrentPage("profile")} onOpenExaPay={() => setCurrentPage("exapay")} onOpenExaCard={() => setCurrentPage("exacard")} />;
   }
   if (currentPage === "activityLogs") {
     return <ActivityLogs onBack={() => setCurrentPage(activityLogsReturnPage)} />;
@@ -1333,6 +1415,10 @@ export default function App() {
       <>
         <SettingsPage
           onBack={() => setCurrentPage("home")}
+          onOpenSecurityCenter={() => {
+            setSecurityReturnPage("settings");
+            setCurrentPage("securityCenter");
+          }}
           onOpenInstitutional={() => setCurrentPage("institutional")}
           onOpenLanguageRegion={() => setCurrentPage("languageRegion")}
           onOpenCurrencyPreference={() => setCurrentPage("currencyPreference")}
@@ -1341,6 +1427,7 @@ export default function App() {
           onOpenPaymentCurrency={() => setCurrentPage("paymentCurrency")}
           onOpenPaymentMethods={() => setCurrentPage("paymentMethods")}
           onOpenPersonalization={() => setDashboardCustomizerOpen(true)}
+          onOpenPhoneVerification={() => setCurrentPage("phoneVerification")}
           onOpenActivityLogs={() => {
             setActivityLogsReturnPage("settings");
             setCurrentPage("activityLogs");
@@ -1375,8 +1462,11 @@ export default function App() {
   if (currentPage === "marketAnalyticsSettings") {
     return <MarketAnalyticsPage onBack={() => setCurrentPage("settings")} />;
   }
+  if (currentPage === "phoneVerification") {
+    return <PhoneVerification onBack={() => setCurrentPage("settings")} />;
+  }
   if (currentPage === "addFunds") {
-    return (
+    return withHistoryShortcut(
       <AddFundsPage
         onBack={() => setCurrentPage("home")}
         onOpenSend={() => setCurrentPage("send")}
@@ -1387,16 +1477,16 @@ export default function App() {
     );
   }
   if (currentPage === "send") {
-    return <Send onBack={() => setCurrentPage("home")} onAddFunds={() => setCurrentPage("addFunds")} />;
+    return withHistoryShortcut(<Send onBack={() => setCurrentPage("home")} onAddFunds={() => setCurrentPage("addFunds")} />);
   }
   if (currentPage === "swap") {
-    return <Swap onBack={() => setCurrentPage("assets")} />;
+    return withHistoryShortcut(<Swap onBack={() => setCurrentPage("assets")} />);
   }
   if (currentPage === "withdraw") {
-    return <Withdraw onBack={() => setCurrentPage("assets")} onOpenP2P={openP2PPage} onOpenFiatWithdrawal={() => setCurrentPage("fiatWithdrawal")} />;
+    return withHistoryShortcut(<Withdraw onBack={() => setCurrentPage("assets")} onOpenP2P={openP2PPage} onOpenFiatWithdrawal={() => setCurrentPage("fiatWithdrawal")} />);
   }
   if (currentPage === "fiatWithdrawal") {
-    return <FiatWithdrawalPage onBack={() => setCurrentPage("withdraw")} />;
+    return withHistoryShortcut(<FiatWithdrawalPage onBack={() => setCurrentPage("withdraw")} />);
   }
   if (currentPage === "more") {
     return (
@@ -1413,7 +1503,10 @@ export default function App() {
         }}
         onOpenAiAssistant={() => setCurrentPage("aiAssistant")}
         onOpenToken={() => setCurrentPage("token")}
-        onOpenTransactions={() => setCurrentPage("transactions")}
+        onOpenTransactions={() => {
+          setTransactionsReturnPage("home");
+          setCurrentPage("transactions");
+        }}
         onOpenSports={() => setCurrentPage("exascout")}
         onOpenExaCard={() => setCurrentPage("exacard")}
         onOpenExaPay={() => setCurrentPage("exapay")}
@@ -1421,10 +1514,135 @@ export default function App() {
     );
   }
   if (currentPage === "exacard") {
-    return <ExaCardPage onBack={() => setCurrentPage("more")} />;
+    return withHistoryShortcut(<ExaCardPage onBack={() => setCurrentPage("more")} />);
   }
   if (currentPage === "exapay") {
-    return <ExaPayMerchantPage onBack={() => setCurrentPage("more")} />;
+    return withHistoryShortcut(
+      <ExaPayHomePage
+        onNavigate={(page) => {
+          if (page === "transactions") setTransactionsReturnPage("exapay");
+          setCurrentPage(page);
+        }}
+        onNotificationOpen={openNotifications}
+        onOpenMerchant={() => setCurrentPage("exapayMerchant")}
+        onOpenSyncRedeem={() => setCurrentPage("exapaySyncRedeem")}
+        onOpenTransfer={(mode = "online") => {
+          setExapayPaymentDraft(null);
+          setExapayPaymentResult(null);
+          setExapayTransferMode(mode);
+          setCurrentPage("exapayTransferDraft");
+        }}
+        onOpenOfflinePay={(method) => {
+          setExapayPaymentDraft(null);
+          setExapayPaymentResult(null);
+          if (method === "nearby") {
+            setCurrentPage("exapayNearby");
+            return;
+          }
+          setExapayOfflineMethod(method);
+          setCurrentPage("exapayOffline");
+        }}
+      />
+    );
+  }
+  if (currentPage === "exapayNearby") {
+    return (
+      <ExaPayNearbyDevicesPage
+        onBack={() => setCurrentPage("exapay")}
+        onOpenQrFallback={() => {
+          setExapayPaymentDraft(null);
+          setExapayPaymentResult(null);
+          setExapayTransferMode("qr");
+          setCurrentPage("exapayTransferDraft");
+        }}
+        onViewAllHistory={() => {
+          setTransactionsReturnPage("exapayNearby");
+          setCurrentPage("transactions");
+        }}
+      />
+    );
+  }
+  if (currentPage === "exapaySyncRedeem") {
+    return (
+      <ExaPaySyncRedeemPage
+        onBack={() => setCurrentPage("exapay")}
+        onOpenSupport={() => {
+          setHelpReturnPage("exapaySyncRedeem");
+          setCurrentPage("helpSupportCenter");
+        }}
+        onViewAllHistory={() => {
+          setTransactionsReturnPage("exapaySyncRedeem");
+          setCurrentPage("transactions");
+        }}
+      />
+    );
+  }
+  if (currentPage === "exapayOffline") {
+    return (
+      <ExaPayOfflinePayPage
+        initialMethod={exapayOfflineMethod}
+        initialDraft={exapayPaymentDraft?.channel === "bluetooth" ? exapayPaymentDraft : null}
+        onBack={() => {
+          setExapayPaymentDraft(null);
+          setCurrentPage("exapay");
+        }}
+        onReview={(draft) => {
+          setExapayPaymentDraft({ ...draft, accountUserId: user?.id ?? user?.user_id ?? null });
+          setExapayReviewReturnPage("exapayOffline");
+          setCurrentPage("exapayPaymentReview");
+        }}
+      />
+    );
+  }
+  if (currentPage === "exapayTransferDraft") {
+    return (
+      <ExaPayTransferDraftPage
+        mode={exapayTransferMode}
+        initialDraft={exapayPaymentDraft}
+        onBack={() => {
+          setExapayPaymentDraft(null);
+          setCurrentPage("exapay");
+        }}
+        onContinue={(draft) => {
+          setExapayPaymentDraft(draft);
+          setExapayReviewReturnPage("exapayTransferDraft");
+          setCurrentPage("exapayPaymentReview");
+        }}
+      />
+    );
+  }
+  if (currentPage === "exapayPaymentReview" && exapayPaymentDraft) {
+    return (
+      <ExaPayPaymentReviewPage
+        draft={exapayPaymentDraft}
+        onBack={() => setCurrentPage(exapayReviewReturnPage)}
+        onCancel={() => {
+          setExapayPaymentDraft(null);
+          setCurrentPage("exapay");
+        }}
+        onResult={(draft, result) => {
+          setExapayPaymentDraft(draft);
+          setExapayPaymentResult(result);
+          setCurrentPage("exapayPaymentResult");
+        }}
+      />
+    );
+  }
+  if (currentPage === "exapayPaymentResult" && exapayPaymentDraft && exapayPaymentResult) {
+    return (
+      <ExaPayPaymentResultPage
+        draft={exapayPaymentDraft}
+        result={exapayPaymentResult}
+        onDone={() => {
+          setExapayPaymentDraft(null);
+          setExapayPaymentResult(null);
+          setCurrentPage("exapay");
+        }}
+      />
+    );
+  }
+  if (currentPage === "exapayMerchant") {
+    return <ExaPayMerchantPage onBack={() => setCurrentPage("exapay")} />;
   }
   if (currentPage === "aiAssistant") {
     return <AITradingAssistantPage onBack={() => setCurrentPage("more")} />;
@@ -1433,10 +1651,6 @@ export default function App() {
     return (
       <HelpSupportCenter
         onBack={() => setCurrentPage(helpReturnPage)}
-        onOpenLiveChat={() => {
-          setChatReturnPage("helpSupportCenter");
-          setCurrentPage("liveSupportChat");
-        }}
         onOpenTicketCenter={() => setCurrentPage("supportCenter")}
       />
     );
@@ -1446,10 +1660,6 @@ export default function App() {
       <SupportCenter
         request={request}
         onBack={() => setCurrentPage("home")}
-        onOpenLiveChat={() => {
-          setChatReturnPage("supportCenter");
-          setCurrentPage("liveSupportChat");
-        }}
       />
     );
   }
@@ -1700,8 +1910,8 @@ export default function App() {
                             >
                               <span className="notification-dot" aria-hidden="true" />
                               <span className="notification-copy">
-                                <strong>{notification.title || t("dashboard.notificationFallbackTitle")}</strong>
-                                <small>{notification.message || t("dashboard.notificationFallbackMessage")}</small>
+                                <strong>{securityPreferences.privateNotifications ? "Private notification" : notification.title || t("dashboard.notificationFallbackTitle")}</strong>
+                                <small>{securityPreferences.privateNotifications ? "Open ExaEarn to view this notification." : notification.message || t("dashboard.notificationFallbackMessage")}</small>
                               </span>
                               <time>{formatNotificationTime(notification.created_at)}</time>
                             </button>
@@ -1744,8 +1954,16 @@ export default function App() {
                 <div className="label-muted">{t("dashboard.portfolioValue")}</div>
                 <div className="balance-wrapper">
                   <div className="balance">
-                    <AnimatedCounter end={portfolioValue} duration={0.8} />
+                    {securityPreferences.hideBalances && !portfolioRevealed ? "••••••" : <AnimatedCounter end={portfolioValue} duration={0.8} />}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setPortfolioRevealed((value) => !value)}
+                    aria-label={securityPreferences.hideBalances && !portfolioRevealed ? "Reveal portfolio value" : "Hide portfolio value"}
+                    className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-white/5 hover:text-white"
+                  >
+                    {securityPreferences.hideBalances && !portfolioRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                   <div className="balance-accent" />
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-xs">

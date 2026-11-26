@@ -55,6 +55,46 @@ class ExaCardController extends Controller
         return response()->json(['data' => $this->cards->transactions($request->user(), $cardUuid)]);
     }
 
+    public function userTransactionHistory(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['nullable', 'string', 'max:512'],
+        ]);
+        $page = $this->cards->userTransactionsCursor(
+            $request->user(),
+            (int) ($filters['per_page'] ?? 30),
+            $filters['cursor'] ?? null,
+        );
+        $items = array_map(static function (\App\Models\CardTransaction $transaction): array {
+            $metadata = is_array($transaction->metadata) ? $transaction->metadata : [];
+            return [
+                'transaction_uuid' => $transaction->transaction_uuid,
+                'type' => $transaction->type,
+                'merchant' => $transaction->merchant,
+                'transaction_currency' => $transaction->transaction_currency,
+                'transaction_amount' => (string) $transaction->transaction_amount,
+                'billing_currency' => $transaction->billing_currency,
+                'billing_amount' => (string) $transaction->billing_amount,
+                'fee' => (string) $transaction->fee,
+                'status' => $transaction->status,
+                'provider_reference' => $transaction->provider_reference,
+                'tx_hash' => is_scalar($metadata['tx_hash'] ?? null) ? $metadata['tx_hash'] : null,
+                'network' => $transaction->card?->network,
+                'created_at' => $transaction->provider_created_at?->toISOString() ?? $transaction->created_at?->toISOString(),
+            ];
+        }, $page->items());
+
+        return response()->json([
+            'data' => $items,
+            'meta' => [
+                'next_cursor' => $page->nextCursor()?->encode(),
+                'has_more' => $page->hasMorePages(),
+                'per_page' => $page->perPage(),
+            ],
+        ]);
+    }
+
     public function authorizations(Request $request, string $cardUuid): JsonResponse
     {
         return response()->json(['data' => $this->cards->authorizations($request->user(), $cardUuid)]);

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ListingApplication extends Model
 {
-    protected $fillable = ['application_uuid', 'reference', 'organization_id', 'submitted_by', 'application_type', 'application_status', 'integration_status', 'progress_percent', 'project_information', 'asset_information', 'blockchain_information', 'tokenomics', 'technology', 'security', 'legal_compliance', 'market_community', 'liquidity', 'listing_request', 'verified_metadata', 'risk_flags', 'review_summary', 'submitted_at', 'recommended_by_admin_id', 'recommended_at', 'approved_by_admin_id', 'approved_at', 'rejected_by_admin_id', 'rejected_at', 'decision_reason', 'idempotency_key'];
+    protected $fillable = ['application_uuid', 'reference', 'organization_id', 'submitted_by', 'application_type', 'application_status', 'integration_status', 'application_revision', 'progress_percent', 'project_information', 'asset_information', 'blockchain_information', 'tokenomics', 'technology', 'security', 'legal_compliance', 'market_community', 'liquidity', 'listing_request', 'verified_metadata', 'risk_flags', 'review_summary', 'governance_fingerprint', 'submitted_at', 'recommended_by_admin_id', 'recommended_at', 'recommended_revision', 'approved_by_admin_id', 'approved_at', 'approved_revision', 'rejected_by_admin_id', 'rejected_at', 'decision_reason', 'idempotency_key'];
 
     protected $casts = ['project_information' => 'array', 'asset_information' => 'array', 'blockchain_information' => 'array', 'tokenomics' => 'array', 'technology' => 'array', 'security' => 'array', 'legal_compliance' => 'array', 'market_community' => 'array', 'liquidity' => 'array', 'listing_request' => 'array', 'verified_metadata' => 'array', 'risk_flags' => 'array', 'review_summary' => 'array', 'submitted_at' => 'datetime', 'recommended_at' => 'datetime', 'approved_at' => 'datetime', 'rejected_at' => 'datetime'];
 
@@ -23,6 +23,16 @@ class ListingApplication extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(ListingReview::class, 'application_id');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ListingDocument::class, 'application_id');
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(ListingMessage::class, 'application_id');
     }
 
     public function assetConfiguration(): HasOne
@@ -50,8 +60,38 @@ class ListingApplication extends Model
         return $this->hasMany(ListingLaunchEvent::class, 'application_id');
     }
 
+    public function depositReadinessChecks(): HasMany
+    {
+        return $this->hasMany(ListingDepositReadinessCheck::class, 'application_id');
+    }
+
+    public function depositActivationApprovals(): HasMany
+    {
+        return $this->hasMany(ListingDepositActivationApproval::class, 'application_id');
+    }
+
+    public function withdrawalReadinessChecks(): HasMany
+    {
+        return $this->hasMany(ListingWithdrawalReadinessCheck::class, 'application_id');
+    }
+
+    public function withdrawalActivationApprovals(): HasMany
+    {
+        return $this->hasMany(ListingWithdrawalActivationApproval::class, 'application_id');
+    }
+
     public function schedule(): HasOne
     {
         return $this->hasOne(ListingLaunchSchedule::class, 'application_id');
+    }
+
+    public function reviewAssignments(): HasMany
+    {
+        return $this->hasMany(ListingReviewAssignment::class, 'application_id');
+    }
+
+    public function reviewDecisionEvents(): HasMany
+    {
+        return $this->hasMany(ListingReviewDecisionEvent::class, 'application_id');
     }
 }

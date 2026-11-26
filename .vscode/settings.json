@@ -1,0 +1,30 @@
+{
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true,
+        "**/vendor/**": true,
+        "**/.publish/**": true,
+        "**/.postgres-data/**": true,
+        "**/.codex/**": true,
+        "**/.tools/**": true,
+        "**/.edge-shot-preview/**": true,
+        "**/logs/**": true
+    },
+    "search.exclude": {
+        "**/node_modules/**": true,
+        "**/vendor/**": true,
+        "**/.publish/**": true,
+        "**/.postgres-data/**": true,
+        "**/.codex/**": true,
+        "**/.tools/**": true,
+        "**/.edge-shot-preview/**": true,
+        "**/logs/**": true
+    },
+    "files.exclude": {
+        "**/.publish": true,
+        "**/.postgres-data": true,
+        "**/.codex": true,
+        "**/.edge-shot-preview": true
+    }
+}

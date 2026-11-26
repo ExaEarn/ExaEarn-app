@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { useAuth } from "../context/AuthContext";
+import { decimalToMinorUnits, mapBackendTransactionResult, type TransactionResult } from "../services/transactionResultMapper";
 import {
   fetchGiftcardInventory,
   fetchGiftcardOrders,
@@ -21,10 +22,12 @@ import {
   submitGiftcardSell,
 } from "../services/giftcardApi";
 import { colors, fonts } from "../theme/colors";
+import TransactionResultScreen from "./TransactionResultScreen";
 
 type GiftcardScreenProps = {
   fontsReady: boolean;
   onBack: () => void;
+  onOpenTransactions: () => void;
 };
 
 const providers = ["Amazon", "Steam", "iTunes", "Google Play"];
@@ -138,7 +141,7 @@ function SelectPills({
   );
 }
 
-export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenProps) {
+export default function GiftcardScreen({ fontsReady, onBack, onOpenTransactions }: GiftcardScreenProps) {
   const insets = useSafeAreaInsets();
   const { request } = useAuth();
   const [mode, setMode] = useState<"sell" | "buy">("sell");
@@ -159,10 +162,12 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
   const [orders, setOrders] = useState<GiftcardOrder[]>([]);
   const [rateLoading, setRateLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [transactionResult, setTransactionResult] = useState<TransactionResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [touched, setTouched] = useState({ code: false, amount: false });
+  const submissionLock = useRef(false);
 
   const amountValue = toNumber(amount);
   const quantityValue = Math.max(1, Math.floor(toNumber(quantity) || 1));
@@ -295,13 +300,15 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
   };
 
   const submit = async () => {
-    if (!canSubmit || submitting || !lockedRate || lockSeconds <= 0) {
+    if (submissionLock.current || submitting) return;
+    if (!canSubmit || !lockedRate || lockSeconds <= 0) {
       setError("Rate expired. Please refresh pricing before submission.");
       setConfirmOpen(false);
       setLockedRate(null);
       return;
     }
 
+    submissionLock.current = true;
     setSubmitting(true);
     setMessage("");
     setError("");
@@ -324,6 +331,20 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
               giftcard_id: selectedInventory?.id,
               payment_method: paymentMethod,
             });
+      const cardValueMinor = decimalToMinorUnits(amount, 2);
+      setTransactionResult(mapBackendTransactionResult(payload, {
+        type: mode === "sell" ? "Giftcard sale request" : "Giftcard purchase request",
+        fallbackReference: "",
+        amountMinor: cardValueMinor === undefined
+            ? undefined
+            : cardValueMinor * (mode === "buy" ? quantityValue : 1),
+        amountLabel: mode === "sell" ? "Submitted card value" : "Giftcard face value",
+        asset: currency,
+        precision: 2,
+        source: mode === "sell" ? "Giftcard submission" : "ExaEarn payment method",
+        destination: mode === "buy" ? `${provider} giftcard` : "Giftcard review",
+        timestampLabel: "Submitted at",
+      }));
       setMessage(String(payload.message || (mode === "sell" ? "Giftcard submitted for fraud analysis." : "Giftcard purchase submitted.")));
       if (mode === "sell") {
         setCode("");
@@ -343,9 +364,21 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to complete giftcard request.");
     } finally {
+      submissionLock.current = false;
       setSubmitting(false);
     }
   };
+
+  if (transactionResult) {
+    return (
+      <TransactionResultScreen
+        fontsReady={fontsReady}
+        transaction={transactionResult}
+        returnLabel="Back to Giftcards"
+        onReturn={() => setTransactionResult(null)}
+      />
+    );
+  }
 
   if (!fontsReady) {
     return <LinearGradient colors={[colors.cosmic950, "#120b22"]} style={styles.fill} />;
@@ -359,6 +392,10 @@ export default function GiftcardScreen({ fontsReady, onBack }: GiftcardScreenPro
             <AnimatedPressable style={styles.backButton} onPress={onBack}>
               <Ionicons name="arrow-back" size={17} color={colors.auric300} />
               <Text style={styles.backText}>Back</Text>
+            </AnimatedPressable>
+            <AnimatedPressable style={styles.backButton} onPress={onOpenTransactions} accessibilityRole="button">
+              <Ionicons name="receipt-outline" size={15} color={colors.auric300} />
+              <Text style={styles.backText}>View transaction history</Text>
             </AnimatedPressable>
             <View style={styles.heroRow}>
               <View className="min-w-0 flex-1">

@@ -1,4 +1,3 @@
-﻿import { useState } from "react";
 import ProfileIdentity from '../../components/profile/ProfileIdentity.jsx';
 
 import {
@@ -17,8 +16,6 @@ import {
 } from "lucide-react";
 
 function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerification, onOpenProfileAppearance, onOpenReferral, onOpenNotifications, onOpenHelpSupport, onOpenAbout, onOpenChangePassword, onOpenLoginDevices, onOpenActivityLogs }) {
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
-
   const displayName = user?.name?.trim() || "ExaEarn User";
 
   const actionItems = [
@@ -114,32 +111,9 @@ function ProfilePage({ onBack, user, onLogout, onOpenSettings, onOpenVerificatio
               <SecurityRow icon={Lock} label="Change Password" onClick={onOpenChangePassword} />
               <SecurityRow icon={Smartphone} label="Login Devices" onClick={onOpenLoginDevices} />
               <SecurityRow icon={FileText} label="Activity Log" onClick={onOpenActivityLogs} />
-              <button
-                type="button"
-                onClick={() => setTwoFactorEnabled((prev) => !prev)}
-                className="group flex w-full items-center justify-between rounded-xl border border-[var(--exa-border)] bg-[var(--exa-surface)] px-3 py-3 transition-all duration-300 hover:border-[var(--exa-border)] active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--exa-border)] bg-[var(--exa-surface-hover)] text-[var(--exa-text-secondary)]">
-                    <ShieldCheck className="h-4 w-4" />
-                  </span>
-                  <span className="text-sm font-medium text-[var(--exa-text-secondary)]">Two-Factor Authentication</span>
-                </div>
-                <span
-                  className={`relative h-6 w-11 rounded-full transition-colors duration-300 ${
-                    twoFactorEnabled ? "bg-gradient-to-r from-[var(--exa-gold-dark)] to-[var(--exa-gold)]" : "bg-[var(--exa-surface-hover)]"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all duration-300 ${
-                      twoFactorEnabled ? "left-6" : "left-1"
-                    }`}
-                  />
-                </span>
-              </button>
             </div>
-            <p className="mt-4 rounded-xl border border-[var(--exa-border-active)] bg-[var(--exa-gold-surface)] px-3 py-2 text-xs text-[var(--exa-gold-light)]">
-              Your account security is protected within the ExaEarn ecosystem.
+            <p className="mt-4 rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-xs text-[var(--exa-text-muted)]">
+              Security capabilities and backend availability are shown in the Security Center.
             </p>
           </section>
 

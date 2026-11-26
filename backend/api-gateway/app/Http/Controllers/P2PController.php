@@ -290,6 +290,49 @@ class P2PController extends Controller
 
     public function myTrades(Request $request): JsonResponse
     {
+        if ($request->boolean('cursor_mode')) {
+            $filters = $request->validate([
+                'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'cursor' => ['nullable', 'string', 'max:512'],
+                'status' => ['nullable', 'string', 'max:40'],
+            ]);
+            $page = $this->p2pService->myTradesCursor(
+                $request->user(),
+                (int) ($filters['per_page'] ?? 30),
+                $filters['cursor'] ?? null,
+                $filters['status'] ?? null,
+            );
+            $userId = (int) $request->user()->id;
+            $items = array_map(static function (\App\Models\P2PTrade $trade) use ($userId): array {
+                $buyerName = $trade->buyer?->name;
+                $sellerName = $trade->seller?->name;
+                $counterparty = (int) $trade->buyer_id === $userId ? $sellerName : $buyerName;
+                return [
+                    'trade_uuid' => $trade->trade_uuid,
+                    'type' => 'P2P trade',
+                    'status' => $trade->status,
+                    'asset' => $trade->asset,
+                    'crypto_amount' => (string) $trade->crypto_amount,
+                    'fiat_currency' => $trade->fiat_currency,
+                    'fiat_amount' => (string) $trade->fiat_amount,
+                    'payment_method' => $trade->payment_method,
+                    'counterparty' => $counterparty,
+                    'sender' => $buyerName,
+                    'recipient' => $sellerName,
+                    'created_at' => $trade->created_at,
+                    'completed_at' => $trade->completed_at,
+                ];
+            }, $page->items());
+            return response()->json([
+                'data' => $items,
+                'meta' => [
+                    'next_cursor' => $page->nextCursor()?->encode(),
+                    'has_more' => $page->hasMorePages(),
+                    'per_page' => $page->perPage(),
+                ],
+            ]);
+        }
+
         return response()->json([
             'data' => $this->p2pService->myTrades($request->user(), $request->query('status')),
         ]);

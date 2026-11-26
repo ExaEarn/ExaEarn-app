@@ -11,6 +11,13 @@ export const colors = {
   violetText: "#f5f0ff",
   muted: "rgba(245, 240, 255, 0.68)",
   danger: "#fda4af",
+  surfaceCharcoal: "#191922",
+  statusError: "#ef5a67",
+  statusWarning: "#e7ad4f",
+  statusConnectivity: "#65a9ee",
+  statusSuccess: "#52b788",
+  statusSecurity: "#a98af4",
+  modalOverlay: "rgba(2, 3, 8, 0.76)",
 };
 
 export const fonts = {

@@ -20,8 +20,9 @@ class MarketMakerFairValueService
             throw new RuntimeException('No trusted fair value is available for market-maker quoting.');
         }
 
-        $updatedAt = isset($ticker['updated_at']) ? strtotime((string) $ticker['updated_at']) : time();
-        $ageSeconds = max(0, time() - (int) $updatedAt);
+        $currentTimestamp = now()->timestamp;
+        $updatedAt = isset($ticker['updated_at']) ? strtotime((string) $ticker['updated_at']) : $currentTimestamp;
+        $ageSeconds = max(0, $currentTimestamp - (int) $updatedAt);
 
         return [
             'symbol' => $ticker['symbol'] ?? $symbol,

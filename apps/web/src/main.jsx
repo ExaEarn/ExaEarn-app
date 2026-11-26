@@ -5,10 +5,15 @@ import "./styles/index.css";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { LanguageProvider } from "./context/LanguageContext.jsx";
+import SecurityLifecycleGuard from "./components/SecurityLifecycleGuard.jsx";
+import { initializeFirebaseAnalytics } from "./config/firebase.js";
+import TawkToChat from "./components/support/TawkToChat.jsx";
 
 const App = lazy(() => import("./App.jsx"));
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || "placeholder-client-id";
+
+void initializeFirebaseAnalytics();
 
 function AppFallback() {
   return (
@@ -27,11 +32,14 @@ createRoot(document.getElementById("root")).render(
     <GoogleOAuthProvider clientId={googleClientId}>
       <ThemeProvider>
         <AuthProvider>
-          <LanguageProvider>
-            <Suspense fallback={<AppFallback />}>
-              <App />
-            </Suspense>
-          </LanguageProvider>
+          <SecurityLifecycleGuard>
+            <LanguageProvider>
+              <TawkToChat />
+              <Suspense fallback={<AppFallback />}>
+                <App />
+              </Suspense>
+            </LanguageProvider>
+          </SecurityLifecycleGuard>
         </AuthProvider>
       </ThemeProvider>
     </GoogleOAuthProvider>
