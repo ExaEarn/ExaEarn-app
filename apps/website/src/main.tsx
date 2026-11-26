@@ -325,7 +325,7 @@ function setPageMetadata(path: string) {
   document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", title);
   document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", description);
-  document.querySelector('link[rel="canonical"]')?.setAttribute("href", `https://exaearn-website.vercel.app${path === "/" ? "/" : path}`);
+  document.querySelector('link[rel="canonical"]')?.setAttribute("href", `https://exaearn.com${path === "/" ? "/" : path}`);
 }
 
 function App() {
