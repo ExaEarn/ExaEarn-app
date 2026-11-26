@@ -1,0 +1,407 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ExaEarn single-host production preparation baseline. Deployment requires separate cost approval.
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: m7g.2xlarge
+    AllowedValues: [m7g.xlarge, m7g.2xlarge]
+    Description: Do not use the smaller size until representative load tests justify it.
+  DataVolumeSizeGiB:
+    Type: Number
+    Default: 100
+    MinValue: 100
+    MaxValue: 1000
+Resources:
+  ProductionVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: exaearn-production
+        - Key: Environment
+          Value: production
+
+  ProductionSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProductionVpc
+      CidrBlock: 10.42.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: exaearn-production-public-a
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: exaearn-production-igw
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref ProductionVpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ProductionVpc
+
+  DefaultInternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref ProductionSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  ProductionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: HTTPS only; Nginx must require Cloudflare Authenticated Origin Pulls mTLS.
+      VpcId: !Ref ProductionVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: TLS only; Cloudflare client-certificate validation is mandatory at Nginx.
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 10.42.0.0/16
+          Description: DNS resolution within the production VPC.
+        - IpProtocol: udp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 10.42.0.0/16
+          Description: DNS resolution within the production VPC.
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: TLS egress for SSM, ECR, backups, package sources, and approved RPC providers.
+      Tags:
+        - Key: Name
+          Value: exaearn-production-origin
+
+  ProductionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /exaearn/production/host
+      RetentionInDays: 30
+
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireDatabaseBackups
+            Status: Enabled
+            ExpirationInDays: 35
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  BackupBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref BackupBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt BackupBucket.Arn
+              - !Sub '${BackupBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  ProductionRuntimeExtensionPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ExaEarnProductionHostRuntimeExtension
+      Roles:
+        - ExaEarnProductionInstanceRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: WriteHostLogs
+            Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub '${ProductionLogGroup.Arn}:*'
+          - Effect: Allow
+            Action:
+              - logs:DescribeLogStreams
+            Resource: !GetAtt ProductionLogGroup.Arn
+          - Sid: PublishHostMetrics
+            Effect: Allow
+            Action:
+              - cloudwatch:PutMetricData
+            Resource: '*'
+            Condition:
+              StringEquals:
+                cloudwatch:namespace: CWAgent
+          - Sid: LocateBackupBucket
+            Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+            Resource: !GetAtt BackupBucket.Arn
+          - Sid: ListDatabaseBackupObjects
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+            Resource: !GetAtt BackupBucket.Arn
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - postgres
+                  - postgres/*
+          - Sid: ReadAndWriteDatabaseBackups
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:AbortMultipartUpload
+              - s3:ListMultipartUploadParts
+            Resource: !Sub '${BackupBucket.Arn}/postgres/*'
+
+  ProductionElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: exaearn-production-origin
+
+  ProductionElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ProductionElasticIp.AllocationId
+      InstanceId: !Ref ProductionInstance
+
+  ProductionDataVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AvailabilityZone: !GetAtt ProductionSubnet.AvailabilityZone
+      Size: !Ref DataVolumeSizeGiB
+      VolumeType: gp3
+      Encrypted: true
+      Iops: 3000
+      Throughput: 125
+      Tags:
+        - Key: Name
+          Value: exaearn-production-data
+        - Key: Backup
+          Value: exaearn-production
+        - Key: Environment
+          Value: production
+
+  ProductionDataVolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      Device: /dev/sdf
+      InstanceId: !Ref ProductionInstance
+      VolumeId: !Ref ProductionDataVolume
+
+  ProductionInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: ExaEarnProductionInstanceProfile
+      SubnetId: !Ref ProductionSubnet
+      SecurityGroupIds:
+        - !Ref ProductionSecurityGroup
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
+        HttpPutResponseHopLimit: 1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          dnf update -y
+          dnf install -y docker docker-compose-plugin amazon-cloudwatch-agent python3 amazon-ec2-utils
+          usermod -aG docker ec2-user
+          device=""
+          data_volume_id="${ProductionDataVolume}"
+          data_volume_id=$(printf '%s' "$data_volume_id" | tr -d '-')
+          for attempt in $(seq 1 60); do
+            for candidate in /dev/nvme*n1; do
+              [ -b "$candidate" ] || continue
+              candidate_volume_id=$(ebsnvme-id -v "$candidate" 2>/dev/null | tr -d '-')
+              if [ "$candidate_volume_id" = "$data_volume_id" ]; then device="$candidate"; break; fi
+            done
+            [ -n "$device" ] && break
+            sleep 5
+          done
+          test -n "$device"
+          mkdir -p /srv/exaearn
+          if ! blkid "$device"; then mkfs.xfs "$device"; fi
+          mount "$device" /srv/exaearn
+          uuid=$(blkid -s UUID -o value "$device")
+          grep -q "$uuid" /etc/fstab || echo "UUID=$uuid /srv/exaearn xfs defaults,nofail 0 2" >> /etc/fstab
+          install -d -m 0750 /srv/exaearn/docker /srv/exaearn/logs /srv/exaearn/tls
+          install -d -m 0755 /etc/systemd/system/docker.service.d
+          cat >/etc/systemd/system/docker.service.d/10-exaearn-ebs.conf <<'DOCKERUNIT'
+          [Unit]
+          RequiresMountsFor=/srv/exaearn
+          DOCKERUNIT
+          cat >/etc/docker/daemon.json <<'DOCKER'
+          {
+            "data-root": "/srv/exaearn/docker",
+            "log-driver": "json-file",
+            "log-opts": {"max-size": "100m", "max-file": "3"}
+          }
+          DOCKER
+          systemctl daemon-reload
+          systemctl enable --now docker
+          cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWAGENT'
+          {
+            "metrics": {
+              "append_dimensions": {"InstanceId": "${!aws:InstanceId}"},
+              "metrics_collected": {
+                "mem": {"measurement": ["mem_used_percent"], "metrics_collection_interval": 60},
+                "disk": {"measurement": ["used_percent"], "resources": ["/", "/srv/exaearn"], "metrics_collection_interval": 60}
+              }
+            },
+            "logs": {
+              "logs_collected": {
+                "files": {"collect_list": [
+                  {"file_path": "/srv/exaearn/docker/containers/*/*.log", "log_group_name": "${ProductionLogGroup}", "log_stream_name": "{instance_id}/docker"}
+                ]}
+              }
+            }
+          }
+          CWAGENT
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+          systemctl enable amazon-ssm-agent
+      Tags:
+        - Key: Name
+          Value: exaearn-production
+        - Key: Environment
+          Value: production
+
+  ProductionCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Production host CPU remains above 80 percent.
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref ProductionInstance
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: missing
+
+  BackupVault:
+    Type: AWS::Backup::BackupVault
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BackupVaultName: !Sub 'exaearn-production-ebs-${AWS::AccountId}'
+
+  BackupServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: backup.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores
+
+  EbsBackupPlan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan:
+        BackupPlanName: exaearn-production-ebs-daily
+        BackupPlanRule:
+          - RuleName: daily-35-day-retention
+            TargetBackupVault: !Ref BackupVault
+            ScheduleExpression: cron(0 6 * * ? *)
+            StartWindowMinutes: 60
+            CompletionWindowMinutes: 180
+            Lifecycle:
+              DeleteAfterDays: 35
+
+  EbsBackupSelection:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupPlanId: !Ref EbsBackupPlan
+      BackupSelection:
+        SelectionName: exaearn-production-data-volume
+        IamRoleArn: !GetAtt BackupServiceRole.Arn
+        Resources:
+          - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:volume/*
+        ListOfTags:
+          - ConditionType: STRINGEQUALS
+            ConditionKey: Backup
+            ConditionValue: exaearn-production
+
+Outputs:
+  InstanceId:
+    Value: !Ref ProductionInstance
+  OriginElasticIp:
+    Value: !Ref ProductionElasticIp
+  ApiEcrRepositoryUri:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/exaearn-production-api'
+  BlockchainEcrRepositoryUri:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/exaearn-production-blockchain'
+  DatabaseBackupBucket:
+    Value: !Ref BackupBucket
+  SsmInstanceRole:
+    Value: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ExaEarnProductionInstanceRole'
