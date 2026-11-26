@@ -8,6 +8,8 @@ RUN apk upgrade --no-cache \
     && apk add --no-cache icu-libs libpq libzip \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev libzip-dev \
     && docker-php-ext-install bcmath intl opcache pcntl pdo_pgsql zip \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
     && apk del .build-deps
 WORKDIR /app
 COPY --from=vendor /app/vendor vendor

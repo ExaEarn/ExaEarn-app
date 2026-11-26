@@ -89,3 +89,18 @@ condition = "AND"
 regexTarget = "line"
 paths = ['''security/pnpm-audit\.json$''']
 regexes = ['''(response-secret|prod-secret-key-123|sk-prod-a1b2c3d4|P@ssw0rd123)''']
+
+[[allowlists]]
+description = "Firebase/Google mobile configuration contains a published client API key, not a server credential."
+targetRules = ["gcp-api-key"]
+paths = [
+  '''apps/mobile/android/app/google-services\.json$''',
+  '''apps/mobile/google-services\.json$'''
+]
+
+[[allowlists]]
+description = "ExaPay offline simulation fixtures use replay-safe test API key placeholders."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''backend/api-gateway/tests/Feature/ExaPayOfflineSimulationTest\.php$''']
