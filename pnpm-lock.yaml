@@ -276,9 +276,18 @@ importers:
       '@babel/core':
         specifier: ^7.26.0
         version: 7.29.13
+      '@babel/plugin-transform-react-jsx':
+        specifier: ^7.29.7
+        version: 7.29.7(@babel/core@7.29.13)
       '@types/react':
         specifier: ~19.0.10
         version: 19.0.14
+      babel-preset-expo:
+        specifier: ~13.2.5
+        version: 13.2.5(@babel/core@7.29.13)
+      metro-runtime:
+        specifier: 0.82.5
+        version: 0.82.5
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.19
