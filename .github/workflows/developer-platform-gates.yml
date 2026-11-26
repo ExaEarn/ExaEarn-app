@@ -71,12 +71,12 @@ jobs:
       - run: php ../../scripts/classify-migrations.php --fail-on-unclassified --json=../../artifacts/migration-safety.json
       - run: cp .env.example .env
       - run: php artisan config:cache && php artisan route:cache && php artisan migrate:fresh --force && php artisan migrate:status
-      - name: Clear PostgreSQL config before SQLite regression
+      - name: Clear Laravel configuration cache
         run: php artisan config:clear
-      - run: php artisan test tests/Feature/DeveloperFinalP1RemediationTest.php tests/Feature/DeveloperApiCredentialSecurityTest.php tests/Feature/DeveloperAuthSecurityTest.php tests/Feature/DeveloperExternalInterfacesWave1Test.php tests/Feature/DeveloperGovernanceWave2Test.php tests/Feature/DeveloperPlatformP0SecurityTest.php tests/Feature/DeveloperProductionAccessTest.php tests/Feature/DeveloperWorkspaceRbacTest.php tests/Feature/Phase14DeveloperPlatformTest.php
-        env: { DB_CONNECTION: sqlite, DB_DATABASE: ':memory:', CACHE_STORE: array, QUEUE_CONNECTION: sync }
-      - run: php artisan test
-        env: { DB_CONNECTION: sqlite, DB_DATABASE: ':memory:', CACHE_STORE: array, QUEUE_CONNECTION: sync }
+      - name: Run security regression tests against isolated PostgreSQL
+        run: php artisan test tests/Feature/DeveloperFinalP1RemediationTest.php tests/Feature/DeveloperApiCredentialSecurityTest.php tests/Feature/DeveloperAuthSecurityTest.php tests/Feature/DeveloperExternalInterfacesWave1Test.php tests/Feature/DeveloperGovernanceWave2Test.php tests/Feature/DeveloperPlatformP0SecurityTest.php tests/Feature/DeveloperProductionAccessTest.php tests/Feature/DeveloperWorkspaceRbacTest.php tests/Feature/Phase14DeveloperPlatformTest.php
+      - name: Run the full backend suite against isolated PostgreSQL
+        run: php artisan test
       - uses: actions/upload-artifact@v4
         with: { name: migration-safety-report, path: artifacts/migration-safety.json, retention-days: 30 }
 
@@ -228,6 +228,7 @@ jobs:
           retention-days: 30
       - uses: github/codeql-action/analyze@v3
       - name: Capture Node dependency audit report
+        if: ${{ always() }}
         shell: bash
         run: |
           mkdir -p artifacts
@@ -242,7 +243,7 @@ jobs:
           fi
           node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync('artifacts/pnpm-audit.json','utf8')); if (!report || typeof report.advisories !== 'object' || !report.metadata?.vulnerabilities) process.exit(1)"
       - name: Upload Node dependency audit report
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('artifacts/pnpm-audit.json') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: exaearn-pnpm-audit-${{ github.sha }}
@@ -250,6 +251,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Audit Node dependencies
+        if: ${{ always() && hashFiles('artifacts/pnpm-audit.json') != '' }}
         run: node scripts/validate-node-audit.mjs --audit-file artifacts/pnpm-audit.json
       - name: Audit Composer dependencies
         if: ${{ always() }}

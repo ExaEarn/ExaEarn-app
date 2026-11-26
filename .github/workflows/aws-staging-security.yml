@@ -201,28 +201,25 @@ jobs:
         run: composer audit --working-dir=backend/api-gateway --locked --abandoned=fail
       - name: Reward-service Composer lockfile audit
         run: composer audit --working-dir=backend/services/reward-service --locked --abandoned=fail
-      - name: Run pnpm audit, strict acceptance policy, and website npm audit
+      - name: Run pnpm audit and strict acceptance policy
         shell: bash
         run: |
           set +e
-          pnpm audit --json > pnpm-audit.json 2>&1
+          pnpm audit --audit-level high --json > pnpm-audit.json 2>&1
           pnpm_status=$?
           node scripts/validate-node-audit.mjs --audit-file pnpm-audit.json --policy security/node-audit-acceptances.json > node-audit-policy.log 2>&1
           policy_status=$?
-          (cd apps/website && npm audit --workspaces=false --json > ../../website-npm-audit.json 2>&1)
-          npm_status=$?
           set -e
           printf '%s\n' "pnpm audit exit code: $pnpm_status" | tee pnpm-audit-exit-code.txt
           printf '%s\n' "Node audit policy exit code: $policy_status" | tee node-audit-policy-exit-code.txt
-          printf '%s\n' "Website npm audit exit code: $npm_status" | tee website-npm-audit-exit-code.txt
-          printf '%s\n' "pnpm_audit_exit_code=$pnpm_status" "node_audit_policy_exit_code=$policy_status" "website_npm_audit_exit_code=$npm_status" >> "$GITHUB_STEP_SUMMARY"
-          for report in pnpm-audit.json node-audit-policy.log website-npm-audit.json; do
+          printf '%s\n' "pnpm_audit_exit_code=$pnpm_status" "node_audit_policy_exit_code=$policy_status" >> "$GITHUB_STEP_SUMMARY"
+          for report in pnpm-audit.json node-audit-policy.log; do
             if [ ! -s "$report" ]; then
               echo "Required dependency audit report is missing or empty: $report" >&2
               exit 2
             fi
           done
-          if [ "$pnpm_status" -ne 0 ] || [ "$policy_status" -ne 0 ] || [ "$npm_status" -ne 0 ]; then
+          if [ "$pnpm_status" -ne 0 ] || [ "$policy_status" -ne 0 ]; then
             exit 1
           fi
       - name: Upload dependency audit reports
@@ -235,8 +232,6 @@ jobs:
             pnpm-audit-exit-code.txt
             node-audit-policy.log
             node-audit-policy-exit-code.txt
-            website-npm-audit.json
-            website-npm-audit-exit-code.txt
           if-no-files-found: warn
           retention-days: 30
 

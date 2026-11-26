@@ -92,7 +92,7 @@ regexes = ['''(response-secret|prod-secret-key-123|sk-prod-a1b2c3d4|P@ssw0rd123)
 
 [[allowlists]]
 description = "Firebase/Google mobile configuration contains a published client API key, not a server credential."
-targetRules = ["gcp-api-key"]
+targetRules = ["generic-api-key"]
 paths = [
   '''apps/mobile/android/app/google-services\.json$''',
   '''apps/mobile/google-services\.json$'''
