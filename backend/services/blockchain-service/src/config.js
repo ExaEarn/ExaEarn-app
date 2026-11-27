@@ -122,6 +122,7 @@ module.exports = {
   eventPollIntervalMs: Number(process.env.BLOCKCHAIN_EVENT_POLL_INTERVAL_MS || 15000),
   eventStartBlock: process.env.BLOCKCHAIN_EVENT_START_BLOCK || 'latest',
   webhookSecret: process.env.NODE_WEBHOOK_SECRET || process.env.NODE_SERVICE_SECRET || process.env.SERVICE_SECRET || '',
+  transactionExecutionEnabled: process.env.BLOCKCHAIN_TRANSACTION_EXECUTION_ENABLED === 'true',
   evmNetworks,
   networks,
   base: networks.base,

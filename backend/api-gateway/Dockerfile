@@ -3,22 +3,23 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative --no-scripts
 
-FROM php:8.3-cli-alpine
-RUN apk upgrade --no-cache \
-    && apk add --no-cache icu-libs libpq libzip \
-    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev libzip-dev \
+FROM php:8.3-fpm-alpine
+RUN apk upgrade --no-cache libxml2 \
+    && apk add --no-cache icu-libs libpq libzip && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev libzip-dev \
     && docker-php-ext-install bcmath intl opcache pcntl pdo_pgsql zip \
-    && pecl install redis \
+    && pecl install redis-6.3.0 \
     && docker-php-ext-enable redis \
     && apk del .build-deps
 WORKDIR /app
 COPY --from=vendor /app/vendor vendor
 COPY . .
+COPY docker/production.ini /usr/local/etc/php/conf.d/zz-production.ini
+COPY docker/www.conf /usr/local/etc/php-fpm.d/zz-production.conf
 ENV LOG_CHANNEL=stderr
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
     && php artisan package:discover --ansi \
     && chown -R www-data:www-data storage bootstrap/cache
-USER www-data
-EXPOSE 8080
+USER root
+EXPOSE 9000
 STOPSIGNAL SIGTERM
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
+CMD ["php-fpm", "-F"]
