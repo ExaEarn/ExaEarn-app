@@ -44,8 +44,8 @@ jobs:
       DB_PASSWORD: ci-only-password
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
-      CACHE_STORE: redis
-      QUEUE_CONNECTION: redis
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
     defaults: { run: { working-directory: backend/api-gateway } }
     steps:
       - uses: actions/checkout@v4
