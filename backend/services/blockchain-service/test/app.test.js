@@ -43,7 +43,9 @@ describe('blockchain HTTP application', () => {
       body: JSON.stringify({ contract: '0x0', method: 'transfer' }),
     });
 
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ message: 'Transaction execution is disabled.' });
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: expect.stringContaining('disabled'),
+    });
   });
 });

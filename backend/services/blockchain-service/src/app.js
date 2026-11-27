@@ -4,23 +4,18 @@ const { verifyServiceSecret } = require('./middleware/auth');
 const realtimeHub = require('./services/realtimeHub');
 const blockchainService = require('./services/blockchainService');
 const logger = require('./utils/logger');
+const stagingSafety = require('./stagingSafety');
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
-
-function requireTransactionExecutionEnabled(_req, res, next) {
-  if (!config.transactionExecutionEnabled) {
-    return res.status(403).json({ message: 'Transaction execution is disabled.' });
-  }
-  return next();
-}
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.post('/contracts/execute', verifyServiceSecret, requireTransactionExecutionEnabled, async (req, res) => {
+app.post('/contracts/execute', verifyServiceSecret, async (req, res) => {
   try {
+    stagingSafety.assertFinancialOperationBlocked('Contract transaction execution');
     const result = await blockchainService.sendTransaction({
       contract: req.body.contract,
       method: req.body.method,

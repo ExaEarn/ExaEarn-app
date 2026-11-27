@@ -23,6 +23,7 @@ condition = "AND"
 regexTarget = "line"
 commits = [
   '''b2766e32831d7987a519c81605e1aa8733c3d49b''',
+  '''941fb4080e9b1113e646a377aca2ec5f0be0a367''',
   '''0b50919d050c724a630d282ab7c19395b0ee178b''',
   '''647d4096adf789d6cfb599c8e2257f4d53760aa7''',
   '''049c7b08ddc14147fcb25a759dfca7825736a1e3''',
@@ -30,6 +31,7 @@ commits = [
 ]
 paths = [
   '''backend/api-gateway/tests/Feature/ExaPayOfflineSimulationTest\.php$''',
+  '''apps/mobile/src/services/exaPayOfflineReconciliationApi\.test\.ts$''',
   '''backend/api-gateway/tests/Feature/Phase15EMarketMakerBotTest\.php$''',
   '''backend/api-gateway/tests/Feature/AgriTechFlowTest\.php$''',
   '''backend/api-gateway/tests/Feature/Phase7TradingOperationsTest\.php$''',
