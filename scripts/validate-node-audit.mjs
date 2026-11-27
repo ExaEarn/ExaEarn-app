@@ -58,10 +58,19 @@ export function validateAuditPolicy(audit, policy, options = {}) {
   for (const acceptedId of byId.keys()) {
     if (!currentIds.has(acceptedId)) throw new Error(`Acceptance is not present in the current audit: ${acceptedId}`);
   }
-  const unaccepted = findings.map(idFor).filter((id) => !byId.has(id));
-  if (unaccepted.length) throw new Error(`Unaccepted High Node advisories: ${unaccepted.join(', ')}`);
+  const unaccepted = findings.filter((advisory) => !byId.has(idFor(advisory)));
+  if (unaccepted.length) {
+    throw new Error(`Unaccepted High Node advisories: ${unaccepted.map(describeFinding).join('; ')}`);
+  }
 
   return { high: findings.length, accepted: byId.size };
+}
+
+function describeFinding(advisory) {
+  const paths = (advisory.findings ?? []).flatMap((finding) =>
+    (finding.paths ?? []).map((path) => `${finding.version ?? 'unknown'} via ${path}`));
+  const version = advisory.range ?? advisory.vulnerable_versions ?? 'affected version unknown';
+  return `${idFor(advisory)} [${advisory.module_name ?? 'unknown package'}; ${version}${paths.length ? `; paths: ${paths.join(' | ')}` : ''}]`;
 }
 
 function idFor(advisory) {
@@ -81,12 +90,11 @@ function loadAudit() {
   let command = 'pnpm';
   let args = ['audit', '--audit-level', 'high', '--json'];
   if (process.platform === 'win32') {
-    const npmRoot = spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm root -g'], { encoding: 'utf8' });
-    if (npmRoot.status !== 0 || !npmRoot.stdout?.trim()) {
-      throw new Error(`Could not locate global pnpm: ${npmRoot.stderr?.trim() ?? `exit ${npmRoot.status}`}`);
+    const npmRoot = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' });
+    if (npmRoot.status === 0) {
+      command = process.execPath;
+      args = [join(npmRoot.stdout.trim(), 'pnpm', 'bin', 'pnpm.cjs'), ...args];
     }
-    command = process.execPath;
-    args = [join(npmRoot.stdout.trim(), 'pnpm', 'bin', 'pnpm.cjs'), ...args];
   }
   const result = spawnSync(command, args, { encoding: 'utf8' });
   if (!result.stdout?.trim()) throw new Error(`pnpm audit produced no JSON (exit ${result.status}): ${result.stderr?.trim()}`);

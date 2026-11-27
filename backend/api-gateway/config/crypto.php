@@ -13,7 +13,7 @@ return [
     'chains' => [
         'base' => [
             'rpc_url' => env('BASE_RPC_URL', 'https://mainnet.base.org'),
-            'chain_id' => 8453,
+            'chain_id' => (int) env('BASE_CHAIN_ID', 8453),
             'assets' => ['ETH', 'USDT'],
             'hot_wallet_address' => env('BASE_HOT_WALLET_ADDRESS'),
             'cold_wallet_address' => env('BASE_COLD_WALLET_ADDRESS'),

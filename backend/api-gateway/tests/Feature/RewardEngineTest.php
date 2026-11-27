@@ -98,14 +98,16 @@ class RewardEngineTest extends TestCase
     public function test_claim_is_disabled_for_token_distribution(): void
     {
         $user = User::factory()->create();
-        RewardActivity::query()->create([
-            'activity_type' => 'daily_check_in',
-            'reward_rate' => '1',
-            'daily_limit' => '1',
-            'status' => 'active',
-            'mode' => 'fixed',
-            'min_activity_value' => '1',
-        ]);
+        RewardActivity::query()->updateOrCreate(
+            ['activity_type' => 'daily_check_in'],
+            [
+                'reward_rate' => '1',
+                'daily_limit' => '1',
+                'status' => 'active',
+                'mode' => 'fixed',
+                'min_activity_value' => '1',
+            ],
+        );
 
         $reward = UserReward::query()->create([
             'user_id' => $user->id,

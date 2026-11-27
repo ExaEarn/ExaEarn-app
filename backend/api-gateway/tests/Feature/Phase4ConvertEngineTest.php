@@ -19,6 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class Phase4ConvertEngineTest extends TestCase
@@ -29,6 +30,7 @@ class Phase4ConvertEngineTest extends TestCase
     {
         parent::setUp();
 
+        config(['cache.default' => 'array']);
         Queue::fake([ExecuteSwapJob::class]);
         Redis::shouldReceive('publish')->zeroOrMoreTimes();
         Http::fake([
@@ -138,7 +140,7 @@ class Phase4ConvertEngineTest extends TestCase
         $quote = $service->createQuote($user->id, 'USDT', 'BTC', '1000');
         $swap = $service->queueExecution($user->id, $quote->quote_id, 'convert-fail-1');
 
-        $swap->metadata = array_merge($swap->metadata ?? [], ['reservation_id' => 'missing-reservation']);
+        $swap->metadata = array_merge($swap->metadata ?? [], ['reservation_id' => (string) Str::uuid()]);
         $swap->save();
 
         $failed = $service->executeQueuedSwap($swap->id);

@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SSMCore",
+      "Effect": "Allow",
+      "Action": ["ssm:UpdateInstanceInformation", "ssmmessages:CreateControlChannel", "ssmmessages:CreateDataChannel", "ssmmessages:OpenControlChannel", "ssmmessages:OpenDataChannel", "ec2messages:AcknowledgeMessage", "ec2messages:DeleteMessage", "ec2messages:FailMessage", "ec2messages:GetEndpoint", "ec2messages:GetMessages", "ec2messages:SendReply"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadOnlyStagingParameters",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter", "ssm:GetParameters"],
+      "Resource": "arn:aws:ssm:us-east-1:111122223333:parameter/exaearn/staging/*"
+    },
+    {
+      "Sid": "WriteStagingLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:DescribeLogStreams", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:/exaearn/staging:*"
+    }
+  ]
+}

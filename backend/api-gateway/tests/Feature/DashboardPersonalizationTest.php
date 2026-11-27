@@ -19,10 +19,64 @@ final class DashboardPersonalizationTest extends TestCase
     {
         $user = User::factory()->create();
         Sanctum::actingAs($user);
-        $this->putJson('/api/preferences/dashboard', ['mode' => 'personalized', 'primary_interest' => 'exaskills', 'selected_interests' => ['exaskills', 'earn'], 'onboarding_completed' => true])->assertOk()->assertJsonPath('data.primary_interest', 'exaskills');
+        $this->putJson('/api/preferences/dashboard', ['mode' => 'personalized', 'primary_interest' => 'exaskills', 'selected_interests' => ['exaskills', 'earn'], 'quick_access_services' => ['exapay', 'p2p', 'exaskills'], 'onboarding_completed' => true])->assertOk()->assertJsonPath('data.primary_interest', 'exaskills')->assertJsonPath('data.quick_access_services', ['exapay', 'p2p', 'exaskills']);
         $this->assertSame(['exaskills', 'earn'], $user->fresh()->preferences['dashboard']['selected_interests']);
+        $this->assertSame(['exapay', 'p2p', 'exaskills'], $user->fresh()->preferences['dashboard']['quick_access_services']);
+        $this->assertArrayNotHasKey('quick_access', $user->fresh()->preferences['dashboard']);
         $this->deleteJson('/api/preferences/dashboard')->assertOk()->assertJsonPath('data.mode', 'all');
         $this->assertArrayNotHasKey('dashboard', $user->fresh()->preferences ?? []);
+    }
+    public function test_quick_access_is_limited_to_four_known_services(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+        $this->getJson('/api/preferences/dashboard')->assertOk()->assertJsonPath('data.quick_access_services', ['exapay', 'p2p', 'rewards']);
+        $this->putJson('/api/preferences/dashboard', ['mode' => 'all', 'quick_access_services' => ['exapay', 'p2p', 'rewards', 'exaskills', 'nft']])->assertUnprocessable();
+        $this->putJson('/api/preferences/dashboard', ['mode' => 'all', 'quick_access_services' => ['exapay', 'unknown-service']])->assertUnprocessable();
+        $this->putJson('/api/preferences/dashboard', ['mode' => 'all', 'quick_access_services' => ['exapay', 'exapay']])->assertUnprocessable();
+    }
+    public function test_unavailable_saved_shortcut_is_not_mutated_by_unrelated_dashboard_update(): void
+    {
+        config(['exacard.production_issuance_enabled' => false]);
+        $user = User::factory()->create([
+            'preferences' => ['dashboard' => ['mode' => 'all', 'quick_access_services' => ['exacard', 'p2p']]],
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/preferences/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.quick_access_services', ['p2p'])
+            ->assertJsonPath('data.quick_access', ['p2p']);
+
+        $this->putJson('/api/preferences/dashboard', ['mode' => 'all', 'onboarding_completed' => true])
+            ->assertOk()
+            ->assertJsonPath('data.quick_access_services', ['p2p']);
+
+        $this->assertSame(
+            ['exacard', 'p2p'],
+            $user->fresh()->preferences['dashboard']['quick_access_services'],
+        );
+    }
+    public function test_dashboard_update_cannot_change_another_users_preferences(): void
+    {
+        $first = User::factory()->create();
+        $second = User::factory()->create([
+            'preferences' => ['dashboard' => ['mode' => 'all', 'quick_access_services' => ['rewards']]],
+        ]);
+
+        Sanctum::actingAs($first);
+        $this->putJson('/api/preferences/dashboard', [
+            'mode' => 'all',
+            'quick_access_services' => ['exapay', 'p2p'],
+        ])->assertOk();
+
+        $this->assertSame(
+            ['rewards'],
+            $second->fresh()->preferences['dashboard']['quick_access_services'],
+        );
+        $this->assertSame(
+            ['exapay', 'p2p'],
+            $first->fresh()->preferences['dashboard']['quick_access_services'],
+        );
     }
     public function test_accepts_six_intents_and_rejects_unknown_interests(): void
     {

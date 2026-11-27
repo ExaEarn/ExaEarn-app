@@ -12,9 +12,115 @@ keywords = ["exa_live_"]
 [[rules]]
 id = "exaearn-private-key-material"
 description = "Private key assignment"
-regex = '''(?i)(wallet_private_key|withdrawal_signing_key|jwt_secret)\s*[=:]\s*['\"]?[A-Za-z0-9+/=_-]{20,}'''
+regex = '''(?i)(wallet_private_key|withdrawal_signing_key|jwt_secret)[ \t]*[=:][ \t]*['\"]?[A-Za-z0-9+/=_-]{20,}'''
 
-[allowlist]
-description = "Clearly fake test fixtures"
-paths = ['''contracts/developer-signing-v1.json''', '''.*\.example$''']
+# Narrow exceptions cover reviewed fixtures, identifiers, and published examples.
+# Each exception is limited to specific detectors and exact paths.
+[[allowlists]]
+description = "Test-only idempotency identifiers in reviewed backend tests."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+commits = [
+  '''b2766e32831d7987a519c81605e1aa8733c3d49b''',
+  '''0b50919d050c724a630d282ab7c19395b0ee178b''',
+  '''647d4096adf789d6cfb599c8e2257f4d53760aa7''',
+  '''049c7b08ddc14147fcb25a759dfca7825736a1e3''',
+  '''041fe8b0b0964a006acbd958e373876f545498d1'''
+]
+paths = [
+  '''backend/api-gateway/tests/Feature/ExaPayOfflineSimulationTest\.php$''',
+  '''backend/api-gateway/tests/Feature/Phase15EMarketMakerBotTest\.php$''',
+  '''backend/api-gateway/tests/Feature/AgriTechFlowTest\.php$''',
+  '''backend/api-gateway/tests/Feature/Phase7TradingOperationsTest\.php$''',
+  '''backend/api-gateway/tests/Feature/Phase8LiquidityOperationsTest\.php$''',
+  '''backend/api-gateway/tests/Feature/Phase6MarginTradingTest\.php$''',
+  '''backend/api-gateway/tests/Feature/ExaEarnStakingRemovalTest\.php$'''
+]
+regexes = ['''(?i)(Idempotency-Key|idempotency_key|idempotencyKey|\$idempotencyKey)''']
 
+[[allowlists]]
+description = "Twilio OAuth client ID is a public identifier, not a client secret."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+commits = ['''b2766e32831d7987a519c81605e1aa8733c3d49b''']
+paths = ['''.env\.example$''']
+regexes = ['''TWILIO_OAUTH_CLIENT_ID[ \t]*=[ \t]*[A-Za-z0-9_-]{34}''']
+
+[[allowlists]]
+description = "Published local API examples use explicit uppercase bearer-token placeholders."
+targetRules = ["curl-auth-header"]
+condition = "AND"
+regexTarget = "secret"
+paths = [
+  '''exaearn-backend/AUDIT_LOG_FILES_DELIVERED\.md$''',
+  '''exaearn-backend/AUDIT_LOG_QUICK_START\.md$'''
+]
+regexes = ['''^[A-Z_]*TOKEN$''']
+
+[[allowlists]]
+description = "Release evidence contains a public OpenAPI SHA-256 digest, not a credential."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+commits = ['''7899d6ed6565a4eb705bf1295a76334f82feef3d''']
+paths = ['''docs/level-d-evidence/release-candidate\.md$''']
+regexes = ['''(?i)^[a-f0-9]{64}$''']
+
+[[allowlists]]
+description = "SRE SLO catalog keys and thresholds are non-secret configuration constants."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['''backend/api-gateway/app/Services/SreObservabilityService\.php$''']
+regexes = ['''^(?:readiness_pass_rate|financial_invariant_pass_rate|order_acceptance_latency_p95|freshness_p95|rpc_correct_chain_rate|reconciliation_pass_rate|risk_engine_available_rate)$''']
+
+[[allowlists]]
+description = "EdTech courseKey fields contain static course identifiers, not credentials."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = [
+  '''exaearn-frontend/src/pages/EdTech/EdTech\.jsx$''',
+  '''exaearn-frontend/src/pages/EdTech/CourseUpload\.jsx$'''
+]
+regexes = ['''^[a-z0-9-]{17}$''']
+
+[[allowlists]]
+description = "Tracked package audit embeds a published, illustrative advisory PoC string."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['''security/pnpm-audit\.json$''']
+regexes = ['''^(?:response-secret|prod-secret-key-123|sk-prod-a1b2c3d4|P@ssw0rd123)$''']
+
+[[allowlists]]
+description = "A historical remediation-plan sentence is documentation, not a credential."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+commits = ['''1a340b7b5a0f33d9aa42286f8d3d9621de7cf18e''']
+paths = ['''docs/exaearn-developer-platform-p0-p1-remediation-plan\.md$''']
+regexes = ['''The following cannot be made PASS by changing documentation''']
+
+[[allowlists]]
+description = "USDC contract addresses are public identifiers, not credentials."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+commits = ['''923b71c698cb1e406f10bb42375d89a8aeefdb92''']
+paths = ['''exaearn-node/\.env\.example$''']
+regexes = ['''(?i)^0x[a-f0-9]{40}$''']
+
+[[allowlists]]
+description = "Firebase/Google mobile configuration contains a published client API key, not a server credential."
+targetRules = ["gcp-api-key", "generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = [
+  '''apps/mobile/android/app/google-services\.json$''',
+  '''apps/mobile/google-services\.json$''',
+  '''apps/web/\.env\.example$'''
+]
+regexes = ['''^AIza[A-Za-z0-9_-]{35}$''']
