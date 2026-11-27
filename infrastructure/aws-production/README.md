@@ -1,102 +1,101 @@
-# ExaEarn AWS production preparation
+# ExaEarn AWS budget-pilot proposal
 
-This directory is deployment preparation only; no AWS resources were created during this work. The CloudFormation template would create a new single-AZ baseline and attach a narrowly scoped extension policy to the already-existing production EC2 role. It is not highly available and must not be presented as a production-ready financial platform until the release gates below are met.
+This is an isolated, unprovisioned proposal for `us-east-1`. No AWS resource, DNS record, secret, production image, or customer traffic was created or changed for this redesign. **Do not deploy this stack yet.** The configuration is a low-traffic pilot candidate, not a financially safe or capacity-verified production system.
 
-## Repository findings
+## Recommendation and feasibility
 
-- The Laravel 12 API image is built from `backend/api-gateway/Dockerfile` (PHP 8.3); its current image starts `php artisan serve`, not PHP-FPM/Nginx.
-- `backend/services/blockchain-service/Dockerfile` builds the Node 22 realtime/blockchain service. Its `/health` endpoint is available on port 4000, and its controller exposes transaction execution. It defaults its event listener to enabled unless `BLOCKCHAIN_EVENT_LISTENER_ENABLED=false`.
-- The existing Kubernetes manifest declares three API replicas (each up to 2 vCPU/2 GiB), three queue workers (each up to 2 vCPU/2 GiB), one webhook worker (up to 1 vCPU/1 GiB), one scheduler (0.5 vCPU/768 MiB), and three realtime replicas (each up to 2 vCPU/2 GiB). Summed peak limits are about 19.5 vCPU and 19.75 GiB, excluding PostgreSQL, Redis, Docker, and the operating system; summed requests are about 3.25 vCPU/5 GiB. These are configuration limits, not measured utilization or a benchmark.
-- Before this preparation the repository had no production Compose file; this PR adds a single-host file for a restricted pilot. Existing Kubernetes configuration is illustrative (`registry.example.invalid`, example hostnames); it is not evidence of running infrastructure.
-- Laravel's scheduler includes staking, delegation, liquidity, market-maker, and game jobs. Do not start its scheduler or queue workers until every job and its external effects have been reviewed. The API also contains financial routes; setting a Node signing key to blank is not an API-level kill switch.
-- The blockchain Dockerfile's `start:giftcard` script expects compiled Nest output that this Dockerfile does not build. Gift-card routing is intentionally not included in the prepared Compose stack.
+There is no defensible way to certify the complete requested service set under a hard $35/month all-in ceiling with the measurements currently available. The lowest cost candidate that has enough nominal memory to attempt the stack is `t4g.medium` (2 vCPU, 4 GiB), but it costs about **$24.53/month for compute alone** and is burstable. Its RAM/CPU requirements have not been verified by a production-shaped build, load test, or runtime measurement; its throughput after CPU credits are depleted in Standard mode is limited. The 2-GiB `t4g.small` is not proposed: it cannot be claimed to fit these containers plus Linux, Docker, SSM, monitoring, and database/cache overhead.
 
-## Deployment options
+The itemized **planning subtotal is about $33.50/month before tax and account-level charges**, and variable snapshots, logs, backups, ECR image growth, egress, and RPC use can exceed it. This is not a guaranteed cap. The account audit previously observed a recurring Business Support charge and tax; if those remain part of the user's $35 account ceiling, this candidate already exceeds the ceiling. Do not remove encryption, backups, alerts, or access controls to force the estimate lower. If $35 is a firm total-bill cap, the safe recommendation is **no production EC2 deployment and no customer traffic** until the budget increases or the required backend scope is reduced.
 
-Costs are planning estimates in USD for `us-east-1`, Linux on-demand, 730 hours/month, before tax, support, substantial data transfer, and account-specific discounts. Validate them in the AWS Pricing Calculator immediately before approval. This estimate is not an AWS quote. The read-only audit found the existing account budget is $25/month, while Option A is estimated at $260–$320/month; do not provision until the budget and a separate spend limit are explicitly approved.
+The narrower scope for a later non-financial pilot is one API replica, one PostgreSQL, one Redis, one internal Node service, and Nginx on a single `t4g.medium`, with jobs and scheduler stopped. It still requires the capacity, ARM64, financial-route, restore, and operator-notification gates below. It offers no AZ redundancy, managed database, independent database failure domain, or guaranteed performance. It must not be used for custody, deposits, withdrawals, trading, settlement, or other real-money operations.
 
-| Cost component | Option A: minimum single host | Option B: redundant application and managed data |
-|---|---:|---:|
-| Compute | 1 × `m7g.2xlarge` (8 vCPU, 32 GiB), about $238/month | 3 × `m7g.4xlarge` (16 vCPU/64 GiB each), about $1,430/month |
-| EBS | 100 GiB gp3, about $8/month | 3 × 100 GiB gp3, about $24/month |
-| Public IPv4 | 1 address, about $3.65/month | ALB and application addresses; budget about $18–$22/month |
-| Database | PostgreSQL on the host/EBS; no separate DB fee | RDS PostgreSQL Multi-AZ, 2 × `db.m7g.large` compute roughly $140–$180/month, plus storage/IO/backups |
-| Redis | Redis on the host/EBS; no separate cache fee | ElastiCache Redis primary + replica, roughly $180–$260/month depending on node/engine pricing |
-| Edge/load balancer | Cloudflare proxy; no AWS load balancer | ALB roughly $20–$45/month before LCU and transfer |
-| Monitoring, backup, snapshots, secret storage | CloudWatch/S3/AWS Backup/SSM Parameter Store roughly $11–$36/month at low volume | Roughly $26–$76/month, volume dependent |
-| Approximate subtotal | **$260–$320/month** | **$1,840–$2,040/month** |
+## Candidate host and bounded service allocation
 
-Both options incur data-transfer, Cloudflare, RPC-provider, mail/KYC, and possible support charges. A NAT Gateway is intentionally omitted: Option A uses a public subnet with no inbound SSH and SSM-only administration; Option B can use public application subnets with security groups restricted to the ALB and private database subnets. No EKS, NAT Gateway, or managed load balancer is needed for Option A.
+| Component | Proposed limit | Notes |
+|---|---:|---|
+| Laravel PHP-FPM API | 768 MiB; 0.60 CPU | Three on-demand FPM children, 128 MiB PHP memory limit, OPcache enabled |
+| PostgreSQL | 768 MiB; 0.40 CPU | `shared_buffers=256MB`, 50 connections, 4 MiB `work_mem`; local persistent volume |
+| Redis | 256 MiB; 0.10 CPU | 192 MiB `maxmemory`, AOF enabled, password required, `noeviction` |
+| Node blockchain/realtime service | 512 MiB; 0.20 CPU | 384 MiB V8 heap cap; private service network; transaction execution and event listener off |
+| Nginx | 128 MiB; 0.10 CPU | TLS termination and FastCGI only |
+| **Container ceilings** | **2,432 MiB; 1.40 CPU** | Limits are configuration ceilings, not measured consumption or reservations |
+| Host, kernel, Docker, SSM, CloudWatch agent and headroom | Remaining nominal 1,664 MiB / 0.60 vCPU | Not benchmarked; must be measured under load |
 
-**Option A is for a tightly capped pilot only.** Its 8 vCPU/32 GiB size has room for a constrained API, one worker/scheduler only after approval, blockchain realtime, and local Postgres/Redis; it does not meet the existing Kubernetes replica/peak limits, provide AZ redundancy, or isolate the database. Start with `m7g.2xlarge`; do not downsize to `t4g.medium` or claim it satisfies the declared workload. Benchmark with production-shaped traffic and database sizes before considering a smaller instance.
+`t4g.medium` has only 4 GiB total and 2 vCPU; over-limit memory causes container termination and CPU limits can throttle. In Standard credit mode, sustained CPU is constrained after earned credits are exhausted; the setting avoids unlimited-mode surplus CPU charges, not performance loss. The Terraform/Compose bounds are a starting point for measurement, not evidence that Laravel, the database, or Node fits. Worker and scheduler profiles remain disabled because Laravel jobs include financial and external side effects.
 
-**Option B is the recommendation before meaningful customer or financial traffic.** Use an ECS-on-EC2 capacity provider across three AZs behind an ALB, RDS PostgreSQL Multi-AZ with automated backups/PITR, and a Redis replication group with authentication, encryption, and failover. Three `m7g.4xlarge` hosts provide 48 vCPU/192 GiB aggregate and leave 32 vCPU/128 GiB after losing one host, above the manifest's summed container limits; actual service placement, reservations, and load tests still govern. Use public app subnets with no SSH and put RDS/Redis in private subnets. This still requires a separate financial-control, recovery, load, and failover review.
+Official PHP-FPM, Node, PostgreSQL, Redis, and Nginx base images publish ARM64 variants, but that does not verify every locked dependency or the resulting application images. CI must build and run all five pinned images on ARM64 (or an ARM64 runner) before selecting Graviton. The Docker executable was unavailable during this local session, so image builds and a real Compose startup were not performed.
 
-### Lower-cost restricted pilot
+## Monthly cost estimate
 
-The lowest defensible AWS pilot identified is one `m7g.xlarge` (4 vCPU/16 GiB) with one Laravel API replica, local PostgreSQL and Redis on encrypted EBS, a TLS edge proxy, SSM, CloudWatch, daily PostgreSQL dumps, and daily EBS backups. Keep queues, the scheduler, blockchain service, WebSockets, and all financial execution disabled. It is only suitable for a low-traffic, non-custodial API pilot after representative load and recovery tests; it does not satisfy the existing Kubernetes peak limits and is not the recommendation for customer financial traffic.
+Rates are indicative `us-east-1` on-demand planning rates at 730 hours/month; prices are before tax. No Free Tier, credits, or promotional discounts are assumed. AWS pricing pages and calculator must be refreshed before approval.
 
-Planning subtotal: compute about $119/month; 30 GiB root plus 100 GiB data gp3 about $10.40; one public IPv4 about $3.65; 35-day EBS snapshots about $5 at 100 GiB retained; S3 dumps and low-volume CloudWatch about $6–$17. **Estimated total: $144–$155/month**, before transfer, taxes, support, Cloudflare/RPC costs, or storage growth. No NAT Gateway is used. A `t4g.xlarge` has lower nominal compute pricing (about $98/month) but is burstable; sustained CPU near the 3.25-vCPU aggregate request can consume credits and make its total cost unpredictable, so it is not the defensible baseline without measurements.
+| Item | Basis | USD/month |
+|---|---|---:|
+| EC2 `t4g.medium` | $0.0336/hour × 730 | $24.53 |
+| Encrypted gp3 EBS | 8 GiB root + 20 GiB application/data = 28 GiB × about $0.08/GiB-month | $2.24 |
+| Public IPv4 | One automatically assigned address; $0.005/hour × 730; no Elastic IP | $3.65 |
+| EBS snapshots | Planning allowance for 20 GiB retained snapshot data at about $0.05/GiB-month | $1.00 |
+| S3 PostgreSQL backups | Assumes up to about 4 GiB retained at about $0.023/GiB-month plus low request volume | $0.10 |
+| CloudWatch custom metrics | Three standard-resolution metric series, estimated at $0.30 each | $0.90 |
+| CloudWatch alarms | Three standard-resolution alarms, estimated at $0.10 each | $0.30 |
+| CloudWatch logs | About 0.5 GiB ingested plus short retention | $0.28 |
+| ECR image storage | Allowance for 5 GiB private image layers at about $0.10/GiB-month | $0.50 |
+| SSM/KMS requests and SNS alarm delivery | Low-volume allowance; reuses existing SSM/KMS configuration, no new CMK | $0.00* |
+| Internet data transfer out | Assumes below the AWS-published aggregate 100 GiB/month internet-egress allowance | $0.00* |
+| **Estimated infrastructure subtotal** | **Before taxes, account support, growth, and unlisted external providers** | **$33.50** |
 
-There is **no safe production-capable architecture under the current $25/month budget**. The existing `t4g.medium` candidate costs about $24.50/month for compute alone and provides only 2 vCPU/4 GiB, below the manifests' 3.25-vCPU/5-GiB aggregate requests before PostgreSQL, Redis, the OS, EBS, IPv4, backups, and monitoring. Removing encryption, backups, SSM, or security monitoring to fit the budget is not acceptable. If $25 is a hard ceiling, do not provision AWS production compute or accept customer traffic; continue with CI/local development and seek explicit budget approval.
+`*` These zeroes are conditional, not unlimited entitlements: KMS/SNS request costs, egress beyond the published allowance, and other usage can be billed. The 100 GiB data-transfer allowance is not Free Tier or a new-customer credit; it is an AWS pricing allowance. The estimate does not include Cloudflare account charges, paid RPC endpoints, email/KYC vendors, support-plan charges, sales tax, or unexpected data growth. The AWS Pricing Calculator must include actual snapshot churn, logs, ECR layers, KMS usage, and the account's support plan before any spend approval.
 
-### Cost assumptions and exclusions
+The $1 snapshot and $0.10 backup entries are allowances, not hard upper bounds. EBS snapshots are incremental and billed on stored changed blocks; a restore test, database growth, frequent changes, or a longer retention window may increase charges. PostgreSQL dump size beyond the assumed 4 GiB also increases S3 storage. Alarm delivery requires subscribing an approved operator to the stack's SNS topic; the template does not invent an email address.
 
-- Indicative rates used: Graviton `m7g.2xlarge` about $0.3264/hour and `m7g.4xlarge` about $0.6528/hour; gp3 about $0.08/GiB-month; public IPv4 $0.005/hour; S3 Standard about $0.023/GiB-month; internet egress starts around $0.09/GiB. Prices and tiers may change. References: [EC2 pricing](https://aws.amazon.com/ec2/pricing/on-demand/), [EBS pricing](https://aws.amazon.com/ebs/pricing/), [public IPv4 pricing](https://aws.amazon.com/vpc/pricing/), [S3 pricing](https://aws.amazon.com/s3/pricing/), and [AWS Pricing Calculator](https://calculator.aws/).
-- Option A includes one dedicated data EBS volume and daily EBS snapshots via AWS Backup (35-day retention), plus encrypted PostgreSQL dumps to a new dedicated S3 bucket (35-day lifecycle). The estimate assumes modest database and log volume. The existing production backup bucket remains untouched.
-- No production CPU/RAM utilization or database growth was measurable because the account has no running application instances or databases. Manifest requests (3.25 vCPU/5 GiB) and limits (about 19.5 vCPU/19.75 GiB for declared containers) are configuration values, not observed usage; database, Redis, Docker, and OS needs are additional.
-- Option B estimate assumes `db.m7g.large` and `cache.m7g.large` class pricing for illustration. Confirm engine/version/class availability and current Multi-AZ/replication pricing in the AWS calculator.
-- CloudWatch log ingestion, custom metrics, S3 backup storage, snapshot storage, ALB LCUs, RDS I/O, transfer, IPv4, and KMS/API charges are usage dependent. No cost ceiling is guaranteed.
+Price references: [EC2 On-Demand](https://aws.amazon.com/ec2/pricing/on-demand/), [EBS](https://aws.amazon.com/ebs/pricing/), [public IPv4/VPC](https://aws.amazon.com/vpc/pricing/), [CloudWatch](https://aws.amazon.com/cloudwatch/pricing/), [S3](https://aws.amazon.com/s3/pricing/), [ECR](https://aws.amazon.com/ecr/pricing/), and [AWS Pricing Calculator](https://calculator.aws/).
 
-## IaC baseline and controls
+## Deployment architecture and security
 
-`cloudformation/single-host.yaml` defines an isolated VPC/public subnet, one Graviton EC2 instance, a dedicated encrypted gp3 data volume, an EIP, no SSH ingress, SSM-managed administration, a TLS-only S3 backup bucket, CloudWatch logs/alarms, and tagged daily EBS backups retained for 35 days. HTTPS ingress is internet-addressable at the security-group layer so the host can be reached through Cloudflare; Nginx must enforce Cloudflare Authenticated Origin Pulls (mTLS) and a verified origin certificate. The template does not restrict ingress to Cloudflare's changing CIDR list; origin-pull mTLS is mandatory and must be tested before DNS is pointed at the host. EBS snapshots are crash-consistent, not a substitute for the PostgreSQL dump and a restore drill.
+- One ARM64 Amazon Linux 2023 host in a single public subnet; no NAT Gateway, ALB, Elastic IP, RDS, ElastiCache, EKS, or second AZ. The auto-assigned public IPv4 is billable and changes when the instance is replaced/stopped; DNS remains out of scope.
+- 8 GiB encrypted gp3 root plus a 20 GiB encrypted gp3 data volume. Docker data, database files, and bounded container logs use the data volume. Root is reconstructible and is not included in the application-volume snapshot.
+- Security group has no SSH ingress and exposes only TCP 443. HTTPS must use the Cloudflare origin certificate and Authenticated Origin Pulls (mTLS); keep origin DNS unpublished until mTLS, trusted proxy ranges, and certificate checks succeed. Nginx real-IP configuration is intentionally empty until the current Cloudflare ranges are reviewed. SSM is the only host administration path; the existing production instance profile is reused with a scoped policy for this stack.
+- IMDSv2 is required, hop limit is one, EBS is encrypted, PostgreSQL and Redis have no published host ports, and they run on an internal Docker network. Node is authenticated with a required 32-byte random service secret; its own network permits only internal dependencies plus outbound HTTPS for read-only RPC calls. It is not exposed through Nginx.
+- The API now uses PHP-FPM (not `artisan serve`) behind Nginx/FastCGI. FPM workers run as `www-data`; the FPM master runs as container root, as required by the normal FPM privilege-drop model. Application secrets are environment-file-only, mode `0600`, sourced from approved SSM SecureString parameters. Never commit certificates, `.env.production`, credentials, or wallet material.
+- `BLOCKCHAIN_EVENT_LISTENER_ENABLED=false` and `BLOCKCHAIN_TRANSACTION_EXECUTION_ENABLED=false` are required. The Node `/contracts/execute` route fails closed unless a separate explicit application setting enables it. Compose includes the blockchain service but does not publish its port. No signing keys are allowed.
+- Queue workers and scheduler are profile-gated and not started. The Laravel API still contains financial routes and has no verified global financial-operations kill switch. An environment flag alone is not a substitute. Do not set `ENABLE_API_TRAFFIC=true` or deploy until the financial routes have a reviewed, tested application-level disablement and non-financial pilot approval.
+- PostgreSQL receives daily compressed logical dumps in the dedicated private S3 bucket (SSE-S3, TLS-only policy, 35-day lifecycle); AWS Backup takes daily data-volume snapshots with seven-day retention. CloudWatch host logs are retained for 14 days. CPU, memory, and data-disk alarms publish to an SNS topic; an approved operator subscription/notification test remains required.
 
-The template reuses `ExaEarnProductionInstanceProfile` / `ExaEarnProductionInstanceRole` and attaches only host-log/metric and dedicated-backup-bucket permissions. It does not create a duplicate instance role/profile. It also reuses the existing immutable, scan-on-push repositories `exaearn-production-api` and `exaearn-production-blockchain`; it does not create ECR repositories. The existing role already has SSM core access, ECR pull access, and read/decrypt permissions for `/exaearn/production/*` using the production KMS key. No production parameters currently exist under that hierarchy. Create one SSM `SecureString` per environment variable under `/exaearn/production/app/`, using that approved existing KMS key and standard-tier values under the 4 KiB limit. `scripts/load-secrets.sh` fetches these without displaying values and writes a mode-600 environment file. A new backup bucket is created by the template so its retention can be controlled without modifying the existing bucket. There is no SSH key or inbound SSH rule. `ssm:StartSession` should be granted to a separate human operator role, not to the instance profile.
+## Deploy, rollback, backup, and recovery procedure
 
-The template's runtime policy is attached to the existing production role; validate that the deploy operator can attach `AWS::IAM::Policy` to that role and that its permissions boundary, if any, permits the added actions. The existing production security group, IAM role/profile, ECR repositories, backup bucket, and staging resources are not edited by this preparation. The new host security group permits inbound TCP 443 only, outbound TCP 443, and VPC DNS; there is no SSH or NAT Gateway.
+These are future operator steps, **not an authorization to execute them**:
 
-Compose keeps PostgreSQL and Redis on a private Docker network with persistent named volumes under Docker's data-root on the encrypted EBS volume, plus health checks. The public TLS proxy requires Cloudflare Origin CA certificate/key and the Cloudflare Authenticated Origin Pull CA to be installed out of band. Do not commit any certificate/private key or `.env.production`. Every image, including PostgreSQL, Redis, and Nginx, must be pinned to an approved SHA-256 digest.
+1. Obtain written cost and deployment approval; verify account/region, a current calculator estimate, budget alarms, quotas, IAM permissions boundaries, and a hard monthly spend alert. Do not assume the account's existing budget or free credits will absorb charges.
+2. Complete ARM64 image builds and security scans; publish immutable SHA-256 digests to the existing ECR repositories. Verify API, Node, PostgreSQL, Redis, and Nginx images and the database migration classification. No `latest` tag.
+3. Configure and verify Cloudflare origin and Authenticated Origin Pull certificates, current Cloudflare CIDR/Trusted Proxies lists, operator SNS subscription, and the approved hostname. DNS changes need separate approval.
+4. Create only approved SSM SecureString environment parameters under `/exaearn/production/app/`, using the existing approved KMS key. Require `APP_ENV=production`, `APP_DEBUG=false`, a 64-hex-character service secret, encoded private Redis URL, both blockchain flags false, and no wallet/signing keys. Run `scripts/load-secrets.sh` on the host as root.
+5. Before any API exposure, complete the application-level disablement of deposits, withdrawals, custody signing, trading, settlement, and other money movement; review all API routes, scheduled jobs, and queued side effects. As written, this gate is not satisfied.
+6. Only after approvals, capture and verify a PostgreSQL backup, review migration classification, deploy immutable digests, and run health/security checks. Never execute the deploy script as part of this proposal.
+7. Roll back application code with `scripts/rollback.sh` and the previously validated immutable digest. Do not reverse migrations automatically. Restore from S3 to a **new database name**, verify integrity and app compatibility, and obtain an explicit recovery/cutover decision before changing traffic.
+8. Perform a restore drill and confirm RPO/RTO, backup retention/deletion controls, log alerts, disk alarms, and incident ownership before customer use.
 
-## Safe release and recovery
+## Scaling path
 
-1. Require a reviewed, protected-branch commit; build and scan API and blockchain images in CI and publish immutable SHA tags/digests to their respective existing ECR repositories with `scripts/publish-images.sh` (or an equivalent protected CI OIDC publisher). The script requires an operator attestation that the CI image scan passed; it is not itself proof of a workflow result.
-2. Before any release, confirm the `exaeaen-admin` identity/account, refresh the read-only inventory, quotas, budget alarms, CIDR plan, and a separate written cost approval. The existing $25/month budget is insufficient for either proposed architecture. Never run `cloudformation deploy` as part of this preparation.
-3. Configure the Cloudflare origin certificate, hostname, Authenticated Origin Pulls, and strict origin TLS, then independently verify the certificate chain and mTLS from an allowed Cloudflare edge. Do not change DNS in this task.
-4. Create the required SSM `SecureString` parameters out of band under `/exaearn/production/app/`, each named as a direct uppercase environment key, using the existing production KMS key; do not put multiline certificates or large blobs in parameters. Populate server-side `.env.production` with `scripts/load-secrets.sh` (run host administration scripts as root), and keep all wallet/signer keys absent. Set `BLOCKCHAIN_EVENT_LISTENER_ENABLED=false`; do not enable the blockchain profile.
-5. Install the TLS files and reviewed Cloudflare real-IP ranges, and supply `ENABLE_API_TRAFFIC`, `AWS_REGION`, `BACKUP_BUCKET`, and all digest-pinned image references as environment variables. `scripts/deploy.sh` requires explicit `ENABLE_API_TRAFFIC=true`, checks for the API secret file and TLS files, installs a daily PostgreSQL-backup timer, and never starts the blockchain service, scheduler, or queue workers. It performs no AWS provisioning. It must not be used until the API's financial routes and production environment have an approved feature-level disablement plan.
-6. Run migrations only after reviewing `scripts/classify-migrations.php` output and taking a database backup. Do not run destructive down-migrations as rollback.
-7. Roll back application code with `scripts/rollback.sh` and the prior immutable image digest; do not reverse migrations automatically. Restore the database only after an approved recovery decision and a tested restore drill. `backup-postgres.sh` creates a compressed dump and fails if `pg_dump` or the S3 upload fails. `restore-postgres.sh` intentionally refuses to overwrite an existing database; restore to a new database and verify before any cutover.
+1. After measured utilization, load-test results, database growth, and revenue support it, move to a larger Graviton EC2 class and separate the application from stateful services.
+2. Move PostgreSQL to private-subnet RDS PostgreSQL with Multi-AZ, PITR, tested restores, and a planned migration window; Laravel already uses standard PostgreSQL environment settings.
+3. Move Redis to private ElastiCache with authentication/encryption and a tested failover plan. Keep queues and WebSocket/realtime workloads separate from the API host.
+4. Move stateless API/Node services to ECS across at least two AZs behind an ALB. Add autoscaling, controlled deployment/rollback, centralized secrets, and notification/incident integrations.
+5. Add a WAF/edge design, multi-AZ capacity, and cross-region recovery only after threat, availability, regulatory, cost, and operational requirements are approved. Do not scale through EKS, NAT Gateway, or managed-service defaults without a new cost review.
 
-## Blockers before provisioning or customer traffic
+## Validation and release blockers
 
-- Obtain explicit budget approval and increase the current $25/month account budget before provisioning: current Option A estimate is $260–$320/month, and Option B is $1,840–$2,040/month before variable charges.
-- Choose Option A pilot or Option B production; approve a current calculator estimate and a monthly spend limit.
-- Confirm actual traffic, concurrent WebSocket sessions, queue rates, database growth, RPO/RTO, region/AZ requirements, and measured load-test resource usage.
-- Resolve image publication: CI currently scans locally built API and realtime images but does not publish to ECR. Establish protected CI OIDC role permissions and immutable release digests; `publish-images.sh` is a guarded operator fallback, not an IAM provisioning script.
-- Populate required SSM `SecureString` environment parameters under `/exaearn/production/app/` using the production KMS key. No parameters currently exist there; never store certificates or signing material in source control.
-- Review the Laravel production configuration, all scheduled/queued financial jobs, mainnet RPC use, API financial routes, withdrawals/deposits, and fail-closed controls. There is no application-wide live-financial-execution kill switch in the inspected code.
-- Decide on a supported production web runtime (current API image runs `artisan serve`) and complete production Docker health/termination tests.
-- Provision and verify Cloudflare origin and Authenticated Origin Pull certificates, trusted proxy ranges, firewall policy, hostnames, and security ownership. DNS changes require separate approval.
-- Connect CloudWatch alarms to an approved notification target; configure dashboard/alert thresholds, incident response, and restore drills.
-- Approve a PostgreSQL/Redis HA and recovery design, restore drills, monitoring/alerts, incident response, and retention/compliance policies.
-- Keep deposits, withdrawals, custody signing, live trading, and customer fund movements disabled until explicit security, operations, legal/compliance, and business approvals.
+- Docker/Compose and `cfn-lint` were not available locally. Compose configuration and image builds therefore remain unvalidated; run `docker compose config`, build all images for ARM64, and perform startup/health/shutdown tests in isolated CI.
+- Run `cfn-lint` and the read-only `aws cloudformation validate-template` against the final template. Validation must not be confused with creating a stack.
+- Run backend tests, blockchain tests, Node/Composer dependency audits, image scans, and the protected GitHub PR checks after these changes.
+- Execute representative API/Node traffic and database/cache load tests on the exact candidate instance. Record CPU-credit balance/throttling, RSS, FPM saturation, Postgres connections/I/O, Redis memory, disk growth, and recovery behavior. Do not treat Compose ceilings or Kubernetes manifest requests as measured capacity.
+- Verify all required PHP extensions/FPM runtime behavior and all transitive package/native dependency support on ARM64.
+- Finish the application-level financial-operation kill switch and review all scheduled/queued financial jobs. Deposits, withdrawals, custody, settlement, trading, and customer fund movements remain disabled.
+- Populate and protect SSM secrets; no production parameters or TLS files are created by this change.
+- Subscribe an approved operator to SNS and test alarms, monitoring retention, backup upload/download, restore, and incident escalation.
+- Approve the actual recurring charge. The current estimate is close to the maximum before variable charges; the previously observed account support/tax charges mean the all-in $35 cap is not established.
+- Obtain separate approvals for AWS provisioning, DNS, production image publication, API exposure, backup restore/cutover, and any financial operation. No PR is merged by this work.
 
 ## PR #3 integration
 
-This branch carries a selective snapshot of the dependency lockfile, required package patches, Node audit policy, production Dockerfile fixes, and the Web3/Zod compatibility test validated on PR #3. The PR #3 branch itself was not changed. Its application/UI, workflow, and unrelated test changes are not copied here. Do not merge either PR without approval. Prefer merging PR #3 first after its review; then update/rebase PR #4 onto the new `main` so the shared dependency/image fixes become base history and PR #4's remaining diff is infrastructure-only. Re-run all gates after that integration.
-
-## Inventory status
-
-Read-only inventory was completed after the user-approved browser SSO login. STS confirmed account `552466033756`, region `us-east-1`, as `ExaEarnAdministrator`. No AWS resource was created, modified, or deleted during the audit or implementation.
-
-| Service | Verified findings |
-|---|---|
-| EC2/EBS/SSM | No running or stopped EC2 instances, EBS volumes/snapshots/EIPs, or SSM-managed instances. Two unattached candidate launch templates exist: `ExaEarnProductionMviCandidate` (`t4g.medium`) and `ExaEarnProductionCapacityNodeCandidate` (`t4g.xlarge`); both require IMDSv2 and have encrypted 30 GiB gp3 roots. Neither size meets the declared peak workload; no ASG is attached. |
-| VPC/networking | Only the default `172.31.0.0/16` VPC was found, with six public `/20` subnets across `us-east-1a`–`1f`, one IGW, and no NAT Gateway. Existing production and staging security groups have no ingress. Staging security group was not modified. The new template creates a separate VPC and security group. |
-| IAM | Existing `ExaEarnProductionInstanceProfile` and `ExaEarnProductionInstanceRole` are scoped to EC2 in this account/region and include SSM core, ECR pull, production SSM/KMS read, existing backup-bucket access, and API/blockchain log writes. The template reuses the profile and adds only host log/metric and new-bucket backup permissions. Staging IAM was not modified. |
-| ECR | Existing empty repositories `exaearn-production-api` and `exaearn-production-blockchain` are immutable, scan-on-push enabled, and AES256 encrypted. The template and publisher use these names; no new ECR repository is created. |
-| S3/backup | Existing `exaearn-production-backups-552466033756-use1` bucket is private, versioned, and SSE-S3 encrypted, but has no lifecycle configuration. The role already accesses its `postgres/*` prefix. It is left untouched; the template creates a separate bucket with a 35-day lifecycle and TLS-only bucket policy. |
-| CloudWatch | Existing `/exaearn/production/api` and `/exaearn/production/blockchain` log groups have no retention configured and no stored logs; no alarms exist. The template creates a 30-day host log group and CPU alarm. |
-| Database/cache | No RDS or ElastiCache resources, CloudFormation stacks, or AWS Backup plans were found. |
-| Spend | Existing monthly account budget is $25. Cost Explorer showed $14.878 month-to-date for Nov 1–22, 2026, chiefly Business Support ($13.84) and tax ($1.04). Option A is estimated at $260–$320/month and Option B at $1,840–$2,040/month, excluding variable usage. Provisioning must wait for budget/cost approval. |
+PR #4 retains the validated PR #3 dependency, audit-policy, lockfile, and production-image security fixes already carried in commit `841b906`; the PR #3 branch itself remains untouched. Do not merge either PR without approval. After PR #3 is approved and merged to `main`, update/rebase PR #4 onto that new base, resolve only genuine conflicts, and re-run all dependency, backend, container, workflow, CloudFormation, and integration checks. Keep this PR's remaining diff focused on the budget-pilot infrastructure and runtime compatibility.

@@ -2,15 +2,23 @@ services:
   postgres:
     image: ${POSTGRES_IMAGE:?set POSTGRES_IMAGE to a pinned, scanned image digest}
     restart: unless-stopped
-    env_file:
-      - /srv/exaearn/.env.production
     environment:
-      POSTGRES_DB: ${DB_DATABASE:?set DB_DATABASE in .env.production}
-      POSTGRES_USER: ${DB_USERNAME:?set DB_USERNAME in .env.production}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.production}
+      POSTGRES_DB: ${DB_DATABASE:?set DB_DATABASE in the protected environment}
+      POSTGRES_USER: ${DB_USERNAME:?set DB_USERNAME in the protected environment}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in the protected environment}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - max_connections=50
+      - -c
+      - work_mem=4MB
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks: [private]
+    mem_limit: 768m
+    cpus: 0.40
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
@@ -24,12 +32,17 @@ services:
   redis:
     image: ${REDIS_IMAGE:?set REDIS_IMAGE to a pinned, scanned image digest}
     restart: unless-stopped
-    env_file:
-      - /srv/exaearn/.env.production
-    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\" --maxmemory 512mb --maxmemory-policy noeviction"]
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}" --maxmemory 192mb --maxmemory-policy noeviction
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in the protected environment}
     volumes:
       - redis-data:/data
     networks: [private]
+    mem_limit: 256m
+    cpus: 0.10
     healthcheck:
       test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
       interval: 10s
@@ -39,8 +52,37 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  blockchain-service:
+    image: ${BLOCKCHAIN_IMAGE:?set BLOCKCHAIN_IMAGE to an immutable ECR image digest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NODE_SERVICE_SECRET: ${NODE_SERVICE_SECRET:?set a strong shared service secret}
+      PORT: "4000"
+      REDIS_URL: ${REDIS_URL:?set an internal Redis URL with URL-encoded authentication}
+      BLOCKCHAIN_EVENT_LISTENER_ENABLED: "false"
+      BLOCKCHAIN_TRANSACTION_EXECUTION_ENABLED: "false"
+      WITHDRAWAL_SIGNING_KEY: ""
+      NODE_OPTIONS: --max-old-space-size=384
+    expose: ["4000"]
+    networks: [private, egress]
+    depends_on:
+      redis:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: 0.20
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 45s
+    security_opt:
+      - no-new-privileges:true
+
   api:
-    image: ${API_IMAGE:?set API_IMAGE to an immutable ECR image tag or digest}
+    image: ${API_IMAGE:?set API_IMAGE to an immutable ECR image digest}
     restart: unless-stopped
     env_file:
       - /srv/exaearn/.env.production
@@ -48,22 +90,30 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: "5432"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      QUEUE_CONNECTION: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in the protected environment}
+      NODE_SERVICE_URL: http://blockchain-service:4000
+      QUEUE_CONNECTION: database
       CACHE_STORE: redis
-    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
-    expose: ["8080"]
+      SESSION_DRIVER: database
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:?set reviewed Cloudflare CIDRs}
+    expose: ["9000"]
     networks: [private, edge]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      blockchain-service:
+        condition: service_healthy
+    mem_limit: 768m
+    cpus: 0.60
     healthcheck:
-      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/up') === false ? 1 : 0);"]
+      test: ["CMD-SHELL", "php-fpm -t >/dev/null 2>&1 && php -r '$s = @fsockopen(\"127.0.0.1\", 9000); exit($s ? 0 : 1);'"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -85,8 +135,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    mem_limit: 128m
+    cpus: 0.10
     healthcheck:
-      test: ["CMD-SHELL", "nginx -t"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -94,77 +146,38 @@ services:
       - no-new-privileges:true
 
   queue-worker:
-    image: ${API_IMAGE:?set API_IMAGE to an immutable ECR image tag or digest}
+    image: ${API_IMAGE:?set API_IMAGE to an immutable ECR image digest}
     profiles: ["approved-financial-workers"]
     restart: unless-stopped
     env_file:
       - /srv/exaearn/.env.production
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-      LOG_CHANNEL: stderr
-      DB_HOST: postgres
-      REDIS_HOST: redis
-    command: ["php", "artisan", "queue:work", "redis", "--sleep=1", "--tries=3", "--timeout=90", "--max-time=3600"]
+    command: ["php", "artisan", "queue:work", "database", "--sleep=1", "--tries=3", "--timeout=90", "--max-time=3600"]
     networks: [private]
+    mem_limit: 256m
+    cpus: 0.15
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    stop_grace_period: 120s
 
   scheduler:
-    image: ${API_IMAGE:?set API_IMAGE to an immutable ECR image tag or digest}
+    image: ${API_IMAGE:?set API_IMAGE to an immutable ECR image digest}
     profiles: ["approved-financial-workers"]
     restart: unless-stopped
     env_file:
       - /srv/exaearn/.env.production
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-      LOG_CHANNEL: stderr
-      DB_HOST: postgres
-      REDIS_HOST: redis
     command: ["php", "artisan", "schedule:work"]
     networks: [private]
+    mem_limit: 256m
+    cpus: 0.10
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    stop_grace_period: 60s
-
-  blockchain-service:
-    image: ${BLOCKCHAIN_IMAGE:?set BLOCKCHAIN_IMAGE to an immutable ECR image tag or digest}
-    profiles: ["blocked-until-financial-security-approval"]
-    restart: unless-stopped
-    env_file:
-      - /srv/exaearn/.env.production
-    environment:
-      NODE_ENV: production
-      PORT: "4000"
-      BLOCKCHAIN_EVENT_LISTENER_ENABLED: "false"
-      WITHDRAWAL_SIGNING_KEY: ""
-    command: ["node", "src/index.js"]
-    expose: ["4000"]
-    networks: [private, edge]
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-    stop_grace_period: 45s
-    security_opt:
-      - no-new-privileges:true
 
 networks:
   private:
     internal: true
   edge: {}
+  egress: {}
 
 volumes:
   postgres-data: {}

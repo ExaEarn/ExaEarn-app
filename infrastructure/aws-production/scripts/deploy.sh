@@ -45,6 +45,21 @@ if ! grep -Eq '^BLOCKCHAIN_EVENT_LISTENER_ENABLED="?false"?$' "$ENV_FILE"; then
   exit 2
 fi
 
+if ! grep -Eq '^BLOCKCHAIN_TRANSACTION_EXECUTION_ENABLED="?false"?$' "$ENV_FILE"; then
+  echo "BLOCKCHAIN_TRANSACTION_EXECUTION_ENABLED=false must be present in the production environment." >&2
+  exit 2
+fi
+
+if ! grep -Eq '^NODE_SERVICE_SECRET="[[:xdigit:]]{64}"$' "$ENV_FILE"; then
+  echo "NODE_SERVICE_SECRET must be a 32-byte random secret encoded as 64 hexadecimal characters." >&2
+  exit 2
+fi
+
+if ! grep -Eq '^REDIS_URL="redis://:[^"]+@redis:6379"$' "$ENV_FILE"; then
+  echo "REDIS_URL must point to the private Redis service with URL-encoded authentication." >&2
+  exit 2
+fi
+
 for key in PRIVATE_KEY DEPLOYER_PRIVATE_KEY WITHDRAWAL_SIGNING_KEY HD_WALLET_MNEMONIC HD_WALLET_PASSPHRASE \
   BITCOIN_HOT_WALLET_WIF ETHEREUM_HOT_WALLET_PRIVATE_KEY BASE_HOT_WALLET_PRIVATE_KEY \
   BSC_HOT_WALLET_PRIVATE_KEY POLYGON_HOT_WALLET_PRIVATE_KEY TRON_HOT_WALLET_PRIVATE_KEY \
@@ -71,10 +86,11 @@ aws ecr get-login-password --region "$AWS_REGION" |
   docker login --username AWS --password-stdin "${API_IMAGE%%/*}"
 
 export API_IMAGE
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull api postgres redis edge
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull api postgres redis edge blockchain-service
 
-# No worker, scheduler, or blockchain profile is started by this script.
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres redis
+# Blockchain is internal and authenticated; event listening and transaction execution are disabled.
+# Financial workers and scheduler remain inactive.
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres redis blockchain-service
 
 for attempt in $(seq 1 60); do
   container="$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps -q postgres)"
