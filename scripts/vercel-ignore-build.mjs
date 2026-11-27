@@ -1,5 +1,9 @@
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
 const sharedPaths = [
   ".nvmrc",
+  ".vercelignore",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
@@ -18,6 +22,26 @@ const projectPaths = {
   developers: ["apps/developers"],
   listing: ["apps/listing"],
 };
+
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+
+function ensureCommitAvailable(commit) {
+  const gitOptions = {
+    cwd: repositoryRoot,
+    stdio: "ignore",
+  };
+
+  try {
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], gitOptions);
+  } catch {
+    execFileSync("git", ["fetch", "--no-tags", "--depth=1", "origin", commit], {
+      ...gitOptions,
+      stdio: "pipe",
+      timeout: 10000,
+    });
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], gitOptions);
+  }
+}
 
 async function main() {
   const project = process.argv[2];
@@ -44,47 +68,25 @@ async function main() {
     return 1;
   }
 
-  const owner = process.env.VERCEL_GIT_REPO_OWNER || "ExaEarn";
-  const repository = process.env.VERCEL_GIT_REPO_SLUG || "ExaEarn-app";
-  const compareUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/compare/${previous}...${current}`;
-  let comparison;
+  let changedFiles;
 
   try {
-    const response = await fetch(compareUrl, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "exaearn-vercel-ignore-build",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      console.error(
-        `GitHub compare failed with HTTP ${response.status}; continuing with the build.`,
-      );
-      return 1;
-    }
-
-    comparison = await response.json();
+    ensureCommitAvailable(previous);
+    ensureCommitAvailable(current);
+    changedFiles = execFileSync(
+      "git",
+      ["diff", "--name-only", previous, current],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    )
+      .split(/\r?\n/)
+      .filter(Boolean);
   } catch (error) {
-    console.error(`Unable to compare commits with GitHub: ${error.message}`);
-    return 1;
-  }
-
-  if (
-    !Array.isArray(comparison.files) ||
-    comparison.files.length >= 300 ||
-    comparison.files.some((file) => !file || typeof file.filename !== "string")
-  ) {
-    console.error(
-      "GitHub returned an incomplete file comparison; continuing with the build.",
-    );
+    console.error(`Unable to compare Git commits; continuing with the build: ${error.message}`);
     return 1;
   }
 
   const relevantPaths = [...sharedPaths, ...paths];
-  const hasRelevantChanges = comparison.files.some(({ filename }) =>
+  const hasRelevantChanges = changedFiles.some((filename) =>
     relevantPaths.some(
       (path) => filename === path || filename.startsWith(`${path}/`),
     ),
