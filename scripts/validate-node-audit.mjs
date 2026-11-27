@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
 import process from 'node:process';
 
 const POLICY_PATH = 'security/node-audit-acceptances.json';
@@ -57,10 +58,19 @@ export function validateAuditPolicy(audit, policy, options = {}) {
   for (const acceptedId of byId.keys()) {
     if (!currentIds.has(acceptedId)) throw new Error(`Acceptance is not present in the current audit: ${acceptedId}`);
   }
-  const unaccepted = findings.map(idFor).filter((id) => !byId.has(id));
-  if (unaccepted.length) throw new Error(`Unaccepted High Node advisories: ${unaccepted.join(', ')}`);
+  const unaccepted = findings.filter((advisory) => !byId.has(idFor(advisory)));
+  if (unaccepted.length) {
+    throw new Error(`Unaccepted High Node advisories: ${unaccepted.map(describeFinding).join('; ')}`);
+  }
 
   return { high: findings.length, accepted: byId.size };
+}
+
+function describeFinding(advisory) {
+  const paths = (advisory.findings ?? []).flatMap((finding) =>
+    (finding.paths ?? []).map((path) => `${finding.version ?? 'unknown'} via ${path}`));
+  const version = advisory.range ?? advisory.vulnerable_versions ?? 'affected version unknown';
+  return `${idFor(advisory)} [${advisory.module_name ?? 'unknown package'}; ${version}${paths.length ? `; paths: ${paths.join(' | ')}` : ''}]`;
 }
 
 function idFor(advisory) {
@@ -77,8 +87,16 @@ function arg(name) {
 function loadAudit() {
   const auditPath = arg('--audit-file');
   if (auditPath) return parseJsonFile(auditPath);
-  const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const result = spawnSync(command, ['audit', '--audit-level', 'high', '--json'], { encoding: 'utf8' });
+  let command = 'pnpm';
+  let args = ['audit', '--audit-level', 'high', '--json'];
+  if (process.platform === 'win32') {
+    const npmRoot = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' });
+    if (npmRoot.status === 0) {
+      command = process.execPath;
+      args = [join(npmRoot.stdout.trim(), 'pnpm', 'bin', 'pnpm.cjs'), ...args];
+    }
+  }
+  const result = spawnSync(command, args, { encoding: 'utf8' });
   if (!result.stdout?.trim()) throw new Error(`pnpm audit produced no JSON (exit ${result.status}): ${result.stderr?.trim()}`);
   if (result.status !== 0 && result.status !== 1) throw new Error(`pnpm audit failed with scanner exit ${result.status}`);
   return JSON.parse(result.stdout);

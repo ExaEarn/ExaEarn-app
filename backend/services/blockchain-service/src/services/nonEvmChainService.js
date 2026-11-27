@@ -363,8 +363,15 @@ class NonEvmChainService {
   getTonClient() {
     if (!this._tonClient) {
       const ton = optionalModule('@ton/ton', 'pnpm add @ton/ton @ton/crypto');
+      const defaultHttpAdapter = axios.getAdapter('http');
       this._tonClient = new ton.TonClient({
         endpoint: config.ton.rpcUrl,
+        // Bound untrusted RPC JSON before TON's Zod schemas parse collection responses.
+        httpAdapter: (requestConfig) => defaultHttpAdapter({
+          ...requestConfig,
+          maxContentLength: 256 * 1024,
+          adapter: defaultHttpAdapter,
+        }),
       });
       logger.info('TON client initialized');
     }

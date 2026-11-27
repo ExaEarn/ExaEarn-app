@@ -1,0 +1,28 @@
+name: ExaEarn preview builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/mobile/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+
+concurrency:
+  group: exaearn-preview-${{ github.ref }}
+  cancel_in_progress: true
+
+jobs:
+  preview_android:
+    name: Android preview
+    type: build
+    params:
+      platform: android
+      profile: preview
+  preview_ios:
+    name: iOS preview
+    type: build
+    params:
+      platform: ios
+      profile: preview

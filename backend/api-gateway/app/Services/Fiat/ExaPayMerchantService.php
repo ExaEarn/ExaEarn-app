@@ -349,7 +349,7 @@ class ExaPayMerchantService
                 ->select('ledger_reference', DB::raw('COUNT(*) as count'))
                 ->whereNotNull('ledger_reference')
                 ->groupBy('ledger_reference')
-                ->having('count', '>', 1)
+                ->havingRaw('COUNT(*) > 1')
                 ->get();
 
             $runPk = DB::table('merchant_reconciliation_runs')->insertGetId([

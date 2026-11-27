@@ -1,0 +1,44 @@
+name: Mobile checks
+
+on:
+  pull_request:
+    paths:
+      - apps/mobile/**
+      - packages/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+  push:
+    branches: [main]
+    paths:
+      - apps/mobile/**
+      - packages/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Expo typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck mobile app
+        run: pnpm --filter @exaearn/mobile typecheck
