@@ -34,6 +34,7 @@ class PricingRewardsPolicyEngineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Cache::flush();
         config(['security-ratelimit.enabled' => false]);
         config(['pricing.shadow_mode' => false]);
     }
