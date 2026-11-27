@@ -34,16 +34,37 @@ jobs:
     env:
       APP_ENV: testing
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      DB_CONNECTION: sqlite
-      DB_DATABASE: ':memory:'
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: exaearn_ci
+      DB_USERNAME: exaearn_ci
+      DB_PASSWORD: ci-only-password
       CACHE_STORE: array
       QUEUE_CONNECTION: sync
     steps:
       - uses: actions/checkout@v4
+      - name: Start isolated PostgreSQL for Laravel tests
+        run: |
+          docker run --detach --name exaearn-staging-laravel-postgres \
+            --publish 5432:5432 \
+            --env POSTGRES_DB=exaearn_ci \
+            --env POSTGRES_USER=exaearn_ci \
+            --env POSTGRES_PASSWORD=ci-only-password \
+            postgres:16-alpine \
+            postgres -c max_locks_per_transaction=1024
+          for _ in $(seq 1 30); do
+            if docker exec exaearn-staging-laravel-postgres pg_isready -U exaearn_ci -d exaearn_ci; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs exaearn-staging-laravel-postgres
+          exit 1
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring,sqlite3,pdo_sqlite,bcmath,gd
+          extensions: mbstring,pgsql,pdo_pgsql,bcmath,gd
           coverage: none
       - name: Prepare Laravel bootstrap cache and test artifacts
         run: mkdir -p bootstrap/cache ../../artifacts && touch .env && chmod u+rwx bootstrap/cache
@@ -92,16 +113,37 @@ jobs:
     env:
       APP_ENV: testing
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      DB_CONNECTION: sqlite
-      DB_DATABASE: ':memory:'
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: exaearn_ci
+      DB_USERNAME: exaearn_ci
+      DB_PASSWORD: ci-only-password
       CACHE_STORE: array
       QUEUE_CONNECTION: sync
     steps:
       - uses: actions/checkout@v4
+      - name: Start isolated PostgreSQL for reward-service tests
+        run: |
+          docker run --detach --name exaearn-staging-reward-postgres \
+            --publish 5432:5432 \
+            --env POSTGRES_DB=exaearn_ci \
+            --env POSTGRES_USER=exaearn_ci \
+            --env POSTGRES_PASSWORD=ci-only-password \
+            postgres:16-alpine \
+            postgres -c max_locks_per_transaction=1024
+          for _ in $(seq 1 30); do
+            if docker exec exaearn-staging-reward-postgres pg_isready -U exaearn_ci -d exaearn_ci; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs exaearn-staging-reward-postgres
+          exit 1
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring,sqlite3,pdo_sqlite,bcmath
+          extensions: mbstring,pgsql,pdo_pgsql,bcmath
           coverage: none
       - name: Prepare temporary Laravel test environment
         run: mkdir -p bootstrap/cache && touch .env && chmod u+rwx bootstrap/cache

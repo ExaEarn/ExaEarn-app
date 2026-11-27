@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Cards;
 
 use App\Models\DeveloperRealtimeEvent;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
@@ -65,11 +66,16 @@ class CardRealtimeService
     private function record(?int $userId, string $stream, string $eventType, array $payload, ?string $entityId): DeveloperRealtimeEvent
     {
         $event = DB::transaction(function () use ($entityId, $eventType, $payload, $stream, $userId): DeveloperRealtimeEvent {
+            if ($userId !== null) {
+                User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+            } elseif (DB::connection()->getDriverName() === 'pgsql') {
+                DB::select('SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))', ['exacard-realtime', $stream]);
+            }
+
             $last = DeveloperRealtimeEvent::query()
                 ->whereNull('project_id')
                 ->where('user_id', $userId)
                 ->where('stream', $stream)
-                ->lockForUpdate()
                 ->max('sequence');
 
             return DeveloperRealtimeEvent::query()->create([

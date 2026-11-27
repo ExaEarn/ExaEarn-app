@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\CopyRealtimeEvent;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
@@ -14,10 +15,11 @@ class CopyRealtimeService
     public function record(int $userId, string $eventType, array $payload, string $stream = 'copy'): CopyRealtimeEvent
     {
         return DB::transaction(function () use ($eventType, $payload, $stream, $userId): CopyRealtimeEvent {
+            User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+
             $last = (int) CopyRealtimeEvent::query()
                 ->where('user_id', $userId)
                 ->where('stream', $stream)
-                ->lockForUpdate()
                 ->max('sequence');
 
             $event = CopyRealtimeEvent::query()->create([

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\DeveloperRealtimeEvent;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -13,11 +14,12 @@ class InstitutionalRealtimeService
     public function publish(int $userId, string $stream, string $eventType, array $payload): DeveloperRealtimeEvent
     {
         return DB::transaction(function () use ($eventType, $payload, $stream, $userId): DeveloperRealtimeEvent {
+            User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+
             $last = DeveloperRealtimeEvent::query()
                 ->whereNull('project_id')
                 ->where('user_id', $userId)
                 ->where('stream', $stream)
-                ->lockForUpdate()
                 ->max('sequence');
 
             return DeveloperRealtimeEvent::query()->create([
