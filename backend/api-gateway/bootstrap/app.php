@@ -12,6 +12,7 @@ use App\Http\Middleware\LogUserActivity;
 use App\Http\Middleware\RateLimitMiddleware;
 use App\Http\Middleware\RequireRecentAuthentication;
 use App\Http\Middleware\SecurityMiddleware;
+use App\Http\Middleware\StagingSafetyMiddleware;
 use App\Http\Middleware\Verify2FA;
 use App\Http\Middleware\VerifyNodeWebhook;
 use App\Jobs\ActivateStakingPositions;
@@ -49,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(StagingSafetyMiddleware::class);
         $trustedProxies = array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', '')))));
         if ($trustedProxies !== []) {
             $middleware->trustProxies(

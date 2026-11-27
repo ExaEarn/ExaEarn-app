@@ -27,16 +27,6 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: exaearn_ci
-          POSTGRES_USER: exaearn_ci
-          POSTGRES_PASSWORD: ci-only-password
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U exaearn_ci -d exaearn_ci"
-          --health-interval 5s --health-timeout 5s --health-retries 20
       redis:
         image: redis:7-alpine
         ports: ['6379:6379']
@@ -54,13 +44,30 @@ jobs:
       DB_PASSWORD: ci-only-password
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
-      CACHE_STORE: redis
-      QUEUE_CONNECTION: redis
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
     defaults: { run: { working-directory: backend/api-gateway } }
     steps:
       - uses: actions/checkout@v4
+      - name: Start isolated PostgreSQL with sufficient migration lock capacity
+        run: |
+          docker run --detach --name exaearn-ci-postgres \
+            --publish 5432:5432 \
+            --env POSTGRES_DB=exaearn_ci \
+            --env POSTGRES_USER=exaearn_ci \
+            --env POSTGRES_PASSWORD=ci-only-password \
+            postgres:16-alpine \
+            postgres -c max_locks_per_transaction=1024
+          for _ in $(seq 1 30); do
+            if docker exec exaearn-ci-postgres pg_isready -U exaearn_ci -d exaearn_ci; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs exaearn-ci-postgres
+          exit 1
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.3', extensions: 'mbstring,pgsql,pdo_pgsql,sqlite3,pdo_sqlite,bcmath,gd', coverage: none }
+        with: { php-version: '8.3', extensions: 'mbstring,pgsql,pdo_pgsql,bcmath,gd', coverage: none }
       - run: composer validate --strict
       - name: Prepare Laravel bootstrap cache
         run: mkdir -p bootstrap/cache && chmod u+rwx bootstrap/cache
@@ -71,12 +78,12 @@ jobs:
       - run: php ../../scripts/classify-migrations.php --fail-on-unclassified --json=../../artifacts/migration-safety.json
       - run: cp .env.example .env
       - run: php artisan config:cache && php artisan route:cache && php artisan migrate:fresh --force && php artisan migrate:status
-      - name: Clear PostgreSQL config before SQLite regression
+      - name: Clear Laravel configuration cache
         run: php artisan config:clear
-      - run: php artisan test tests/Feature/DeveloperFinalP1RemediationTest.php tests/Feature/DeveloperApiCredentialSecurityTest.php tests/Feature/DeveloperAuthSecurityTest.php tests/Feature/DeveloperExternalInterfacesWave1Test.php tests/Feature/DeveloperGovernanceWave2Test.php tests/Feature/DeveloperPlatformP0SecurityTest.php tests/Feature/DeveloperProductionAccessTest.php tests/Feature/DeveloperWorkspaceRbacTest.php tests/Feature/Phase14DeveloperPlatformTest.php
-        env: { DB_CONNECTION: sqlite, DB_DATABASE: ':memory:', CACHE_STORE: array, QUEUE_CONNECTION: sync }
-      - run: php artisan test
-        env: { DB_CONNECTION: sqlite, DB_DATABASE: ':memory:', CACHE_STORE: array, QUEUE_CONNECTION: sync }
+      - name: Run security regression tests against isolated PostgreSQL
+        run: php artisan test tests/Feature/DeveloperFinalP1RemediationTest.php tests/Feature/DeveloperApiCredentialSecurityTest.php tests/Feature/DeveloperAuthSecurityTest.php tests/Feature/DeveloperExternalInterfacesWave1Test.php tests/Feature/DeveloperGovernanceWave2Test.php tests/Feature/DeveloperPlatformP0SecurityTest.php tests/Feature/DeveloperProductionAccessTest.php tests/Feature/DeveloperWorkspaceRbacTest.php tests/Feature/Phase14DeveloperPlatformTest.php
+      - name: Run the full backend suite against isolated PostgreSQL
+        run: php artisan test
       - uses: actions/upload-artifact@v4
         with: { name: migration-safety-report, path: artifacts/migration-safety.json, retention-days: 30 }
 
@@ -85,9 +92,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        if: ${{ always() }}
         with: { version: 10.34.5 }
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
+        if: ${{ always() }}
+        with: { node-version: 22 }
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.3', extensions: 'sqlite3,pdo_sqlite,bcmath' }
       - run: pnpm install --frozen-lockfile
@@ -108,6 +117,10 @@ jobs:
       - run: python -m unittest discover packages/python-sdk/tests
       - run: pnpm --filter @exaearn/developers typecheck && pnpm --filter @exaearn/developers build
       - run: pnpm --filter @exaearn/admin typecheck && pnpm --filter @exaearn/admin lint && pnpm --filter @exaearn/admin build
+      - run: pnpm --filter @exaearn/web typecheck && pnpm --filter @exaearn/web build
+      - run: pnpm --filter @exaearn/website typecheck && pnpm --filter @exaearn/website build
+      - run: pnpm --filter @exaearn/listing typecheck && pnpm --filter @exaearn/listing build
+      - run: pnpm --filter exaearn-reward-service build
 
   node-realtime:
     runs-on: ubuntu-latest
@@ -120,37 +133,46 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter exaearn-blockchain-service lint
       - run: pnpm --filter exaearn-blockchain-service contracts:compile
+      - name: Smoke-test Hardhat Verify CLI without network writes
+        working-directory: backend/services/blockchain-service
+        run: pnpm exec hardhat verify --help
       - run: pnpm --filter exaearn-blockchain-service test
       - run: pnpm --filter exaearn-blockchain-service contracts:test
       - run: pnpm --filter exaearn-blockchain-service test:developer-ws-load
       - name: Validate Metro configuration
         working-directory: apps/mobile
         run: node -e "const config=require('./metro.config.js'); if (!config || !config.resolver) process.exit(1)"
+      - run: pnpm --filter @exaearn/mobile typecheck
+      - name: Export mobile Android bundle
+        env: { EXPO_NO_TELEMETRY: '1' }
+        run: pnpm --filter @exaearn/mobile exec expo export --platform android --output-dir .expo-export/android
 
   security-supply-chain:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        id: checkout
         with: { fetch-depth: 0 }
-      - name: Scan repository history with Gitleaks OSS
-        uses: docker://ghcr.io/gitleaks/gitleaks:v8.30.1
-        with:
-          args: git --redact --verbose /github/workspace
       - uses: pnpm/action-setup@v4
+        id: setup_pnpm
         with: { version: 10.34.5 }
       - uses: actions/setup-node@v4
+        id: setup_node
         with: { node-version: 22, cache: pnpm }
       - uses: shivammathur/setup-php@v2
+        id: setup_php
         with: { php-version: '8.3' }
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - uses: github/codeql-action/init@v3
         with: { languages: 'javascript-typescript' }
       - run: pnpm install --frozen-lockfile
+        id: install_dependencies
       - run: python -m pip install --disable-pip-version-check pip-audit==2.9.0
       - run: python -m pip install --disable-pip-version-check -e packages/python-sdk
       - run: node scripts/tests/sbom-validator-fixtures.mjs
       - run: node scripts/tests/node-audit-policy-fixtures.mjs
+      - run: node scripts/tests/trivy-report-validator-fixtures.mjs
       - uses: anchore/sbom-action@v0
         with:
           path: backend/api-gateway
@@ -194,14 +216,68 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - uses: github/codeql-action/analyze@v3
+      - name: Capture Node dependency audit report
+        id: capture_node_audit
+        if: ${{ always() && steps.setup_pnpm.outcome == 'success' && steps.setup_node.outcome == 'success' }}
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set +e
+          pnpm audit --audit-level high --json > artifacts/pnpm-audit.json
+          audit_exit=$?
+          set -e
+          echo "pnpm audit exit code: $audit_exit"
+          if [[ "$audit_exit" -gt 1 ]]; then
+            echo "::error::pnpm audit scanner failed with exit code $audit_exit"
+            exit "$audit_exit"
+          fi
+          node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync('artifacts/pnpm-audit.json','utf8')); if (!report || typeof report.advisories !== 'object' || !report.metadata?.vulnerabilities) process.exit(1)"
+      - name: Upload Node dependency audit report
+        if: ${{ always() && hashFiles('artifacts/pnpm-audit.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: exaearn-pnpm-audit-${{ github.sha }}
+          path: artifacts/pnpm-audit.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Audit Node dependencies
-        run: node scripts/validate-node-audit.mjs
+        if: ${{ always() && steps.capture_node_audit.outcome == 'success' && hashFiles('artifacts/pnpm-audit.json') != '' }}
+        run: node scripts/validate-node-audit.mjs --audit-file artifacts/pnpm-audit.json
       - name: Audit Composer dependencies
-        if: ${{ always() }}
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
         run: composer audit --working-dir=backend/api-gateway --locked --abandoned=fail
+      - name: Audit reward-service Composer dependencies
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
+        run: composer audit --working-dir=backend/services/reward-service --locked --abandoned=fail
       - name: Audit Python SDK environment
-        if: ${{ always() }}
+        if: ${{ success() }}
         run: python -m pip_audit --local
+      - name: Scan repository history with Gitleaks OSS
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit_count="$(git rev-list --all --count)"
+          if [[ "$commit_count" -eq 0 ]]; then
+            echo "::error::Gitleaks cannot scan an empty Git history"
+            exit 1
+          fi
+          echo "Gitleaks will scan repository history ($commit_count reachable commits)."
+          if ! scan_output="$(docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/repo:ro" \
+            --env GIT_CONFIG_COUNT=1 \
+            --env GIT_CONFIG_KEY_0=safe.directory \
+            --env GIT_CONFIG_VALUE_0=/repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git --redact --verbose --config /repo/.gitleaks.toml /repo 2>&1)"; then
+            printf '%s\n' "$scan_output"
+            exit 1
+          fi
+          printf '%s\n' "$scan_output"
+          if ! grep -Eq '[1-9][0-9]* commits scanned' <<<"$scan_output"; then
+            echo "::error::Gitleaks returned without confirming that it scanned commits"
+            exit 1
+          fi
 
   container-security:
     runs-on: ubuntu-latest
@@ -213,13 +289,52 @@ jobs:
           context: backend/api-gateway
           load: true
           tags: exaearn/api-gateway:${{ github.sha }}
-      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with: { image-ref: 'exaearn/api-gateway:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: false }
+      - name: Scan API image with Trivy
+        id: trivy_api
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: exaearn/api-gateway:${{ github.sha }}
+          severity: 'CRITICAL,HIGH'
+          format: json
+          output: trivy-api-gateway.json
+          exit-code: '0'
+          ignore-unfixed: false
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: backend/services/blockchain-service/Dockerfile
           load: true
           tags: exaearn/realtime:${{ github.sha }}
-      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with: { image-ref: 'exaearn/realtime:${{ github.sha }}', severity: 'CRITICAL,HIGH', exit-code: '1', ignore-unfixed: false }
+      - name: Scan blockchain image with Trivy
+        id: trivy_blockchain
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: exaearn/realtime:${{ github.sha }}
+          severity: 'CRITICAL,HIGH'
+          format: json
+          output: trivy-blockchain.json
+          exit-code: '0'
+          ignore-unfixed: false
+      - name: Upload Trivy image reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-reports-${{ github.sha }}
+          path: |
+            trivy-api-gateway.json
+            trivy-blockchain.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce Trivy scan success and vulnerability policy
+        if: ${{ always() }}
+        env:
+          API_TRIVY_OUTCOME: ${{ steps.trivy_api.outcome }}
+          BLOCKCHAIN_TRIVY_OUTCOME: ${{ steps.trivy_blockchain.outcome }}
+        run: |
+          if [[ "$API_TRIVY_OUTCOME" != "success" || "$BLOCKCHAIN_TRIVY_OUTCOME" != "success" ]]; then
+            echo "::error::One or more Trivy scans failed to execute successfully."
+            exit 1
+          fi
+          node scripts/validate-trivy-reports.mjs trivy-api-gateway.json trivy-blockchain.json

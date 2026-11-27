@@ -1,3 +1,10 @@
+// Load the service's local environment before deciding whether this is staging.
+// The guard must see the same values that config.js and service modules use.
+require('dotenv').config();
+
+const stagingSafety = require('./stagingSafety');
+stagingSafety.assertSafeStagingConfiguration();
+
 const express = require('express');
 const http = require('http');
 const config = require('./config');
@@ -37,6 +44,7 @@ app.get('/health', (_req, res) => {
 
 app.post('/contracts/execute', verifyServiceSecret, async (req, res) => {
   try {
+    stagingSafety.assertFinancialOperationBlocked('Contract transaction execution');
     const result = await blockchainService.sendTransaction({
       contract: req.body.contract,
       method: req.body.method,
@@ -121,8 +129,11 @@ const developerRealtimeHub = new DeveloperRealtimeHub();
 developerRealtimeHub.attach(server);
 const developerRealtimeSubscriber = new DeveloperRealtimeSubscriber(developerRealtimeHub);
 
-server.listen(config.port, async () => {
-  logger.info('Realtime node server started', { port: config.port });
+async function startBackgroundServices() {
+  if (stagingSafety.stagingWorkersDisabled()) {
+    logger.info('Staging workers are disabled by safety policy');
+    return false;
+  }
 
   try {
     await realtimeSubscriber.start();
@@ -130,7 +141,18 @@ server.listen(config.port, async () => {
     await ledgerUpdateSubscriber.start();
     await developerRealtimeSubscriber.start();
     blockchainEventListener.start();
+    return true;
   } catch (error) {
     logger.error('Failed to start background services', { error: error.message });
+    return false;
   }
-});
+}
+
+if (require.main === module) {
+  server.listen(config.port, async () => {
+    logger.info('Realtime node server started', { port: config.port });
+    await startBackgroundServices();
+  });
+}
+
+module.exports = { app, server, developerRealtimeHub, developerRealtimeSubscriber, startBackgroundServices };

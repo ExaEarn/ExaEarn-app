@@ -1,8 +1,9 @@
 {
   "framework": "vite",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @exaearn/listing build",
+  "installCommand": "cd ../.. && corepack pnpm@10.34.5 install --frozen-lockfile",
+  "buildCommand": "cd ../.. && corepack pnpm@10.34.5 --filter @exaearn/listing build",
   "outputDirectory": "dist",
+  "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs listing",
   "rewrites": [
     {
       "source": "/(.*)",

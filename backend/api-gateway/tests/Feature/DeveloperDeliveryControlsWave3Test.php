@@ -18,6 +18,7 @@ class DeveloperDeliveryControlsWave3Test extends TestCase
             '.gitleaks.toml',
             'backend/api-gateway/Dockerfile',
             'backend/services/blockchain-service/Dockerfile',
+            'backend/services/blockchain-service/Dockerfile.staging',
             'infrastructure/developer-platform/kubernetes/base.yaml',
             'infrastructure/developer-platform/kubernetes/network-policy.yaml',
             'infrastructure/developer-platform/kubernetes/ingress.yaml',
@@ -32,11 +33,19 @@ class DeveloperDeliveryControlsWave3Test extends TestCase
         $this->assertStringContainsString('pnpm install --frozen-lockfile', $workflow);
         $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist', $workflow);
         $this->assertStringNotContainsString('composer install --no-interaction --no-progress --prefer-dist --locked', $workflow);
-        $this->assertStringContainsString('image: postgres:16-alpine', $workflow);
+        $this->assertStringContainsString('postgres:16-alpine', $workflow);
+        $this->assertStringContainsString('max_locks_per_transaction=1024', $workflow);
+        $stagingDockerfile = file_get_contents($root.'/backend/services/blockchain-service/Dockerfile.staging');
+        $this->assertStringContainsString('COPY patches patches', $stagingDockerfile);
         $this->assertStringContainsString('image: redis:7-alpine', $workflow);
         $this->assertStringContainsString('severity: \'CRITICAL,HIGH\'', $workflow);
-        $this->assertStringContainsString('docker://ghcr.io/gitleaks/gitleaks:v8.30.1', $workflow);
-        $this->assertStringContainsString('git --redact --verbose /github/workspace', $workflow);
+        $this->assertStringContainsString('fetch-depth: 0', $workflow);
+        $this->assertStringContainsString('docker run --rm', $workflow);
+        $this->assertStringContainsString('GIT_CONFIG_KEY_0=safe.directory', $workflow);
+        $this->assertStringContainsString('GIT_CONFIG_VALUE_0=/repo', $workflow);
+        $this->assertStringContainsString('git rev-list --all --count', $workflow);
+        $this->assertStringContainsString('git --redact --verbose --config /repo/.gitleaks.toml /repo', $workflow);
+        $this->assertStringContainsString('[1-9][0-9]* commits scanned', $workflow);
         $this->assertStringContainsString('anchore/sbom-action', $workflow);
     }
 

@@ -8,6 +8,7 @@ use App\Http\Middleware\Verify2FA;
 use App\Models\User;
 use App\Notifications\DeveloperPasswordResetNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -16,6 +17,12 @@ use Tests\TestCase;
 class DeveloperAuthSecurityTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::flush();
+    }
 
     public function test_password_reset_request_is_generic_for_existing_and_unknown_accounts(): void
     {

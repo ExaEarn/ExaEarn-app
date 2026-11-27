@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 80eda73e3bd16ad880b1b19f4475bf0305bbd95d..a8b269562c40244a337c1346b8e885c1a4ddcca0 100644
+--- a/package.json
++++ b/package.json
+@@ -43,8 +43,7 @@
+     "axios": "^1.6.7",
+     "dataloader": "^2.0.0",
+     "symbol.inspect": "1.0.1",
+-    "teslabot": "^1.3.0",
+-    "zod": "^3.21.4"
++    "teslabot": "^1.3.0"
+   },
+   "peerDependencies": {
+     "@ton/core": ">=0.62.0 <1.0.0",

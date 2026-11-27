@@ -1,7 +1,10 @@
 {
+  "framework": "vite",
   "version": 2,
-  "buildCommand": "pnpm --filter @exaearn/web build && pnpm --filter @exaearn/website build && node scripts/embed-web-app.mjs",
-  "outputDirectory": "apps/website/dist",
+  "installCommand": "corepack pnpm@10.34.5 install --frozen-lockfile",
+  "buildCommand": "corepack pnpm@10.34.5 --filter @exaearn/web build && corepack pnpm@10.34.5 --filter @exaearn/website build && node ../../scripts/embed-web-app.mjs",
+  "outputDirectory": "dist",
+  "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs website",
   "rewrites": [
     {
       "source": "/app/(.*)",

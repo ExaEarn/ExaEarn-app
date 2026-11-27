@@ -15,12 +15,19 @@ use App\Services\TransactionGuardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class SecurityLayerTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::flush();
+    }
 
     public function test_login_rate_limiting_blocks_after_max_attempts(): void
     {

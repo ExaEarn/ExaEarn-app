@@ -30,7 +30,7 @@ class RiskEngineService
             ->where('created_at', '>=', now()->subMinute())
             ->count();
 
-        $latestDevice = LoginDevice::query()->where('user_id', $user->id)->latest()->first();
+        $latestDevice = LoginDevice::query()->where('user_id', $user->id)->latest('last_login_at')->first();
         $cardHash = isset($context['card_hash']) ? (string) $context['card_hash'] : null;
         $excludeGiftcardId = isset($context['exclude_giftcard_id']) ? (int) $context['exclude_giftcard_id'] : null;
         $cardHashMatch = $cardHash

@@ -43,6 +43,7 @@ class Phase6MarginTradingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Config::set('cache.default', 'array');
         Redis::shouldReceive('publish')->zeroOrMoreTimes();
         Config::set('margin.mode', 'internal');
         Config::set('margin.reference_prices.USDT', '1');

@@ -1,0 +1,76 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadOnlyDiscovery",
+      "Effect": "Allow",
+      "Action": ["ec2:Describe*", "ssm:Describe*", "logs:Describe*", "cloudwatch:Describe*", "iam:GetRole"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "LaunchOnlyTaggedStagingInstance",
+      "Effect": "Allow",
+      "Action": ["ec2:RunInstances"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:InstanceType": "t4g.small",
+          "aws:RequestTag/Environment": "staging",
+          "aws:RequestTag/Application": "exaearn"
+        }
+      }
+    },
+    {
+      "Sid": "TagOnlyStagingResources",
+      "Effect": "Allow",
+      "Action": ["ec2:CreateTags"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Environment": "staging",
+          "aws:RequestTag/Application": "exaearn"
+        }
+      }
+    },
+    {
+      "Sid": "ManageTaggedStagingComputeAndStorage",
+      "Effect": "Allow",
+      "Action": ["ec2:StartInstances", "ec2:StopInstances", "ec2:TerminateInstances", "ec2:ModifyInstanceAttribute", "ec2:CreateSnapshot", "ec2:DeleteSnapshot", "ec2:DeleteVolume"],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:ResourceTag/Environment": "staging", "aws:ResourceTag/Application": "exaearn"}}
+    },
+    {
+      "Sid": "ManageTaggedStagingSecurityGroup",
+      "Effect": "Allow",
+      "Action": ["ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup", "ec2:AuthorizeSecurityGroupIngress", "ec2:RevokeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupEgress"],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:RequestTag/Environment": "staging", "aws:RequestTag/Application": "exaearn"}}
+    },
+    {
+      "Sid": "PassOnlyStagingInstanceRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::111122223333:role/ExaEarnStagingInstanceRole",
+      "Condition": {"StringEquals": {"iam:PassedToService": "ec2.amazonaws.com"}}
+    },
+    {
+      "Sid": "ManageStagingParameters",
+      "Effect": "Allow",
+      "Action": ["ssm:PutParameter", "ssm:DeleteParameter", "ssm:GetParameter", "ssm:GetParameters"],
+      "Resource": "arn:aws:ssm:us-east-1:111122223333:parameter/exaearn/staging/*"
+    },
+    {
+      "Sid": "RunBoundedSSMCommandsOnStaging",
+      "Effect": "Allow",
+      "Action": ["ssm:SendCommand", "ssm:GetCommandInvocation"],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"ssm:resourceTag/Environment": "staging", "ssm:resourceTag/Application": "exaearn"}}
+    },
+    {
+      "Sid": "StagingLoggingAndAlarms",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms"],
+      "Resource": "*"
+    }
+  ]
+}

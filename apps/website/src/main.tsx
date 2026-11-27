@@ -1,11 +1,12 @@
 import React, { StrictMode, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ArrowRight, BarChart3, Bot, Building2, Check, ChevronDown, CircleDollarSign,
-  Coins, Code2, CreditCard, Globe2, GraduationCap, Landmark, Leaf, LockKeyhole,
-  Menu, Play, Search, ShieldCheck, Smartphone, Sparkles, Store,
-  TrendingUp, Users, Wallet, X, Zap, ArrowDownLeft, ArrowUpRight, RefreshCw, Send,
+  ArrowDownLeft, ArrowRight, ArrowUpRight, BarChart3, Bot, Building2, Check,
+  ChevronDown, CircleDollarSign, Coins, Code2, CreditCard, Gift, Globe2,
+  GraduationCap, Landmark, Leaf, LockKeyhole, Menu, Play, Search, ShieldCheck,
+  Smartphone, Sparkles, Store, TrendingUp, Users, Wallet, X, Zap, RefreshCw, Send,
 } from "lucide-react";
+import { getLanguageByCode, LANGUAGE_STORAGE_KEY, LEGACY_LANGUAGE_REGION_STORAGE_KEY } from "@exaearn/config";
 import logo from "./assets/exaearn-logo.png";
 import "./styles/index.css";
 
@@ -48,6 +49,9 @@ const DEVELOPERS = String(import.meta.env.VITE_DEVELOPER_PORTAL_URL || "/develop
 const LISTING = String(import.meta.env.VITE_LISTING_PORTAL_URL || "/listing").trim();
 const appUrl = (path: string) => `${WEB_APP}${path.startsWith("/") ? path : `/${path}`}`;
 const apiUrl = (path: string) => `${API_BASE}${path}`;
+const DASHBOARD_PREFERENCES_KEY = "exaearn_dashboard_preferences";
+const AUTH_TOKEN_KEY = "exaearn_auth_token";
+const DEFAULT_QUICK_ACCESS = ["exapay", "exacard", "p2p", "rewards"];
 
 const statusMap: Record<string, Status> = {
   markets: "LIVE", spot: "LIVE", futures: "LIVE", convert: "LIVE", p2p: "LIVE",
@@ -73,6 +77,87 @@ const exploreProducts: Product[] = [
   { title: "Gift Cards", copy: "Connect digital assets with supported digital commerce.", href: "/gift-cards", status: statusMap.giftcards, icon: Store },
   { title: "ExaToken", copy: "Explore the utility layer for supported ExaEarn experiences.", href: "/exatoken", status: statusMap.exatoken, icon: Coins },
 ];
+
+type Service = {
+  id: string;
+  title: string;
+  copy: string;
+  href: string;
+  icon: Product["icon"];
+  category: string;
+  keywords: string[];
+  available: boolean;
+  reasonCode: string | null;
+  isQuickAccessEligible: boolean;
+};
+
+type ServiceCatalogPayload = {
+  services: Array<Record<string, unknown>>;
+  categories: Array<{ id: string; name: string }>;
+  quick_access_defaults?: string[];
+  quick_access_max_items?: number;
+  quick_access?: { services?: string[]; max_items?: number };
+};
+
+const serviceIcons: Record<string, Service["icon"]> = {
+  affiliate: Users,
+  agritech: Leaf,
+  crowdfunding: Users,
+  "developer-api": Code2,
+  exacard: CreditCard,
+  exapay: Zap,
+  exaskills: GraduationCap,
+  exatoken: Coins,
+  fiat: Landmark,
+  "gift-cards": Gift,
+  institutional: Building2,
+  nft: Sparkles,
+  p2p: Users,
+  rewards: Gift,
+  wallet: Wallet,
+}
+
+function servicesFromCatalog(catalog: ServiceCatalogPayload): Service[] {
+  const categories = new Map(catalog.categories.map(category => [category.id, category.name]));
+  return catalog.services.flatMap(row => {
+    const id = typeof row.id === "string" ? row.id : "";
+    const route = typeof row.route === "string" ? row.route : "";
+    if (!id || !route.startsWith("/") || route.startsWith("//")) return [];
+    const routeTarget = row.route_target === "app" ? appUrl(route) : route;
+    const href = id === "listing" ? LISTING : id === "developer-api" ? DEVELOPERS : routeTarget;
+    return [{
+      id,
+      title: typeof row.name === "string" ? row.name : id,
+      copy: typeof row.short_description === "string" ? row.short_description : "",
+      href,
+      icon: serviceIcons[String(row.icon_key)] || Store,
+      category: categories.get(String(row.category)) || String(row.category || "Services"),
+      keywords: [
+        ...(Array.isArray(row.keywords) ? row.keywords.filter((item): item is string => typeof item === "string") : []),
+        ...(Array.isArray(row.aliases) ? row.aliases.filter((item): item is string => typeof item === "string") : []),
+      ],
+      available: row.available === true,
+      reasonCode: typeof row.reason_code === "string" ? row.reason_code : null,
+      isQuickAccessEligible: row.is_quick_access_eligible === true,
+    }];
+  });
+}
+
+function readDashboardPreferences() {
+  try {
+    const raw = localStorage.getItem(DASHBOARD_PREFERENCES_KEY);
+    return raw ? JSON.parse(raw) as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeQuickAccess(value: unknown, services: Service[], fallback: string[] = DEFAULT_QUICK_ACCESS) {
+  const requested = Array.isArray(value) ? value : fallback;
+  return [...new Set(requested.filter((id): id is string =>
+    typeof id === "string" && services.some(service => service.id === id && service.available && service.isQuickAccessEligible),
+  ))].slice(0, 4);
+}
 
 const productPages: Record<string, { eyebrow: string; title: string; copy: string; status: Status; action: string; href: string; points: string[] }> = {
   "/buy-crypto": { eyebrow: "BUY CRYPTO", title: "A clear path into digital assets.", copy: "Use supported fiat and payment routes to purchase eligible digital assets through your ExaEarn account.", status: "BETA", action: "Open Buy Crypto", href: appUrl("/buy-crypto"), points: ["Supported payment methods", "Server-calculated fees", "Account verification controls"] },
@@ -145,10 +230,56 @@ function Header() {
   const [tradeOpen, setTradeOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [drawerSearch, setDrawerSearch] = useState("");
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
   useEffect(() => { const update = () => setScrolled(window.scrollY > 36); update(); window.addEventListener("scroll", update, { passive: true }); return () => window.removeEventListener("scroll", update); }, []);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !drawerRef.current) return;
+      const focusable = Array.from(drawerRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled])')).filter(element => element.getClientRects().length > 0);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !drawerRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !drawerRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      window.requestAnimationFrame(() => {
+        if (menuButtonRef.current?.isConnected) menuButtonRef.current.focus();
+      });
+    };
+  }, [menuOpen]);
   const tradeLinks = [["Spot", "/spot"], ["Futures", "/futures"], ["Convert", "/convert"], ["P2P", "/p2p"], ["Copy Trading", appUrl("/copy-trading")]];
   const moreLinks = [["Wallet", "/wallet"], ["ExaPay", "/exapay"], ["ExaToken", "/exatoken"], ["ExaSkills", "/exaskills"], ["NFT Marketplace", "/nft"], ["Agriculture", "/agriculture"], ["Crowdfunding", "/crowdfunding"], ["Gift Cards", "/gift-cards"], ["Support", "/support"]];
+  const mobileTradeLinks = [["Spot", appUrl("/trade/spot")], ["Futures", appUrl("/trade/futures")], ["Convert", appUrl("/convert")], ["Copy Trading", appUrl("/copy-trading")]];
   const close = () => { setMenuOpen(false); setTradeOpen(false); setMoreOpen(false); };
+  const open = () => {
+    setMenuOpen(true);
+    window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+  };
+  const navigateToSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = drawerSearch.trim();
+    window.location.href = query ? `/more?q=${encodeURIComponent(query)}` : "/more";
+  };
   return (
     <header className={`site-header ${scrolled ? "is-scrolled" : ""}`}>
       <nav className="nav-shell" aria-label="Primary navigation">
@@ -160,15 +291,299 @@ function Header() {
           <Dropdown label="More" open={moreOpen} setOpen={setMoreOpen} links={moreLinks} wide />
         </div>
         <div className="nav-right"><a className="nav-specialist" href="/institutional">Institutional</a><a className="nav-specialist" href={DEVELOPERS}>Developers</a><a href={appUrl("/login")}>Log In</a><a className="button button-primary button-small" href={appUrl("/register")}>Sign Up</a></div>
-        <div className="mobile-nav-actions"><a href="/spot">Trade</a><button type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button></div>
+        <div className="mobile-nav-actions"><a href={appUrl("/trade/spot")}>Trade</a><button ref={menuButtonRef} type="button" onClick={open} aria-label="Open menu" aria-expanded={menuOpen} aria-controls="mobile-navigation-drawer"><Menu size={22} /></button></div>
       </nav>
-      {menuOpen ? <div className="mobile-drawer" role="dialog" aria-modal="true" aria-label="Navigation"><div className="drawer-head"><Logo /><button type="button" onClick={close} aria-label="Close menu"><X size={22} /></button></div><div className="drawer-links">{[["Buy Crypto", "/buy-crypto"], ["Markets", "/markets"], ...tradeLinks, ["Earn", "/earn"], ["ExaAI", "/exaai"], ["ExaCard", "/exacard"], ...moreLinks, ["Institutional", "/institutional"], ["Developers", DEVELOPERS]].map(([label, href]) => <a key={`${label}-${href}`} href={href} onClick={close}>{label}<ArrowRight size={16} /></a>)}</div><div className="drawer-auth"><a href={appUrl("/login")}>Log In</a><a className="button button-primary" href={appUrl("/register")}>Create Account</a></div></div> : null}
+      <div className={`mobile-drawer-backdrop ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen} onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
+        <section id="mobile-navigation-drawer" ref={drawerRef} className="mobile-drawer" role="dialog" aria-modal="true" aria-label="ExaEarn navigation">
+          <div className="drawer-head"><Logo /><button ref={closeButtonRef} type="button" onClick={close} aria-label="Close menu"><X size={22} /></button></div>
+          <form className="drawer-search" role="search" onSubmit={navigateToSearch}>
+            <Search size={18} aria-hidden="true" />
+            <input aria-label="Search ExaEarn" placeholder="Search ExaEarn" value={drawerSearch} onChange={event => setDrawerSearch(event.target.value)} />
+          </form>
+          <nav className="drawer-primary" aria-label="Exchange">
+            <span className="drawer-section-label">EXCHANGE</span>
+            <a href="/markets" onClick={close}>Markets<ArrowRight size={16} /></a>
+            <a href="/buy-crypto" onClick={close}>Buy Crypto<ArrowRight size={16} /></a>
+            <div className="drawer-trade">
+              <button type="button" aria-expanded={tradeOpen} aria-controls="drawer-trade-links" onClick={() => setTradeOpen(value => !value)}>Trade<ChevronDown className={tradeOpen ? "is-open" : ""} size={17} /></button>
+              <div id="drawer-trade-links" hidden={!tradeOpen}>{mobileTradeLinks.map(([label, href]) => <a key={label} href={href} onClick={close}>{label}<ArrowRight size={15} /></a>)}</div>
+            </div>
+            <a href="/earn" onClick={close}>Earn<ArrowRight size={16} /></a>
+            <a href="/exaai" onClick={close}>ExaAI<ArrowRight size={16} /></a>
+            <a href="/more" onClick={close}>More<ArrowRight size={16} /></a>
+          </nav>
+          <section className="drawer-app-promo">
+            <div><strong>Get the ExaEarn App</strong><p>Trade and manage assets anywhere</p></div>
+            <a href="/mobile" onClick={close}>Mobile app status<ArrowRight size={15} /></a>
+          </section>
+          <nav className="drawer-utility" aria-label="Preferences and support">
+            <a href={appUrl("/")} onClick={close} aria-label="Open language and currency preferences"><Globe2 size={17} /><span>{getCurrentLanguageAndCurrency()}</span><ArrowRight size={15} /></a>
+            <a href="/support" onClick={close}><ShieldCheck size={17} /><span>Support</span><ArrowRight size={15} /></a>
+          </nav>
+          <div className="drawer-auth"><a href={appUrl("/login")} onClick={close}>Log In</a><a className="button button-primary" href={appUrl("/register")} onClick={close}>Sign Up</a></div>
+        </section>
+      </div>
     </header>
   );
 }
 
+function getCurrentLanguageAndCurrency() {
+  try {
+    const region = JSON.parse(localStorage.getItem(LEGACY_LANGUAGE_REGION_STORAGE_KEY) || "null");
+    const currency = JSON.parse(localStorage.getItem("exaearn-currency-preference") || "null");
+    const language = getLanguageByCode(region?.language_code || region?.language || localStorage.getItem(LANGUAGE_STORAGE_KEY)).englishName;
+    return `${language} / ${currency?.displayCurrency || "USD"}`;
+  } catch {
+    return "English / USD";
+  }
+}
+
 function Dropdown({ label, open, setOpen, links, wide = false }: { label: string; open: boolean; setOpen: (value: boolean) => void; links: string[][]; wide?: boolean }) {
   return <div className="nav-dropdown"><button type="button" onClick={() => setOpen(!open)} aria-expanded={open}>{label}<ChevronDown size={14} /></button>{open ? <div className={`dropdown-panel ${wide ? "wide" : ""}`}>{links.map(([text, href]) => <a key={text} href={href}>{text}<ArrowRight size={14} /></a>)}</div> : null}</div>;
+}
+
+async function requestDashboardPreferences(token: string, method: "GET" | "PUT", preferences?: Record<string, unknown>) {
+  const response = await fetch(apiUrl("/api/preferences/dashboard"), {
+    method,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+    ...(preferences ? { body: JSON.stringify(preferences) } : {}),
+  });
+  let payload: { data?: Record<string, unknown>; message?: string; status?: string } = {};
+  try {
+    payload = await response.json();
+  } catch {
+    if (response.ok) throw new Error("The preferences service returned an invalid response.");
+  }
+  if (!response.ok || payload.status === "error" || !payload.data) {
+    throw new Error(payload.message || `Could not ${method === "GET" ? "load" : "save"} Quick Access preferences.`);
+  }
+  return payload.data;
+}
+
+async function requestServiceCatalog(token?: string): Promise<ServiceCatalogPayload> {
+  if (!API_BASE) throw new Error("The service directory is unavailable because the API is not configured.");
+  const response = await fetch(apiUrl(token ? "/api/me/services" : "/api/public/services"), {
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+  });
+  let payload: { data?: ServiceCatalogPayload; message?: string; status?: string } = {};
+  try {
+    payload = await response.json();
+  } catch {
+    if (response.ok) throw new Error("The service directory returned an invalid response.");
+  }
+  if (!response.ok || payload.status === "error" || !payload.data || !Array.isArray(payload.data.services) || !Array.isArray(payload.data.categories)) {
+    throw new Error(payload.message || "Could not load the ExaEarn service directory.");
+  }
+  return payload.data;
+}
+
+function MoreServicesPage() {
+  const initialQuery = new URLSearchParams(window.location.search).get("q") || "";
+  const [query, setQuery] = useState(initialQuery);
+  const [services, setServices] = useState<Service[]>([]);
+  const [quickAccess, setQuickAccess] = useState<string[]>([]);
+  const [savedQuickAccess, setSavedQuickAccess] = useState<string[]>([]);
+  const [dashboardPreferences, setDashboardPreferences] = useState<Record<string, unknown>>({});
+  const [token, setToken] = useState("");
+  const [preferenceReady, setPreferenceReady] = useState(false);
+  const [preferenceError, setPreferenceError] = useState("");
+  const [catalogError, setCatalogError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [preferenceNotice, setPreferenceNotice] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let storedToken = "";
+    try {
+      storedToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+    } catch (error) {
+      setPreferenceError("Browser storage is unavailable; Quick Access cannot be saved on this device.");
+    }
+    setToken(storedToken);
+    void (async () => {
+      try {
+        const catalog = await requestServiceCatalog(storedToken || undefined);
+        if (!active) return;
+        const loadedServices = servicesFromCatalog(catalog);
+        setServices(loadedServices);
+        const defaults = Array.isArray(catalog.quick_access_defaults) ? catalog.quick_access_defaults : DEFAULT_QUICK_ACCESS;
+        const cachedPreferences = readDashboardPreferences();
+        const preferred = storedToken
+          ? catalog.quick_access?.services ?? catalog.quick_access_defaults
+          : cachedPreferences.quick_access_services ?? cachedPreferences.quick_access;
+        const shortcuts = normalizeQuickAccess(preferred, loadedServices, defaults);
+        setQuickAccess(shortcuts);
+        setSavedQuickAccess(shortcuts);
+        if (storedToken) {
+          try {
+            const preferences = await requestDashboardPreferences(storedToken, "GET");
+            if (!active) return;
+            setDashboardPreferences(preferences);
+            const saved = normalizeQuickAccess(preferences.quick_access_services ?? preferences.quick_access, loadedServices, defaults);
+            setQuickAccess(saved);
+            setSavedQuickAccess(saved);
+          } catch (error) {
+            if (!active) return;
+            setPreferenceError(error instanceof Error ? error.message : "Could not load Quick Access preferences.");
+          }
+        }
+      } catch (error) {
+        if (!active) return;
+        setCatalogError(error instanceof Error ? error.message : "Could not load the ExaEarn service directory.");
+        if (storedToken) setPreferenceError("Account Quick Access is unavailable until the service directory can be loaded.");
+      } finally {
+        if (active) setPreferenceReady(true);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchingServices = useMemo(() => services.filter(service => {
+    const searchable = `${service.title} ${service.copy} ${service.category} ${service.keywords.join(" ")}`.toLocaleLowerCase();
+    return searchable.includes(normalizedQuery);
+  }), [normalizedQuery, services]);
+  const availableServices = services.filter(service => service.available && service.isQuickAccessEligible && !quickAccess.includes(service.id));
+
+  const finishEditing = async () => {
+    if (saving || !preferenceReady || preferenceError) return;
+    setSaving(true);
+    setSaveError("");
+    setPreferenceNotice("");
+    try {
+      let nextPreferences: Record<string, unknown>;
+      if (token) {
+        const existingPreferences = { ...dashboardPreferences };
+        delete existingPreferences.quick_access;
+        nextPreferences = await requestDashboardPreferences(token, "PUT", {
+          ...existingPreferences,
+          mode: existingPreferences.mode || "all",
+          quick_access_services: quickAccess,
+        });
+        setDashboardPreferences(nextPreferences);
+      } else {
+        const cached = readDashboardPreferences();
+        nextPreferences = { ...cached, quick_access_services: quickAccess };
+        try {
+          localStorage.setItem(DASHBOARD_PREFERENCES_KEY, JSON.stringify(nextPreferences));
+        } catch {
+          throw new Error("Could not save Quick Access on this device. Check your browser storage settings and try again.");
+        }
+      }
+      const saved = normalizeQuickAccess(nextPreferences.quick_access_services ?? nextPreferences.quick_access, services);
+      setQuickAccess(saved);
+      setSavedQuickAccess(saved);
+      setEditing(false);
+      if (token) {
+        try {
+          localStorage.setItem(DASHBOARD_PREFERENCES_KEY, JSON.stringify(nextPreferences));
+        } catch {
+          setPreferenceNotice("Quick Access is saved to your account, but could not be cached on this device.");
+        }
+      }
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save Quick Access preferences.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const moveShortcut = (index: number, offset: number) => {
+    const target = index + offset;
+    if (target < 0 || target >= quickAccess.length) return;
+    setQuickAccess(current => {
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  return (
+    <main className="services-page">
+      <header className="services-header">
+        <div className="services-header-inner">
+          <a className="services-back" href="/" aria-label="Back to ExaEarn home"><ArrowRight size={17} />Back</a>
+          <h1>More</h1>
+          <span aria-hidden="true" />
+        </div>
+      </header>
+      <div className="services-content">
+        <label className="services-search">
+          <Search size={19} aria-hidden="true" />
+          <span className="sr-only">Search services</span>
+          <input type="search" placeholder="Search services" value={query} onChange={event => setQuery(event.target.value)} />
+          {query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search"><X size={17} /></button> : null}
+        </label>
+
+        <section className="quick-access" aria-labelledby="quick-access-title">
+          <div className="quick-access-heading">
+            <h2 id="quick-access-title"><span aria-hidden="true">★</span> Quick Access</h2>
+            {editing
+            ? <div className="quick-access-actions"><button type="button" onClick={() => { setQuickAccess(savedQuickAccess); setEditing(false); }}>Cancel</button><button type="button" className="quick-done" onClick={() => void finishEditing()} disabled={saving || !preferenceReady || Boolean(preferenceError) || Boolean(catalogError)}>{saving ? "Saving..." : "Done"}</button></div>
+            : <button type="button" className="quick-edit" onClick={() => setEditing(true)} disabled={!preferenceReady || Boolean(preferenceError) || Boolean(catalogError)}>Edit</button>}
+          </div>
+          {preferenceError ? <p className="preference-message" role="alert">{preferenceError}</p> : null}
+          {saveError ? <p className="preference-message" role="alert">{saveError}</p> : null}
+          {preferenceNotice ? <p className="preference-message" role="status">{preferenceNotice}</p> : null}
+          <div className={`quick-access-grid ${editing ? "is-editing" : ""}`}>
+            {quickAccess.map((id, index) => {
+              const service = services.find(item => item.id === id);
+              if (!service) return null;
+              const Icon = service.icon;
+              return <div className="quick-access-item" key={service.id}>
+                {editing ? <button type="button" className="quick-remove" onClick={() => setQuickAccess(current => current.filter(item => item !== service.id))} aria-label={`Remove ${service.title}`}><X size={14} /></button> : null}
+                <a className="quick-service-tile" href={service.href} aria-label={service.title}>
+                  <span><Icon size={20} aria-hidden /></span><strong>{service.title}</strong>
+                </a>
+                {editing ? <div className="quick-reorder">
+                  <button type="button" onClick={() => moveShortcut(index, -1)} disabled={index === 0} aria-label={`Move ${service.title} left`}>Move left</button>
+                  <button type="button" onClick={() => moveShortcut(index, 1)} disabled={index === quickAccess.length - 1} aria-label={`Move ${service.title} right`}>Move right</button>
+                </div> : null}
+              </div>;
+            })}
+            {!quickAccess.length && !editing ? <p className="quick-empty">Add services to keep your favorites close.</p> : null}
+          </div>
+          {editing ? <div className="quick-add-services">
+            <strong>Add a service <span>{quickAccess.length}/4</span></strong>
+            <div>{availableServices.map(service => <button type="button" key={service.id} onClick={() => setQuickAccess(current => current.length < 4 ? [...current, service.id] : current)} disabled={quickAccess.length >= 4}><span aria-hidden="true">+</span>{service.title}</button>)}</div>
+          </div> : null}
+        </section>
+
+        <section className="service-directory" aria-label="All services">
+          <div className="service-directory-heading"><h2>{normalizedQuery ? "Search results" : "All services"}</h2><span aria-live="polite">{matchingServices.length} {matchingServices.length === 1 ? "service" : "services"}</span></div>
+          {catalogError ? <p className="service-no-results" role="alert">{catalogError}</p> : null}
+          {!catalogError && matchingServices.length ? [...new Set(matchingServices.map(service => service.category))].map(category => {
+            const categoryServices = matchingServices.filter(service => service.category === category);
+            return <section className="service-category" key={category} aria-label={category}>
+              <h3>{category}</h3>
+              <div>{categoryServices.map(service => {
+                const Icon = service.icon;
+                const content = <>
+                  <span className="service-directory-icon"><Icon size={19} aria-hidden /></span>
+                  <span><strong>{service.title}</strong><small>{service.copy}</small>{!service.available ? <small>{service.reasonCode === "verification_required" ? "Verification required" : service.reasonCode === "jurisdiction_restricted" ? "Not available in your region" : service.reasonCode === "coming_soon" ? "Coming soon" : "Temporarily unavailable"}</small> : null}</span>
+                  {service.available ? <ArrowRight size={16} aria-hidden="true" /> : null}
+                </>;
+                return service.available
+                  ? <a className="service-directory-item" href={service.href} key={service.id}>{content}</a>
+                  : <div className="service-directory-item is-unavailable" aria-disabled="true" key={service.id}>{content}</div>;
+              })}</div>
+            </section>;
+          }) : !catalogError ? <p className="service-no-results">{services.length ? `No services match “${query}”. Try a product name or category.` : "Loading ExaEarn services..."}</p> : null}
+        </section>
+      </div>
+    </main>
+  );
 }
 
 function HeroDevice({ rows, loading }: { rows: Ticker[]; loading: boolean }) {
@@ -325,13 +740,14 @@ function setPageMetadata(path: string) {
   document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", title);
   document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", description);
-  document.querySelector('link[rel="canonical"]')?.setAttribute("href", `https://exaearn-website.vercel.app${path === "/" ? "/" : path}`);
+  document.querySelector('link[rel="canonical"]')?.setAttribute("href", `https://exaearn.com${path === "/" ? "/" : path}`);
 }
 
 function App() {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   useEffect(() => { setPageMetadata(path); window.scrollTo(0, 0); }, [path]);
   if (path === "/") return <HomePage/>;
+  if (path === "/more" || path === "/services") return <MoreServicesPage/>;
   if (path === "/markets" || path.startsWith("/markets/")) return <MarketsPage/>;
   if (path === "/products") return <ProductsPage/>;
   if (path === "/roadmap") return <RoadmapPage/>;
