@@ -1,5 +1,4 @@
 const express = require('express');
-const config = require('./config');
 const { verifyServiceSecret } = require('./middleware/auth');
 const realtimeHub = require('./services/realtimeHub');
 const blockchainService = require('./services/blockchainService');
