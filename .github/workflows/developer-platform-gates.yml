@@ -151,43 +151,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        id: checkout
         with: { fetch-depth: 0 }
-      - name: Scan repository history with Gitleaks OSS
-        shell: bash
-        run: |
-          set -euo pipefail
-          commit_count="$(git rev-list --all --count)"
-          if [[ "$commit_count" -eq 0 ]]; then
-            echo "::error::Gitleaks cannot scan an empty Git history"
-            exit 1
-          fi
-          echo "Gitleaks will scan repository history ($commit_count reachable commits)."
-          if ! scan_output="$(docker run --rm \
-            --volume "$GITHUB_WORKSPACE:/repo:ro" \
-            --env GIT_CONFIG_COUNT=1 \
-            --env GIT_CONFIG_KEY_0=safe.directory \
-            --env GIT_CONFIG_VALUE_0=/repo \
-            ghcr.io/gitleaks/gitleaks:v8.30.1 \
-            git --redact --verbose --config /repo/.gitleaks.toml /repo 2>&1)"; then
-            printf '%s\n' "$scan_output"
-            exit 1
-          fi
-          printf '%s\n' "$scan_output"
-          if ! grep -Eq '[1-9][0-9]* commits scanned' <<<"$scan_output"; then
-            echo "::error::Gitleaks returned without confirming that it scanned commits"
-            exit 1
-          fi
       - uses: pnpm/action-setup@v4
+        id: setup_pnpm
         with: { version: 10.34.5 }
       - uses: actions/setup-node@v4
+        id: setup_node
         with: { node-version: 22, cache: pnpm }
       - uses: shivammathur/setup-php@v2
+        id: setup_php
         with: { php-version: '8.3' }
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - uses: github/codeql-action/init@v3
         with: { languages: 'javascript-typescript' }
       - run: pnpm install --frozen-lockfile
+        id: install_dependencies
       - run: python -m pip install --disable-pip-version-check pip-audit==2.9.0
       - run: python -m pip install --disable-pip-version-check -e packages/python-sdk
       - run: node scripts/tests/sbom-validator-fixtures.mjs
@@ -237,7 +217,8 @@ jobs:
           retention-days: 30
       - uses: github/codeql-action/analyze@v3
       - name: Capture Node dependency audit report
-        if: ${{ always() }}
+        id: capture_node_audit
+        if: ${{ always() && steps.setup_pnpm.outcome == 'success' && steps.setup_node.outcome == 'success' }}
         shell: bash
         run: |
           mkdir -p artifacts
@@ -260,17 +241,43 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Audit Node dependencies
-        if: ${{ always() && hashFiles('artifacts/pnpm-audit.json') != '' }}
+        if: ${{ always() && steps.capture_node_audit.outcome == 'success' && hashFiles('artifacts/pnpm-audit.json') != '' }}
         run: node scripts/validate-node-audit.mjs --audit-file artifacts/pnpm-audit.json
       - name: Audit Composer dependencies
-        if: ${{ always() }}
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
         run: composer audit --working-dir=backend/api-gateway --locked --abandoned=fail
       - name: Audit reward-service Composer dependencies
-        if: ${{ always() }}
+        if: ${{ always() && steps.setup_php.outcome == 'success' }}
         run: composer audit --working-dir=backend/services/reward-service --locked --abandoned=fail
       - name: Audit Python SDK environment
         if: ${{ success() }}
         run: python -m pip_audit --local
+      - name: Scan repository history with Gitleaks OSS
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit_count="$(git rev-list --all --count)"
+          if [[ "$commit_count" -eq 0 ]]; then
+            echo "::error::Gitleaks cannot scan an empty Git history"
+            exit 1
+          fi
+          echo "Gitleaks will scan repository history ($commit_count reachable commits)."
+          if ! scan_output="$(docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/repo:ro" \
+            --env GIT_CONFIG_COUNT=1 \
+            --env GIT_CONFIG_KEY_0=safe.directory \
+            --env GIT_CONFIG_VALUE_0=/repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git --redact --verbose --config /repo/.gitleaks.toml /repo 2>&1)"; then
+            printf '%s\n' "$scan_output"
+            exit 1
+          fi
+          printf '%s\n' "$scan_output"
+          if ! grep -Eq '[1-9][0-9]* commits scanned' <<<"$scan_output"; then
+            echo "::error::Gitleaks returned without confirming that it scanned commits"
+            exit 1
+          fi
 
   container-security:
     runs-on: ubuntu-latest

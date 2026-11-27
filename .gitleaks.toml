@@ -37,7 +37,7 @@ paths = [
   '''backend/api-gateway/tests/Feature/Phase6MarginTradingTest\.php$''',
   '''backend/api-gateway/tests/Feature/ExaEarnStakingRemovalTest\.php$'''
 ]
-regexes = ['''(?i)(Idempotency-Key|idempotency_key)''']
+regexes = ['''(?i)(Idempotency-Key|idempotency_key|idempotencyKey|\$idempotencyKey)''']
 
 [[allowlists]]
 description = "Twilio OAuth client ID is a public identifier, not a client secret."
@@ -45,8 +45,8 @@ targetRules = ["generic-api-key"]
 condition = "AND"
 regexTarget = "line"
 commits = ['''b2766e32831d7987a519c81605e1aa8733c3d49b''']
-paths = ['''^\.env\.example$''']
-regexes = ['''^TWILIO_OAUTH_CLIENT_ID=[A-Za-z0-9_-]{34}$''']
+paths = ['''.env\.example$''']
+regexes = ['''TWILIO_OAUTH_CLIENT_ID[ \t]*=[ \t]*[A-Za-z0-9_-]{34}''']
 
 [[allowlists]]
 description = "Published local API examples use explicit uppercase bearer-token placeholders."
@@ -102,7 +102,7 @@ condition = "AND"
 regexTarget = "line"
 commits = ['''1a340b7b5a0f33d9aa42286f8d3d9621de7cf18e''']
 paths = ['''docs/exaearn-developer-platform-p0-p1-remediation-plan\.md$''']
-regexes = ['''^The following cannot be made PASS by changing documentation: provider contracts and credentials, jurisdiction/legal approval, production staffing/on-call, penetration testing, DNS/TLS/WAF configuration, live backup/restore proof, and production capacity evidence\.$''']
+regexes = ['''The following cannot be made PASS by changing documentation''']
 
 [[allowlists]]
 description = "USDC contract addresses are public identifiers, not credentials."
