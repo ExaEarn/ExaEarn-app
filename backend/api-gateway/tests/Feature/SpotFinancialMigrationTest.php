@@ -29,6 +29,7 @@ class SpotFinancialMigrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['cache.default' => 'array']);
         Queue::fake([CalculateRewardJob::class]);
         Redis::shouldReceive('publish')->zeroOrMoreTimes();
 

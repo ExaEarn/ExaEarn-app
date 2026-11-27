@@ -25,12 +25,15 @@ use App\Models\MarketMakerMarketAssignment;
 use App\Models\MarketMakerProfile;
 use App\Models\Order;
 use App\Models\Role;
+use App\Models\SpotMarketDataEvent;
 use App\Models\SpotOrderBookSnapshot;
 use App\Models\User;
 use App\Services\InstitutionalService;
 use App\Services\LedgerService;
 use App\Services\MarketMakerBotLoadTestService;
 use App\Services\MarketMakerBotService;
+use App\Services\MarketMakerFairValueService;
+use App\Services\MarketMakerQuoteEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -52,7 +55,8 @@ class Phase15EMarketMakerBotTest extends TestCase
         $admin = $this->admin();
         [$institution, $subaccount, $profile] = $this->marketMakerInstitution($owner);
         $market = $this->market();
-        $this->book($market);
+        $this->freezeTime();
+        $this->book($market, 11);
         $this->fundUserTrading($owner, 'USDT', '1000000');
         $this->fundUserTrading($owner, 'BTC', '20');
         app(InstitutionalService::class)->adminCreditSubaccount($admin, $subaccount, 'USDT', '1000000', 'Seed MM subaccount quote inventory.');
@@ -189,7 +193,9 @@ class Phase15EMarketMakerBotTest extends TestCase
             'product_flags' => ['TREASURY' => true],
         ]);
         $market = $this->market();
-        $this->book($market);
+        $this->book($market, 11);
+        $fair = app(MarketMakerFairValueService::class)->fairValue('BTC/USDT');
+        $this->assertNotSame('STALE', $fair['market_data_status'], json_encode($fair, JSON_PRETTY_PRINT));
         $this->futuresMarket();
         $this->fundUserAccount($owner, 'futures', 'USDT', '1000000');
         $this->fundUserTrading($owner, 'USDT', '1000000');
@@ -271,6 +277,9 @@ class Phase15EMarketMakerBotTest extends TestCase
         $this->assertSame(1, MarketMakerBotRebalance::query()->where('idempotency_key', 'rebalance-1')->count());
         $this->assertSame(1, InstitutionalTransferRequest::query()->where('idempotency_key', 'MM-BOT-REBALANCE-rebalance-1')->count());
 
+        $this->book($market, 11);
+        $fair = app(MarketMakerFairValueService::class)->fairValue('BTC/USDT');
+        $this->assertNotSame('STALE', $fair['market_data_status'], json_encode($fair, JSON_PRETTY_PRINT));
         $primaryBot = MarketMakerBot::query()->where('bot_uuid', $bot['bot_uuid'])->firstOrFail();
         for ($i = 2; $i <= 10; $i++) {
             MarketMakerBot::query()->create(array_merge($primaryBot->replicate()->toArray(), [
@@ -280,10 +289,22 @@ class Phase15EMarketMakerBotTest extends TestCase
                 'safety_state' => 'NORMAL',
                 'worker_id' => null,
                 'worker_lease_expires_at' => null,
+                'market_symbol' => 'BTC/USDT',
+                'market_maker_id' => $primaryBot->market_maker_id,
+                'institution_id' => $primaryBot->institution_id,
+                'subaccount_id' => $primaryBot->subaccount_id,
+                'risk_limits' => $primaryBot->risk_limits,
             ]));
         }
+        foreach (MarketMakerBot::query()->limit(10)->get() as $loadBot) {
+            app(MarketMakerQuoteEngine::class)->plan($loadBot);
+        }
+        $this->book($market, 12);
+        foreach (MarketMakerBot::query()->limit(10)->get() as $loadBot) {
+            app(MarketMakerQuoteEngine::class)->plan($loadBot);
+        }
         $run = app(MarketMakerBotLoadTestService::class)->run(10, 3);
-        $this->assertSame('PASS', $run->status);
+        $this->assertSame('PASS', $run->status, json_encode($run->metadata, JSON_PRETTY_PRINT));
         $this->assertSame(30, $run->metrics['decisions']);
         $this->assertSame(1, MarketMakerBotLoadRun::query()->count());
 
@@ -320,13 +341,22 @@ class Phase15EMarketMakerBotTest extends TestCase
         ]);
     }
 
-    private function book(Market $market): void
+    private function book(Market $market, int $sequence = 10): void
     {
+        SpotMarketDataEvent::query()->create([
+            'event_id' => (string) Str::uuid(),
+            'market_id' => $market->id,
+            'market_symbol' => 'BTC/USDT',
+            'sequence' => $sequence,
+            'event_type' => 'TEST_ORDER_BOOK_REFRESH',
+            'payload' => ['source' => 'phase15e-fixture'],
+            'occurred_at' => now(),
+        ]);
         SpotOrderBookSnapshot::query()->create([
             'snapshot_id' => (string) Str::uuid(),
             'market_id' => $market->id,
             'market_symbol' => 'BTC/USDT',
-            'last_sequence' => 10,
+            'last_sequence' => $sequence,
             'bids' => [['price' => '49900', 'quantity' => '2']],
             'asks' => [['price' => '50100', 'quantity' => '2']],
             'open_orders' => [],

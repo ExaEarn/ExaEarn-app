@@ -1,12 +1,24 @@
 # ExaEarn Developer Platform Dependency Risk Decisions
 
+**Current status as of 2026-11-21 (dependency-fix commit `4e84fda4b36ce98997da78b4427ae172fe138770`; CI run [44924765659](https://github.com/ExaEarn/ExaEarn-app/actions/runs/44924765659))**
+
+PR #3 pins the two formerly accepted Hardhat transitive findings to patched releases: `serialize-javascript@7.1.1` for GHSA-5c6j-r48x-rmvq, and `tmp@0.2.7` for GHSA-ph9p-34f9-6g65. The selected tmp version also avoids the additional advisory affecting 0.2.6. These are Hardhat build/test dependencies and are excluded from the production blockchain image's `pnpm deploy --prod` closure.
+
+Local validation used pnpm 10.34.5: frozen lockfile validation passed, and `pnpm audit --audit-level high` exited 0 with 43 findings (8 Low, 35 Moderate, 0 High, 0 Critical). The full local dependency install was stopped because the C: volume had effectively no free space. GitHub Actions run 44924765659 subsequently passed all six jobs, including the Laravel backend suite, blockchain lint/Jest/Hardhat tests, contracts and clients, security-supply-chain, container security (Trivy gates), and workflow validation. The security-supply-chain log reported Node audit policy PASS (0/0 High) and a clean Composer audit. All seven Vercel preview contexts on this run failed due to Vercel's build-rate limit; those external preview statuses remain a separate PR status issue.
+
+The active `security/node-audit-acceptances.json` registry now contains no exceptions. The earlier approvals for these two advisories remain below as historical records only; they have not been extended or renewed. No security-owner reaffirmation is needed for the fixed versions, but any new High or Critical finding remains blocking.
+
+The nine-path scope and Prisma/Metro decision packets preserved below describe the historical 2026-08-31 decision snapshot. The recorded 2026-09-30 review deadline and 2026-10-31 Hardhat 3 migration milestone have passed. No later owner reaffirmation is recorded in this repository or PR reviews. The prior acceptance expiry was not extended.
+
+## Historical decision record (2026-08-31; preserved)
+
 Date: 2026-08-31  
 Status: APPROVED - TIME-BOUNDED ADVISORY-SPECIFIC ACCEPTANCE
-Scope: nine High Node advisory paths approved individually after compatible remediation
+Scope: nine High Node advisory paths approved individually at that historical snapshot
 
-This document records the three supplied human decisions. Each approval is limited to its listed GHSA identifiers, expires automatically on 2026-11-29, and does not authorize Production Access, Production webhooks, organization Production Access, or Developer wallet withdrawal.
+This section preserves the three supplied human decisions as recorded at that time. Each approval was limited to its listed GHSA identifiers, expired automatically on 2026-11-29, and did not authorize Production Access, Production webhooks, organization Production Access, or Developer wallet withdrawal.
 
-## Reachability summary
+## Reachability summary (historical snapshot)
 
 | Root cause | High paths | Production runtime | Build/CI | Developer workstation | Shipped vulnerable code |
 |---|---:|---|---|---|---|
@@ -14,9 +26,9 @@ This document records the three supplied human decisions. Each approval is limit
 | Prisma 7 CLI/configuration | 1 | No | Yes | Yes | No: Prisma is a root workspace dependency and is excluded from the service-only production closure |
 | Metro `image-size` parser | 2 | No | Yes | Yes | No: React Native and Metro are root/mobile dependencies excluded from the service-only production closure |
 
-All nine paths are build/development reachable and therefore remain security relevant. Candidate `5e26e6c96413409cff3ded364af26a9db4fdd880` incorrectly copied the workspace root dependency closure into the realtime image. Candidate `10a83a149ae5d96edeb7a77cbf35778099a0bda8` corrected that composition; GitHub Actions run `33413628590` rebuilt both production images and reported zero Critical and zero High findings from Trivy.
+Historical 2026-08-31 analysis: all nine then-identified paths were build/development reachable and therefore security relevant. Candidate `5e26e6c96413409cff3ded364af26a9db4fdd880` incorrectly copied the workspace root dependency closure into the realtime image. Candidate `10a83a149ae5d96edeb7a77cbf35778099a0bda8` corrected that composition; GitHub Actions run `33413628590` rebuilt both production images and reported zero Critical and zero High findings from Trivy.
 
-## HARDHAT SECURITY DECISION
+## HARDHAT SECURITY DECISION (historical 2026-08-31)
 
 **Advisories:** GHSA-xcpc-8h2w-3j85 (`adm-zip`), GHSA-5c6j-r48x-rmvq (`serialize-javascript`), GHSA-ph9p-34f9-6g65 (`tmp`), GHSA-vrm6-8vpv-qv8q/GHSA-v9p9-hfj2-hcw8/GHSA-vxpw-j846-p89q (`undici`)
 **Installed roots:** Hardhat 2.28.6 and its Mocha/Solc/tooling graph  
@@ -53,7 +65,7 @@ All nine paths are build/development reachable and therefore remain security rel
 **Expiration:** 2026-11-29
 **Exact scope:** the six Hardhat GHSAs listed above; no package, advisory, environment, or future finding is implicitly accepted.
 
-## PRISMA SECURITY DECISION
+## PRISMA SECURITY DECISION (historical 2026-08-31)
 
 **Advisory:** GHSA-ggr8-5vv4-36mx (`deepmerge-ts` 7.1.5; patched in 8.x)
 **Parent:** Prisma/@prisma/client 7.8.0  
@@ -84,7 +96,7 @@ All nine paths are build/development reachable and therefore remain security rel
 **Expiration:** 2026-11-29
 **Exact scope:** GHSA-ggr8-5vv4-36mx only; no package, advisory, environment, or future finding is implicitly accepted.
 
-## METRO SECURITY DECISION
+## METRO SECURITY DECISION (historical 2026-08-31)
 
 **Advisories:** GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq (`image-size` 1.2.1)
 **Parent:** Expo 53 / React Native 0.79.6 / Metro 0.82.5  
@@ -115,7 +127,7 @@ All nine paths are build/development reachable and therefore remain security rel
 **Expiration:** 2026-11-29
 **Exact scope:** GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq only; no package, advisory, environment, or future finding is implicitly accepted.
 
-## Override review
+## Override review (historical 2026-08-31)
 
 The root override set remains at 19. Every override is constrained to a reviewed patched release; range-qualified entries preserve the parent major where multiple incompatible majors coexist. The frozen install, focused tests, production builds, Hardhat compilation, and full backend suite pass with this set.
 
@@ -128,21 +140,21 @@ OBSOLETE OVERRIDES REMOVED: 0
 
 No remaining High advisory can be safely fixed by another transitive override: each requires a parent migration or has no patched child release.
 
-## Verified compensating controls
+## Verified compensating controls (historical 2026-08-31)
 
 Repository evidence verifies a committed lockfile, frozen-lockfile CI installation, minimal workflow permissions (`contents: read`, `security-events: write`), Gitleaks, CodeQL, independent Node/Composer/Python audits, four CycloneDX SBOMs, candidate-SHA binding and hash manifest, non-root production containers, and Trivy enforcement at Critical/High with no ignored unfixed findings. Run `33413628590` verifies zero Critical/High production-image findings. Branch protection, reviewer enforcement, external CI secret policy, and short-lived credential configuration are deployment/GitHub settings and are not claimed as repository-proven controls.
 
 ## Advisory-specific CI decision mechanism
 
-`scripts/validate-node-audit.mjs` runs the canonical audit and compares every current Critical/High advisory with `security/node-audit-acceptances.json`. Critical findings are never accepted. A High finding passes only when its exact GHSA identifier has a current `approved` record containing package and root-cause identity, an attributable approver and release role, approval reference, approval timestamp, expiry, rationale, compensating controls, repository, and 40-character approval commit. Expired records, stale records not present in the audit, duplicate records, wrong repositories, missing identifiers, and every new High fail closed. The registry contains only the nine approvals recorded above.
+`scripts/validate-node-audit.mjs` runs the canonical audit and compares every current Critical/High advisory with `security/node-audit-acceptances.json`. Critical findings are never accepted. A High finding passes only when its exact GHSA identifier has a current `approved` record containing package and root-cause identity, an attributable approver and release role, approval reference, approval timestamp, expiry, rationale, compensating controls, repository, and 40-character approval commit. Expired records, stale records not present in the audit, duplicate records, wrong repositories, missing identifiers, and every new High fail closed. At the 2026-08-31 snapshot, the registry contained the approvals recorded above. The current registry contains no active exceptions; the two formerly accepted Hardhat advisories are addressed by the patched resolutions identified in the current-status notice at the top of this document.
 
 Authorized owners must add one record per approved GHSA through normal reviewed Git history. They must not group unknown future advisories, use wildcard identifiers, or extend expiry without a fresh decision. `scripts/tests/node-audit-policy-fixtures.mjs` covers valid, missing, expired, Critical, stale, unattributed, and cross-repository cases.
 
-## Release condition
+## Historical release condition (2026-08-31)
 
-The human decision prerequisite is satisfied for these nine exact High findings. RC2 remains prohibited until the mandatory workflow validates the registry and all other repository-controlled release gates against the resulting immutable candidate.
+At that historical decision point, the human decision prerequisite was recorded as satisfied for the nine exact High findings. The current release gate is the machine-enforced registry and latest workflow result referenced in the current-status notice; the earlier statement is not a current nine-advisory acceptance.
 
-## Independent re-review: 2026-08-31
+## Historical independent re-review: 2026-08-31
 
 The three packets were independently rechecked against package manifests, imports, active Prisma schemas, Metro configuration, and the blockchain production Dockerfile. The supplied human decisions are:
 
@@ -152,6 +164,6 @@ The three packets were independently rechecked against package manifests, import
 | Prisma | APPROVED THROUGH 2026-11-29 | Calistus Anwara; EXAEARN-SEC-2026-PRISMA-001; GHSA-ggr8-5vv4-36mx only |
 | Metro | APPROVED THROUGH 2026-11-29 | Reginald Ejike; EXAEARN-SEC-2026-METRO-001; two exact High build-time parser advisories only |
 
-All nine current High findings are covered by exact, attributable, time-bounded records. The automated policy still fails closed on expiry, changed advisory identity, any new High, or any Critical finding. This decision does not alter production-runtime controls or authorize deployment.
+At the 2026-08-31 snapshot, all nine then-current High findings were described as covered by exact, attributable, time-bounded records. The automated policy still fails closed on expiry, changed advisory identity, any new High, or any Critical finding. This decision does not alter production-runtime controls or authorize deployment.
 
 Early re-review triggers remain: a compatible patched parent release, a patched `image-size` release, changed production artifact composition, introduction of untrusted build inputs, CI privilege expansion, or any evidence of exploitability in ExaEarn's build environment.

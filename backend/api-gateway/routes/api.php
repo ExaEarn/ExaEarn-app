@@ -26,6 +26,7 @@ use App\Http\Controllers\SwapController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserPreferenceController;
+use App\Http\Controllers\ServiceCatalogController;
 use App\Http\Controllers\PersonalizedContentController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\CustodyController;
@@ -758,8 +759,10 @@ Route::middleware([
     Route::post('login', [AuthController::class, 'login']);
     Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
     Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+    Route::get('public/services', [ServiceCatalogController::class, 'index'])->middleware('throttle:60,1');
 
     Route::middleware('auth:sanctum')->group(function (): void {
+        Route::get('me/services', [ServiceCatalogController::class, 'me'])->middleware('throttle:60,1');
         Route::get('user', [AuthController::class, 'me']);
         Route::get('me/eligibility', [EligibilityController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
