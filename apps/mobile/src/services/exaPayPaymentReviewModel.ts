@@ -34,6 +34,7 @@ export type ExaPayPaymentDraft = {
   expiresAt: number | null;
   simulation: true;
   offlineTransfer?: {
+    accountId: string;
     recipient: SimulatedRecipientDevice;
     recipientVerifiedForSimulation: true;
     method: "bluetooth" | "qr";
@@ -127,21 +128,27 @@ export function formatPaymentAmount(amountMinor: number, symbol = "simUSDT") {
 export function parseSimulatedQrRequest(payload: string, now = Date.now()) {
   try {
     const url = new URL(payload.trim());
-    if (url.protocol !== "exaearn:" || url.hostname !== "pay") return null;
+    if (url.protocol !== "exaearn:" || url.hostname !== "pay" || url.port || url.hash || url.username || url.password) return null;
+    const allowedParameters = new Set(["to", "amount", "ref", "expires", "message"]);
+    const parameterCounts = new Map<string, number>();
+    url.searchParams.forEach((_value, key) => parameterCounts.set(key, (parameterCounts.get(key) ?? 0) + 1));
+    for (const [key, count] of parameterCounts) if (!allowedParameters.has(key) || count !== 1) return null;
     const username = url.searchParams.get("to")?.trim().replace(/^@/, "") ?? "";
     const amount = parsePaymentAmount(url.searchParams.get("amount") ?? "");
     const reference = url.searchParams.get("ref")?.trim() ?? "";
+    const message = url.searchParams.get("message") ?? "";
     const expiryText = url.searchParams.get("expires");
     const expiresAt = expiryText ? Number(expiryText) : null;
 
-    if (!/^[A-Za-z0-9._-]{3,30}$/.test(username) || !amount.valid || !reference) return null;
+    if (!/^[A-Za-z0-9._-]{3,30}$/.test(username) || !amount.valid
+      || !/^[A-Za-z0-9_-]{3,80}$/.test(reference) || message.length > 100) return null;
     if (expiryText && (!Number.isSafeInteger(expiresAt) || (expiresAt as number) <= now)) return null;
 
     return {
       username,
       amountMinor: amount.amountMinor,
       reference,
-      message: url.searchParams.get("message") ?? "",
+      message,
       expiresAt,
     };
   } catch {

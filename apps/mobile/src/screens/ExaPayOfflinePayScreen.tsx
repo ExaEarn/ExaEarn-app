@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../context/AuthContext";
 
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import {
@@ -27,8 +28,6 @@ import {
   createExaPayOfflineSimulator,
   createSimulatedTransferReference,
   formatSimulatedAmount,
-  getSimulatedOfflineBalanceMinor,
-  hasSimulatedRecoveryRequired,
   MAX_SIMULATED_PAYMENT_MINOR,
   parseSimulatedAmount,
   type OfflinePaymentMethod,
@@ -97,6 +96,11 @@ const outcomeCopy: Record<OfflinePaymentOutcome, { title: string; description: s
     title: "Device authentication failed",
     description: "The simulator could not authenticate this device session. No transfer was committed.",
     tone: "danger",
+  },
+  "secure-storage-unavailable": {
+    title: "Secure storage unavailable",
+    description: "This device cannot provide the encrypted local storage required for the simulation journal. No offline transfer was started.",
+    tone: "warning",
   },
   interrupted: {
     title: "Connection interrupted",
@@ -300,7 +304,9 @@ export default function ExaPayOfflinePayScreen({
   onReview,
 }: ExaPayOfflinePayScreenProps) {
   const insets = useSafeAreaInsets();
-  const simulator = useMemo(() => createExaPayOfflineSimulator(), []);
+  const { user } = useAuth();
+  const accountId = user?.id === undefined ? "" : String(user.id);
+  const simulator = useMemo(() => createExaPayOfflineSimulator(accountId), [accountId]);
   const initialOfflineDraft = initialDraft?.channel === "bluetooth" ? initialDraft : null;
   const [method, setMethod] = useState<OfflinePaymentMethod>(initialMethod);
   const [devices, setDevices] = useState<SimulatedRecipientDevice[]>([]);
@@ -321,8 +327,8 @@ export default function ExaPayOfflinePayScreen({
   );
   const [amountTouched, setAmountTouched] = useState(false);
   const [attemptedReview, setAttemptedReview] = useState(false);
-  const [availableBalanceMinor, setAvailableBalanceMinor] = useState(getSimulatedOfflineBalanceMinor);
-  const [recoveryBlocked, setRecoveryBlocked] = useState(hasSimulatedRecoveryRequired);
+  const [balanceState, setBalanceState] = useState({ accountId: "", balanceMinor: 0 });
+  const [recoveryState, setRecoveryState] = useState({ accountId: "", blocked: true });
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
   const [sheet, setSheet] = useState<SheetName>(null);
   const [scenario, setScenario] = useState<OfflinePaymentScenario>(
@@ -347,6 +353,8 @@ export default function ExaPayOfflinePayScreen({
     [devices, recipientId],
   );
   const recipientVerified = Boolean(selectedRecipient && verifiedDevices[selectedRecipient.id]);
+  const availableBalanceMinor = balanceState.accountId === accountId ? balanceState.balanceMinor : 0;
+  const recoveryBlocked = recoveryState.accountId !== accountId || recoveryState.blocked;
   const parsedAmount = useMemo(
     () => parseSimulatedAmount(amount, availableBalanceMinor),
     [amount, availableBalanceMinor],
@@ -366,6 +374,11 @@ export default function ExaPayOfflinePayScreen({
 
   useEffect(() => {
     let active = true;
+    void simulator.loadState().then((state) => {
+      if (!active) return;
+      setBalanceState({ accountId, balanceMinor: state.balanceMinor });
+      setRecoveryState({ accountId, blocked: state.recoveryRequired || !state.supported });
+    });
     simulator.discoverNearbyDevices()
       .then((found) => {
         if (active) setDevices(found);
@@ -486,6 +499,7 @@ export default function ExaPayOfflinePayScreen({
       expiresAt: null,
       simulation: true,
       offlineTransfer: {
+        accountId,
         recipient: selectedRecipient,
         recipientVerifiedForSimulation: recipientVerified,
         method: "bluetooth",

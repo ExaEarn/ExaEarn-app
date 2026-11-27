@@ -134,12 +134,12 @@ final class OfflineStoredValueService
         }, 3);
     }
 
-    public function recordAttestation(User $user, string $deviceUuid, string $format, array $attestation, OfflineDeviceAttestationVerifier $verifier): array
+    public function recordAttestation(User $user, string $deviceUuid, string $challenge, string $format, array $attestation, OfflineDeviceAttestationVerifier $verifier): array
     {
         $this->assertEnabled();
-        return DB::transaction(function () use ($user, $deviceUuid, $format, $attestation, $verifier): array {
+        return DB::transaction(function () use ($user, $deviceUuid, $challenge, $format, $attestation, $verifier): array {
             $device = ExaPayOfflineDevice::query()->where('user_id', $user->id)->where('device_uuid', strtolower($deviceUuid))->lockForUpdate()->firstOrFail();
-            $assessment = $verifier->verify((string) $device->device_uuid, (string) $device->public_key_fingerprint, $attestation);
+            $assessment = $verifier->verify((string) $device->device_uuid, (string) $device->public_key_fingerprint, $challenge, $attestation);
             $allowedStatuses = ['UNSUPPORTED', 'NOT_VERIFIED', 'VERIFIED', 'REJECTED'];
             $status = in_array($assessment['status'] ?? null, $allowedStatuses, true) ? (string) $assessment['status'] : 'NOT_VERIFIED';
             $trustedClass = ($status === 'VERIFIED' && ($assessment['trust_class'] ?? null) === 'VERIFIED_HARDWARE'
@@ -458,7 +458,15 @@ final class OfflineStoredValueService
                 (string) $input['nonce'], (int) $input['signed_at'], (array) $input['consumption_claims'],
                 (string) $input['signature'], (int) ($input['protocol_version'] ?? 1),
             );
-            $this->assertFreshProof($contract->nonce, $contract->signedAt);
+            // Validate nonce structure before signature verification. Freshness is
+            // enforced for new events below, after exact duplicate lookup, so a
+            // client can safely retry the identical signed event after losing an
+            // acknowledgment. This does not admit a new stale event: its device
+            // counter and event digest must already exist and the signature must
+            // still verify against the active enrolled key.
+            if (!preg_match('/^[A-Za-z0-9_-]{32,128}$/', $contract->nonce)) {
+                throw new OfflinePaymentException('device_proof_expired', 'The device proof nonce is invalid.', 422);
+            }
             foreach ($contract->consumptionClaims as $claim) {
                 if (!is_array($claim) || !isset($claim['instrument_id'], $claim['claim_id'], $claim['consumed_at'])
                     || (int) $claim['consumed_at'] > $contract->signedAt
@@ -488,6 +496,10 @@ final class OfflineStoredValueService
                 }
                 throw new OfflinePaymentException('journal_counter_conflict', 'This device journal counter already contains a different signed event.', 409);
             }
+
+            // Short online proof TTL applies to first submission. Exact replays
+            // of an accepted counter returned above are safe and side-effect-free.
+            $this->assertFreshProof($contract->nonce, $contract->signedAt);
 
             $expectedCounter = (int) $device->journal_counter + 1;
             $expectedPrevious = (string) ($device->last_journal_digest ?? '');

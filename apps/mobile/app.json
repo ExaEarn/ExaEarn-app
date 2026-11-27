@@ -13,6 +13,19 @@
       "@react-native-firebase/app",
       "./plugins/withFirebaseAndroid",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "ExaEarn uses the camera to scan SIMUSDT-only offline payment requests.",
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      [
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow ExaEarn to use Face ID to unlock the app."

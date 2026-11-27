@@ -57,6 +57,36 @@ final class ExaPayOfflineSimulationTest extends TestCase
     private string $devicePrivateKey;
     private string $devicePublicKey;
 
+    public function test_hardware_attestation_requires_fresh_one_time_server_challenge_and_stays_unverified_without_adapter(): void
+    {
+        $this->enrollDevice();
+        $path = '/api/exapay/offline/devices/'.$this->deviceUuid.'/attestation-challenge';
+        $challengeResponse = $this->actingAs($this->user)->getJson($path)->assertOk()
+            ->assertJsonPath('data.real_funds_enabled', false)
+            ->assertJsonPath('data.expires_in_seconds', 300);
+        $challenge = (string) $challengeResponse->json('data.challenge');
+        $this->assertSame(43, strlen($challenge));
+
+        $payload = ['format' => 'android_keystore', 'challenge' => $challenge, 'attestation' => []];
+        $this->actingAs($this->user)->postJson('/api/exapay/offline/devices/'.$this->deviceUuid.'/attestation', $payload)
+            ->assertAccepted()
+            ->assertJsonPath('data.attestation_status', 'UNSUPPORTED')
+            ->assertJsonPath('data.trust_class', 'SOFTWARE_ONLY')
+            ->assertJsonPath('data.real_funds_accessible', false);
+
+        $this->actingAs($this->user)->postJson('/api/exapay/offline/devices/'.$this->deviceUuid.'/attestation', $payload)
+            ->assertStatus(409)
+            ->assertJsonPath('error_code', 'attestation_challenge_expired_or_invalid');
+    }
+
+    public function test_attestation_challenge_cannot_be_requested_for_another_users_device(): void
+    {
+        $device = $this->enrollDevice();
+        $other = User::factory()->create();
+        $this->actingAs($other)->getJson('/api/exapay/offline/devices/'.$device->device_uuid.'/attestation-challenge')
+            ->assertNotFound();
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -199,10 +229,28 @@ final class ExaPayOfflineSimulationTest extends TestCase
         $issued = $this->issue(1250, 'offline-issue-journal-lineage-01')->assertCreated();
         $instrumentUuid = (string) $issued->json('data.instrument_id');
         $claim = ['instrument_id' => $instrumentUuid, 'claim_id' => (string) Str::uuid(), 'consumed_at' => now()->timestamp];
-        $first = $this->submitJournal(1, '', [$claim])->assertAccepted();
+        $firstPayload = $this->journalPayload(1, '', [$claim]);
+        $first = $this->actingAs($this->user)->postJson('/api/exapay/offline/journals', $firstPayload)->assertAccepted();
         $digest = (string) $first->json('data.event_digest');
         $this->assertSame('pending_review', $first->json('data.status'));
         $this->assertSame('not_redeemed', $first->json('data.redemption_status'));
+
+        $nonceCountBeforeRetry = \Illuminate\Support\Facades\DB::table('exapay_offline_device_nonces')->count();
+        $this->travel(6)->minutes();
+        $retry = $this->actingAs($this->user)->postJson('/api/exapay/offline/journals', $firstPayload)->assertAccepted();
+        $this->assertSame($digest, $retry->json('data.event_digest'));
+        $this->assertSame($nonceCountBeforeRetry, \Illuminate\Support\Facades\DB::table('exapay_offline_device_nonces')->count());
+
+        $staleSignedAt = $firstPayload['signed_at'] - 360;
+        $staleNewEvent = $this->journalPayload(2, $digest, [[
+            'instrument_id' => $instrumentUuid,
+            'claim_id' => (string) Str::uuid(),
+            'consumed_at' => $staleSignedAt,
+        ]], $staleSignedAt);
+        $staleResponse = $this->actingAs($this->user)->postJson('/api/exapay/offline/journals', $staleNewEvent);
+        $this->assertSame(422, $staleResponse->status(), $staleResponse->getContent());
+        $this->assertSame('device_proof_expired', $staleResponse->json('error_code'), $staleResponse->getContent());
+        $this->travelBack();
 
         $duplicateClaim = ['instrument_id' => $instrumentUuid, 'claim_id' => (string) Str::uuid(), 'consumed_at' => now()->timestamp];
         $second = $this->submitJournal(2, $digest, [$duplicateClaim])->assertAccepted();
@@ -872,6 +920,18 @@ final class ExaPayOfflineSimulationTest extends TestCase
         $response = $this->actingAs($this->user)->postJson('/api/exapay/offline/devices/enroll', [
             'device_uuid' => $this->deviceUuid, 'public_key' => $this->devicePublicKey,
         ] + $proof)->assertCreated()->assertJsonPath('data.real_funds_enabled', false);
+        $certificate = $response->json('data.device_certificate');
+        $this->assertIsArray($certificate);
+        $certificatePayload = json_decode((string) $certificate['canonical_payload'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame($this->deviceUuid, $certificatePayload['device_uuid']);
+        $this->assertSame('SIMUSDT', $certificatePayload['asset']);
+        $this->assertTrue($certificatePayload['simulation_only']);
+        $this->assertSame(1, openssl_verify(
+            (string) $certificate['canonical_payload'],
+            (string) base64_decode((string) $certificate['signature'], true),
+            (string) $certificate['issuer_public_key'],
+            OPENSSL_ALGO_SHA256,
+        ));
 
         return ExaPayOfflineDevice::query()->where('device_uuid', $this->deviceUuid)->firstOrFail();
     }
@@ -891,16 +951,20 @@ final class ExaPayOfflineSimulationTest extends TestCase
 
     private function submitJournal(int $counter, string $previousDigest, array $claims)
     {
-        $nonce = bin2hex(random_bytes(24));
-        $signedAt = now()->timestamp;
-        $contract = new OfflineJournalContract($this->deviceUuid, $counter, $previousDigest, $nonce, $signedAt, $claims, '', 1);
-        $signature = $this->sign($contract->canonicalPayload());
+        return $this->actingAs($this->user)->postJson('/api/exapay/offline/journals', $this->journalPayload($counter, $previousDigest, $claims));
+    }
 
-        return $this->actingAs($this->user)->postJson('/api/exapay/offline/journals', [
+    private function journalPayload(int $counter, string $previousDigest, array $claims, ?int $signedAt = null): array
+    {
+        $nonce = bin2hex(random_bytes(24));
+        $signedAt ??= now()->timestamp;
+        $contract = new OfflineJournalContract($this->deviceUuid, $counter, $previousDigest, $nonce, $signedAt, $claims, '', 1);
+
+        return [
             'device_uuid' => $this->deviceUuid, 'counter' => $counter, 'previous_digest' => $previousDigest,
             'protocol_version' => 1, 'nonce' => $nonce, 'signed_at' => $signedAt,
-            'consumption_claims' => $claims, 'signature' => $signature,
-        ]);
+            'consumption_claims' => $claims, 'signature' => $this->sign($contract->canonicalPayload()),
+        ];
     }
 
     private function deviceProof(string $prefix): array

@@ -78,7 +78,7 @@ export async function authorizeAndSubmitPayment(
       return createResult(draft, "invalid-draft", "The offline transfer request is incomplete.");
     }
 
-    const simulator = createExaPayOfflineSimulator();
+    const simulator = createExaPayOfflineSimulator(offlineTransfer.accountId);
     const result = await simulator.runTransfer(
       {
         recipient: offlineTransfer.recipient,

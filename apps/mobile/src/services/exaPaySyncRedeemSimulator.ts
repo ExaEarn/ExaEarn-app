@@ -1,13 +1,20 @@
 export type ReconciliationStatus = "pending-verification" | "verified" | "failed" | "recovery-required" | "redeemed";
-export type SyncOutcome = "verified" | "verification-failed" | "network-error" | "recovery-required";
+export type SyncOutcome = "verified" | "pending" | "verification-failed" | "network-error" | "recovery-required";
 export type RedemptionOutcome = "redeemed-simulation" | "failed" | "recovery-required" | "ineligible";
 
 export type ReconciliationTransaction = {
   reference: string;
+  claimUuid?: string;
+  outputUuid?: string;
   sender: string;
   amountMinor: number;
   localStatus: "offline-committed";
   reconciliationStatus: ReconciliationStatus;
+  simulationOnly?: boolean;
+  realFunds?: boolean;
+  reasonCode?: string;
+  asset?: string;
+  onlineCredit?: boolean;
 };
 
 export type RedemptionHistoryItem = {

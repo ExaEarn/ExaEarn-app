@@ -11,6 +11,7 @@ Route::prefix('exapay/offline')->middleware(['auth:sanctum', 'throttle:60,1'])->
     Route::get('balance', [ExaPayOfflineController::class, 'balance']);
     Route::post('devices/enroll', [ExaPayOfflineController::class, 'enroll'])->middleware('throttle:10,1,exapay-offline-enroll');
     Route::post('devices/{deviceUuid}/rotate-key', [ExaPayOfflineController::class, 'rotateDeviceKey'])->where('deviceUuid', '[A-Fa-f0-9-]{36}')->middleware('throttle:5,1,exapay-offline-rotate');
+    Route::get('devices/{deviceUuid}/attestation-challenge', [ExaPayOfflineController::class, 'createAttestationChallenge'])->where('deviceUuid', '[A-Fa-f0-9-]{36}')->middleware('throttle:10,1,exapay-offline-attestation-challenge');
     Route::post('devices/{deviceUuid}/attestation', [ExaPayOfflineController::class, 'attestDevice'])->where('deviceUuid', '[A-Fa-f0-9-]{36}')->middleware('throttle:5,1,exapay-offline-attestation');
     Route::post('instruments', [ExaPayOfflineController::class, 'issue'])->middleware('throttle:10,1,exapay-offline-issue');
     Route::get('instruments/{reference}', [ExaPayOfflineController::class, 'status'])->where('reference', '[A-Za-z0-9_-]{3,80}');

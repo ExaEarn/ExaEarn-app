@@ -535,7 +535,7 @@ export async function fetchUnifiedTransactionHistory(
 
   const firstLoad = !Object.keys(previousProgress).length;
   if (firstLoad || !progress.exapay) {
-    const localRecords = getCommittedOfflineSimulationTransactions().map(normalizeLocalSimulation);
+    const localRecords = (await getCommittedOfflineSimulationTransactions(userId === undefined ? undefined : String(userId))).map(normalizeLocalSimulation);
     items.push(...localRecords);
     progress.exapay = { page: 1, hasMore: false };
   }

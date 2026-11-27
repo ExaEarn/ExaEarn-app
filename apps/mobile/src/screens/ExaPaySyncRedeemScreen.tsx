@@ -10,20 +10,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../context/AuthContext";
 
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import {
-  createExaPaySyncRedeemSimulator,
   formatSimulatedSyncAmount,
   type RedemptionHistoryItem,
   type ReconciliationTransaction,
   type SyncProgressStage,
   type SyncRedeemSnapshot,
 } from "../services/exaPaySyncRedeemSimulator";
+import { createExaPayOfflineReconciliationApi } from "../services/exaPayOfflineReconciliationApi";
+import { createExaPayNativeOfflineTransfers, createExaPayNativeSignedJournal } from "../services/exaPayNativeSignedJournal";
 import { mapExaPayRedemptionResult } from "../services/transactionResultMapper";
 import TransactionResultScreen from "./TransactionResultScreen";
 import { colors, fonts } from "../theme/colors";
@@ -89,7 +92,7 @@ function SectionHeader({
 
 function OfflineValueOverview({ snapshot }: { snapshot: SyncRedeemSnapshot }) {
   const amounts = [
-    { label: "Local Offline Value", amount: snapshot.localOfflineValueMinor, tone: "purple" as const },
+    { label: "Open SIMUSDT Claims", amount: snapshot.localOfflineValueMinor, tone: "purple" as const },
     { label: "Pending Verification", amount: snapshot.pendingVerificationMinor, tone: "amber" as const },
     { label: "Redeemable", amount: snapshot.redeemableMinor, tone: "green" as const },
   ];
@@ -113,7 +116,7 @@ function OfflineValueOverview({ snapshot }: { snapshot: SyncRedeemSnapshot }) {
       <View style={styles.balanceExplanation}>
         <Ionicons name="information-circle-outline" size={16} color="#c6b8ee" />
         <Text style={styles.balanceExplanationText}>
-          Pending verification is included in local offline value, not added to it. Only verified value can become redeemable.
+          Open claims are not wallet funds. Only a signed, independently verified SIMUSDT output can be redeemed.
         </Text>
       </View>
     </View>
@@ -346,8 +349,8 @@ function SyncProgressIndicator({
           <View style={styles.progressHeader}>
             <ActivityIndicator size="small" color={colors.auric300} />
             <View style={styles.progressHeaderCopy}>
-              <Text style={styles.progressTitle}>Syncing offline activity</Text>
-              <Text style={styles.progressSubtitle}>Local simulation · no server request</Text>
+              <Text style={styles.progressTitle}>Checking offline claims</Text>
+              <Text style={styles.progressSubtitle}>Authenticated ExaPay API · SIMUSDT only</Text>
             </View>
           </View>
           <View style={styles.progressSteps}>
@@ -380,18 +383,22 @@ export default function ExaPaySyncRedeemScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { request, user, apiBaseUrl } = useAuth();
   const shellWidth = Math.min(width - 32, 620);
-  const simulator = useMemo(() => createExaPaySyncRedeemSimulator(), []);
+  const simulator = useMemo(() => createExaPayOfflineReconciliationApi(request), [request]);
   const [snapshot, setSnapshot] = useState<SyncRedeemSnapshot>(() => simulator.getSnapshot());
   const [selectedTransaction, setSelectedTransaction] = useState<ReconciliationTransaction | null>(null);
   const [showRedemptionConfirmation, setShowRedemptionConfirmation] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "verified" | "failed" | "network-error" | "recovery-required">("idle");
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "verified" | "pending" | "failed" | "network-error" | "recovery-required">("idle");
   const [syncStage, setSyncStage] = useState<SyncProgressStage | null>(null);
   const [syncError, setSyncError] = useState("");
   const [redemptionOutcome, setRedemptionOutcome] = useState<"success" | "failed" | "recovery-required" | null>(null);
   const [transactionResult, setTransactionResult] = useState<ReturnType<typeof mapExaPayRedemptionResult> | null>(null);
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [isRefreshingHistory, setIsRefreshingHistory] = useState(false);
+  const [signedJournalBusy, setSignedJournalBusy] = useState(false);
+  const [signedJournalMessage, setSignedJournalMessage] = useState("");
+  const [evidenceOutputUuid, setEvidenceOutputUuid] = useState("");
   const syncLock = useRef(false);
   const redemptionLock = useRef(false);
 
@@ -402,9 +409,25 @@ export default function ExaPaySyncRedeemScreen({
   const canRedeem = Boolean(
     snapshot.transaction?.reconciliationStatus === "verified"
     && snapshot.redeemableMinor > 0
-    && snapshot.pendingVerificationMinor === 0,
+    && snapshot.transaction.simulationOnly === true
+    && snapshot.transaction.realFunds === false
+    && snapshot.transaction.asset === "SIMUSDT"
+    && snapshot.transaction.onlineCredit === false,
   );
   const connectivityStatus = simulator.getConnectivityStatus();
+
+  useEffect(() => {
+    let active = true;
+    void simulator.refreshSnapshot().then((next) => {
+      if (active) setSnapshot(next);
+    }).catch(() => {
+      if (active) {
+        setSyncStatus("network-error");
+        setSyncError("Authenticated reconciliation status is unavailable. No local record was treated as verified.");
+      }
+    });
+    return () => { active = false; };
+  }, [simulator]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -421,7 +444,7 @@ export default function ExaPaySyncRedeemScreen({
   }, [isRedeeming, onBack, selectedTransaction, showRedemptionConfirmation, syncStatus]);
 
   async function synchronizeOfflinePayments() {
-    if (syncLock.current || !queueTransaction || queueTransaction.reconciliationStatus === "recovery-required") return;
+    if (syncLock.current) return;
     syncLock.current = true;
     setSyncStatus("syncing");
     setSyncStage("loading-local-queue");
@@ -434,19 +457,21 @@ export default function ExaPaySyncRedeemScreen({
       setSnapshot(result.snapshot);
       setSyncStatus(result.outcome === "verified"
         ? "verified"
+        : result.outcome === "pending"
+          ? "pending"
         : result.outcome === "verification-failed"
           ? "failed"
           : result.outcome);
-      if (result.outcome === "network-error") {
-        setSyncError("The simulation could not reach its reconciliation service. Pending value remains local and is not redeemable.");
-      } else if (result.outcome === "verification-failed") {
-        setSyncError("Verification did not complete. The transaction remains unresolved; retry synchronization before redeeming.");
+      if (result.outcome === "verification-failed") {
+        setSyncError("The backend rejected or quarantined a claim. Review its server status before taking further action.");
+      } else if (result.outcome === "pending") {
+        setSyncError("The backend has not verified the selected claim. It cannot be redeemed yet.");
       } else if (result.outcome === "recovery-required") {
-        setSyncError("This transaction requires recovery. Redemption is blocked until the reconciliation state is resolved.");
+        setSyncError("The backend marked this claim for recovery. Redemption is blocked until its state is resolved.");
       }
     } catch {
       setSyncStatus("network-error");
-      setSyncError("Synchronization failed unexpectedly. The local queue was not marked as verified.");
+      setSyncError("Status check failed. The app did not treat local data as verified.");
     } finally {
       syncLock.current = false;
       setSyncStage(null);
@@ -465,7 +490,7 @@ export default function ExaPaySyncRedeemScreen({
     setShowRedemptionConfirmation(false);
     const transaction = snapshot.transaction;
     try {
-      const result = await simulator.redeemVerifiedValue(transaction.reference);
+      const result = await simulator.redeemVerifiedValue(transaction.claimUuid ?? transaction.reference);
       setSnapshot(result.snapshot);
       setTransactionResult(mapExaPayRedemptionResult(transaction, result.outcome));
       if (result.outcome === "redeemed-simulation") {
@@ -479,13 +504,13 @@ export default function ExaPaySyncRedeemScreen({
         setSyncError("The redemption outcome needs recovery. Do not retry until its state is resolved.");
       } else {
         setRedemptionOutcome("failed");
-        setSyncError("The simulator rejected this redemption because the transaction is not eligible.");
+        setSyncError("The backend rejected redemption because the claim is not verified SIMUSDT value.");
       }
     } catch {
       setRedemptionOutcome("recovery-required");
       setSyncStatus("recovery-required");
       setTransactionResult(mapExaPayRedemptionResult(transaction, "recovery-required"));
-      setSyncError("The redemption outcome is uncertain. Stop and reconcile before retrying.");
+      setSyncError("The redemption outcome is uncertain. Refresh server status; do not create another redemption request.");
     } finally {
       redemptionLock.current = false;
       setIsRedeeming(false);
@@ -505,6 +530,49 @@ export default function ExaPaySyncRedeemScreen({
     }
   }
 
+  async function enrollSimulationDevice() {
+    if (signedJournalBusy) return;
+    const userId = user?.id === undefined || user?.id === null ? "" : String(user.id);
+    if (!userId) {
+      setSignedJournalMessage("Sign in before enrolling this device.");
+      return;
+    }
+    setSignedJournalBusy(true);
+    setSignedJournalMessage("");
+    try {
+      const protocol = createExaPayNativeSignedJournal({ request, apiBaseUrl, userId });
+      const device = await protocol.enrollDevice();
+      setSignedJournalMessage(`Device ${device.deviceUuid} is enrolled for SIMUSDT simulation. No payment claim or journal event was submitted.`);
+    } catch {
+      setSignedJournalMessage("Device enrollment was not confirmed. Check server status before retrying; no local payment was treated as verified.");
+    } finally {
+      setSignedJournalBusy(false);
+    }
+  }
+
+  async function submitCommittedTransferEvidence() {
+    if (signedJournalBusy) return;
+    const outputUuid = evidenceOutputUuid.trim().toLowerCase();
+    const userId = user?.id === undefined || user?.id === null ? "" : String(user.id);
+    if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(outputUuid)) {
+      setSignedJournalMessage("Enter the UUID of a locally committed SIMUSDT recipient output and sign in. Empty or simulated journals cannot be submitted.");
+      return;
+    }
+    setSignedJournalBusy(true);
+    setSignedJournalMessage("");
+    try {
+      const transfers = createExaPayNativeOfflineTransfers({ request, apiBaseUrl, userId });
+      const claim = await transfers.submitOutputEvidence(outputUuid, `EXAPAY-RECIPIENT-CLAIM:${outputUuid}`);
+      const status = claim && typeof claim === "object" && "reconciliationStatus" in claim
+        ? String((claim as { reconciliationStatus: unknown }).reconciliationStatus) : "pending-verification";
+      setSignedJournalMessage(`Signed committed SIMUSDT transfer evidence reached Laravel. Claim status: ${status}. No online credit or real funds are enabled.`);
+    } catch {
+      setSignedJournalMessage("Evidence was not confirmed by Laravel. The local committed output is preserved; no value was restored or marked redeemed.");
+    } finally {
+      setSignedJournalBusy(false);
+    }
+  }
+
   if (transactionResult) {
     return (
       <TransactionResultScreen
@@ -517,7 +585,9 @@ export default function ExaPaySyncRedeemScreen({
   }
 
   const syncBadge: { label: string; tone: Tone } = syncStatus === "verified"
-    ? { label: "Sync checked", tone: "green" }
+    ? { label: "Server checked", tone: "green" }
+    : syncStatus === "pending"
+      ? { label: "Verification pending", tone: "amber" }
     : syncStatus === "failed" || syncStatus === "network-error"
       ? { label: "Sync needs attention", tone: "red" }
       : syncStatus === "recovery-required"
@@ -571,10 +641,50 @@ export default function ExaPaySyncRedeemScreen({
               <Ionicons name="cloud-offline-outline" size={16} color="#e5c181" />
             </View>
             <View style={styles.connectivityCopy}>
-              <Text style={styles.connectivityTitle}>Local simulation only</Text>
-              <Text style={styles.connectivitySubtitle}>No reconciliation API or network service is connected.</Text>
+              <Text style={styles.connectivityTitle}>SIMUSDT simulation ledger</Text>
+              <Text style={styles.connectivitySubtitle}>Authenticated server status; no real-funds operations.</Text>
             </View>
             <StatusBadge label="SIM" tone="muted" />
+          </View>
+
+          <View style={styles.deviceProtocolCard}>
+            <View style={styles.deviceProtocolHeader}>
+              <View style={styles.deviceProtocolIcon}><Ionicons name="key-outline" size={17} color="#b5a2ed" /></View>
+              <View style={styles.deviceProtocolCopy}>
+                <Text style={styles.deviceProtocolTitle}>Software device enrollment</Text>
+                <Text style={styles.deviceProtocolDescription}>Register this software-only P-256 device key for SIMUSDT simulation. This does not authenticate or settle a payment.</Text>
+              </View>
+            </View>
+            <AnimatedPressable
+              style={[styles.deviceProtocolButton, signedJournalBusy ? styles.syncButtonDisabled : null]}
+              onPress={() => void enrollSimulationDevice()}
+              disabled={signedJournalBusy}
+              accessibilityLabel="Enroll software-only SIMUSDT simulation device"
+            >
+              {signedJournalBusy ? <ActivityIndicator size="small" color="#17140c" /> : <Ionicons name="shield-checkmark-outline" size={15} color="#17140c" />}
+              <Text style={styles.syncButtonText}>{signedJournalBusy ? "Enrolling device…" : "Enroll simulation device"}</Text>
+            </AnimatedPressable>
+            <TextInput
+              value={evidenceOutputUuid}
+              onChangeText={setEvidenceOutputUuid}
+              placeholder="Committed recipient output UUID"
+              placeholderTextColor="#697586"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.deviceProtocolInput}
+              accessibilityLabel="SIMUSDT committed recipient output UUID"
+            />
+            <AnimatedPressable
+              style={[styles.deviceProtocolButton, signedJournalBusy ? styles.syncButtonDisabled : null]}
+              onPress={() => void submitCommittedTransferEvidence()}
+              disabled={signedJournalBusy}
+              accessibilityLabel="Submit committed signed SIMUSDT evidence to Laravel"
+            >
+              {signedJournalBusy ? <ActivityIndicator size="small" color="#17140c" /> : <Ionicons name="cloud-upload-outline" size={15} color="#17140c" />}
+              <Text style={styles.syncButtonText}>{signedJournalBusy ? "Submitting evidence…" : "Submit committed evidence"}</Text>
+            </AnimatedPressable>
+            {signedJournalMessage ? <Text style={styles.deviceProtocolResult} accessibilityRole="alert">{signedJournalMessage}</Text> : null}
+            <Text style={styles.deviceProtocolWarning}>Software keys and local counters can be copied or rolled back on a compromised device. Hardware attestation and protected monetary state are not available here.</Text>
           </View>
 
           <SectionHeader title="Offline value overview" />
@@ -583,31 +693,31 @@ export default function ExaPaySyncRedeemScreen({
           <View style={styles.queueHeading}>
             <View style={styles.queueHeadingCopy}>
               <Text style={styles.sectionTitle} accessibilityRole="header">Reconciliation Queue ({transactionCount})</Text>
-              <Text style={styles.sectionHint}>Sync checks local records; it does not create online funds.</Text>
+              <Text style={styles.sectionHint}>Refreshes authenticated server claims. Unsigned local simulations are never submitted as evidence.</Text>
             </View>
             <AnimatedPressable
               style={[styles.syncButton, syncStatus === "recovery-required" ? styles.syncButtonDisabled : null]}
               onPress={() => void synchronizeOfflinePayments()}
-              disabled={syncStatus === "syncing" || syncStatus === "recovery-required" || !queueTransaction}
-              accessibilityLabel={syncStatus === "failed" || syncStatus === "network-error" ? "Retry synchronization" : "Synchronize offline payments"}
+              disabled={syncStatus === "syncing"}
+              accessibilityLabel={syncStatus === "failed" || syncStatus === "network-error" ? "Retry status refresh" : "Refresh offline claims"}
             >
               {syncStatus === "syncing" ? (
                 <ActivityIndicator size="small" color="#17140c" />
               ) : (
-                <Ionicons name={syncStatus === "failed" || syncStatus === "network-error" ? "refresh" : "sync-outline"} size={16} color={queueTransaction && syncStatus !== "recovery-required" ? "#17140c" : "#7f8792"} />
+                <Ionicons name={syncStatus === "failed" || syncStatus === "network-error" ? "refresh" : "sync-outline"} size={16} color="#17140c" />
               )}
-              <Text style={[styles.syncButtonText, !queueTransaction || syncStatus === "recovery-required" ? styles.disabledText : null]}>
+              <Text style={styles.syncButtonText}>
                 {syncStatus === "syncing"
                   ? "Syncing…"
                   : syncStatus === "failed" || syncStatus === "network-error"
-                    ? "Retry Sync"
-                    : "Sync Now"}
+                    ? "Retry Refresh"
+                    : "Refresh Claims"}
               </Text>
             </AnimatedPressable>
           </View>
           <View style={styles.syncStatusRow}>
             <StatusBadge label={syncBadge.label} tone={syncBadge.tone} />
-            <Text style={styles.syncStatusText}>Connectivity: simulation adapter</Text>
+            <Text style={styles.syncStatusText}>Connectivity: {connectivityStatus}</Text>
           </View>
 
           {syncError ? (
@@ -659,7 +769,7 @@ export default function ExaPaySyncRedeemScreen({
                       : "Do not retry until the transaction state is reconciled."}
                 </Text>
                 {redemptionOutcome === "success" ? (
-                  <Text style={styles.simulatedCredit}>Simulated online balance: {formatSimulatedSyncAmount(snapshot.simulatedOnlineBalanceMinor)} simUSDT</Text>
+                  <Text style={styles.simulatedCredit}>The Wallet screen is the source for the current SIMUSDT balance.</Text>
                 ) : null}
               </View>
             </View>
@@ -805,6 +915,16 @@ const styles = StyleSheet.create({
   connectivityCopy: { flex: 1 },
   connectivityTitle: { color: "#e4d6b7", fontFamily: fonts.semibold, fontSize: 11 },
   connectivitySubtitle: { color: "#a69b84", fontFamily: fonts.body, fontSize: 9, marginTop: 3 },
+  deviceProtocolCard: { borderRadius: 14, borderWidth: 1, borderColor: "rgba(170,145,240,0.16)", backgroundColor: "rgba(170,145,240,0.045)", padding: 11, marginBottom: 17 },
+  deviceProtocolHeader: { flexDirection: "row", alignItems: "flex-start", gap: 9 },
+  deviceProtocolIcon: { width: 31, height: 31, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(170,145,240,0.1)" },
+  deviceProtocolCopy: { flex: 1 },
+  deviceProtocolTitle: { color: "#e7e1f5", fontFamily: fonts.semibold, fontSize: 10 },
+  deviceProtocolDescription: { color: "#9da8b7", fontFamily: fonts.body, fontSize: 9, lineHeight: 14, marginTop: 3 },
+  deviceProtocolButton: { minHeight: 43, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, backgroundColor: colors.auric300, paddingHorizontal: 9, marginTop: 9 },
+  deviceProtocolInput: { minHeight: 42, borderWidth: 1, borderColor: "rgba(224,232,241,0.12)", borderRadius: 9, backgroundColor: "#0b1017", paddingHorizontal: 11, color: "#e4e9f0", fontFamily: fonts.body, fontSize: 10, marginTop: 9 },
+  deviceProtocolResult: { color: "#bfbbcc", fontFamily: fonts.body, fontSize: 9, lineHeight: 14, marginTop: 8 },
+  deviceProtocolWarning: { color: "#837f91", fontFamily: fonts.body, fontSize: 8, lineHeight: 13, marginTop: 7 },
   sectionHeader: { minHeight: 31, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 9, marginTop: 3 },
   sectionTitle: { color: "#e9edf3", fontFamily: fonts.semibold, fontSize: 12 },
   sectionHint: { color: "#8793a2", fontFamily: fonts.body, fontSize: 10, lineHeight: 14, marginTop: 4 },

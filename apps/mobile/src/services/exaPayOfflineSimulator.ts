@@ -1,3 +1,6 @@
+import { ExaPayOfflineSimulationJournal } from "./exaPayOfflineJournal";
+import { exaPaySqlCipherStore } from "./exaPaySqlCipherStore";
+
 export type OfflinePaymentMethod = "bluetooth" | "qr" | "nearby";
 
 export type OfflinePaymentStage =
@@ -15,6 +18,7 @@ export type OfflinePaymentOutcome =
   | "recipient-unverified"
   | "recipient-rejected"
   | "authentication-failed"
+  | "secure-storage-unavailable"
   | "interrupted"
   | "timed-out"
   | "recovery-required";
@@ -77,38 +81,6 @@ export type AmountValidation =
 export const SIMULATED_OFFLINE_BALANCE_MINOR = 4_000;
 export const MAX_SIMULATED_PAYMENT_MINOR = 10_000;
 
-let simulatedOfflineBalanceMinor = SIMULATED_OFFLINE_BALANCE_MINOR;
-let simulatedRecoveryRequired = false;
-const committedSimulationReferences = new Map<string, {
-  recipientId: string;
-  recipientLabel: string;
-  amountMinor: number;
-  method: OfflineTransferRequest["method"];
-  createdAt: string;
-}>();
-
-export function getCommittedOfflineSimulationTransactions() {
-  return Array.from(committedSimulationReferences.entries()).map(([reference, record]) => ({
-    reference,
-    recipientLabel: record.recipientLabel,
-    amountMinor: record.amountMinor,
-    method: record.method,
-    createdAt: record.createdAt,
-  }));
-}
-
-export function getSimulatedOfflineBalanceMinor() {
-  return simulatedOfflineBalanceMinor;
-}
-
-export function hasSimulatedRecoveryRequired() {
-  return simulatedRecoveryRequired;
-}
-
-export function markSimulatedRecoveryRequired() {
-  simulatedRecoveryRequired = true;
-}
-
 const simulatedDevices: SimulatedRecipientDevice[] = [
   {
     id: "sim-device-mathias",
@@ -169,8 +141,32 @@ function waitForSimulationStep() {
   return new Promise<void>((resolve) => setTimeout(resolve, 360));
 }
 
-export function createExaPayOfflineSimulator(): ExaPayOfflineAdapter {
+const journalByAccount = new Map<string, ExaPayOfflineSimulationJournal>();
+
+function accountJournal(accountId: string | undefined) {
+  if (!accountId || !/^[A-Za-z0-9_-]{1,100}$/.test(accountId)) return null;
+  const existing = journalByAccount.get(accountId);
+  if (existing) return existing;
+  const journal = new ExaPayOfflineSimulationJournal(
+    exaPaySqlCipherStore,
+    `exaearn.exapay.sim.v1.${accountId}`,
+    SIMULATED_OFFLINE_BALANCE_MINOR,
+  );
+  journalByAccount.set(accountId, journal);
+  return journal;
+}
+
+export function createExaPayOfflineSimulator(accountId?: string): ExaPayOfflineAdapter & {
+  loadState: () => Promise<{ balanceMinor: number; recoveryRequired: boolean; supported: boolean }>;
+} {
+  const journal = accountJournal(accountId);
   return {
+    async loadState() {
+      if (!journal) return { balanceMinor: 0, recoveryRequired: true, supported: false };
+      const loaded = await journal.recoverInterruptedOperations();
+      if (loaded.status !== "READY") return { balanceMinor: 0, recoveryRequired: true, supported: loaded.status !== "UNSUPPORTED" };
+      return { balanceMinor: loaded.state.balanceMinor, recoveryRequired: loaded.state.recoveryRequired, supported: true };
+    },
     async discoverNearbyDevices() {
       await new Promise<void>((resolve) => setTimeout(resolve, 240));
       return simulatedDevices.map((device) => ({ ...device }));
@@ -197,15 +193,18 @@ export function createExaPayOfflineSimulator(): ExaPayOfflineAdapter {
         reconciliationRequired: outcome === "offline-committed-simulation" || outcome === "recovery-required",
       });
 
-      if (simulatedRecoveryRequired) return finish("recovery-required");
-      const committedTransfer = committedSimulationReferences.get(request.reference);
-      if (committedTransfer) {
+      if (!journal || !accountId) return finish("recovery-required");
+      const loaded = await journal.load();
+      if (loaded.status === "UNSUPPORTED") return finish("secure-storage-unavailable");
+      if (loaded.status !== "READY" || loaded.state.recoveryRequired) return finish("recovery-required");
+      const committedTransfer = loaded.state.transfers.find((item) => item.reference === request.reference);
+      if (committedTransfer?.state === "COMMITTED_SIMULATION") {
         if (
           committedTransfer.recipientId !== request.recipient.id
           || committedTransfer.amountMinor !== request.amountMinor
           || committedTransfer.method !== request.method
         ) {
-          simulatedRecoveryRequired = true;
+          await journal.markRecoveryRequired();
           return finish("recovery-required");
         }
         return finish("offline-committed-simulation");
@@ -219,7 +218,17 @@ export function createExaPayOfflineSimulator(): ExaPayOfflineAdapter {
       }
       if (!request.recipientVerifiedForSimulation) return finish("recipient-unverified");
       if (!request.recipient.available) return finish("interrupted");
-      if (request.amountMinor > simulatedOfflineBalanceMinor) return finish("insufficient-balance");
+      if (request.amountMinor > loaded.state.balanceMinor) return finish("insufficient-balance");
+
+      const prepared = await journal.prepare({
+        reference: request.reference,
+        recipientId: request.recipient.id,
+        amountMinor: request.amountMinor,
+        method: request.method,
+      });
+      if (prepared.status !== "READY" || prepared.state.recoveryRequired) {
+        return finish("recovery-required");
+      }
 
       const earlyStages: OfflinePaymentStage[] = [
         "connecting",
@@ -229,43 +238,54 @@ export function createExaPayOfflineSimulator(): ExaPayOfflineAdapter {
       ];
 
       for (const stage of earlyStages) {
-        if (options.shouldCancel()) return finish("cancelled");
+        if (options.shouldCancel()) { await journal.cancelPrepared(request.reference); return finish("cancelled"); }
         options.onStage(stage);
         await waitForSimulationStep();
 
         if (stage === "connecting" && options.scenario === "connection-interrupted") {
-          return finish("interrupted");
+          await journal.cancelPrepared(request.reference); return finish("interrupted");
         }
         if (stage === "authenticating" && options.scenario === "authentication-failed") {
-          return finish("authentication-failed");
+          await journal.cancelPrepared(request.reference); return finish("authentication-failed");
         }
         if (stage === "awaiting-recipient" && options.scenario === "recipient-rejected") {
-          return finish("recipient-rejected");
+          await journal.cancelPrepared(request.reference); return finish("recipient-rejected");
         }
         if (stage === "awaiting-recipient" && options.scenario === "timeout") {
-          return finish("timed-out");
+          await journal.cancelPrepared(request.reference); return finish("timed-out");
         }
       }
 
-      if (options.shouldCancel()) return finish("cancelled");
+      if (options.shouldCancel()) { await journal.cancelPrepared(request.reference); return finish("cancelled"); }
       options.onStage("committing-offline");
       await waitForSimulationStep();
 
       if (options.shouldCancel() || options.scenario === "recovery-required") {
-        simulatedRecoveryRequired = true;
+        await journal.markRecoveryRequired();
         return finish("recovery-required");
       }
 
-      if (request.amountMinor > simulatedOfflineBalanceMinor) return finish("insufficient-balance");
-      simulatedOfflineBalanceMinor -= request.amountMinor;
-      committedSimulationReferences.set(request.reference, {
-        recipientId: request.recipient.id,
-        recipientLabel: request.recipient.name,
-        amountMinor: request.amountMinor,
-        method: request.method,
-        createdAt: new Date().toISOString(),
-      });
+      const committed = await journal.commit(request.reference);
+      if (committed.status !== "READY" || committed.state.recoveryRequired) {
+        return finish("recovery-required");
+      }
       return finish("offline-committed-simulation");
     },
   };
+}
+
+export async function getCommittedOfflineSimulationTransactions(accountId?: string) {
+  const journal = accountJournal(accountId);
+  if (!journal) return [];
+  const loaded = await journal.load();
+  if (loaded.status === "UNSUPPORTED" || !loaded.state) return [];
+  return loaded.state.transfers
+    .filter((record) => record.state === "COMMITTED_SIMULATION")
+    .map((record) => ({
+      reference: record.reference,
+      recipientLabel: record.recipientId,
+      amountMinor: record.amountMinor,
+      method: record.method,
+      createdAt: record.createdAt,
+    }));
 }

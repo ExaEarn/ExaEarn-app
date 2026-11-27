@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\User;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class RecentAuthenticationService
 {
-    public function mark(Request $request, User $user, int $windowSeconds): bool
+    public function mark(Request $request, Authenticatable $user, int $windowSeconds): bool
     {
-        $token = $user->currentAccessToken();
+        $token = method_exists($user, 'currentAccessToken') ? $user->currentAccessToken() : null;
         $tokenId = $token instanceof PersonalAccessToken ? $token->getKey() : null;
         if (is_numeric($tokenId)) {
             Cache::put($this->cacheKey($user, (int) $tokenId), time(), $windowSeconds);
@@ -28,9 +28,9 @@ class RecentAuthenticationService
         return false;
     }
 
-    public function isRecent(Request $request, User $user, int $windowSeconds): bool
+    public function isRecent(Request $request, Authenticatable $user, int $windowSeconds): bool
     {
-        $token = $user->currentAccessToken();
+        $token = method_exists($user, 'currentAccessToken') ? $user->currentAccessToken() : null;
         $tokenId = $token instanceof PersonalAccessToken ? $token->getKey() : null;
         $authenticatedAt = is_numeric($tokenId)
             ? (int) Cache::get($this->cacheKey($user, (int) $tokenId), 0)
@@ -39,7 +39,7 @@ class RecentAuthenticationService
         return $authenticatedAt > 0 && (time() - $authenticatedAt) <= $windowSeconds;
     }
 
-    private function cacheKey(User $user, int $tokenId): string
+    private function cacheKey(Authenticatable $user, int $tokenId): string
     {
         return 'security.recent-auth.'.hash('sha256', $user->getAuthIdentifier().':'.$tokenId);
     }

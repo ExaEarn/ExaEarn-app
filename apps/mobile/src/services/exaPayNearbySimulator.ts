@@ -1,4 +1,4 @@
-export type NearbyTrustState = "trusted-simulation" | "unverified";
+﻿export type NearbyTrustState = "trusted-simulation" | "unverified";
 export type NearbyTransferState =
   | "PREPARED"
   | "COMMITTED"
@@ -67,32 +67,7 @@ export type NearbyDeviceAdapter = {
   restoreConnectivityForSimulation: () => void;
 };
 
-const sampleDevices: NearbyDevice[] = [
-  {
-    id: "sim-nearby-mathias",
-    name: "Mathias’ Device",
-    trust: "trusted-simulation",
-    signalQuality: "Excellent",
-    isAvailable: true,
-    source: "simulation",
-  },
-  {
-    id: "sim-nearby-kendrick",
-    name: "Kendrick’s Device",
-    trust: "trusted-simulation",
-    signalQuality: "Good",
-    isAvailable: true,
-    source: "simulation",
-  },
-  {
-    id: "sim-nearby-alex",
-    name: "Alex’s Device",
-    trust: "unverified",
-    signalQuality: "Fair",
-    isAvailable: true,
-    source: "simulation",
-  },
-];
+const sampleDevices: NearbyDevice[] = [];
 
 function createReference() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -100,47 +75,9 @@ function createReference() {
   return `NP-${timestamp}-${entropy}`;
 }
 
-function createIncomingRequest(): IncomingTransferRequest {
-  return {
-    id: "sim-incoming-kendrick-001",
-    reference: createReference(),
-    amountMinor: 3_000,
-    senderDeviceId: "sim-nearby-kendrick",
-    senderName: "Kendrick’s Device",
-    method: "Bluetooth",
-    state: "PREPARED",
-  };
-}
+function createIncomingRequest(): IncomingTransferRequest | null { return null; }
 
-function createInitialHistory(): NearbyHistoryItem[] {
-  const now = Date.now();
-  return [
-    {
-      id: "sim-history-001",
-      reference: createReference(),
-      amountMinor: 2_000,
-      title: "Offline payment sent",
-      state: "COMMITTED",
-      timestamp: new Date(now - 22 * 60_000).toISOString(),
-    },
-    {
-      id: "sim-history-002",
-      reference: createReference(),
-      amountMinor: 1_250,
-      title: "Incoming transfer",
-      state: "PENDING_RECONCILIATION",
-      timestamp: new Date(now - 3 * 60 * 60_000).toISOString(),
-    },
-    {
-      id: "sim-history-003",
-      reference: createReference(),
-      amountMinor: 500,
-      title: "Incoming transfer declined",
-      state: "REJECTED",
-      timestamp: new Date(now - 26 * 60 * 60_000).toISOString(),
-    },
-  ];
-}
+function createInitialHistory(): NearbyHistoryItem[] { return []; }
 
 const wait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
@@ -180,7 +117,7 @@ export function createNearbyDeviceSimulator(): NearbyDeviceAdapter {
       return {
         granted: false,
         status: "unsupported",
-        message: "Native Bluetooth permissions are not configured. Only simulated sample devices are available.",
+        message: "Native Bluetooth transport is not available in this build. Nearby payments are disabled; use the signed QR flow instead.",
       };
     },
 
