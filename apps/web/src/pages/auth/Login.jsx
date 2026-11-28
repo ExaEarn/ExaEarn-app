@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext.jsx";
@@ -158,5 +158,4 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
 }
 
 export default Login;
-
 

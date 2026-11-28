@@ -17,4 +17,3 @@ export function passcodeIndicatorState(digitCount) {
 export function smartAccessMethodCanCreateSession(method) {
   return method === "password";
 }
-

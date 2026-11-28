@@ -307,7 +307,7 @@ export default function SecurityCenter({ onBack, onOpenExaPay, onOpenExaCard }) 
 
             <Section title="Authentication">
               <SecurityRow icon={KeyRound} title="ExaEarn Passcode" description="A separate 7-digit account-access credential. Enrollment and recovery are not connected to the backend; it remains independent from your account password, device PIN, and Transaction PIN." status="Not enrolled" tone="amber" />
-              <SecurityRow icon={WifiOff} title="Offline Smart Access" description="Requires a previously enrolled account session. Offline ExaPay remains SIMUSDT simulation only and requires later reconciliation." status="Limited Â· simulation only" tone="muted" />
+              <SecurityRow icon={WifiOff} title="Offline Smart Access" description="Requires a previously enrolled account session. Offline ExaPay remains SIMUSDT simulation only and requires later reconciliation." status="Limited · simulation only" tone="muted" />
               <SecurityRow icon={Fingerprint} title="Biometric unlock" description="Native browser biometric unlock is not integrated with this account API. Passkey or WebAuthn enrollment is not exposed here." status="Unavailable in this web client" tone="muted" />
               <div className="border-b border-white/[.06] px-3 pb-3 pt-3">
                 <div className="flex items-center gap-3 px-0">
@@ -386,7 +386,7 @@ export default function SecurityCenter({ onBack, onOpenExaPay, onOpenExaCard }) 
                   key={String(session.id)}
                   icon={session.is_current ? Smartphone : Laptop}
                   title={session.name || "ExaEarn session"}
-                  description={`${session.is_current ? "This device Â· " : ""}Last active ${formatWhen(session.last_used_at || session.created_at)}`}
+                  description={`${session.is_current ? "This device · " : ""}Last active ${formatWhen(session.last_used_at || session.created_at)}`}
                   status={session.risk_state || "Status not reported"}
                   tone={session.risk_state === "NORMAL" ? "green" : "muted"}
                   action={session.is_current ? "This device" : "Revoke"}
@@ -402,7 +402,7 @@ export default function SecurityCenter({ onBack, onOpenExaPay, onOpenExaCard }) 
                   key={String(device.id)}
                   icon={Smartphone}
                   title={device.device_name || "Device"}
-                  description={`${device.approximate_region || "Region unavailable"} Â· Last login ${formatWhen(device.last_active)}`}
+                  description={`${device.approximate_region || "Region unavailable"} · Last login ${formatWhen(device.last_active)}`}
                   status="Recorded by account API"
                   last={index === devices.length - 1}
                 />
@@ -422,7 +422,7 @@ export default function SecurityCenter({ onBack, onOpenExaPay, onOpenExaCard }) 
                 key={String(event.id)}
                 icon={event.status === "failed" ? AlertCircle : ShieldCheck}
                 title={String(event.action || "Security event").replace(/[_-]/g, " ")}
-                description={`${formatWhen(event.created_at)}${event.device ? ` Â· ${event.device}` : ""}`}
+                description={`${formatWhen(event.created_at)}${event.device ? ` · ${event.device}` : ""}`}
                 status={event.status || "Recorded"}
                 tone={event.status === "failed" ? "red" : "muted"}
                 last={index === events.length - 1}
@@ -482,4 +482,3 @@ export default function SecurityCenter({ onBack, onOpenExaPay, onOpenExaCard }) 
     </main>
   );
 }
-

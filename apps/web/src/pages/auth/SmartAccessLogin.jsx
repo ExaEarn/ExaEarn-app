@@ -280,4 +280,3 @@ export default function SmartAccessLogin({ onPassword, onCreateAccount, onForgot
     </main>
   );
 }
-

@@ -23,4 +23,3 @@ test("only the existing account-password flow can create a session", () => {
     assert.equal(smartAccessMethodCanCreateSession(method), false);
   }
 });
-
