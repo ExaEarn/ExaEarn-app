@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, Ban, Check, ChevronRight, CircleDollarSign, CreditCard, Eye,
   LockKeyhole, LoaderCircle, MoreHorizontal, RefreshCw, ShieldAlert,
@@ -154,3 +154,4 @@ function Limit({ label, value, max }) { const numeric = Number(value || 0); retu
 function ActivityRow({ item, currency }) { const positive = String(item.type).toUpperCase().includes("FUND") || Number(item.billing_amount || item.amount || 0) < 0; return <div className="activity-row"><span className="merchant-icon"><CreditCard className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate">{item.merchant || (item.type === "AUTHORIZATION" ? "Card verification" : "Card activity")}</strong><small>{item.created_at ? new Date(item.created_at).toLocaleDateString() : "Recently"}</small></span><span className="text-right"><strong className={positive ? "text-emerald-300" : ""}>{positive ? "+" : "-"}{money(Math.abs(Number(item.billing_amount || item.amount || 0)), item.billing_currency || item.currency || currency)}</strong><small className="block">{item.status}</small></span></div>; }
 function EmptyInline({ text }) { return <div className="empty-inline"><CreditCard className="mx-auto mb-2 h-6 w-6" /><p>{text}</p></div>; }
 function Line({ label, value }) { return <div className="flex justify-between gap-3 text-sm"><span className="text-[var(--exa-text-secondary)]">{label}</span><strong>{value}</strong></div>; }
+

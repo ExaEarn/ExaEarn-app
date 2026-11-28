@@ -13,7 +13,8 @@
     "build": "vite build",
     "start": "vite preview --host 127.0.0.1 --port 4173",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:smart-access": "node --test src/pages/auth/smartAccessModel.test.js"
   },
   "dependencies": {
     "@exaearn/config": "workspace:^",
@@ -52,3 +53,4 @@
     "vite": "^8.0.16"
   }
 }
+

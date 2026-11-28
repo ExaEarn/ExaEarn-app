@@ -1,8 +1,9 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext.jsx";
 import { ExaAuthShell, ExaButton, ExaField } from "../../components/ui";
+import SmartAccessLogin from "./SmartAccessLogin.jsx";
 
 function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
   const [email, setEmail] = useState("");
@@ -10,6 +11,7 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
   const [loginMessage, setLoginMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const googleLoginStarted = useRef(false);
   const {
     user,
@@ -37,8 +39,21 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
     if (result.success) onSuccess?.();
   };
 
+  if (!showPasswordForm) {
+    return (
+      <SmartAccessLogin
+        onPassword={() => setShowPasswordForm(true)}
+        onCreateAccount={onCreateAccount}
+        onForgotPassword={onForgotPassword}
+      />
+    );
+  }
+
   return (
     <ExaAuthShell title={t("auth.loginTitle")} subtitle={t("auth.loginSubtitle")}>
+      <button type="button" onClick={() => setShowPasswordForm(false)} className="exa-focusable mb-4 inline-flex min-h-9 items-center gap-1 text-xs font-medium text-emerald-300 hover:text-emerald-200">
+        <span aria-hidden="true">←</span> Back to Smart Access
+      </button>
       <form onSubmit={handleSubmit} className="space-y-4">
         <ExaField
           label={t("auth.email")}
@@ -143,4 +158,5 @@ function Login({ onSuccess, onCreateAccount, onForgotPassword, onNeedHelp }) {
 }
 
 export default Login;
+
 
